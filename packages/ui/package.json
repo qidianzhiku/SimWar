@@ -25,10 +25,6 @@
       "types": "./dist/components/M4MultipathCounterfactualTransferPanel.d.ts",
       "default": "./dist/components/M4MultipathCounterfactualTransferPanel.js"
     },
-    "./can-service-feasibility-panel": {
-      "types": "./dist/components/CanServiceFeasibilityPanel.d.ts",
-      "default": "./dist/components/CanServiceFeasibilityPanel.js"
-    },
     "./w4-commercial.css": "./src/w4-commercial.css"
   },
   "scripts": {

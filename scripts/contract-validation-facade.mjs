@@ -204,10 +204,23 @@ const modelQualificationContractFiles = [
   "contracts/fixtures/model-qualification.valid.json",
   "contracts/fixtures/model-qualification.student-private.invalid.json"
 ];
+
 const r1CanServiceFeasibilityContractFiles = [
   "contracts/schemas/can-service-feasibility.v1.json",
   "contracts/fixtures/can-service-feasibility.valid.json",
   "contracts/fixtures/can-service-feasibility.student-private.invalid.json"
+];
+
+const m28ContractFiles = [
+  "contracts/schemas/sh-dual-epoch-living-operations.v1.json",
+  "contracts/fixtures/sh-dual-epoch-living-operations.valid.json",
+  "contracts/fixtures/sh-dual-epoch-living-operations.invalid.json"
+];
+
+const m29ContractFiles = [
+  "contracts/schemas/sh-main-pull-consumption.v1.json",
+  "contracts/fixtures/sh-main-pull-consumption.valid.json",
+  "contracts/fixtures/sh-main-pull-consumption.invalid.json"
 ];
 
 const requiredOpenApiPaths = [
@@ -297,9 +310,6 @@ const requiredOpenApiPaths = [
   "/api/v1/bff/teacher/shanghai/full-vertical",
   "/api/v1/bff/student/shanghai/full-vertical",
   "/api/v1/bff/admin/shanghai/full-vertical",
-  "/api/v1/bff/teacher/can/service-feasibility",
-  "/api/v1/bff/student/can/service-feasibility",
-  "/api/v1/bff/admin/can/service-feasibility",
   "/api/v1/bff/teacher/esl/strategy-lab",
   "/api/v1/bff/teacher/esl/candidates/{candidateId}",
   "/api/v1/bff/student/esl/candidates/{candidateId}",
@@ -508,6 +518,11 @@ const schemaCases = [
     invalid: []
   },
   {
+    schema: "contracts/schemas/sh-main-pull-consumption.v1.json",
+    valid: ["contracts/fixtures/sh-main-pull-consumption.valid.json"],
+    invalid: ["contracts/fixtures/sh-main-pull-consumption.invalid.json"]
+  },
+  {
     schema: "contracts/schemas/mod-next6-consumption.v1.json",
     valid: ["contracts/fixtures/mod-next6-consumption.valid.json"],
     invalid: ["contracts/fixtures/mod-next6-consumption.student-private.invalid.json"]
@@ -518,9 +533,9 @@ const schemaCases = [
     invalid: ["contracts/fixtures/model-qualification.student-private.invalid.json"]
   },
   {
-    schema: "contracts/schemas/can-service-feasibility.v1.json",
-    valid: ["contracts/fixtures/can-service-feasibility.valid.json"],
-    invalid: ["contracts/fixtures/can-service-feasibility.student-private.invalid.json"]
+    schema: "contracts/schemas/sh-dual-epoch-living-operations.v1.json",
+    valid: ["contracts/fixtures/sh-dual-epoch-living-operations.valid.json"],
+    invalid: ["contracts/fixtures/sh-dual-epoch-living-operations.invalid.json"]
   }
 ];
 
@@ -1107,7 +1122,10 @@ function formatAjvErrors(validate) {
 }
 
 export function createContractAjv() {
-  const ajv = new Ajv2020({ allErrors: true, strict: true });
+  // The CoursePackageVersion contract uses Ajv's $data extension for the
+  // tenant-bound provenance reference. Keep the repository's shared contract
+  // validator configured the same way as the published schema consumer.
+  const ajv = new Ajv2020({ $data: true, allErrors: true, strict: true });
   ajv.addFormat("email", {
     type: "string",
     validate: (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
@@ -1115,6 +1133,10 @@ export function createContractAjv() {
   ajv.addFormat("date-time", {
     type: "string",
     validate: (value) => !Number.isNaN(Date.parse(value))
+  });
+  ajv.addFormat("date", {
+    type: "string",
+    validate: (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`))
   });
   ajv.addFormat("uri", {
     type: "string",
@@ -1206,9 +1228,10 @@ export async function runContractValidation(options = {}) {
     ...executiveStrategyLabContractFiles,
     ...shanghaiProductizationContractFiles,
     ...modNext6ContractFiles,
-    ...modelQualificationContractFiles
-    ,
-    ...r1CanServiceFeasibilityContractFiles
+    ...modelQualificationContractFiles,
+    ...r1CanServiceFeasibilityContractFiles,
+    ...m28ContractFiles,
+    ...m29ContractFiles
   ]);
 
   for (const jsonPath of [
@@ -1236,9 +1259,10 @@ export async function runContractValidation(options = {}) {
     ...executiveStrategyLabContractFiles,
     ...shanghaiProductizationContractFiles,
     ...modNext6ContractFiles,
-    ...modelQualificationContractFiles
-    ,
-    ...r1CanServiceFeasibilityContractFiles
+    ...modelQualificationContractFiles,
+    ...r1CanServiceFeasibilityContractFiles,
+    ...m28ContractFiles,
+    ...m29ContractFiles
   ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }

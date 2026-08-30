@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   ApiEnvelope,
   W5ConvergenceProjection,
@@ -9,7 +9,7 @@ import type {
 interface Props {
   apiBase: string;
   courseId?: string | null | undefined;
-  onDraftChange?: (draftId: string | null, draft: W5ScenarioDraft | null) => void;
+  onDraftChange?: (draftId: string | null) => void;
   roundNo?: number | undefined;
   runId?: string | null | undefined;
   tenantId: string;
@@ -96,14 +96,12 @@ export function W5GovernedModelStudio({
   const [convergence, setConvergence] = useState<W5ConvergenceProjection | null>(null);
   const [notice, setNotice] = useState("等待课程上下文");
   const [busy, setBusy] = useState(false);
-  const onDraftChangeRef = useRef(onDraftChange);
-  onDraftChangeRef.current = onDraftChange;
 
   const refresh = useCallback(async () => {
     if (!courseId || !token) {
       setProjection(null);
       setSelectedDraftId(null);
-      onDraftChangeRef.current?.(null, null);
+      onDraftChange?.(null);
       setNotice("需要课程和教师登录上下文");
       return;
     }
@@ -125,7 +123,7 @@ export function W5GovernedModelStudio({
       setProjection(null);
       setNotice(error instanceof Error ? error.message : "W5 Studio 加载失败");
     }
-  }, [apiBase, courseId, tenantId, token]);
+  }, [apiBase, courseId, onDraftChange, tenantId, token]);
 
   useEffect(() => {
     void refresh();
@@ -136,10 +134,8 @@ export function W5GovernedModelStudio({
   }, [courseId, roundNo, runId, selectedDraftId]);
 
   useEffect(() => {
-    const selectedDraft =
-      projection?.drafts.find((candidate) => candidate.draft_id === selectedDraftId) ?? null;
-    onDraftChangeRef.current?.(selectedDraftId, selectedDraft);
-  }, [projection, selectedDraftId]);
+    onDraftChange?.(selectedDraftId);
+  }, [onDraftChange, selectedDraftId]);
 
   const draft = useMemo(
     () => projection?.drafts.find((candidate) => candidate.draft_id === selectedDraftId) ?? null,

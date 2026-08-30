@@ -7,6 +7,7 @@ import type {
   AuthSession,
   CoursePackageVersion,
   CoursePackageVersionDraftInput,
+  CoursePackageVersionImportSource,
   SyntheticRunLifecycleControlDTO,
   SyntheticRunLifecycleOperation,
   User
@@ -47,7 +48,13 @@ import {
   ADMIN_NAVIGATION_ITEMS,
   formatLifecycleBlockedReasons
 } from "./AdminDeliveryTrustWorkspace";
-import { EnterpriseCourseFactoryWorkspace } from "./EnterpriseCourseFactoryWorkspace";
+const EnterpriseCourseFactoryWorkspace = lazy(() =>
+  import("./EnterpriseCourseFactoryWorkspace").then(
+    ({ EnterpriseCourseFactoryWorkspace: Component }) => ({
+      default: Component
+    })
+  )
+);
 import { W4EnterprisePortfolioPanel } from "./W4EnterprisePortfolioPanel";
 import { MarketWorldAuditPanel } from "./MarketWorldAuditPanel";
 import { ProjectLibraryAuditPanel } from "./ProjectLibraryAuditPanel";
@@ -95,6 +102,7 @@ const OPERATING_WORLD_ROUND_NO =
         const value = new URLSearchParams(window.location.search).get("roundNo");
         return value ? Number(value) : undefined;
       })();
+
 const SHANGHAI_FULL_VERTICAL_DRAFT_ID =
   typeof window === "undefined"
     ? ""
@@ -730,7 +738,7 @@ export function App() {
     try {
       const sourceCoursePackageVersion = JSON.parse(
         coursePackageImportPayload
-      ) as CoursePackageVersion;
+      ) as CoursePackageVersionImportSource;
       await importAdminCoursePackageVersion(
         { source_course_package_version: sourceCoursePackageVersion },
         session.access_token,
@@ -1555,9 +1563,14 @@ export function App() {
       ) : null}
 
       {session && hasAdminSummaryRole ? (
-        <EnterpriseCourseFactoryWorkspace
-          scope={session.user.roles.includes("platform_admin") ? "platform" : "tenant"}
-        />
+        <Suspense fallback={<p className="muted">正在载入企业课程工厂…</p>}>
+          <EnterpriseCourseFactoryWorkspace
+            apiBase={API_BASE}
+            scope={session.user.roles.includes("platform_admin") ? "platform" : "tenant"}
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
+        </Suspense>
       ) : null}
 
       {session && hasAdminSummaryRole ? (

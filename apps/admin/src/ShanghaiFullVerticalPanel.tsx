@@ -1,22 +1,16 @@
 import { useEffect, useState } from "react";
 import type { ApiEnvelope, ShanghaiFullVerticalAdminProjection } from "@simwar/shared-contracts";
-import { CanServiceFeasibilityPanel } from "@simwar/ui/can-service-feasibility-panel";
 import { ShanghaiC0ConversionAuditPanel } from "./ShanghaiC0ConversionAuditPanel";
 
 const SHANGHAI_C0_RECEIPT_ID =
   typeof window === "undefined"
     ? ""
     : (new URLSearchParams(window.location.search).get("shanghaiC0ReceiptId")?.trim() ?? "");
-const OPERATING_WORLD_ROUND_ID =
-  typeof window === "undefined"
-    ? ""
-    : (new URLSearchParams(window.location.search).get("roundId") ?? "");
 
 interface Props {
   apiBase: string;
   courseId: string;
   draftId?: string | null | undefined;
-  roundId?: string | null | undefined;
   roundNo?: number | undefined;
   runId?: string | null | undefined;
   tenantId: string;
@@ -54,7 +48,6 @@ export function ShanghaiFullVerticalAdminPanel({
   apiBase,
   courseId,
   draftId,
-  roundId,
   roundNo,
   runId,
   tenantId,
@@ -107,72 +100,59 @@ export function ShanghaiFullVerticalAdminPanel({
   }
 
   return (
-    <>
-      <section className="summary-panel" aria-label="Shanghai full vertical Admin projection">
-        <div className="summary-heading">
-          <div>
-            <p className="eyebrow">MAIN-SH-FV-O1 · Admin</p>
-            <h2>上海全链路治理审计</h2>
-            <p className="evidence-note">Admin tenant-safe audit projection</p>
-          </div>
-          <strong className="summary-badge">只读</strong>
+    <section className="summary-panel" aria-label="Shanghai full vertical Admin projection">
+      <div className="summary-heading">
+        <div>
+          <p className="eyebrow">MAIN-SH-FV-O1 · Admin</p>
+          <h2>上海全链路治理审计</h2>
+          <p className="evidence-note">Admin tenant-safe audit projection</p>
         </div>
-        {error ? (
-          <p className="summary-error" role="alert">
-            {error}
+        <strong className="summary-badge">只读</strong>
+      </div>
+      {error ? (
+        <p className="summary-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {!exact ? <p className="lifecycle-status">需要 exact draft/run/round 上下文</p> : null}
+      {exact && !projection && !error ? (
+        <p className="lifecycle-status">等待 Admin audit projection</p>
+      ) : null}
+      {projection ? (
+        <>
+          <div className="summary-grid">
+            <article>
+              <span>状态</span>
+              <strong>{projection.status}</strong>
+            </article>
+            <article>
+              <span>Binding</span>
+              <strong>{projection.binding.status}</strong>
+            </article>
+            <article>
+              <span>ModelVersion</span>
+              <strong>{projection.binding.model_version_ref}</strong>
+            </article>
+            <article>
+              <span>REALIZED authority</span>
+              <strong>{projection.preview.realized.authority}</strong>
+            </article>
+          </div>
+          <p className="lifecycle-boundary">
+            只读租户审计：正式 writer 仍是 Simulation Core；本面板不修改 scenario、settlement 或
+            replay truth。
           </p>
-        ) : null}
-        {!exact ? <p className="lifecycle-status">需要 exact draft/run/round 上下文</p> : null}
-        {exact && !projection && !error ? (
-          <p className="lifecycle-status">等待 Admin audit projection</p>
-        ) : null}
-        {projection ? (
-          <>
-            <div className="summary-grid">
-              <article>
-                <span>状态</span>
-                <strong>{projection.status}</strong>
-              </article>
-              <article>
-                <span>Binding</span>
-                <strong>{projection.binding.status}</strong>
-              </article>
-              <article>
-                <span>ModelVersion</span>
-                <strong>{projection.binding.model_version_ref}</strong>
-              </article>
-              <article>
-                <span>REALIZED authority</span>
-                <strong>{projection.preview.realized.authority}</strong>
-              </article>
-            </div>
-            <p className="lifecycle-boundary">
-              只读租户审计：正式 writer 仍是 Simulation Core；本面板不修改 scenario、settlement 或
-              replay truth。
-            </p>
-            <details>
-              <summary>查看已知限制</summary>
-              <ul>
-                {projection.known_limits.map((limit) => (
-                  <li key={limit}>{limit}</li>
-                ))}
-              </ul>
-            </details>
-          </>
-        ) : null}
-      </section>
-      <CanServiceFeasibilityPanel
-        apiBase={apiBase}
-        courseId={courseId}
-        draftId={draftId}
-        roundId={roundId ?? OPERATING_WORLD_ROUND_ID}
-        roundNo={roundNo}
-        runId={runId}
-        surface="admin"
-        tenantId={tenantId}
-        token={token}
-      />
-    </>
+          <details>
+            <summary>查看已知限制</summary>
+            <ul>
+              {projection.known_limits.map((limit) => (
+                <li key={limit}>{limit}</li>
+              ))}
+            </ul>
+          </details>
+        </>
+      ) : null}
+    </section>
   );
 }
 

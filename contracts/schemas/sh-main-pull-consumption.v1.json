@@ -1,0 +1,397 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/sh-main-pull-consumption.v1.json",
+  "title": "Shanghai MAIN-pull source-backed regional and enterprise consumption candidate",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "mission_id",
+    "state_a",
+    "state_b",
+    "state_transition",
+    "source_pack_refs",
+    "regional_consumption",
+    "enterprise_consumption",
+    "role_journey",
+    "main_binding_request",
+    "product_proof",
+    "tombstone_reuse",
+    "authority",
+    "mjp",
+    "methods",
+    "efficiency",
+    "known_limits",
+    "pack_digest"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "sh-main-pull-consumption.v1" },
+    "mission_id": { "const": "SIMWAR-SH-M29-MAIN-PULL-SOURCE-BACKED-CONSUMPTION" },
+    "state_a": { "$ref": "#/$defs/stateA" },
+    "state_b": {
+      "const": "SOURCE_BACKED_SHANGHAI_REGIONAL_ENTERPRISE_JOURNEY_MAINLINE_BOUND_WITH_LIMITS"
+    },
+    "state_transition": { "$ref": "#/$defs/stateTransition" },
+    "source_pack_refs": { "$ref": "#/$defs/sourcePackRefs" },
+    "regional_consumption": { "$ref": "#/$defs/regionalConsumption" },
+    "enterprise_consumption": { "$ref": "#/$defs/enterpriseConsumption" },
+    "role_journey": { "$ref": "#/$defs/roleJourney" },
+    "main_binding_request": { "$ref": "#/$defs/mainBindingRequest" },
+    "product_proof": { "$ref": "#/$defs/productProof" },
+    "tombstone_reuse": { "$ref": "#/$defs/tombstoneReuse" },
+    "authority": { "$ref": "#/$defs/authority" },
+    "mjp": { "$ref": "#/$defs/mjp" },
+    "methods": { "$ref": "#/$defs/methods" },
+    "efficiency": { "$ref": "#/$defs/efficiency" },
+    "known_limits": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "pack_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  },
+  "$defs": {
+    "exactSelector": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!.*(?:[lL][aA][tT][eE][sS][tT]|[dD][eE][fF][aA][uU][lL][tT]|[cC][uU][rR][rR][eE][nN][tT])).+$"
+    },
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "sha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "nonEmptyStrings": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "stateA": {
+      "type": "object",
+      "required": ["name", "limitation"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "const": "SOURCE_PACK_WITHOUT_MAIN_PULL_BINDING" },
+        "limitation": { "type": "string", "minLength": 1 }
+      }
+    },
+    "stateTransition": {
+      "type": "object",
+      "required": ["from", "to"],
+      "additionalProperties": false,
+      "properties": { "from": { "const": "STATE_A" }, "to": { "const": "STATE_B" } }
+    },
+    "m25Ref": {
+      "type": "object",
+      "required": ["epoch_id", "epoch_digest", "source_epoch_base_sha"],
+      "additionalProperties": false,
+      "properties": {
+        "epoch_id": { "type": "string", "minLength": 1 },
+        "epoch_digest": { "$ref": "#/$defs/digest" },
+        "source_epoch_base_sha": { "$ref": "#/$defs/sha" }
+      }
+    },
+    "m27Ref": {
+      "type": "object",
+      "required": ["transfer_id", "pack_digest", "candidate_version"],
+      "additionalProperties": false,
+      "properties": {
+        "transfer_id": { "type": "string", "minLength": 1 },
+        "pack_digest": { "$ref": "#/$defs/digest" },
+        "candidate_version": { "$ref": "#/$defs/exactSelector" }
+      }
+    },
+    "m28Ref": {
+      "type": "object",
+      "required": ["pack_digest", "epoch_id", "epoch_version"],
+      "additionalProperties": false,
+      "properties": {
+        "pack_digest": { "$ref": "#/$defs/digest" },
+        "epoch_id": { "type": "string", "minLength": 1 },
+        "epoch_version": { "$ref": "#/$defs/exactSelector" }
+      }
+    },
+    "sourcePackRefs": {
+      "type": "object",
+      "required": ["m25_epoch", "m27_transfer", "m28_living_operations"],
+      "additionalProperties": false,
+      "properties": {
+        "m25_epoch": { "$ref": "#/$defs/m25Ref" },
+        "m27_transfer": { "$ref": "#/$defs/m27Ref" },
+        "m28_living_operations": { "$ref": "#/$defs/m28Ref" }
+      }
+    },
+    "regionalConsumption": {
+      "type": "object",
+      "required": [
+        "baseline_region",
+        "target_region",
+        "transfer_id",
+        "epoch_id",
+        "epoch_version",
+        "source_reality_class",
+        "rights_status",
+        "expires_at",
+        "qualification_status",
+        "calibration_evidence",
+        "formal_binding_eligible",
+        "consumption_status",
+        "exact_binding_required",
+        "required_rechecks",
+        "consumption_digest"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "baseline_region": { "const": "Shanghai" },
+        "target_region": { "const": "Hangzhou" },
+        "transfer_id": { "type": "string", "minLength": 1 },
+        "epoch_id": { "type": "string", "minLength": 1 },
+        "epoch_version": { "$ref": "#/$defs/exactSelector" },
+        "source_reality_class": { "const": "PUBLIC_SOURCE_BOUND" },
+        "rights_status": { "const": "PUBLIC_REFERENCE_ONLY" },
+        "expires_at": { "type": "string", "format": "date" },
+        "qualification_status": { "const": "LIMITED" },
+        "calibration_evidence": { "const": "NOT_PROVEN" },
+        "formal_binding_eligible": { "const": false },
+        "consumption_status": { "const": "LOOKAHEAD_READY" },
+        "exact_binding_required": { "const": true },
+        "required_rechecks": { "$ref": "#/$defs/nonEmptyStrings" },
+        "consumption_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "enterpriseConsumption": {
+      "type": "object",
+      "required": [
+        "scope",
+        "baseline_region",
+        "target_region",
+        "source_reality_class",
+        "rights_status",
+        "qualification_status",
+        "formal_binding_eligible",
+        "private_data_included",
+        "product_consumption_status",
+        "exact_binding_required",
+        "required_rechecks",
+        "consumption_digest"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "scope": { "const": "SOURCE_BACKED_ENTERPRISE_CANDIDATE" },
+        "baseline_region": { "const": "Shanghai" },
+        "target_region": { "const": "Hangzhou" },
+        "source_reality_class": { "const": "PUBLIC_SOURCE_BOUND" },
+        "rights_status": { "const": "PUBLIC_REFERENCE_ONLY" },
+        "qualification_status": { "const": "LIMITED" },
+        "formal_binding_eligible": { "const": false },
+        "private_data_included": { "const": false },
+        "product_consumption_status": { "const": "LOOKAHEAD_READY" },
+        "exact_binding_required": { "const": true },
+        "required_rechecks": { "$ref": "#/$defs/nonEmptyStrings" },
+        "consumption_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "roleBase": {
+      "type": "object",
+      "required": ["visibility", "journey", "fields"],
+      "properties": {
+        "visibility": { "type": "string" },
+        "journey": { "$ref": "#/$defs/nonEmptyStrings" },
+        "fields": { "$ref": "#/$defs/nonEmptyStrings" }
+      }
+    },
+    "studentRole": {
+      "type": "object",
+      "allOf": [
+        { "$ref": "#/$defs/roleBase" },
+        {
+          "type": "object",
+          "required": ["forbidden_fields"],
+          "properties": {
+            "visibility": { "const": "STUDENT_SAFE" },
+            "forbidden_fields": { "$ref": "#/$defs/nonEmptyStrings" }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "enterpriseRole": {
+      "type": "object",
+      "allOf": [
+        { "$ref": "#/$defs/roleBase" },
+        {
+          "type": "object",
+          "required": ["forbidden_fields"],
+          "properties": {
+            "visibility": { "const": "RESTRICTED" },
+            "forbidden_fields": { "$ref": "#/$defs/nonEmptyStrings" }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "roleJourney": {
+      "type": "object",
+      "required": ["teacher", "student", "admin", "enterprise"],
+      "additionalProperties": false,
+      "properties": {
+        "teacher": {
+          "type": "object",
+          "allOf": [
+            { "$ref": "#/$defs/roleBase" },
+            { "type": "object", "properties": { "visibility": { "const": "TEACHER_ONLY" } } }
+          ],
+          "unevaluatedProperties": false
+        },
+        "student": { "$ref": "#/$defs/studentRole" },
+        "admin": {
+          "type": "object",
+          "allOf": [
+            { "$ref": "#/$defs/roleBase" },
+            {
+              "type": "object",
+              "properties": { "visibility": { "const": "INTERNAL_RESEARCH_ONLY" } }
+            }
+          ],
+          "unevaluatedProperties": false
+        },
+        "enterprise": { "$ref": "#/$defs/enterpriseRole" }
+      }
+    },
+    "mainBindingRequest": {
+      "type": "object",
+      "required": [
+        "request_id",
+        "producer",
+        "consumer",
+        "shared_contract_owner",
+        "openapi_owner",
+        "role_bff_owner",
+        "formal_writer_owner",
+        "registry_owner",
+        "product_pr_owner",
+        "sh_product_pr_created",
+        "sh_formal_write",
+        "exact_refs",
+        "request_digest"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "request_id": { "const": "SH-M29-MAIN-PULL-BINDING-REQUEST" },
+        "producer": { "const": "SH_NEXT_SUPPORT_CANDIDATE_COMPILER" },
+        "consumer": { "const": "MAIN" },
+        "shared_contract_owner": { "const": "MAIN" },
+        "openapi_owner": { "const": "MAIN" },
+        "role_bff_owner": { "const": "MAIN" },
+        "formal_writer_owner": { "const": "MAIN" },
+        "registry_owner": { "const": "MAIN" },
+        "product_pr_owner": { "const": "MAIN" },
+        "sh_product_pr_created": { "const": false },
+        "sh_formal_write": { "const": false },
+        "exact_refs": { "$ref": "#/$defs/nonEmptyStrings" },
+        "request_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "productProof": {
+      "type": "object",
+      "required": [
+        "product_consumption_status",
+        "real_route_proof",
+        "real_service_proof",
+        "real_bff_proof",
+        "browser_proof",
+        "proof_boundary",
+        "no_second_route"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "product_consumption_status": { "const": "LOOKAHEAD_READY" },
+        "real_route_proof": { "const": "NOT_PROVEN" },
+        "real_service_proof": { "const": "NOT_PROVEN" },
+        "real_bff_proof": { "const": "NOT_PROVEN" },
+        "browser_proof": { "const": "NOT_PROVEN" },
+        "proof_boundary": { "const": "SH_SUPPORT_PACK_ONLY_UNTIL_MAIN_PULLS" },
+        "no_second_route": { "const": true }
+      }
+    },
+    "tombstoneReuse": {
+      "type": "object",
+      "required": [
+        "m19_m24",
+        "m23_m28_reused",
+        "no_second_truth_writer",
+        "no_duplicate_main_consumer"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "m19_m24": { "const": "TOMBSTONED_PROFESSIONAL_CANDIDATE_WITH_LIMITS" },
+        "m23_m28_reused": { "$ref": "#/$defs/nonEmptyStrings" },
+        "no_second_truth_writer": { "const": true },
+        "no_duplicate_main_consumer": { "const": true }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "required": [
+        "candidate_writer",
+        "official_truth_write",
+        "settlement_write",
+        "score_write",
+        "rank_write",
+        "parameter_set_formal_write",
+        "provider",
+        "second_truth_writer",
+        "runtime_authority"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "candidate_writer": { "const": "SH_NEXT_SUPPORT_CANDIDATE_COMPILER" },
+        "official_truth_write": { "const": false },
+        "settlement_write": { "const": false },
+        "score_write": { "const": false },
+        "rank_write": { "const": false },
+        "parameter_set_formal_write": { "const": false },
+        "provider": { "const": "OFF" },
+        "second_truth_writer": { "const": false },
+        "runtime_authority": { "const": "JSON_INTERNAL_ONLY" }
+      }
+    },
+    "mjp": {
+      "type": "object",
+      "required": ["status", "checks"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "const": "PASS" },
+        "checks": { "$ref": "#/$defs/nonEmptyStrings" }
+      }
+    },
+    "methods": {
+      "type": "object",
+      "required": ["keep", "change", "retire", "new"],
+      "additionalProperties": false,
+      "properties": {
+        "keep": { "type": "array", "items": { "type": "string" } },
+        "change": { "type": "array", "items": { "type": "string" } },
+        "retire": { "type": "array", "items": { "type": "string" } },
+        "new": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "efficiency": {
+      "type": "object",
+      "required": [
+        "upstream_packs_reused",
+        "role_journeys",
+        "route_mutations",
+        "manual_numeric_values",
+        "measured_elapsed_seconds",
+        "measurement_status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "upstream_packs_reused": { "type": "integer", "minimum": 0 },
+        "role_journeys": { "type": "integer", "minimum": 0 },
+        "route_mutations": { "type": "integer", "minimum": 0 },
+        "manual_numeric_values": { "type": "integer", "minimum": 0 },
+        "measured_elapsed_seconds": { "type": ["number", "null"], "minimum": 0 },
+        "measurement_status": { "const": "NOT_RECORDED" }
+      }
+    }
+  }
+}

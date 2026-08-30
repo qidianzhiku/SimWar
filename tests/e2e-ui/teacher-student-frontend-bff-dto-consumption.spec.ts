@@ -97,26 +97,21 @@ async function publishSeededRunThroughTeacherUi(
 
   const teacherToken = await login(request, "teacher", "teacher");
   const initialState = await apiGet<P0DemoState>(request, "/api/v1/demo-state", teacherToken);
-  const latestRun = initialState.data.runs.at(-1);
-  const latestRound = initialState.data.rounds.find((round) => round.run_id === latestRun?.run_id);
+  const latestRound = initialState.data.rounds.at(-1);
   if (initialState.data.latest_result && latestRound?.status === "published") {
     await expect(page.getByRole("heading", { name: "BFF Replay 摘要" })).toBeVisible();
     return;
   }
 
-  if (!latestRun || !latestRound || latestRound.status === "published") {
-    await page.getByRole("button", { name: "创建 Run" }).click();
-    await expect(
-      page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
-    ).toContainText("run created");
-  }
+  await page.getByRole("button", { name: "创建 Run" }).click();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("run created");
 
-  if (!latestRound || latestRound.status === "draft") {
-    await page.getByRole("button", { name: "开启回合" }).click();
-    await expect(
-      page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
-    ).toContainText("round opened");
-  }
+  await page.getByRole("button", { name: "开启回合" }).click();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("round opened");
 
   const studentToken = await login(request, "student", "student");
   const demoState = await apiGet<P0DemoState>(request, "/api/v1/demo-state", teacherToken);

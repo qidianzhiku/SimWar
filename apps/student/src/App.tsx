@@ -64,11 +64,6 @@ import {
 } from "@simwar/ui";
 
 const O4CrossRoundDynamicsFeature = lazy(() => import("./O4"));
-const CanServiceFeasibilityPanel = lazy(() =>
-  import("@simwar/ui/can-service-feasibility-panel").then(({ default: Component }) => ({
-    default: Component
-  }))
-);
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const SHANGHAI_C0_RECEIPT_ID =
   typeof window === "undefined"
@@ -1100,17 +1095,6 @@ export function App() {
                 draftId={w5DraftId}
                 roundNo={latestRound?.round_no}
                 runId={latestRun?.run_id}
-                tenantId={login.tenantId}
-                token={activeSession?.access_token ?? ""}
-              />
-              <CanServiceFeasibilityPanel
-                apiBase={API_BASE}
-                courseId={latestRun?.course_id}
-                draftId={w5DraftId}
-                roundId={latestRound?.round_id}
-                roundNo={latestRound?.round_no}
-                runId={latestRun?.run_id}
-                surface="student"
                 tenantId={login.tenantId}
                 token={activeSession?.access_token ?? ""}
               />

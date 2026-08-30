@@ -1,0 +1,244 @@
+{
+  "schema_version": "sh-main-pull-consumption.v1",
+  "mission_id": "SIMWAR-SH-M29-MAIN-PULL-SOURCE-BACKED-CONSUMPTION",
+  "state_a": {
+    "name": "SOURCE_PACK_WITHOUT_MAIN_PULL_BINDING",
+    "limitation": "The preceding SH support packs proved source lineage, second-city requalification, and living operations, but did not establish a MAIN-owned regional or enterprise product consumption request."
+  },
+  "state_b": "SOURCE_BACKED_SHANGHAI_REGIONAL_ENTERPRISE_JOURNEY_MAINLINE_BOUND_WITH_LIMITS",
+  "state_transition": { "from": "STATE_A", "to": "STATE_B" },
+  "source_pack_refs": {
+    "m25_epoch": {
+      "epoch_id": "SH-PUBLIC-SOURCE-EPOCH-2026-08-30",
+      "epoch_digest": "5fb7bc807bd6160fb1f9a1d2c4067a2ce95300f825b0a3c8697f11664ca361db",
+      "source_epoch_base_sha": "d9c314d2365f48caef8187592c1b16915db4fd38"
+    },
+    "m27_transfer": {
+      "transfer_id": "SH-M25-TRANSFER-SHANGHAI-HANGZHOU",
+      "pack_digest": "ecf7b7f8c9d19c8a5031069c9b8b9fe2cc80955662b73c8367e7ad5a38c32e44",
+      "candidate_version": "1.0.0"
+    },
+    "m28_living_operations": {
+      "pack_digest": "c15831adcc9bf081e75c8b7ee3d8ed0ec847d77ed318850983345eb6ea44e85e",
+      "epoch_id": "SH-LIVING-EPOCH-B-2026-08-30",
+      "epoch_version": "epoch-b.2026-08-30"
+    }
+  },
+  "regional_consumption": {
+    "baseline_region": "Shanghai",
+    "target_region": "Hangzhou",
+    "transfer_id": "SH-M25-TRANSFER-SHANGHAI-HANGZHOU",
+    "epoch_id": "SH-LIVING-EPOCH-B-2026-08-30",
+    "epoch_version": "epoch-b.2026-08-30",
+    "source_reality_class": "PUBLIC_SOURCE_BOUND",
+    "rights_status": "PUBLIC_REFERENCE_ONLY",
+    "expires_at": "2026-11-30",
+    "qualification_status": "LIMITED",
+    "calibration_evidence": "NOT_PROVEN",
+    "formal_binding_eligible": false,
+    "consumption_status": "LOOKAHEAD_READY",
+    "exact_binding_required": true,
+    "required_rechecks": [
+      "MAIN must resolve the exact regional-transfer.v1 candidate, scenario candidate, source epoch, and living-operations version.",
+      "Re-fetch exact public locators and recheck rights, geography, units, target-year, and expiry before formal binding.",
+      "Run MAIN-owned shared contract, OpenAPI, role BFF, registry, and product journey validation after pull.",
+      "Keep formal ParameterSet, official Truth, Settlement, Score, and Rank writes outside this support request."
+    ],
+    "consumption_digest": "b28dd9514daf938ea6e8e384cb8de1f9951b8bec995d75e922476730848a78ea"
+  },
+  "enterprise_consumption": {
+    "scope": "SOURCE_BACKED_ENTERPRISE_CANDIDATE",
+    "baseline_region": "Shanghai",
+    "target_region": "Hangzhou",
+    "source_reality_class": "PUBLIC_SOURCE_BOUND",
+    "rights_status": "PUBLIC_REFERENCE_ONLY",
+    "qualification_status": "LIMITED",
+    "formal_binding_eligible": false,
+    "private_data_included": false,
+    "product_consumption_status": "LOOKAHEAD_READY",
+    "exact_binding_required": true,
+    "required_rechecks": [
+      "Confirm the enterprise context is public-safe and contains no private organization, person, team, or unpublished result.",
+      "Resolve exact source, epoch, transfer, and scenario versions; reject implicit selectors and expired rights.",
+      "MAIN must approve any formal enterprise consumer and retain the candidate-only boundary."
+    ],
+    "consumption_digest": "8426bdd5bfccc67b5631ed15332d91c24d91bd2b0dc919fad158bf4236640836"
+  },
+  "role_journey": {
+    "teacher": {
+      "visibility": "TEACHER_ONLY",
+      "journey": [
+        "inspect exact source-backed candidate",
+        "review diff and qualification limits",
+        "request MAIN pull and formal validation"
+      ],
+      "fields": [
+        "source_pack_refs",
+        "regional_consumption",
+        "enterprise_consumption",
+        "main_binding_request",
+        "known_limits"
+      ]
+    },
+    "student": {
+      "visibility": "STUDENT_SAFE",
+      "journey": [
+        "see bounded Shanghai-to-Hangzhou candidate context",
+        "see limited qualification and recheck status",
+        "submit learning decision through MAIN-owned flow after binding"
+      ],
+      "fields": [
+        "target_region",
+        "epoch_version",
+        "qualification_status",
+        "consumption_status",
+        "exact_binding_required"
+      ],
+      "forbidden_fields": [
+        "raw_source_excerpt",
+        "source_receipt_ids",
+        "source_digests",
+        "private_project_data",
+        "official_truth",
+        "settlement",
+        "score",
+        "rank"
+      ]
+    },
+    "admin": {
+      "visibility": "INTERNAL_RESEARCH_ONLY",
+      "journey": [
+        "audit source and transfer digests",
+        "check rights and expiry",
+        "approve MAIN pull prerequisites"
+      ],
+      "fields": [
+        "source_pack_refs",
+        "main_binding_request",
+        "product_proof",
+        "authority",
+        "known_limits"
+      ]
+    },
+    "enterprise": {
+      "visibility": "RESTRICTED",
+      "journey": [
+        "inspect public-safe candidate scope",
+        "confirm exact binding and requalification prerequisites",
+        "wait for MAIN-owned formal consumer"
+      ],
+      "fields": [
+        "scope",
+        "target_region",
+        "qualification_status",
+        "product_consumption_status",
+        "exact_binding_required"
+      ],
+      "forbidden_fields": [
+        "raw_source_excerpt",
+        "private_project_data",
+        "official_truth",
+        "settlement",
+        "score",
+        "rank"
+      ]
+    }
+  },
+  "main_binding_request": {
+    "request_id": "SH-M29-MAIN-PULL-BINDING-REQUEST",
+    "producer": "SH_NEXT_SUPPORT_CANDIDATE_COMPILER",
+    "consumer": "MAIN",
+    "shared_contract_owner": "MAIN",
+    "openapi_owner": "MAIN",
+    "role_bff_owner": "MAIN",
+    "formal_writer_owner": "MAIN",
+    "registry_owner": "MAIN",
+    "product_pr_owner": "MAIN",
+    "sh_product_pr_created": false,
+    "sh_formal_write": false,
+    "exact_refs": [
+      "contracts/schemas/regional-transfer.v1.json",
+      "packages/shared-contracts/src/regional-transfer.ts",
+      "packages/sh-next-support/src/m25-public-source-evidence.ts",
+      "packages/sh-next-support/src/m27-second-city-transfer.ts",
+      "packages/sh-next-support/src/m28-dual-epoch-operations.ts"
+    ],
+    "request_digest": "aabb760e0a4eb44a4f93c2888033d022a72382acdd41c518385237e4ee2fe60c"
+  },
+  "product_proof": {
+    "product_consumption_status": "LOOKAHEAD_READY",
+    "real_route_proof": "NOT_PROVEN",
+    "real_service_proof": "NOT_PROVEN",
+    "real_bff_proof": "NOT_PROVEN",
+    "browser_proof": "NOT_PROVEN",
+    "proof_boundary": "SH_SUPPORT_PACK_ONLY_UNTIL_MAIN_PULLS",
+    "no_second_route": true
+  },
+  "tombstone_reuse": {
+    "m19_m24": "TOMBSTONED_PROFESSIONAL_CANDIDATE_WITH_LIMITS",
+    "m23_m28_reused": [
+      "M23 seven-event lifecycle predecessor is reused as read-only lineage.",
+      "M25 public-source epoch and exact Shanghai/Hangzhou receipts are reused.",
+      "M26 source-bound operating/capital diagnostics are reused without a second finance writer.",
+      "M27 regional-transfer.v1 envelope and Hangzhou requalification are reused.",
+      "M28 dual-epoch operation and withdrawal/history controls are reused."
+    ],
+    "no_second_truth_writer": true,
+    "no_duplicate_main_consumer": true
+  },
+  "authority": {
+    "candidate_writer": "SH_NEXT_SUPPORT_CANDIDATE_COMPILER",
+    "official_truth_write": false,
+    "settlement_write": false,
+    "score_write": false,
+    "rank_write": false,
+    "parameter_set_formal_write": false,
+    "provider": "OFF",
+    "second_truth_writer": false,
+    "runtime_authority": "JSON_INTERNAL_ONLY"
+  },
+  "mjp": {
+    "status": "PASS",
+    "checks": [
+      "M25, M27, and M28 exact digests are cross-bound.",
+      "Regional and enterprise journeys are role-safe and candidate-only.",
+      "MAIN owns shared contract, OpenAPI, Role BFF, formal writer, registry, Product PR, merge, and H3.",
+      "No SH route, service, OpenAPI, BFF, registry, truth, settlement, score, rank, or formal ParameterSet mutation is made.",
+      "Real product route/service/BFF/browser proof is explicitly NOT_PROVEN and consumption remains LOOKAHEAD_READY."
+    ]
+  },
+  "methods": {
+    "keep": [
+      "exact source and candidate digest lineage",
+      "role-safe projection",
+      "candidate-only authority",
+      "MAIN ownership boundary"
+    ],
+    "change": [
+      "source pack handoff to explicit regional and enterprise MAIN pull request",
+      "implicit product readiness to explicit LOOKAHEAD_READY proof boundary"
+    ],
+    "retire": ["SH-owned product route claims", "unbounded enterprise consumption claims"],
+    "new": [
+      "MAIN binding request digest",
+      "four-role journey matrix",
+      "product proof status and no-second-route guard"
+    ]
+  },
+  "efficiency": {
+    "upstream_packs_reused": 3,
+    "role_journeys": 4,
+    "route_mutations": 0,
+    "manual_numeric_values": 0,
+    "measured_elapsed_seconds": null,
+    "measurement_status": "NOT_RECORDED"
+  },
+  "known_limits": [
+    "This is an SH support-owned binding request and candidate consumption pack; no MAIN product route, service, OpenAPI, Role BFF, registry, or formal writer was changed.",
+    "Product route, service, BFF, and browser proof remain NOT_PROVEN until MAIN pulls this request and performs its own product validation.",
+    "Regional and enterprise qualification remain LIMITED, calibration_evidence remains NOT_PROVEN, and formal_binding_eligible remains false.",
+    "Public reference rights and expiry must be rechecked before any future formal binding; no private or restricted raw source data is included.",
+    "No official Truth, Settlement, Score, Rank, ParameterSet, Provider, PostgreSQL/RLS, Pilot, Production, Human Validation, or automatic successor state is written."
+  ],
+  "pack_digest": "d9e3f096c0d6e0a3f0ab793140bd30b945631c92b9e0e9ff83f004c126d509ad"
+}

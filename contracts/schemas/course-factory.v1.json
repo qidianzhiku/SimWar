@@ -1,0 +1,551 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/course-factory.v1.json",
+  "title": "Governed Course Factory",
+  "description": "Exact, tenant-scoped course package reuse and sponsor-safe delivery projections.",
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "identity": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$",
+      "not": {
+        "type": "string",
+        "pattern": "(?:^|[._:-])(?:[Aa][Nn][Yy]|[Cc][Uu][Rr][Rr][Ee][Nn][Tt]|[Dd][Ee][Ff][Aa][Uu][Ll][Tt]|[Ff][Aa][Ll][Ll][Bb][Aa][Cc][Kk]|[Ll][Aa][Tt][Ee][Ss][Tt]|[Nn][Ee][Xx][Tt]|[Uu][Nn][Rr][Ee][Ss][Oo][Ll][Vv][Ee][Dd])(?:$|[._:-])"
+      }
+    },
+    "exactVersion": {
+      "allOf": [
+        { "$ref": "#/$defs/identity" },
+        { "not": { "type": "string", "pattern": "(?:^|[._:-])[xX*](?:$|[._:-])" } }
+      ]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d{4}-(?:(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01]))|(?:(?:0[469]|11)-(?:0[1-9]|[12]\\d|30))|(?:02-(?:0[1-9]|1\\d|2[0-8]))))|(?:(?:\\d{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29))T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d{3})?Z$"
+    },
+    "courseBlueprintReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "course_blueprint_id", "tenant_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "course_blueprint_id": { "$ref": "#/$defs/identity" },
+        "tenant_id": { "$ref": "#/$defs/identity" },
+        "version": { "$ref": "#/$defs/exactVersion" }
+      }
+    },
+    "scenarioPackageReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "scenario_package_id", "tenant_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "scenario_package_id": { "$ref": "#/$defs/identity" },
+        "tenant_id": { "$ref": "#/$defs/identity" },
+        "version": { "$ref": "#/$defs/exactVersion" }
+      }
+    },
+    "parameterSetReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "parameter_set_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "parameter_set_id": { "$ref": "#/$defs/identity" },
+        "version": { "$ref": "#/$defs/exactVersion" }
+      }
+    },
+    "coursePackageReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "course_package_id", "tenant_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "course_package_id": { "$ref": "#/$defs/identity" },
+        "tenant_id": { "$ref": "#/$defs/identity" },
+        "version": { "$ref": "#/$defs/exactVersion" }
+      }
+    },
+    "modelVersionReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "model_version_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "model_version_id": { "$ref": "#/$defs/identity" },
+        "version": { "$ref": "#/$defs/exactVersion" }
+      }
+    },
+    "modelArtifactReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "content_digest", "format", "source_ref"],
+      "properties": {
+        "artifact_id": { "$ref": "#/$defs/identity" },
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "format": { "type": "string", "minLength": 1, "pattern": "^\\S(?:[\\s\\S]*\\S)?$" },
+        "source_ref": { "type": "string", "minLength": 1, "pattern": "^\\S(?:[\\s\\S]*\\S)?$" }
+      }
+    },
+    "projectProfileReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "project_profile_id", "tenant_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "project_profile_id": { "$ref": "#/$defs/identity" },
+        "tenant_id": { "$ref": "#/$defs/identity" },
+        "version": { "$ref": "#/$defs/exactVersion" }
+      }
+    },
+    "sourceEvidenceReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "binding_request_id",
+        "source_epoch",
+        "regional_transfer",
+        "living_operations",
+        "baseline_region",
+        "target_region",
+        "source_reality_class",
+        "rights_status",
+        "qualification_status",
+        "calibration_evidence",
+        "formal_binding_eligible",
+        "consumption_status",
+        "exact_binding_required",
+        "required_rechecks",
+        "exact_source_refs",
+        "m29_pack_digest",
+        "evidence_digest"
+      ],
+      "properties": {
+        "schema_version": { "const": "course-factory-source-evidence.v1" },
+        "binding_request_id": { "const": "SH-M29-MAIN-PULL-BINDING-REQUEST" },
+        "source_epoch": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["epoch_id", "epoch_digest", "source_epoch_base_sha"],
+          "properties": {
+            "epoch_id": { "$ref": "#/$defs/identity" },
+            "epoch_digest": { "$ref": "#/$defs/digest" },
+            "source_epoch_base_sha": { "type": "string", "pattern": "^[a-f0-9]{40}$" }
+          }
+        },
+        "regional_transfer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["transfer_id", "pack_digest", "candidate_version"],
+          "properties": {
+            "transfer_id": { "$ref": "#/$defs/identity" },
+            "pack_digest": { "$ref": "#/$defs/digest" },
+            "candidate_version": { "$ref": "#/$defs/exactVersion" }
+          }
+        },
+        "living_operations": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pack_digest", "epoch_id", "epoch_version", "expires_at"],
+          "properties": {
+            "pack_digest": { "$ref": "#/$defs/digest" },
+            "epoch_id": { "$ref": "#/$defs/identity" },
+            "epoch_version": { "$ref": "#/$defs/exactVersion" },
+            "expires_at": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          }
+        },
+        "baseline_region": { "const": "Shanghai" },
+        "target_region": { "const": "Hangzhou" },
+        "source_reality_class": { "const": "PUBLIC_SOURCE_BOUND" },
+        "rights_status": { "const": "PUBLIC_REFERENCE_ONLY" },
+        "qualification_status": { "const": "LIMITED" },
+        "calibration_evidence": { "const": "NOT_PROVEN" },
+        "formal_binding_eligible": { "const": false },
+        "consumption_status": { "const": "LOOKAHEAD_READY" },
+        "exact_binding_required": { "const": true },
+        "required_rechecks": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "exact_source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "m29_pack_digest": { "$ref": "#/$defs/digest" },
+        "evidence_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "known_limits",
+        "provenance",
+        "rights",
+        "schema_version",
+        "source_manifest",
+        "user_data_policy"
+      ],
+      "properties": {
+        "known_limits": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {
+            "kind": { "enum": ["ORIGINAL", "CLONED", "DERIVED", "IMPORTED", "ROLLBACK"] },
+            "source_course_package_reference": { "$ref": "#/$defs/coursePackageReference" }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "kind": { "const": "ORIGINAL" } } },
+              "then": { "properties": { "source_course_package_reference": false } }
+            },
+            {
+              "if": {
+                "properties": {
+                  "kind": { "enum": ["CLONED", "DERIVED", "IMPORTED", "ROLLBACK"] }
+                }
+              },
+              "then": {
+                "required": ["source_course_package_reference"],
+                "properties": { "source_course_package_reference": {} }
+              }
+            }
+          ]
+        },
+        "rights": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "allowed_tenant_ids",
+            "copy_allowed",
+            "export_allowed",
+            "expires_at",
+            "owner_tenant_id"
+          ],
+          "properties": {
+            "allowed_tenant_ids": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/identity" }
+            },
+            "copy_allowed": { "type": "boolean" },
+            "export_allowed": { "type": "boolean" },
+            "expires_at": { "anyOf": [{ "$ref": "#/$defs/timestamp" }, { "type": "null" }] },
+            "owner_tenant_id": { "$ref": "#/$defs/identity" }
+          }
+        },
+        "schema_version": { "const": "course-factory.v1" },
+        "source_evidence_reference": { "$ref": "#/$defs/sourceEvidenceReference" },
+        "source_manifest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "course_blueprint_reference",
+            "parameter_set_reference",
+            "scenario_package_reference"
+          ],
+          "properties": {
+            "course_blueprint_reference": { "$ref": "#/$defs/courseBlueprintReference" },
+            "model_artifact_reference": { "$ref": "#/$defs/modelArtifactReference" },
+            "model_version_reference": { "$ref": "#/$defs/modelVersionReference" },
+            "parameter_set_reference": { "$ref": "#/$defs/parameterSetReference" },
+            "project_profile_reference": { "$ref": "#/$defs/projectProfileReference" },
+            "scenario_package_reference": { "$ref": "#/$defs/scenarioPackageReference" }
+          }
+        },
+        "user_data_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["copied_private_data", "copied_user_decisions", "copied_user_results"],
+          "properties": {
+            "copied_private_data": { "const": false },
+            "copied_user_decisions": { "const": false },
+            "copied_user_results": { "const": false }
+          }
+        }
+      }
+    },
+    "draftInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "course_blueprint_reference",
+        "course_package_id",
+        "description",
+        "factory_metadata",
+        "parameter_set_reference",
+        "scenario_package_reference",
+        "title",
+        "version"
+      ],
+      "properties": {
+        "course_blueprint_reference": { "$ref": "#/$defs/courseBlueprintReference" },
+        "course_package_id": { "$ref": "#/$defs/identity" },
+        "description": { "type": "string", "minLength": 1, "pattern": "^\\S(?:[\\s\\S]*\\S)?$" },
+        "factory_metadata": {
+          "allOf": [
+            { "$ref": "#/$defs/metadata" },
+            {
+              "type": "object",
+              "properties": {
+                "provenance": {
+                  "type": "object",
+                  "properties": { "kind": { "const": "ORIGINAL" } }
+                }
+              }
+            }
+          ]
+        },
+        "parameter_set_reference": { "$ref": "#/$defs/parameterSetReference" },
+        "scenario_package_reference": { "$ref": "#/$defs/scenarioPackageReference" },
+        "title": { "type": "string", "minLength": 1, "pattern": "^\\S(?:[\\s\\S]*\\S)?$" },
+        "version": { "$ref": "#/$defs/exactVersion" }
+      }
+    },
+    "cloneInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "course_package_id",
+        "description",
+        "source_course_package_reference",
+        "title",
+        "version"
+      ],
+      "properties": {
+        "course_package_id": { "$ref": "#/$defs/identity" },
+        "description": { "type": "string", "minLength": 1, "pattern": "^\\S(?:[\\s\\S]*\\S)?$" },
+        "source_course_package_reference": { "$ref": "#/$defs/coursePackageReference" },
+        "title": { "type": "string", "minLength": 1, "pattern": "^\\S(?:[\\s\\S]*\\S)?$" },
+        "version": { "$ref": "#/$defs/exactVersion" }
+      }
+    },
+    "version": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content_digest",
+        "course_blueprint_reference",
+        "course_package_id",
+        "created_at",
+        "created_by",
+        "description",
+        "factory_metadata",
+        "parameter_set_reference",
+        "scenario_package_reference",
+        "schema_version",
+        "status",
+        "tenant_id",
+        "title",
+        "version"
+      ],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "course_blueprint_reference": { "$ref": "#/$defs/courseBlueprintReference" },
+        "course_package_id": { "$ref": "#/$defs/identity" },
+        "created_at": { "$ref": "#/$defs/timestamp" },
+        "created_by": { "$ref": "#/$defs/identity" },
+        "description": { "type": "string", "minLength": 1 },
+        "factory_metadata": { "$ref": "#/$defs/metadata" },
+        "parameter_set_reference": { "$ref": "#/$defs/parameterSetReference" },
+        "scenario_package_reference": { "$ref": "#/$defs/scenarioPackageReference" },
+        "schema_version": { "const": "course-package-version.v1" },
+        "status": {
+          "enum": ["DRAFT", "VALIDATED", "APPROVED", "PUBLISHED", "SUPERSEDED", "RETIRED"]
+        },
+        "tenant_id": { "$ref": "#/$defs/identity" },
+        "title": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/exactVersion" }
+      }
+    },
+    "catalogEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "course_package_reference",
+        "description",
+        "factory_metadata",
+        "status",
+        "title",
+        "version"
+      ],
+      "properties": {
+        "course_package_reference": { "$ref": "#/$defs/coursePackageReference" },
+        "description": { "type": "string", "minLength": 1 },
+        "factory_metadata": { "$ref": "#/$defs/metadata" },
+        "status": {
+          "enum": ["DRAFT", "VALIDATED", "APPROVED", "PUBLISHED", "SUPERSEDED", "RETIRED"]
+        },
+        "title": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/exactVersion" }
+      }
+    },
+    "catalogProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["catalog", "known_limits", "tenant_id"],
+      "properties": {
+        "catalog": { "type": "array", "items": { "$ref": "#/$defs/catalogEntry" } },
+        "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "tenant_id": { "$ref": "#/$defs/identity" }
+      }
+    },
+    "teacherSourceContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_region",
+        "epoch_version",
+        "qualification_status",
+        "consumption_status",
+        "exact_binding_required",
+        "known_limits",
+        "source_reference_versions"
+      ],
+      "properties": {
+        "target_region": { "type": "string", "minLength": 1 },
+        "epoch_version": { "$ref": "#/$defs/exactVersion" },
+        "qualification_status": { "const": "LIMITED" },
+        "consumption_status": { "const": "LOOKAHEAD_READY" },
+        "exact_binding_required": { "const": true },
+        "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "source_reference_versions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["course_blueprint", "scenario_package", "parameter_set"],
+          "properties": {
+            "course_blueprint": { "$ref": "#/$defs/exactVersion" },
+            "scenario_package": { "$ref": "#/$defs/exactVersion" },
+            "parameter_set": { "$ref": "#/$defs/exactVersion" }
+          }
+        }
+      }
+    },
+    "teacherCatalogEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["course_package_reference", "description", "status", "title", "version"],
+      "properties": {
+        "course_package_reference": { "$ref": "#/$defs/coursePackageReference" },
+        "description": { "type": "string", "minLength": 1 },
+        "status": { "const": "PUBLISHED" },
+        "title": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/exactVersion" },
+        "source_context": { "$ref": "#/$defs/teacherSourceContext" }
+      }
+    },
+    "teacherCatalogProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["catalog", "known_limits", "tenant_id"],
+      "properties": {
+        "catalog": { "type": "array", "items": { "$ref": "#/$defs/teacherCatalogEntry" } },
+        "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "tenant_id": { "$ref": "#/$defs/identity" }
+      }
+    },
+    "sponsorProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["catalog", "delivery_progress", "evidence_pack", "known_limits", "tenant_id"],
+      "properties": {
+        "catalog": { "type": "array", "items": { "$ref": "#/$defs/sponsorCatalogEntry" } },
+        "delivery_progress": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["active_runs", "course_count", "published_versions", "round_count"],
+          "properties": {
+            "active_runs": { "type": "integer", "minimum": 0 },
+            "course_count": { "type": "integer", "minimum": 0 },
+            "published_versions": { "type": "integer", "minimum": 0 },
+            "round_count": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "evidence_pack": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["exact_refs_present", "private_data_included", "source_evidence_count"],
+          "properties": {
+            "exact_refs_present": { "type": "boolean" },
+            "private_data_included": { "const": false },
+            "source_evidence_count": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "tenant_id": { "$ref": "#/$defs/identity" }
+      }
+    },
+    "sponsorCatalogEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["course_package_reference", "status", "title", "version"],
+      "properties": {
+        "course_package_reference": { "$ref": "#/$defs/coursePackageReference" },
+        "status": {
+          "enum": ["DRAFT", "VALIDATED", "APPROVED", "PUBLISHED", "SUPERSEDED", "RETIRED"]
+        },
+        "title": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/exactVersion" },
+        "source_context": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target_region",
+            "epoch_version",
+            "qualification_status",
+            "consumption_status",
+            "exact_binding_required"
+          ],
+          "properties": {
+            "target_region": { "const": "Hangzhou" },
+            "epoch_version": { "$ref": "#/$defs/exactVersion" },
+            "qualification_status": { "const": "LIMITED" },
+            "consumption_status": { "const": "LOOKAHEAD_READY" },
+            "exact_binding_required": { "const": true }
+          }
+        }
+      }
+    },
+    "auditProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["course_package_reference", "diff", "lineage", "lifecycle", "tenant_id"],
+      "properties": {
+        "course_package_reference": { "$ref": "#/$defs/coursePackageReference" },
+        "diff": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["field", "from", "to"],
+            "properties": { "field": { "type": "string" }, "from": {}, "to": {} }
+          }
+        },
+        "lineage": { "type": "array", "items": { "$ref": "#/$defs/coursePackageReference" } },
+        "lifecycle": {
+          "type": "array",
+          "items": {
+            "enum": ["DRAFT", "VALIDATED", "APPROVED", "PUBLISHED", "SUPERSEDED", "RETIRED"]
+          }
+        },
+        "tenant_id": { "$ref": "#/$defs/identity" }
+      }
+    }
+  },
+  "allOf": [{ "$ref": "#/$defs/draftInput" }]
+}

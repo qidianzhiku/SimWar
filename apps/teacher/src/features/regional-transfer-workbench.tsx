@@ -173,6 +173,29 @@ export function RegionalTransferWorkbench({
           </span>
         </div>
       ) : null}
+      {result ? (
+        <div className="evidence-note" aria-label="regional model requalification evidence">
+          <strong>模型迁移资格：{result.requalification.status}</strong>
+          <span>
+            ModelVersion：{result.requalification.model_version_comparison.status} ·{" "}
+            {result.requalification.model_version_comparison.target_model_version_ref}
+          </span>
+          <span>
+            {result.requalification.baseline.region} 来源：
+            {result.requalification.baseline.source.evidence_status} · 权利：
+            {result.requalification.baseline.source.rights_status} · 新鲜度：
+            {result.requalification.baseline.source.freshness_status}
+          </span>
+          <span>
+            {result.requalification.target.region} 来源：
+            {result.requalification.target.source.evidence_status} · 权利：
+            {result.requalification.target.source.rights_status} · 新鲜度：
+            {result.requalification.target.source.freshness_status}
+          </span>
+          <span>Reality Gap：未证明 · OOD：未证明 · transfer_mode=CANDIDATE_ONLY</span>
+          <span>原因：{result.requalification.reason_codes.join(" · ")}</span>
+        </div>
+      ) : null}
       {result?.known_limits.map((limit) => (
         <p className="evidence-note" key={limit}>
           {limit}

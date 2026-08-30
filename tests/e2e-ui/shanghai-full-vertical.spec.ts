@@ -1,5 +1,4 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import AxeBuilder from "@axe-core/playwright";
 import type { ApiEnvelope, AuthSession, Run } from "../../packages/shared-contracts/src";
 import { cleanupPlaywrightStore } from "./store-isolation";
 
@@ -98,13 +97,6 @@ test("Shanghai full vertical is reproducible across real Teacher, Student and Ad
   await expect(teacherPanel).toBeVisible();
   await expect(teacherPanel.getByText("READY_WITH_LIMITS", { exact: false })).toBeVisible();
   await expect(teacherPanel.getByText("Simulation Core", { exact: false })).toBeVisible();
-  const teacherCanPanel = page.getByTestId("r1-can-teacher");
-  await expect(teacherCanPanel).toBeVisible();
-  await expect(teacherCanPanel.getByText("Simulation Core", { exact: false })).toBeVisible();
-  const teacherCanAxe = await new AxeBuilder({ page })
-    .include('[data-testid="r1-can-teacher"]')
-    .analyze();
-  expect(teacherCanAxe.violations).toEqual([]);
 
   const studentToken = await login(request, "student");
   const studentProjection = await request.get(
@@ -127,16 +119,9 @@ test("Shanghai full vertical is reproducible across real Teacher, Student and Ad
   await expect(studentPanel).toBeVisible();
   await expect(studentPanel.getByText("ROLE_SAFE_STUDENT", { exact: false })).toBeVisible();
   await expect(studentPanel.getByText("SIMULATION_CORE", { exact: true }).first()).toBeVisible();
-  const studentCanPanel = page.getByTestId("r1-can-student");
-  await expect(studentCanPanel).toBeVisible();
-  await expect(studentCanPanel.getByText("ROLE-SAFE", { exact: true })).toBeVisible();
-  const studentCanAxe = await new AxeBuilder({ page })
-    .include('[data-testid="r1-can-student"]')
-    .analyze();
-  expect(studentCanAxe.violations).toEqual([]);
 
   await page.goto(
-    `${adminBaseUrl}?courseId=course_demo&shanghaiDraftId=${encodeURIComponent(draftId)}&runId=${encodeURIComponent(runId)}&roundId=${encodeURIComponent(started.body.data.round_id)}&roundNo=1`
+    `${adminBaseUrl}?courseId=course_demo&shanghaiDraftId=${encodeURIComponent(draftId)}&runId=${encodeURIComponent(runId)}&roundNo=1`
   );
   await page.getByLabel("tenant").fill(tenantId);
   await page.getByLabel("username").fill("admin");
@@ -148,11 +133,4 @@ test("Shanghai full vertical is reproducible across real Teacher, Student and Ad
   await expect(adminPanel).toBeVisible();
   await expect(adminPanel.getByText("BOUND", { exact: true }).first()).toBeVisible();
   await expect(adminPanel.getByText("只读", { exact: true }).first()).toBeVisible();
-  const adminCanPanel = page.getByTestId("r1-can-admin");
-  await expect(adminCanPanel).toBeVisible();
-  await expect(adminCanPanel.getByText("Simulation Core", { exact: false })).toBeVisible();
-  const adminCanAxe = await new AxeBuilder({ page })
-    .include('[data-testid="r1-can-admin"]')
-    .analyze();
-  expect(adminCanAxe.violations).toEqual([]);
 });

@@ -454,7 +454,7 @@ describe("Course Report Builder BFF endpoints", () => {
       expect(platformExport.status).toBe(200);
       expect(platformExport.body.data.export_format).toBe("csv");
       expectCourseReportError(missingPlatformTarget, 403, "COURSE_REPORT_FORBIDDEN");
-      expectCourseReportError(crossTenantAdmin, 403, "COURSE_REPORT_FORBIDDEN");
+      expectCourseReportError(crossTenantAdmin, 403, "TENANT-403-001");
     } finally {
       await stopServer(server);
     }

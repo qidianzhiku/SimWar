@@ -72,7 +72,7 @@ SimWar 的界面必须把可信经营 Truth、角色化决策、团队协同、�
 1. **Admin Delivery & Trust**：交付总览、租户与权益、用户/角色/范围、课程/场景/模型资产、权限与安全投影、审计与 Receipt、运行与支持、Known Limits、启动与恢复。
 2. **Teacher Course OS**：首页是“今日工作”，包含今天要做、即将阻断、课程与班级、开课准备、团队与角色、轮次控制、结果发布、Debrief Studio、Evidence Confirmation、Report Builder、Validation Session、Close & Cleanup。
 3. **Student Executive Environment**：角色任务、经营驾驶舱、信息与 Evidence、个人草稿、团队协同、分歧/冲突、团队确认、最终提交、结果与因果链、复盘、学习报告与学习路径。学生只看到服务端安全投影，不能发现被裁剪的隐私对象。
-4. **Enterprise Course Factory & Sponsor**：课程工厂、Source Registry、Canonical Mapping、Scenario Draft、Course Recipe、Validation Suite、Cross-functional Review、Immutable Publication、Sponsor View。当前仓库没有独立 Enterprise app 或 Enterprise BFF；PR3 只能在现有 Admin/Teacher 合同内提供隔离工作空间，缺少执行合同时显示“当前限制”，不得伪造功能。
+4. **Enterprise Course Factory & Sponsor**：课程工厂、Source Registry、Canonical Mapping、Scenario Draft、Course Recipe、Validation Suite、Cross-functional Review、Immutable Publication、Sponsor View。当前仓库没有独立 Enterprise app；R3 在现有 Admin/Teacher 应用中提供受现有 CoursePackage authority 约束的 Enterprise/Sponsor BFF 投影，不能由该投影创建第二个 truth writer、store 或权限 authority。缺少执行合同的能力必须显示“当前限制”，不得伪造功能。
 
 不把产品退化成孤立 Dashboard 卡片：每个页面先说明用户当前任务、Context、Authority、状态和唯一主动作，再渐进披露 Evidence、模型和 digest。
 

@@ -42,8 +42,7 @@ import type {
   TeacherFormalCourseBindingPreviewDto,
   TeacherFormalScenarioPackageCatalogCandidateDto,
   TeacherFormalScenarioPackageCatalogDto,
-  W3OfficialConsequenceContext,
-  W5ScenarioDraft
+  W3OfficialConsequenceContext
 } from "@simwar/shared-contracts";
 import {
   ScenarioReadinessRequestError,
@@ -72,11 +71,6 @@ const RoleWorkflowPanel = lazy(() =>
   }))
 );
 const O4CrossRoundDynamicsPanel = lazy(() => import("@simwar/ui/o4-cross-round-dynamics-panel"));
-const CanServiceFeasibilityPanel = lazy(() =>
-  import("@simwar/ui/can-service-feasibility-panel").then(({ default: Component }) => ({
-    default: Component
-  }))
-);
 import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { InstructorIntelligencePanel } from "./InstructorIntelligencePanel";
 import {
@@ -111,6 +105,11 @@ const ShanghaiFullVerticalTeacherPanel = lazy(() => import("./ShanghaiFullVertic
 import { MarketWorldBindingPanel } from "./MarketWorldBindingPanel";
 import { ProjectLibraryPanel } from "./ProjectLibraryPanel";
 import { ProjectAwareCourseLaunchPanel } from "./ProjectAwareCourseLaunchPanel";
+const CourseFactoryCatalogPanel = lazy(() =>
+  import("./CourseFactoryCatalogPanel").then(({ CourseFactoryCatalogPanel: Component }) => ({
+    default: Component
+  }))
+);
 import { GovernedStakeholderIntelligenceWorkspace } from "./GovernedStakeholderIntelligenceWorkspace";
 const ShanghaiC0ConversionWorkspace = lazy(() => import("./ShanghaiC0ConversionWorkspace"));
 const ExecutiveStrategyLabWorkspace = lazy(() =>
@@ -636,7 +635,7 @@ export function App() {
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null);
-  const [selectedShanghaiDraft, setSelectedShanghaiDraft] = useState<W5ScenarioDraft | null>(null);
+  const [selectedShanghaiDraftId, setSelectedShanghaiDraftId] = useState<string | null>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [busy, setBusy] = useState(false);
@@ -1566,7 +1565,7 @@ export function App() {
   }, [session]);
 
   useEffect(() => {
-    setSelectedShanghaiDraft(null);
+    setSelectedShanghaiDraftId(null);
   }, [selectedCourseId, selectedRunId, selectedRoundId]);
 
   useEffect(() => {
@@ -2423,6 +2422,13 @@ export function App() {
                 token={session.access_token}
               />
             </Suspense>
+            <Suspense fallback={<p className="muted">正在载入课程工厂 Catalog…</p>}>
+              <CourseFactoryCatalogPanel
+                apiBase={API_BASE}
+                tenantId={login.tenantId}
+                token={session.access_token}
+              />
+            </Suspense>
           </>
         ) : null}
       </TeacherLocation>
@@ -2441,7 +2447,7 @@ export function App() {
             <W5GovernedModelStudio
               apiBase={API_BASE}
               courseId={selectedRun?.course_id ?? selectedCourseId}
-              onDraftChange={(_draftId, draft) => setSelectedShanghaiDraft(draft)}
+              onDraftChange={setSelectedShanghaiDraftId}
               runId={selectedRun?.run_id ?? selectedRunId}
               roundNo={selectedRound?.round_no}
               tenantId={login.tenantId}
@@ -2460,32 +2466,11 @@ export function App() {
             <ShanghaiFullVerticalTeacherPanel
               apiBase={API_BASE}
               courseId={selectedRun?.course_id ?? selectedCourseId}
-              draftId={selectedShanghaiDraft?.draft_id}
-              enabled={
-                selectedShanghaiDraft?.status === "BOUND" &&
-                selectedShanghaiDraft.exact_runtime_binding?.run_id === selectedRun?.run_id &&
-                selectedShanghaiDraft.exact_runtime_binding?.round_no === selectedRound?.round_no
-              }
+              draftId={selectedShanghaiDraftId}
               roundNo={selectedRound?.round_no}
               runId={selectedRun?.run_id ?? selectedRunId}
               tenantId={login.tenantId}
               token={session.access_token}
-            />
-            <CanServiceFeasibilityPanel
-              apiBase={API_BASE}
-              courseId={selectedRun?.course_id ?? selectedCourseId}
-              draftId={selectedShanghaiDraft?.draft_id}
-              roundId={selectedRound?.round_id}
-              roundNo={selectedRound?.round_no}
-              runId={selectedRun?.run_id ?? selectedRunId}
-              surface="teacher"
-              tenantId={login.tenantId}
-              token={session.access_token}
-              enabled={
-                selectedShanghaiDraft?.status === "BOUND" &&
-                selectedShanghaiDraft.exact_runtime_binding?.run_id === selectedRun?.run_id &&
-                selectedShanghaiDraft.exact_runtime_binding?.round_no === selectedRound?.round_no
-              }
             />
             {O4_ENABLED && selectedRun ? (
               <O4CrossRoundDynamicsPanel

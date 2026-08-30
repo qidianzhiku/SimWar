@@ -600,8 +600,10 @@ test.describe.serial("Product PR4 real surface integration", () => {
     await expect(enterprise).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("heading", { name: "企业课程工厂与 Sponsor 投影" })).toBeVisible();
     await expect(
-      page.locator(".enterprise-course-factory-workspace").getByRole("button")
-    ).toHaveCount(0);
+      page
+        .locator(".enterprise-course-factory-workspace")
+        .getByRole("button", { name: "刷新课程工厂投影" })
+    ).toHaveCount(1);
     const enterpriseAxe = await new AxeBuilder({ page }).analyze();
     const enterpriseBlocking = blockingAxeViolations(enterpriseAxe);
     expect(enterpriseBlocking, JSON.stringify(enterpriseBlocking, null, 2)).toEqual([]);

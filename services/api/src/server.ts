@@ -12,6 +12,7 @@ import type {
   CoursePackageVersionCloneInput,
   CoursePackageVersionDraftInput,
   CoursePackageVersionImportInput,
+  CoursePackageVersionImportSource,
   CoursePackageVersionReference,
   D2EvidenceCaptureInput,
   D2EvidenceQuery,
@@ -214,6 +215,8 @@ import {
   CoursePackageCommandService
 } from "./course-package-command-service.js";
 import { CoursePackageJsonRegistry } from "./course-package-json-registry.js";
+import { CourseFactoryService } from "./course-factory.js";
+import { handleCourseFactoryRoute } from "./routes/course-factory-routes.js";
 import {
   CoursePackageQueryService,
   toTeacherCoursePackageVersionDto
@@ -423,6 +426,7 @@ interface ApiRuntime {
   formalCourseBlueprints: CourseBlueprintCommandService;
   coursePackageCommands: CoursePackageCommandService;
   coursePackageQueries: CoursePackageQueryService;
+  courseFactory: CourseFactoryService;
   teacherScenarioStudio: TeacherScenarioStudioService;
   courseReports: CourseReportQueryService;
   learningDesignCommands: LearningDesignCommandService;
@@ -636,6 +640,11 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     parameterSets: formalAuthorityRuntime.parameterSets,
     scenarioPackages: formalAuthorityRuntime.scenarioPackages
   });
+  const courseFactory = new CourseFactoryService({
+    packageCommands: coursePackageCommands,
+    packageRegistry: coursePackageRegistry,
+    store
+  });
   const learningDesignRegistry = new LearningDesignJsonRegistry(
     {
       persist: (goals, rubrics) => persistLearningDesignSnapshots(store, goals, rubrics)
@@ -645,7 +654,8 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
   );
   const learningDesignCommands = new LearningDesignCommandService(learningDesignRegistry, {
     getByReference: (tenantId, reference) =>
-      coursePackageRegistry.getByReference(tenantId, reference)
+      coursePackageRegistry.getByReference(tenantId, reference),
+    currentTime: () => coursePackageRegistry.currentTime()
   });
   const evidenceCapture = new EvidenceCaptureCommandService({
     coursePackages: coursePackageRegistry,
@@ -1326,6 +1336,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     formalCourseBlueprints,
     coursePackageCommands,
     coursePackageQueries,
+    courseFactory,
     teacherScenarioStudio,
     learningDesignCommands,
     learningDesignQueries: new LearningDesignQueryService(learningDesignRegistry),
@@ -5455,7 +5466,10 @@ function parseCoursePackageCloneInput(
   };
 }
 
-function parseCoursePackageImportedVersion(value: unknown, tenantId: string): CoursePackageVersion {
+function parseCoursePackageImportedVersion(
+  value: unknown,
+  tenantId: string
+): CoursePackageVersionImportSource {
   if (!isRecord(value)) throw coursePackageRequestError();
   assertOnlyCoursePackageFields(value, [
     "content_digest",
@@ -5501,7 +5515,7 @@ function parseCoursePackageImportedVersion(value: unknown, tenantId: string): Co
     created_at: requireCoursePackageText(value.created_at),
     created_by: requireCoursePackageExactIdentity(value.created_by),
     schema_version: "course-package-version.v1",
-    status: value.status as CoursePackageVersion["status"],
+    status: value.status as CoursePackageVersionImportSource["status"],
     tenant_id: tenantId
   };
 }
@@ -6708,6 +6722,41 @@ async function routeRequest(
         requirePermission(context as RequestContext, permission),
       sendJson
     })
+  ) {
+    return;
+  }
+
+  const courseFactoryContext = createContext(runtime, request);
+  if (
+    await handleCourseFactoryRoute(
+      runtime.courseFactory,
+      request,
+      response,
+      url,
+      courseFactoryContext,
+      {
+        actorHasAnyRole: (actor, roles) => actorHasAnyRole(actor, roles as ActorRole[]),
+        createEnvelope: (context, data, message) =>
+          createEnvelope(context as RequestContext, data, message),
+        executeMutation: (command, audit) =>
+          executeAuditedCoursePackageCommand(runtime, command, (result) => {
+            const input = audit(result);
+            return {
+              actor: input.actor,
+              action: input.action,
+              after: clonePublic(input.after),
+              requestId: input.requestId,
+              resourceId: input.resourceId,
+              resourceType: input.resourceType,
+              tenantId: input.tenantId
+            };
+          }),
+        readJson,
+        requirePermission: (context, permission) =>
+          requirePermission(context as RequestContext, permission),
+        sendJson
+      }
+    )
   ) {
     return;
   }
@@ -8549,6 +8598,24 @@ async function routeRequest(
         user_id: actor.actor_id,
         ...(assignmentId ? { assignment_id: assignmentId } : {})
       });
+      const course = await runtime.repositoryProvider.facade.courses.getCourse(
+        context.tenantId,
+        courseId
+      );
+      const formalRuntimeBinding = await runtime.formalRunRuntimeBindingStore.getForRun(
+        context.tenantId,
+        runId
+      );
+      const courseFactorySourceEvidence =
+        course &&
+        formalRuntimeBinding &&
+        formalRuntimeBinding.tenant_id === context.tenantId &&
+        formalRuntimeBinding.run_id === runId
+          ? await runtime.courseFactory.getStudentSourceEvidence(context.tenantId, {
+              parameter_set_reference: formalRuntimeBinding.parameter_set_reference,
+              scenario_package_reference: formalRuntimeBinding.scenario_package_reference
+            })
+          : undefined;
       sendJson(
         response,
         200,
@@ -8561,7 +8628,10 @@ async function routeRequest(
             tenant_id: actor.tenant_id
           },
           role_context: workspace.context,
-          project_brief: projectBrief
+          project_brief: projectBrief,
+          ...(courseFactorySourceEvidence
+            ? { course_factory_source_evidence: courseFactorySourceEvidence }
+            : {})
         })
       );
     } catch (error) {
