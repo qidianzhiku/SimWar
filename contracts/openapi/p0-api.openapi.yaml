@@ -4850,6 +4850,146 @@ paths:
           content:
             { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
 
+  /api/v1/w4/runs/{runId}/rounds/{roundNo}/capital-lifecycles/propose:
+    post:
+      operationId: W4_CAPITAL_LIFECYCLE_PROPOSE_V1
+      summary: Propose an exact-scoped governed capital lifecycle after eligibility.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/W4CapitalLifecycleProposal" }
+      responses:
+        "201":
+          description: Proposed capital lifecycle receipt.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+        "409":
+          description: Duplicate, stale, or exact-scope conflict.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
+  /api/v1/w4/runs/{runId}/rounds/{roundNo}/capital-lifecycles/{lifecycleId}/approve:
+    post:
+      operationId: W4_CAPITAL_LIFECYCLE_APPROVE_V1
+      summary: Approve an exact-scoped proposed capital lifecycle.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/W4CapitalLifecycleCommand" }
+      responses:
+        "200":
+          description: Approved capital lifecycle receipt.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+        "409":
+          description: Invalid transition or exact-scope conflict.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
+  /api/v1/w4/runs/{runId}/rounds/{roundNo}/capital-lifecycles/{lifecycleId}/execute:
+    post:
+      operationId: W4_CAPITAL_LIFECYCLE_EXECUTE_V1
+      summary: Mark an approved capital lifecycle executing against an admitted W4 decision.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/W4CapitalLifecycleExecuteCommand" }
+      responses:
+        "200":
+          description: Executing capital lifecycle receipt.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+        "409":
+          description: Decision, transition, or exact-scope conflict.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
+  /api/v1/w4/runs/{runId}/rounds/{roundNo}/capital-lifecycles/{lifecycleId}/close:
+    post:
+      operationId: W4_CAPITAL_LIFECYCLE_CLOSE_V1
+      summary: Close an executing capital lifecycle against an exact immutable official outcome.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/W4CapitalLifecycleCloseCommand" }
+      responses:
+        "200":
+          description: Closed capital lifecycle receipt.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+        "409":
+          description: Official outcome, transition, or exact-scope conflict.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
+  /api/v1/w4/runs/{runId}/rounds/{roundNo}/capital-lifecycles/{lifecycleId}/withdraw:
+    post:
+      operationId: W4_CAPITAL_LIFECYCLE_WITHDRAW_V1
+      summary: Withdraw a proposed, approved, or executing capital lifecycle with an explicit reason.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/W4CapitalLifecycleReasonCommand" }
+      responses:
+        "200":
+          description: Withdrawn capital lifecycle receipt.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+        "409":
+          description: Transition or exact-scope conflict.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
+  /api/v1/w4/runs/{runId}/rounds/{roundNo}/capital-lifecycles/{lifecycleId}/default:
+    post:
+      operationId: W4_CAPITAL_LIFECYCLE_DEFAULT_V1
+      summary: Record a capital lifecycle default with an explicit reason.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/W4CapitalLifecycleReasonCommand" }
+      responses:
+        "200":
+          description: Defaulted capital lifecycle receipt.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+        "409":
+          description: Transition or exact-scope conflict.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
+  /api/v1/bff/{surface}/w4/runs/{runId}/rounds/{roundNo}/capital-lifecycles/{lifecycleId}:
+    get:
+      operationId: W4_CAPITAL_LIFECYCLE_ROLE_PROJECTION_GET_V1
+      summary: Read a role-safe governed capital lifecycle projection.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: surface, in: path, required: true, schema: { enum: [teacher, student, admin] } }
+        - { name: runId, in: path, required: true, schema: { type: string } }
+        - { name: roundNo, in: path, required: true, schema: { type: integer, minimum: 1 } }
+        - { name: lifecycleId, in: path, required: true, schema: { type: string, minLength: 1 } }
+        - { name: course_id, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: team_id, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: round_id, in: query, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Role-safe lifecycle projection.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+        "403":
+          description: Role or team scope required.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+        "404":
+          description: Lifecycle not found.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
   /api/v1/w4/runs/{runId}/rounds/{roundNo}/portfolio/projects:
     post:
       operationId: W4_PROJECT_PORTFOLIO_ENTRY_CREATE_V1
@@ -8683,6 +8823,9 @@ components:
           required: [strategic_portfolio]
           properties:
             strategic_portfolio: { $ref: "#/components/schemas/W4StrategicPortfolioProjection" }
+            capital_lifecycles:
+              type: array
+              items: { $ref: "#/components/schemas/W4CapitalLifecycle" }
         message: { type: string }
         request_id: { type: string, minLength: 1 }
     W4SettlementEnvelope:
@@ -8820,6 +8963,125 @@ components:
         project_profile_id: { type: string, minLength: 1 }
         tenant_id: { type: string, minLength: 1 }
         version: { type: string, minLength: 1 }
+    W4CapitalLifecycleProposal:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          command_id,
+          course_id,
+          lifecycle_id,
+          decision_id,
+          instrument,
+          principal,
+          cost_bps,
+          fee,
+          term_rounds,
+          covenant_min_cash,
+          source_digest,
+          round_id,
+          team_id
+        ]
+      properties:
+        command_id: { type: string, minLength: 1 }
+        course_id: { type: string, minLength: 1 }
+        lifecycle_id: { type: string, minLength: 1 }
+        decision_id: { type: string, minLength: 1 }
+        instrument: { enum: [loan, refinancing, m_and_a, abs, ipo] }
+        principal: { type: number, minimum: 0 }
+        cost_bps: { type: number, minimum: 0 }
+        fee: { type: number, minimum: 0 }
+        term_rounds: { type: integer, minimum: 1 }
+        covenant_min_cash: { type: number, minimum: 0 }
+        source_digest: { type: string, minLength: 1 }
+        round_id: { type: string, minLength: 1 }
+        team_id: { type: string, minLength: 1 }
+    W4CapitalLifecycleCommand:
+      type: object
+      additionalProperties: false
+      required: [command_id, course_id, round_id, team_id]
+      properties:
+        command_id: { type: string, minLength: 1 }
+        course_id: { type: string, minLength: 1 }
+        round_id: { type: string, minLength: 1 }
+        team_id: { type: string, minLength: 1 }
+    W4CapitalLifecycleExecuteCommand:
+      type: object
+      additionalProperties: false
+      required: [command_id, course_id, decision_id, round_id, team_id]
+      properties:
+        command_id: { type: string, minLength: 1 }
+        course_id: { type: string, minLength: 1 }
+        decision_id: { type: string, minLength: 1 }
+        round_id: { type: string, minLength: 1 }
+        team_id: { type: string, minLength: 1 }
+    W4CapitalLifecycleCloseCommand:
+      type: object
+      additionalProperties: false
+      required: [command_id, course_id, official_outcome_id, round_id, team_id]
+      properties:
+        command_id: { type: string, minLength: 1 }
+        course_id: { type: string, minLength: 1 }
+        official_outcome_id: { type: string, minLength: 1 }
+        round_id: { type: string, minLength: 1 }
+        team_id: { type: string, minLength: 1 }
+    W4CapitalLifecycleReasonCommand:
+      type: object
+      additionalProperties: false
+      required: [command_id, course_id, reason, round_id, team_id]
+      properties:
+        command_id: { type: string, minLength: 1 }
+        course_id: { type: string, minLength: 1 }
+        reason: { type: string, minLength: 1 }
+        round_id: { type: string, minLength: 1 }
+        team_id: { type: string, minLength: 1 }
+    W4CapitalLifecycle:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          lifecycle_id,
+          tenant_id,
+          course_id,
+          run_id,
+          team_id,
+          round_id,
+          round_no,
+          instrument,
+          status,
+          principal,
+          cost_bps,
+          fee,
+          term_rounds,
+          covenant_min_cash,
+          decision_id,
+          source_digest,
+          official_outcome_id,
+          failure_reason,
+          transition_history,
+          writer_authority
+        ]
+      properties:
+        lifecycle_id: { type: string, minLength: 1 }
+        tenant_id: { type: string, minLength: 1 }
+        course_id: { type: string, minLength: 1 }
+        run_id: { type: string, minLength: 1 }
+        team_id: { type: string, minLength: 1 }
+        round_id: { type: string, minLength: 1 }
+        round_no: { type: integer, minimum: 1 }
+        instrument: { enum: [loan, refinancing, m_and_a, abs, ipo] }
+        status: { enum: [ELIGIBLE, PROPOSED, APPROVED, EXECUTING, CLOSED, WITHDRAWN, DEFAULTED] }
+        principal: { type: number, minimum: 0 }
+        cost_bps: { type: number, minimum: 0 }
+        fee: { type: number, minimum: 0 }
+        term_rounds: { type: integer, minimum: 1 }
+        covenant_min_cash: { type: number, minimum: 0 }
+        decision_id: { type: string, minLength: 1 }
+        source_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        official_outcome_id: { type: [string, "null"] }
+        failure_reason: { type: [string, "null"] }
+        transition_history: { type: array, items: { type: object, additionalProperties: true } }
+        writer_authority: { const: SOLE_W4_ENTERPRISE_STATE_SERVICE }
     W4StateRef:
       type: object
       additionalProperties: false

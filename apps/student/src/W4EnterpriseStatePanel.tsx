@@ -74,6 +74,12 @@ function stateValueLabel(value: string | undefined, fallback = "等待中"): str
         proven: "已验证",
         not_observed: "尚未观察",
         approved: "已批准",
+        eligible: "可提案",
+        proposed: "已提案",
+        executing: "执行中",
+        closed: "已关闭",
+        withdrawn: "已撤回",
+        defaulted: "已违约",
         construction: "建设中",
         activated: "已启用"
       } as Record<string, string>
@@ -208,9 +214,7 @@ export function W4EnterpriseStatePanel({
           {statusLabel(status)}
         </strong>
       </div>
-      <p className="sw-w4-panel__description">
-        填写本回合参数，维护承诺与结果边界。
-      </p>
+      <p className="sw-w4-panel__description">填写本回合参数，维护承诺与结果边界。</p>
       {projection?.opening_state_ref ? (
         <div className="sw-w4-metric-grid">
           <div className="sw-w4-metric">
@@ -290,8 +294,8 @@ export function W4EnterpriseStatePanel({
             ))}
           </ul>
           <div>
-            组合计划成本 {projection.strategic_portfolio.constraints.total_project_cost} · 未覆盖成本{" "}
-            {projection.strategic_portfolio.constraints.unfunded_project_cost}
+            组合计划成本 {projection.strategic_portfolio.constraints.total_project_cost} ·
+            未覆盖成本 {projection.strategic_portfolio.constraints.unfunded_project_cost}
           </div>
           <div>
             正式状态仍由 {projection.strategic_portfolio.persistence.official_state_authority}{" "}
@@ -306,8 +310,8 @@ export function W4EnterpriseStatePanel({
             {projection.latest_strategic_action.admission.policy}
           </div>
           <div>
-            合并回执：{projection.latest_strategic_action.admission.merge_commit_id ?? "未确认"}{" "}
-            · 团队确认：
+            合并回执：{projection.latest_strategic_action.admission.merge_commit_id ?? "未确认"} ·
+            团队确认：
             {projection.latest_strategic_action.admission.team_confirmation_id ?? "未确认"}
           </div>
           <div>
@@ -316,8 +320,8 @@ export function W4EnterpriseStatePanel({
             {projection.latest_strategic_action.reversible ? "是" : "否"}
           </div>
           <div>
-            前置：{projection.latest_strategic_action.dependencies.join("、") || "无"} ·
-            目标：{projection.latest_strategic_action.kpi_hypothesis}
+            前置：{projection.latest_strategic_action.dependencies.join("、") || "无"} · 目标：
+            {projection.latest_strategic_action.kpi_hypothesis}
           </div>
           {projection.latest_strategic_action.known_limits.map((limit) => (
             <div key={limit}>当前限制：{limit}</div>
@@ -337,14 +341,12 @@ export function W4EnterpriseStatePanel({
       ) : null}
       <section className="sw-w4-panel__note" aria-label="组合与资金工作区">
         <strong>组合与资金工作区</strong>
-        <p>
-          学员只能查看本团队已提交的项目组合、资本动作与回合影响；正式状态仍由仿真内核结算。
-        </p>
+        <p>学员只能查看本团队已提交的项目组合、资本动作与回合影响；正式状态仍由仿真内核结算。</p>
         <ol className="sw-w4-list" aria-label="策略时间线">
           {(projection?.initiatives ?? []).map((initiative) => (
             <li key={"student-timeline-" + initiative.initiative_id}>
-              {initiative.project?.project_name ?? "战略项目"} · {stateValueLabel(initiative.status)} ·{" "}
-              {initiative.current_milestone}
+              {initiative.project?.project_name ?? "战略项目"} ·{" "}
+              {stateValueLabel(initiative.status)} · {initiative.current_milestone}
             </li>
           ))}
           {(projection?.effects ?? []).map((effect) => (
@@ -366,6 +368,24 @@ export function W4EnterpriseStatePanel({
         ) : (
           <p>本团队尚无资本动作记录。</p>
         )}
+        <section aria-label="受治理资本生命周期">
+          <strong>受治理资本生命周期</strong>
+          {(projection?.capital_lifecycles ?? []).length ? (
+            <ul className="sw-w4-list">
+              {projection?.capital_lifecycles.map((lifecycle) => (
+                <li key={lifecycle.lifecycle_id}>
+                  {lifecycle.instrument} · {stateValueLabel(lifecycle.status)} · 本金{" "}
+                  {lifecycle.principal} · {lifecycle.transition_history.length} 次状态迁移
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>本团队尚无受治理资本生命周期记录。</p>
+          )}
+          <p>
+            仅展示已绑定本回合、已通过治理路径的候选；正式现金、结算与结果仍由现有仿真内核负责。
+          </p>
+        </section>
       </section>
       <fieldset className="sw-w4-form" disabled={busy || !token || !runId || !roundNo || !teamId}>
         <legend className="sw-w4-form__legend">新建战略项目</legend>
