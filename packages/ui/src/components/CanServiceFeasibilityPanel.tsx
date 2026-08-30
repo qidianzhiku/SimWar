@@ -15,6 +15,7 @@ export interface CanServiceFeasibilityPanelProps {
   surface: CanServiceFeasibilitySurface;
   tenantId: string;
   token: string;
+  enabled?: boolean;
 }
 
 function statusOf(response: CanServiceFeasibilityResponse): string {
@@ -72,7 +73,7 @@ export function CanServiceFeasibilityPanel(props: CanServiceFeasibilityPanelProp
   const [response, setResponse] = useState<CanServiceFeasibilityResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);
-  const exact = Boolean(
+  const exactContext = Boolean(
     props.apiBase &&
     props.courseId &&
     props.draftId &&
@@ -81,6 +82,7 @@ export function CanServiceFeasibilityPanel(props: CanServiceFeasibilityPanelProp
     props.token &&
     props.roundNo !== undefined
   );
+  const exact = exactContext && props.enabled !== false;
 
   useEffect(() => {
     let active = true;
@@ -113,7 +115,8 @@ export function CanServiceFeasibilityPanel(props: CanServiceFeasibilityPanelProp
     props.runId,
     props.surface,
     props.tenantId,
-    props.token
+    props.token,
+    props.enabled
   ]);
 
   const constraints =
@@ -145,7 +148,12 @@ export function CanServiceFeasibilityPanel(props: CanServiceFeasibilityPanelProp
           {error}
         </p>
       ) : null}
-      {!exact ? <p className="lifecycle-status">需要 exact draft / run / round 上下文</p> : null}
+      {!exactContext ? (
+        <p className="lifecycle-status">需要 exact draft / run / round 上下文</p>
+      ) : null}
+      {exactContext && !exact ? (
+        <p className="lifecycle-status">等待当前 Run 的 W5 exact binding</p>
+      ) : null}
       {exact && unavailable ? (
         <p className="lifecycle-status" role="status">
           当前 exact 上下文没有可用的 R1 CAN 候选绑定。

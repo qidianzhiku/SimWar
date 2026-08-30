@@ -9,7 +9,7 @@ import type {
 interface Props {
   apiBase: string;
   courseId?: string | null | undefined;
-  onDraftChange?: (draftId: string | null) => void;
+  onDraftChange?: (draftId: string | null, draft: W5ScenarioDraft | null) => void;
   roundNo?: number | undefined;
   runId?: string | null | undefined;
   tenantId: string;
@@ -101,7 +101,7 @@ export function W5GovernedModelStudio({
     if (!courseId || !token) {
       setProjection(null);
       setSelectedDraftId(null);
-      onDraftChange?.(null);
+      onDraftChange?.(null, null);
       setNotice("需要课程和教师登录上下文");
       return;
     }
@@ -134,8 +134,10 @@ export function W5GovernedModelStudio({
   }, [courseId, roundNo, runId, selectedDraftId]);
 
   useEffect(() => {
-    onDraftChange?.(selectedDraftId);
-  }, [onDraftChange, selectedDraftId]);
+    const selectedDraft =
+      projection?.drafts.find((candidate) => candidate.draft_id === selectedDraftId) ?? null;
+    onDraftChange?.(selectedDraftId, selectedDraft);
+  }, [onDraftChange, projection, selectedDraftId]);
 
   const draft = useMemo(
     () => projection?.drafts.find((candidate) => candidate.draft_id === selectedDraftId) ?? null,

@@ -41,7 +41,8 @@ import type {
   TeacherFormalCourseBindingPreviewDto,
   TeacherFormalScenarioPackageCatalogCandidateDto,
   TeacherFormalScenarioPackageCatalogDto,
-  W3OfficialConsequenceContext
+  W3OfficialConsequenceContext,
+  W5ScenarioDraft
 } from "@simwar/shared-contracts";
 import {
   ScenarioReadinessRequestError,
@@ -623,7 +624,7 @@ export function App() {
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null);
-  const [selectedShanghaiDraftId, setSelectedShanghaiDraftId] = useState<string | null>(null);
+  const [selectedShanghaiDraft, setSelectedShanghaiDraft] = useState<W5ScenarioDraft | null>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [busy, setBusy] = useState(false);
@@ -1553,7 +1554,7 @@ export function App() {
   }, [session]);
 
   useEffect(() => {
-    setSelectedShanghaiDraftId(null);
+    setSelectedShanghaiDraft(null);
   }, [selectedCourseId, selectedRunId, selectedRoundId]);
 
   useEffect(() => {
@@ -2428,7 +2429,7 @@ export function App() {
             <W5GovernedModelStudio
               apiBase={API_BASE}
               courseId={selectedRun?.course_id ?? selectedCourseId}
-              onDraftChange={setSelectedShanghaiDraftId}
+              onDraftChange={(_draftId, draft) => setSelectedShanghaiDraft(draft)}
               runId={selectedRun?.run_id ?? selectedRunId}
               roundNo={selectedRound?.round_no}
               tenantId={login.tenantId}
@@ -2447,7 +2448,7 @@ export function App() {
             <ShanghaiFullVerticalTeacherPanel
               apiBase={API_BASE}
               courseId={selectedRun?.course_id ?? selectedCourseId}
-              draftId={selectedShanghaiDraftId}
+              draftId={selectedShanghaiDraft?.draft_id}
               roundNo={selectedRound?.round_no}
               runId={selectedRun?.run_id ?? selectedRunId}
               tenantId={login.tenantId}
@@ -2456,13 +2457,18 @@ export function App() {
             <CanServiceFeasibilityPanel
               apiBase={API_BASE}
               courseId={selectedRun?.course_id ?? selectedCourseId}
-              draftId={selectedShanghaiDraftId}
+              draftId={selectedShanghaiDraft?.draft_id}
               roundId={selectedRound?.round_id}
               roundNo={selectedRound?.round_no}
               runId={selectedRun?.run_id ?? selectedRunId}
               surface="teacher"
               tenantId={login.tenantId}
               token={session.access_token}
+              enabled={
+                selectedShanghaiDraft?.status === "BOUND" &&
+                selectedShanghaiDraft.exact_runtime_binding?.run_id === selectedRun?.run_id &&
+                selectedShanghaiDraft.exact_runtime_binding?.round_no === selectedRound?.round_no
+              }
             />
             {O4_ENABLED && selectedRun ? (
               <O4CrossRoundDynamicsPanel
