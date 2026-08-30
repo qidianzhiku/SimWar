@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { cleanupPlaywrightStore } from "./store-isolation";
 
@@ -20,18 +21,34 @@ async function login(
   await page.getByRole("button", { name: label }).click();
 }
 
+async function expectNoBlockingA11yViolations(page: Page, selector: string): Promise<void> {
+  const results = await new AxeBuilder({ page }).include(selector).analyze();
+  const blocking = results.violations.filter((violation) =>
+    ["serious", "critical"].includes(violation.impact ?? "")
+  );
+  expect(blocking, `${selector} has serious or critical accessibility violations`).toEqual([]);
+}
+
 test("RT-O1 completes a real-BFF Teacher to Student to Admin journey", async ({ page }) => {
   await login(page, teacherBaseUrl, "teacher", "教师登录");
   const teacherPanel = page.getByRole("region", {
     name: "Teacher governed regional transfer workbench"
   });
   await expect(teacherPanel).toBeVisible();
+  await expectNoBlockingA11yViolations(
+    page,
+    '[aria-label="Teacher governed regional transfer workbench"]'
+  );
   await teacherPanel.getByRole("button", { name: "读取精确来源" }).click();
   await expect(teacherPanel.getByText("Shanghai → Suzhou", { exact: true })).toBeVisible();
   await expect(teacherPanel.getByText("状态：READY", { exact: true })).toBeVisible();
 
   await teacherPanel.getByRole("button", { name: "预览候选" }).click();
   await expect(teacherPanel.getByText("PREVIEWED", { exact: true })).toBeVisible();
+  await expect(
+    teacherPanel.getByText("模型迁移资格：REQUALIFICATION_REQUIRED", { exact: true })
+  ).toBeVisible();
+  await expect(teacherPanel.getByText(/Reality Gap：未证明 · OOD：未证明/u)).toBeVisible();
   await teacherPanel.getByRole("button", { name: "校验候选" }).click();
   await expect(teacherPanel.getByText("VALIDATED", { exact: true })).toBeVisible();
   await teacherPanel.getByRole("button", { name: "冻结候选" }).click();
@@ -59,6 +76,7 @@ test("RT-O1 completes a real-BFF Teacher to Student to Admin journey", async ({ 
   await expect(studentPanel.getByText("状态：ACTIVATED", { exact: true })).toBeVisible();
   await expect(studentPanel.getByText("目标区域：Suzhou", { exact: true })).toBeVisible();
   await expect(studentPanel.getByText("published · role-safe", { exact: true })).toBeVisible();
+  await expectNoBlockingA11yViolations(page, '[aria-label="Student regional transfer projection"]');
 
   await login(page, adminBaseUrl, "admin", "管理员登录");
   const adminPanel = page.getByRole("region", { name: "Admin regional transfer audit" });
@@ -68,4 +86,11 @@ test("RT-O1 completes a real-BFF Teacher to Student to Admin journey", async ({ 
   await expect(adminPanel.getByText("ACTIVATED", { exact: true })).toBeVisible();
   await expect(adminPanel.getByText(/PREVIEWED → VALIDATED → FROZEN → ACTIVATED/u)).toBeVisible();
   await expect(adminPanel.getByText(/SAFE_DRY_RUN_CANDIDATE/u)).toBeVisible();
+  await expect(
+    adminPanel.getByText("模型迁移资格：REQUALIFICATION_REQUIRED", { exact: true })
+  ).toBeVisible();
+  await expect(
+    adminPanel.getByText(/Reality Gap\/OOD：NOT_PROVEN · transfer=CANDIDATE_ONLY/u)
+  ).toBeVisible();
+  await expectNoBlockingA11yViolations(page, '[aria-label="Admin regional transfer audit"]');
 });
