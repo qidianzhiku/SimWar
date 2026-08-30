@@ -390,6 +390,7 @@ export function isCourseFactoryMetadataForTenant(
   }
 
   const sourceReference = provenance.source_course_package_reference;
+  if (provenance.kind === "ORIGINAL" && sourceReference !== undefined) return false;
   return (
     sourceReference === undefined ||
     (isRecord(sourceReference) &&

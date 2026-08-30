@@ -65,7 +65,13 @@
                 "version": { "$ref": "#/$defs/exact_version" }
               }
             }
-          }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "kind": { "const": "ORIGINAL" } } },
+              "then": { "properties": { "source_course_package_reference": false } }
+            }
+          ]
         },
         "rights": {
           "type": "object",

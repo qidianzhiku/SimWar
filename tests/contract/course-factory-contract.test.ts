@@ -129,6 +129,15 @@ describe("Course Factory contract", () => {
       version: "1.0.0"
     };
     expect(validate(paddedModelVersionCandidate)).toBe(true);
+
+    const originalLineageCandidate = structuredClone(draft());
+    originalLineageCandidate.factory_metadata.provenance.source_course_package_reference = {
+      content_digest: "a".repeat(64),
+      course_package_id: "source_course",
+      tenant_id: "tenant_demo",
+      version: "1.0.0"
+    };
+    expect(validate(originalLineageCandidate)).toBe(false);
   });
 
   it("binds all factory routes to exact request and response contracts", () => {

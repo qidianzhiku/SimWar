@@ -156,6 +156,33 @@ describe("R3 CourseFactoryService", () => {
     ).toThrow(new CoursePackageRegistryError("COURSE_PACKAGE_INPUT_INVALID"));
   });
 
+  it("rejects ORIGINAL metadata that carries source lineage at the persistence boundary", () => {
+    const originalWithLineage = {
+      ...packageDraft,
+      factory_metadata: {
+        ...factoryDraft().factory_metadata,
+        provenance: {
+          kind: "ORIGINAL",
+          source_course_package_reference: {
+            content_digest: digest("a"),
+            course_package_id: "source_course",
+            tenant_id: tenantId,
+            version: "1.0.0"
+          }
+        }
+      }
+    } as unknown as CoursePackageVersionDraftInput;
+
+    expect(() =>
+      createCoursePackageDraftVersion({
+        actor_id: "usr_admin",
+        draft: originalWithLineage,
+        now: "2026-08-30T10:00:00.000Z",
+        tenant_id: tenantId
+      })
+    ).toThrow(new CoursePackageRegistryError("COURSE_PACKAGE_INPUT_INVALID"));
+  });
+
   it("rejects malformed factory metadata at the delivery boundary", () => {
     expect(
       isDeliveryReadyCoursePackage({
