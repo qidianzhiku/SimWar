@@ -54,7 +54,6 @@ import {
   AllowedActionButton,
   AppShell,
   AuthorityBadge,
-  CanServiceFeasibilityPanel,
   ContextBar,
   KnownLimitBanner,
   RoleNavigation,
@@ -63,6 +62,11 @@ import {
 } from "@simwar/ui";
 
 const O4CrossRoundDynamicsFeature = lazy(() => import("./O4"));
+const CanServiceFeasibilityPanel = lazy(() =>
+  import("@simwar/ui/can-service-feasibility-panel").then(({ default: Component }) => ({
+    default: Component
+  }))
+);
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const GSI_CANDIDATE_ID =
   typeof window === "undefined"

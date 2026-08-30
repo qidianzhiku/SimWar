@@ -39,7 +39,7 @@ const RegionalTransferAdminWorkbench = lazy(() =>
     })
   )
 );
-import { AuthorityBadge, CanServiceFeasibilityPanel } from "@simwar/ui";
+import { AuthorityBadge } from "@simwar/ui";
 import {
   AdminDeliveryTrustWorkspace,
   AdminEnvironmentRecoveryLimit,
@@ -65,6 +65,11 @@ const ExecutiveStrategyLabAuditPanel = lazy(() =>
 const ShanghaiFullVerticalAdminPanel = lazy(() => import("./ShanghaiFullVerticalPanel"));
 
 const O4CrossRoundDynamicsPanel = lazy(() => import("@simwar/ui/o4-cross-round-dynamics-panel"));
+const CanServiceFeasibilityPanel = lazy(() =>
+  import("@simwar/ui/can-service-feasibility-panel").then(({ default: Component }) => ({
+    default: Component
+  }))
+);
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const O4_ENABLED =
