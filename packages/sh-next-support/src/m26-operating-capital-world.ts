@@ -136,6 +136,17 @@ function requiredFeature(features: M25FeatureCandidate[], id: string): M25Featur
   return item;
 }
 
+function featurePayloadMatchesAsset(assetItem: M26OperatingCapitalAsset, feature: M25FeatureCandidate): boolean {
+  return (
+    typeof feature.value === "number" &&
+    assetItem.value === feature.value &&
+    assetItem.unit === feature.unit &&
+    JSON.stringify(assetItem.bounds) === JSON.stringify(feature.range) &&
+    assetItem.temporal_scope === feature.temporal_scope &&
+    assetItem.geography === feature.geography
+  );
+}
+
 export function buildM26SourceBoundOperatingCapitalWorldPack(): M26SourceBoundOperatingCapitalWorldPack {
   const m25 = buildM25PublicSourceRealityEvidenceEpochPack();
   const epoch_digest = m25.source_epoch.epoch_digest;
@@ -268,16 +279,20 @@ export function validateM26SourceBoundOperatingCapitalWorldPack(
   if (pack.evidence_epoch_ref.source_epoch_base_sha !== M26_SOURCE_MASTER_SHA)
     issues.push("source_epoch_base_mismatch");
   const featureIds = new Set(m25.features.map((item) => item.feature_id));
+  const assetIds = new Set(pack.assets.map((item) => item.asset_id));
   for (const item of pack.assets) {
     if (digestWithout(item, "asset_digest") !== item.asset_digest) issues.push("asset_digest_mismatch");
     if (item.source_reality_class !== "PUBLIC_SOURCE_BOUND") issues.push("asset_reality_class_invalid");
     if (!featureIds.has(item.derived_from_feature_id)) issues.push("asset_feature_missing");
     if (item.hidden_manual_number) issues.push("hidden_manual_number_forbidden");
     if (item.evidence_epoch_digest !== m25.source_epoch.epoch_digest) issues.push("asset_epoch_mismatch");
+    const feature = m25.features.find((candidate) => candidate.feature_id === item.derived_from_feature_id);
+    if (!feature || !featurePayloadMatchesAsset(item, feature)) issues.push("asset_source_feature_mismatch");
   }
   for (const item of pack.stress_corridors) {
     if (digestWithout(item, "corridor_digest") !== item.corridor_digest) issues.push("corridor_digest_mismatch");
     if (item.no_hidden_loop !== true || item.capital_status !== "NOT_COMPUTABLE") issues.push("hidden_loop_or_capital_status_invalid");
+    if (item.asset_ids.some((assetId) => !assetIds.has(assetId))) issues.push("corridor_asset_reference_invalid");
   }
   if (!pack.no_hidden_fallback) issues.push("hidden_fallback_forbidden");
   if (pack.finance.status !== "NOT_COMPUTABLE" || pack.finance.input_feature_ids.length !== 0)
@@ -286,6 +301,14 @@ export function validateM26SourceBoundOperatingCapitalWorldPack(
   if (!pack.double_count_guard.pass) issues.push("double_count_guard_failed");
   if (Object.values(pack.double_count_guard.source_feature_uses).some((count) => count !== 1))
     issues.push("feature_double_count_detected");
+  const guardFeatureIds = Object.keys(pack.double_count_guard.source_feature_uses).sort();
+  const assetFeatureIds = pack.assets.map((item) => item.derived_from_feature_id).sort();
+  const modFeatureIds = [...pack.mod_can.consumed_feature_ids].sort();
+  if (
+    JSON.stringify(guardFeatureIds) !== JSON.stringify(assetFeatureIds) ||
+    JSON.stringify(guardFeatureIds) !== JSON.stringify(modFeatureIds)
+  )
+    issues.push("feature_use_keys_mismatch");
   if (pack.mod_can.status !== "CANDIDATE_ONLY" || pack.mod_can.official_truth_write)
     issues.push("mod_can_authority_invalid");
   if (pack.recovery.why_not.every((item) => item.length === 0)) issues.push("why_not_missing");

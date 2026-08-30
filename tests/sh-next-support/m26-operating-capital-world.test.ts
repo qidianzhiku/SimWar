@@ -43,6 +43,28 @@ describe("Shanghai M26 source-bound operating and capital world", () => {
     );
   });
 
+  it("fails closed when a persisted asset, guard key, or corridor reference drifts", () => {
+    const pack = buildM26SourceBoundOperatingCapitalWorldPack();
+
+    const changedAsset = structuredClone(pack);
+    changedAsset.assets[0].unit = "unsupported-unit";
+    expect(validateM26SourceBoundOperatingCapitalWorldPack(changedAsset)).toEqual(
+      expect.arrayContaining(["asset_source_feature_mismatch"])
+    );
+
+    const changedGuard = structuredClone(pack);
+    changedGuard.double_count_guard.source_feature_uses = { "unrelated-feature": 1 };
+    expect(validateM26SourceBoundOperatingCapitalWorldPack(changedGuard)).toEqual(
+      expect.arrayContaining(["feature_use_keys_mismatch"])
+    );
+
+    const changedCorridor = structuredClone(pack);
+    changedCorridor.stress_corridors[0].asset_ids = ["missing-asset"];
+    expect(validateM26SourceBoundOperatingCapitalWorldPack(changedCorridor)).toEqual(
+      expect.arrayContaining(["corridor_asset_reference_invalid"])
+    );
+  });
+
   it("keeps role-safe explanations and formal writers closed", () => {
     const pack = buildM26SourceBoundOperatingCapitalWorldPack();
 
