@@ -199,6 +199,12 @@ const modNext6ContractFiles = [
   "contracts/fixtures/mod-next6-consumption.student-private.invalid.json"
 ];
 
+const r1CanServiceFeasibilityContractFiles = [
+  "contracts/schemas/can-service-feasibility.v1.json",
+  "contracts/fixtures/can-service-feasibility.valid.json",
+  "contracts/fixtures/can-service-feasibility.student-private.invalid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -286,6 +292,9 @@ const requiredOpenApiPaths = [
   "/api/v1/bff/teacher/shanghai/full-vertical",
   "/api/v1/bff/student/shanghai/full-vertical",
   "/api/v1/bff/admin/shanghai/full-vertical",
+  "/api/v1/bff/teacher/can/service-feasibility",
+  "/api/v1/bff/student/can/service-feasibility",
+  "/api/v1/bff/admin/can/service-feasibility",
   "/api/v1/bff/teacher/esl/strategy-lab",
   "/api/v1/bff/teacher/esl/candidates/{candidateId}",
   "/api/v1/bff/student/esl/candidates/{candidateId}",
@@ -489,6 +498,11 @@ const schemaCases = [
     schema: "contracts/schemas/mod-next6-consumption.v1.json",
     valid: ["contracts/fixtures/mod-next6-consumption.valid.json"],
     invalid: ["contracts/fixtures/mod-next6-consumption.student-private.invalid.json"]
+  },
+  {
+    schema: "contracts/schemas/can-service-feasibility.v1.json",
+    valid: ["contracts/fixtures/can-service-feasibility.valid.json"],
+    invalid: ["contracts/fixtures/can-service-feasibility.student-private.invalid.json"]
   }
 ];
 
@@ -1111,7 +1125,8 @@ export async function runContractValidation(options = {}) {
     ...shanghaiFullVerticalContractFiles,
     ...executiveStrategyLabContractFiles,
     ...shanghaiProductizationContractFiles,
-    ...modNext6ContractFiles
+    ...modNext6ContractFiles,
+    ...r1CanServiceFeasibilityContractFiles
   ]);
 
   for (const jsonPath of [
@@ -1138,7 +1153,8 @@ export async function runContractValidation(options = {}) {
     ...shanghaiFullVerticalContractFiles,
     ...executiveStrategyLabContractFiles,
     ...shanghaiProductizationContractFiles,
-    ...modNext6ContractFiles
+    ...modNext6ContractFiles,
+    ...r1CanServiceFeasibilityContractFiles
   ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }

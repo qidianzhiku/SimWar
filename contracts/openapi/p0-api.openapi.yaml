@@ -5444,6 +5444,81 @@ paths:
         "401": { description: Authentication required }
         "403": { description: Tenant administrator or platform administrator role required }
 
+  /api/v1/bff/teacher/can/service-feasibility:
+    get:
+      operationId: R1_TEACHER_CAN_SERVICE_FEASIBILITY_GET_V1
+      summary: Read the exact-bound Teacher CAN service-feasibility candidate.
+      description: Read-only candidate projection composed from exact W5 and Simulation Core inputs. It never writes official truth, settlement, score, rank, or replay truth.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: draftId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: runId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: roundId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: roundNo, in: query, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: Teacher constraint evidence and why-not candidate.
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/CanServiceFeasibilityEnvelope" } }
+            }
+        "401": { description: Authentication required }
+        "403": { description: Teacher tenant scope denied }
+        "404": { description: Exact W5 source is not ready }
+        "409": { description: Exact course/run/round context is missing or conflicting }
+
+  /api/v1/bff/student/can/service-feasibility:
+    get:
+      operationId: R1_STUDENT_CAN_SERVICE_FEASIBILITY_GET_V1
+      summary: Read the enrolled student's role-safe CAN why-not projection.
+      description: Returns only the enrolled team-safe status and bounded why-not summaries; exact binding, inputs, and source references are excluded.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: draftId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: runId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: roundId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: roundNo, in: query, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: Student role-safe why-not projection.
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/CanServiceFeasibilityEnvelope" } }
+            }
+        "401": { description: Authentication required }
+        "403": { description: Enrolled team scope denied }
+        "404": { description: Exact W5 source is not ready }
+        "409": { description: Exact course/run/round context is missing or conflicting }
+
+  /api/v1/bff/admin/can/service-feasibility:
+    get:
+      operationId: R1_ADMIN_CAN_SERVICE_FEASIBILITY_GET_V1
+      summary: Read the tenant-admin exact-input CAN feasibility audit.
+      description: Read-only admin audit projection with exact source references and explicit limits.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: draftId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: runId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: roundId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: roundNo, in: query, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: Tenant-scoped exact-input audit projection.
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/CanServiceFeasibilityEnvelope" } }
+            }
+        "401": { description: Authentication required }
+        "403": { description: Tenant-admin scope denied }
+        "404": { description: Exact W5 source is not ready }
+        "409": { description: Exact course/run/round context is missing or conflicting }
+
   /api/v1/bff/teacher/regional-transfer/selection:
     get:
       operationId: REGIONAL_TRANSFER_SELECTION_GET_V1
@@ -9403,6 +9478,15 @@ components:
       properties:
         code: { type: string }
         data: { $ref: "../schemas/w5-governed-model.v1.json#/$defs/adminProjection" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    CanServiceFeasibilityEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/can-service-feasibility.v1.json" }
         message: { type: string }
         request_id: { type: string, minLength: 1 }
     ShanghaiFullVerticalTeacherEnvelope:

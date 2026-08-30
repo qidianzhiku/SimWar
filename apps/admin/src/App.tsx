@@ -33,11 +33,13 @@ import { D5ExportWorkbench } from "./D5ExportWorkbench";
 import { TenantBaselineWorkbench } from "./TenantBaselineWorkbench";
 import { TransferResearchWorkbench } from "./features/transfer-research-workbench";
 const RegionalTransferAdminWorkbench = lazy(() =>
-  import("./features/regional-transfer-workbench").then(({ RegionalTransferAdminWorkbench: Component }) => ({
-    default: Component
-  }))
+  import("./features/regional-transfer-workbench").then(
+    ({ RegionalTransferAdminWorkbench: Component }) => ({
+      default: Component
+    })
+  )
 );
-import { AuthorityBadge } from "@simwar/ui";
+import { AuthorityBadge, CanServiceFeasibilityPanel } from "@simwar/ui";
 import {
   AdminDeliveryTrustWorkspace,
   AdminEnvironmentRecoveryLimit,
@@ -88,6 +90,12 @@ const OPERATING_WORLD_ROUND_NO =
         const value = new URLSearchParams(window.location.search).get("roundNo");
         return value ? Number(value) : undefined;
       })();
+const OPERATING_WORLD_ROUND_ID =
+  typeof window === "undefined"
+    ? ""
+    : (new URLSearchParams(window.location.search).get("roundId") ??
+      new URLSearchParams(window.location.search).get("round_id") ??
+      "");
 
 const SHANGHAI_FULL_VERTICAL_DRAFT_ID =
   typeof window === "undefined"
@@ -1192,6 +1200,7 @@ export function App() {
         W5_AUDIT_COURSE_ID &&
         SHANGHAI_FULL_VERTICAL_DRAFT_ID &&
         OPERATING_WORLD_RUN_ID &&
+        OPERATING_WORLD_ROUND_ID &&
         Number.isSafeInteger(OPERATING_WORLD_ROUND_NO) ? (
           <Suspense fallback={<p className="muted">正在载入上海全纵向产品链…</p>}>
             <ShanghaiFullVerticalAdminPanel
@@ -1200,6 +1209,17 @@ export function App() {
               draftId={SHANGHAI_FULL_VERTICAL_DRAFT_ID}
               roundNo={OPERATING_WORLD_ROUND_NO}
               runId={OPERATING_WORLD_RUN_ID}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+            <CanServiceFeasibilityPanel
+              apiBase={API_BASE}
+              courseId={W5_AUDIT_COURSE_ID}
+              draftId={SHANGHAI_FULL_VERTICAL_DRAFT_ID}
+              roundId={OPERATING_WORLD_ROUND_ID}
+              roundNo={OPERATING_WORLD_ROUND_NO}
+              runId={OPERATING_WORLD_RUN_ID}
+              surface="admin"
               tenantId={login.tenantId}
               token={session.access_token}
             />

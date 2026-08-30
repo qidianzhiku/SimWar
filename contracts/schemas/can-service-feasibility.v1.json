@@ -1,0 +1,368 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/can-service-feasibility.v1.json",
+  "title": "SimWar R1 CAN Service Feasibility",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "authority",
+    "candidate_id",
+    "known_limits",
+    "product_receipt",
+    "schema_version",
+    "source_refs",
+    "surface"
+  ],
+  "properties": {
+    "authority": { "$ref": "#/$defs/authority" },
+    "candidate": { "$ref": "#/$defs/candidate" },
+    "candidate_id": { "$ref": "#/$defs/identity" },
+    "exact_binding": { "$ref": "#/$defs/exactBinding" },
+    "known_limits": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "product_receipt": { "$ref": "#/$defs/productReceipt" },
+    "schema_version": { "const": "r1-can-service-feasibility.v1" },
+    "source_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "surface": { "enum": ["teacher", "student", "admin"] },
+    "teacher_projection": { "$ref": "#/$defs/teacherProjection" },
+    "student_projection": { "$ref": "#/$defs/studentProjection" },
+    "admin_projection": { "$ref": "#/$defs/adminProjection" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "surface": { "const": "student" } }, "required": ["surface"] },
+      "then": {
+        "required": ["student_projection"],
+        "not": {
+          "anyOf": [
+            { "required": ["candidate"], "properties": { "candidate": {} } },
+            { "required": ["exact_binding"], "properties": { "exact_binding": {} } }
+          ]
+        },
+        "properties": {
+          "candidate": {},
+          "exact_binding": {},
+          "source_refs": { "type": "array", "maxItems": 0 },
+          "student_projection": {}
+        }
+      }
+    },
+    {
+      "if": { "properties": { "surface": { "const": "teacher" } }, "required": ["surface"] },
+      "then": {
+        "required": ["candidate", "exact_binding", "teacher_projection"],
+        "properties": {
+          "candidate": {},
+          "exact_binding": {},
+          "source_refs": { "type": "array", "minItems": 1 },
+          "teacher_projection": {}
+        }
+      }
+    },
+    {
+      "if": { "properties": { "surface": { "const": "admin" } }, "required": ["surface"] },
+      "then": {
+        "required": ["admin_projection", "candidate", "exact_binding"],
+        "properties": {
+          "admin_projection": {},
+          "candidate": {},
+          "exact_binding": {},
+          "source_refs": { "type": "array", "minItems": 1 }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "identity": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9]+(?:[._:@+-][A-Za-z0-9]+)*$",
+      "not": {
+        "pattern": "(^|[._:@+-])(any|current|default|fallback|latest|next|unresolved)($|[._:@+-])"
+      }
+    },
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "parameterReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "parameter_set_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "parameter_set_id": { "$ref": "#/$defs/identity" },
+        "version": { "$ref": "#/$defs/identity" }
+      }
+    },
+    "scenarioReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "scenario_package_id", "tenant_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "scenario_package_id": { "$ref": "#/$defs/identity" },
+        "tenant_id": { "$ref": "#/$defs/identity" },
+        "version": { "$ref": "#/$defs/identity" }
+      }
+    },
+    "exactBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding_digest",
+        "course_id",
+        "model_version_ref",
+        "no_implicit_latest",
+        "parameter_set_reference",
+        "round_id",
+        "round_no",
+        "run_id",
+        "scenario_package_reference",
+        "seed",
+        "tenant_id"
+      ],
+      "properties": {
+        "binding_digest": { "$ref": "#/$defs/digest" },
+        "course_id": { "$ref": "#/$defs/identity" },
+        "model_version_ref": { "$ref": "#/$defs/identity" },
+        "no_implicit_latest": { "const": true },
+        "parameter_set_reference": { "$ref": "#/$defs/parameterReference" },
+        "round_id": { "$ref": "#/$defs/identity" },
+        "round_no": { "type": "integer", "minimum": 1 },
+        "run_id": { "$ref": "#/$defs/identity" },
+        "scenario_package_reference": { "$ref": "#/$defs/scenarioReference" },
+        "seed": { "type": "integer", "minimum": 0 },
+        "tenant_id": { "$ref": "#/$defs/identity" }
+      }
+    },
+    "numericSignal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_ref", "unit", "value"],
+      "properties": {
+        "source_ref": { "type": "string", "minLength": 1 },
+        "unit": { "enum": ["CNY", "households", "people", "service_units"] },
+        "value": { "type": "number", "minimum": 0 }
+      }
+    },
+    "booleanSignal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_ref", "value"],
+      "properties": {
+        "source_ref": { "type": "string", "minLength": 1 },
+        "value": { "type": "boolean" }
+      }
+    },
+    "domainInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding",
+        "demand_units",
+        "eligibility",
+        "minimum_service_quality_budget",
+        "minimum_workforce_units",
+        "service_quality_budget",
+        "workforce_units"
+      ],
+      "properties": {
+        "available_capacity_units": { "$ref": "#/$defs/numericSignal" },
+        "binding": { "$ref": "#/$defs/exactBinding" },
+        "demand_units": { "$ref": "#/$defs/numericSignal" },
+        "eligibility": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["licensed", "staffing_compliant"],
+          "properties": {
+            "licensed": { "$ref": "#/$defs/booleanSignal" },
+            "staffing_compliant": { "$ref": "#/$defs/booleanSignal" }
+          }
+        },
+        "minimum_service_quality_budget": { "$ref": "#/$defs/numericSignal" },
+        "minimum_workforce_units": { "$ref": "#/$defs/numericSignal" },
+        "service_quality_budget": { "$ref": "#/$defs/numericSignal" },
+        "workforce_units": { "$ref": "#/$defs/numericSignal" }
+      }
+    },
+    "constraint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["constraint_id", "explanation", "kind", "observed", "source_ref", "status"],
+      "properties": {
+        "constraint_id": { "$ref": "#/$defs/identity" },
+        "explanation": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["DEMAND", "CAPACITY", "WORKFORCE", "QUALITY", "ELIGIBILITY"] },
+        "observed": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["unit", "value"],
+          "properties": {
+            "unit": { "type": "string", "minLength": 1 },
+            "value": { "anyOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "null" }] }
+          }
+        },
+        "source_ref": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["PASS", "FAIL", "UNKNOWN"] },
+        "threshold": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["unit", "value"],
+          "properties": {
+            "unit": { "type": "string", "minLength": 1 },
+            "value": { "anyOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "null" }] }
+          }
+        }
+      }
+    },
+    "whyNot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "constraint_kind", "summary"],
+      "properties": {
+        "code": {
+          "enum": [
+            "CAPACITY_INSUFFICIENT",
+            "WORKFORCE_INSUFFICIENT",
+            "QUALITY_BUDGET_INSUFFICIENT",
+            "ELIGIBILITY_FAILED",
+            "INPUT_UNAVAILABLE"
+          ]
+        },
+        "constraint_kind": {
+          "enum": ["DEMAND", "CAPACITY", "WORKFORCE", "QUALITY", "ELIGIBILITY"]
+        },
+        "source_ref": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_writer",
+        "official_truth_write",
+        "provider_calls",
+        "replay_truth_write",
+        "settlement_write"
+      ],
+      "properties": {
+        "candidate_writer": { "const": "SIMULATION_CORE_READ_ONLY" },
+        "official_truth_write": { "const": false },
+        "provider_calls": { "const": 0 },
+        "replay_truth_write": { "const": false },
+        "settlement_write": { "const": false }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority",
+        "candidate_digest",
+        "candidate_id",
+        "constraints",
+        "exact_binding",
+        "queue",
+        "status",
+        "why_not"
+      ],
+      "properties": {
+        "authority": { "$ref": "#/$defs/authority" },
+        "candidate_digest": { "$ref": "#/$defs/digest" },
+        "candidate_id": { "$ref": "#/$defs/identity" },
+        "constraints": { "type": "array", "items": { "$ref": "#/$defs/constraint" } },
+        "exact_binding": { "$ref": "#/$defs/exactBinding" },
+        "queue": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["claim", "reason"],
+          "properties": {
+            "claim": { "const": "NOT_CLAIMED" },
+            "reason": { "const": "EXACT_QUEUE_INPUT_NOT_AVAILABLE" }
+          }
+        },
+        "status": { "enum": ["FEASIBLE", "INFEASIBLE", "UNKNOWN"] },
+        "why_not": { "type": "array", "items": { "$ref": "#/$defs/whyNot" } }
+      }
+    },
+    "teacherProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_id", "constraints", "exact_binding", "status", "surface", "why_not"],
+      "properties": {
+        "candidate_id": { "$ref": "#/$defs/identity" },
+        "constraints": { "type": "array", "items": { "$ref": "#/$defs/constraint" } },
+        "exact_binding": { "$ref": "#/$defs/exactBinding" },
+        "status": { "enum": ["FEASIBLE", "INFEASIBLE", "UNKNOWN"] },
+        "surface": { "const": "teacher" },
+        "why_not": { "type": "array", "items": { "$ref": "#/$defs/whyNot" } }
+      }
+    },
+    "studentProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_id", "excluded_fields", "role_safe", "status", "surface", "why_not"],
+      "properties": {
+        "candidate_id": { "$ref": "#/$defs/identity" },
+        "excluded_fields": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "role_safe": { "const": true },
+        "status": { "enum": ["FEASIBLE", "INFEASIBLE", "UNKNOWN"] },
+        "surface": { "const": "student" },
+        "why_not": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["code", "constraint_kind", "summary"],
+            "properties": {
+              "code": {
+                "enum": [
+                  "CAPACITY_INSUFFICIENT",
+                  "WORKFORCE_INSUFFICIENT",
+                  "QUALITY_BUDGET_INSUFFICIENT",
+                  "ELIGIBILITY_FAILED",
+                  "INPUT_UNAVAILABLE"
+                ]
+              },
+              "constraint_kind": {
+                "enum": ["DEMAND", "CAPACITY", "WORKFORCE", "QUALITY", "ELIGIBILITY"]
+              },
+              "summary": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "adminProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_id",
+        "exact_inputs",
+        "limits",
+        "no_write",
+        "source_refs",
+        "status",
+        "surface"
+      ],
+      "properties": {
+        "candidate_id": { "$ref": "#/$defs/identity" },
+        "exact_inputs": { "$ref": "#/$defs/domainInput" },
+        "limits": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "no_write": { "const": true },
+        "source_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "status": { "enum": ["FEASIBLE", "INFEASIBLE", "UNKNOWN"] },
+        "surface": { "const": "admin" }
+      }
+    },
+    "productReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exact_binding_digest", "no_write", "operation_id", "state_transition"],
+      "properties": {
+        "exact_binding_digest": { "$ref": "#/$defs/digest" },
+        "no_write": { "const": true },
+        "operation_id": { "const": "R1_CAN_SERVICE_FEASIBILITY_GET_V1" },
+        "state_transition": { "const": "STATE_A_TO_STATE_B" }
+      }
+    }
+  }
+}

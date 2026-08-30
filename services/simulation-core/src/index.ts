@@ -122,6 +122,11 @@ export {
 export { evaluateW5CoreRealization } from "./w5-governed-convergence.js";
 export type { W5CoreRealization } from "./w5-governed-convergence.js";
 export {
+  CanServiceFeasibilityError,
+  evaluateCanServiceFeasibility
+} from "./can-service-feasibility.js";
+export type { CanServiceFeasibilityDomainInput } from "@simwar/shared-contracts";
+export {
   calculateHuffSpatialWeights,
   calculateIdealLancasterFit,
   createDemandBinding,

@@ -54,6 +54,7 @@ import {
   AllowedActionButton,
   AppShell,
   AuthorityBadge,
+  CanServiceFeasibilityPanel,
   ContextBar,
   KnownLimitBanner,
   RoleNavigation,
@@ -1067,12 +1068,27 @@ export function App() {
                 tenantId={login.tenantId}
                 token={activeSession?.access_token ?? ""}
               />
+              <CanServiceFeasibilityPanel
+                apiBase={API_BASE}
+                courseId={latestRun?.course_id}
+                draftId={w5DraftId}
+                roundId={latestRound?.round_id}
+                roundNo={latestRound?.round_no}
+                runId={latestRun?.run_id}
+                surface="student"
+                tenantId={login.tenantId}
+                token={activeSession?.access_token ?? ""}
+              />
             </Suspense>
           </section>
         ) : null}
 
         {hasStudentSurface && REGIONAL_TRANSFER_CANDIDATE_ID ? (
-          <section id="student-regional-transfer" className="student-location" aria-label="区域迁移与场景演化">
+          <section
+            id="student-regional-transfer"
+            className="student-location"
+            aria-label="区域迁移与场景演化"
+          >
             <RegionalTransferProjection
               apiBase={API_BASE}
               candidateId={REGIONAL_TRANSFER_CANDIDATE_ID}
