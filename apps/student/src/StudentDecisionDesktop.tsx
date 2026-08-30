@@ -408,21 +408,48 @@ export function StudentDecisionDesktop({
                   <span>{publishedResult ? "结果已发布" : "等待结果"}</span>
                 </div>
                 {publishedResult ? (
-                  <div className="status-grid sdd-results">
-                    <div>
-                      <span>排名</span>
-                      <strong>{publishedResult.state_obs.rank}</strong>
+                  <>
+                    <div className="feedback-block runtime-note">
+                      <span>结果边界</span>
+                      <strong>
+                        服务端正式结果{" "}
+                        <span className="compatibility-copy">
+                          {cockpit?.published_result.result_label ?? "Student safe result"}
+                        </span>
+                      </strong>
+                      <p>学员视图只展示可见结果与反馈，不暴露正式真值字段。</p>
                     </div>
-                    <div>
-                      <span>分数</span>
-                      <strong>{publishedResult.state_obs.score}</strong>
+                    <div className="status-grid sdd-results">
+                      <div>
+                        <span>排名</span>
+                        <strong>{publishedResult.state_obs.rank}</strong>
+                      </div>
+                      <div>
+                        <span>分数</span>
+                        <strong>{publishedResult.state_obs.score}</strong>
+                      </div>
+                      <div>
+                        <span>利润状态</span>
+                        <strong>{publishedResult.state_obs.profit_band}</strong>
+                      </div>
+                      <div>
+                        <span>服务需求</span>
+                        <strong>{publishedResult.state_obs.served_demand}</strong>
+                      </div>
+                      <div>
+                        <span>下一轮风险</span>
+                        <strong>{publishedResult.state_est.next_round_risk}</strong>
+                      </div>
+                      <div>
+                        <span>建议关注</span>
+                        <strong>{publishedResult.state_est.recommended_focus}</strong>
+                      </div>
+                      <p>{publishedResult.state_est.explanation}</p>
                     </div>
-                    <div>
-                      <span>利润状态</span>
-                      <strong>{publishedResult.state_obs.profit_band}</strong>
-                    </div>
-                    <p>{publishedResult.state_est.explanation}</p>
-                  </div>
+                    <p className="runtime-limits">
+                      当前边界：{cockpit?.published_result.explicit_non_proof.join(" / ") ?? ""}
+                    </p>
+                  </>
                 ) : (
                   <p className="muted">正式结果发布后显示服务端可见反馈。</p>
                 )}

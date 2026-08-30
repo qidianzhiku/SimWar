@@ -29,6 +29,24 @@ const exactContext = {
   course_title: "康养企业经营"
 };
 
+const publishedResult = {
+  team_id: "team-a",
+  team_name: "A队",
+  state_obs: {
+    demand_band: "medium" as const,
+    served_demand: 105,
+    revenue: 180000,
+    profit_band: "healthy" as const,
+    score: 82,
+    rank: 1
+  },
+  state_est: {
+    next_round_risk: "cash" as const,
+    explanation: "现金缓冲保持稳定。",
+    recommended_focus: "下一轮优先检查现金缓冲。"
+  }
+};
+
 function stateInput(
   overrides: Partial<StudentDecisionDesktopStateInput> = {}
 ): StudentDecisionDesktopStateInput {
@@ -123,6 +141,39 @@ describe("StudentDecisionDesktop", () => {
     expect(markup).toContain("提交正式决策");
     expect(markup).not.toContain("state_true");
     expect(markup).not.toContain("replay_hash");
+  });
+
+  it("preserves the complete published safe feedback projection", () => {
+    const markup = renderToStaticMarkup(
+      <StudentDecisionDesktop
+        desktopState="published"
+        context={exactContext}
+        cockpit={
+          {
+            decision_form: { allowed_actions: [], editable_fields: [] },
+            student_cockpit: { visible_state: { round_status: "closed", team_name: "A队" } },
+            published_result: { explicit_non_proof: ["STUDENT_SAFE_ONLY"] },
+            learning_report: {},
+            three_part_feedback: {}
+          } as unknown as StudentBffCockpitDTO
+        }
+        decision={decision}
+        publishedResult={publishedResult}
+        busy={false}
+        canSubmit={false}
+        roleWorkflowActive={false}
+        roleWorkflowAvailability="inactive"
+        notice="结果已发布"
+        onDecisionChange={() => undefined}
+        onSubmit={() => undefined}
+      />
+    );
+
+    expect(markup).toContain("服务需求");
+    expect(markup).toContain("105");
+    expect(markup).toContain("cash");
+    expect(markup).toContain("下一轮优先检查现金缓冲。");
+    expect(markup).toContain("STUDENT_SAFE_ONLY");
   });
 
   it("renders a recovery surface without exposing the decision form while stale", () => {
