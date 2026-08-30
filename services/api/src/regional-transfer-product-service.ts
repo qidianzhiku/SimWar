@@ -115,6 +115,8 @@ const KNOWN_LIMITS = [
 ] as const;
 
 const TARGET_SOURCE_NOT_RETRIEVED = "REGIONAL_TRANSFER_TARGET_SOURCE_NOT_RETRIEVED";
+const LEGACY_PRE_N1_IDENTITY_LIMIT =
+  "Legacy pre-N1 candidate identity is preserved only after exact current-source revalidation.";
 
 function clone<T>(value: T): T {
   return structuredClone(value);
@@ -146,8 +148,8 @@ function exactVersion(value: string): boolean {
 function exactModelVersionReference(value: string): boolean {
   return (
     value.trim() === value &&
-    /^[A-Za-z0-9._:-]+@[0-9]+\.[0-9]+\.[0-9]+$/u.test(value) &&
-    !/(?:^|[._:-])(?:latest|default|current|fallback|next|unresolved)(?:$|[._:-])/iu.test(value)
+    /^[A-Za-z0-9]+(?:[._:@-][A-Za-z0-9]+)*$/u.test(value) &&
+    !/(?:^|[._:@-])(?:latest|default|current|fallback|next|unresolved)(?:$|[._:@-])/iu.test(value)
   );
 }
 
@@ -332,6 +334,32 @@ function inputFromCandidate(candidate: RegionalTransferCandidate): RegionalTrans
   };
 }
 
+function legacyCandidateDigest(candidate: RegionalTransferCandidate): string {
+  return digest({
+    baseline: candidate.baseline.package_reference,
+    baseline_region: candidate.baseline.region,
+    course_blueprint_reference: candidate.formal_references.course_blueprint_reference,
+    course_id: candidate.scope.course_id,
+    parameter_set_reference: candidate.formal_references.parameter_set_reference,
+    round_no: candidate.scope.round_no,
+    run_id: candidate.scope.run_id,
+    scenario_package_reference: candidate.formal_references.scenario_package_reference,
+    target: candidate.target.package_reference,
+    target_region: candidate.target.region,
+    consumer_team_ids: candidate.consumer_scope.team_ids
+  });
+}
+
+function hasRequalification(candidate: unknown): boolean {
+  return (
+    typeof candidate === "object" &&
+    candidate !== null &&
+    "requalification" in candidate &&
+    typeof (candidate as { requalification?: unknown }).requalification === "object" &&
+    (candidate as { requalification?: unknown }).requalification !== null
+  );
+}
+
 export class RegionalTransferProductService {
   private readonly now: () => string;
   private readonly persistence: RegionalTransferCandidatePersistencePort;
@@ -412,14 +440,28 @@ export class RegionalTransferProductService {
     if (current.lifecycle !== "FROZEN")
       throw new RegionalTransferProductError("RT_INVALID_TRANSITION");
     const revalidated = await this.build(actor, inputFromCandidate(current), "FROZEN");
-    if (
-      revalidated.candidate_ref.candidate_id !== current.candidate_ref.candidate_id ||
-      revalidated.candidate_ref.content_digest !== current.candidate_ref.content_digest
-    ) {
+    const currentIdentityMatches =
+      hasRequalification(current) &&
+      revalidated.candidate_ref.candidate_id === current.candidate_ref.candidate_id &&
+      revalidated.candidate_ref.content_digest === current.candidate_ref.content_digest;
+    const legacyDigest = legacyCandidateDigest(current);
+    const legacyIdentityMatches =
+      !hasRequalification(current) &&
+      current.candidate_ref.candidate_id === `rt_candidate_${legacyDigest.slice(0, 16)}` &&
+      current.candidate_ref.content_digest === legacyDigest;
+    if (!currentIdentityMatches && !legacyIdentityMatches) {
       throw new RegionalTransferProductError("RT_SOURCE_NOT_BINDABLE");
     }
+    const activationBase = clone(revalidated);
+    if (legacyIdentityMatches) {
+      activationBase.candidate_ref = clone(current.candidate_ref);
+      activationBase.known_limits = [
+        ...clone(revalidated.known_limits),
+        LEGACY_PRE_N1_IDENTITY_LIMIT
+      ];
+    }
     const activated: RegionalTransferCandidate = {
-      ...clone(current),
+      ...activationBase,
       activation: { published: true, status: "ACTIVATED" },
       lifecycle: "ACTIVATED"
     };
@@ -445,6 +487,12 @@ export class RegionalTransferProductService {
       },
       known_limits: clone(KNOWN_LIMITS),
       operation_id: "REGIONAL_TRANSFER_STUDENT_PROJECTION_GET_V1",
+      requalification: hasRequalification(candidate)
+        ? {
+            status: candidate.requalification.status,
+            transfer_mode: candidate.requalification.transfer_mode
+          }
+        : { status: "REQUALIFICATION_REQUIRED", transfer_mode: "CANDIDATE_ONLY" },
       status: "ACTIVATED",
       visibility: "ROLE_SAFE_STUDENT"
     };

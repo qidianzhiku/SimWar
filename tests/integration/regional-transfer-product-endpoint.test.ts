@@ -333,8 +333,12 @@ describe("Regional Transfer O1 real BFF", () => {
       expect(studentProjection.status).toBe(200);
       expect(studentProjection.body.data.visibility).toBe("ROLE_SAFE_STUDENT");
       expect(studentProjection.body.data.context.target_region).toBe("Suzhou");
-      expect(studentProjection.body.data).not.toHaveProperty("requalification");
+      expect(studentProjection.body.data.requalification).toEqual({
+        status: "REQUALIFICATION_REQUIRED",
+        transfer_mode: "CANDIDATE_ONLY"
+      });
       expect(JSON.stringify(studentProjection.body.data)).not.toContain("content_digest");
+      expect(JSON.stringify(studentProjection.body.data)).not.toContain("model_version_ref");
 
       const adminProjection = await requestJson<ApiEnvelope<RegionalTransferAdminProjection>>(
         `${baseUrl}/api/v1/bff/admin/regional-transfer/candidates/${candidateId}`,

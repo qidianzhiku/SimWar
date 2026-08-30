@@ -200,6 +200,7 @@ export interface RegionalTransferStudentProjection {
   };
   known_limits: readonly string[];
   operation_id: typeof REGIONAL_TRANSFER_OPERATION_IDS.student;
+  requalification: Pick<RegionalTransferRequalification, "status" | "transfer_mode">;
   status: "ACTIVATED";
   visibility: "ROLE_SAFE_STUDENT";
 }
