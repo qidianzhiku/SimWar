@@ -199,7 +199,7 @@
             "regime_id": "DEMAND_PRICE_DOWNSIDE",
             "shock": "需求与价格现金流下行 20%；确定性诊断。",
             "cash_flow": {
-              "amount": 200,
+              "amount": 214,
               "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
               "currency": "SIMWAR_UNITS",
@@ -207,7 +207,7 @@
               "source_refs": ["fixture:finance"]
             },
             "liquidity_headroom": {
-              "amount": 600,
+              "amount": 614,
               "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
               "currency": "SIMWAR_UNITS",
@@ -223,7 +223,7 @@
             "regime_id": "WORKFORCE_CAPACITY_PRESSURE",
             "shock": "劳动力成本/产能压力使观察现金流下调 10%；确定性诊断。",
             "cash_flow": {
-              "amount": 225,
+              "amount": 232,
               "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
               "currency": "SIMWAR_UNITS",
@@ -231,7 +231,7 @@
               "source_refs": ["fixture:finance"]
             },
             "liquidity_headroom": {
-              "amount": 625,
+              "amount": 632,
               "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
               "currency": "SIMWAR_UNITS",
@@ -470,7 +470,7 @@
             "regime_id": "DEMAND_PRICE_DOWNSIDE",
             "shock": "需求与价格现金流下行 20%；确定性诊断。",
             "cash_flow": {
-              "amount": 180,
+              "amount": 189,
               "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
               "currency": "SIMWAR_UNITS",
@@ -478,7 +478,7 @@
               "source_refs": ["fixture:finance"]
             },
             "liquidity_headroom": {
-              "amount": 580,
+              "amount": 589,
               "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
               "currency": "SIMWAR_UNITS",
@@ -494,7 +494,7 @@
             "regime_id": "WORKFORCE_CAPACITY_PRESSURE",
             "shock": "劳动力成本/产能压力使观察现金流下调 10%；确定性诊断。",
             "cash_flow": {
-              "amount": 202.5,
+              "amount": 207,
               "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
               "currency": "SIMWAR_UNITS",
@@ -502,7 +502,7 @@
               "source_refs": ["fixture:finance"]
             },
             "liquidity_headroom": {
-              "amount": 602.5,
+              "amount": 607,
               "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
               "currency": "SIMWAR_UNITS",
@@ -804,7 +804,7 @@
               "regime_id": "DEMAND_PRICE_DOWNSIDE",
               "shock": "需求与价格现金流下行 20%；确定性诊断。",
               "cash_flow": {
-                "amount": 200,
+                "amount": 214,
                 "status": "KNOWN",
                 "unit": "SIMWAR_CURRENCY",
                 "currency": "SIMWAR_UNITS",
@@ -812,7 +812,7 @@
                 "source_refs": ["fixture:finance"]
               },
               "liquidity_headroom": {
-                "amount": 600,
+                "amount": 614,
                 "status": "KNOWN",
                 "unit": "SIMWAR_CURRENCY",
                 "currency": "SIMWAR_UNITS",
@@ -828,7 +828,7 @@
               "regime_id": "WORKFORCE_CAPACITY_PRESSURE",
               "shock": "劳动力成本/产能压力使观察现金流下调 10%；确定性诊断。",
               "cash_flow": {
-                "amount": 225,
+                "amount": 232,
                 "status": "KNOWN",
                 "unit": "SIMWAR_CURRENCY",
                 "currency": "SIMWAR_UNITS",
@@ -836,7 +836,7 @@
                 "source_refs": ["fixture:finance"]
               },
               "liquidity_headroom": {
-                "amount": 625,
+                "amount": 632,
                 "status": "KNOWN",
                 "unit": "SIMWAR_CURRENCY",
                 "currency": "SIMWAR_UNITS",
@@ -1075,7 +1075,7 @@
               "regime_id": "DEMAND_PRICE_DOWNSIDE",
               "shock": "需求与价格现金流下行 20%；确定性诊断。",
               "cash_flow": {
-                "amount": 180,
+                "amount": 189,
                 "status": "KNOWN",
                 "unit": "SIMWAR_CURRENCY",
                 "currency": "SIMWAR_UNITS",
@@ -1083,7 +1083,7 @@
                 "source_refs": ["fixture:finance"]
               },
               "liquidity_headroom": {
-                "amount": 580,
+                "amount": 589,
                 "status": "KNOWN",
                 "unit": "SIMWAR_CURRENCY",
                 "currency": "SIMWAR_UNITS",
@@ -1099,7 +1099,7 @@
               "regime_id": "WORKFORCE_CAPACITY_PRESSURE",
               "shock": "劳动力成本/产能压力使观察现金流下调 10%；确定性诊断。",
               "cash_flow": {
-                "amount": 202.5,
+                "amount": 207,
                 "status": "KNOWN",
                 "unit": "SIMWAR_CURRENCY",
                 "currency": "SIMWAR_UNITS",
@@ -1107,7 +1107,7 @@
                 "source_refs": ["fixture:finance"]
               },
               "liquidity_headroom": {
-                "amount": 602.5,
+                "amount": 607,
                 "status": "KNOWN",
                 "unit": "SIMWAR_CURRENCY",
                 "currency": "SIMWAR_UNITS",

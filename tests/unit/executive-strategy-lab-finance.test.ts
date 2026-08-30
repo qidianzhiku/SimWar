@@ -240,6 +240,18 @@ describe("projectESLFinance", () => {
     expect(result.dscr.numerator.unknown_reason).toEqual(expect.any(String));
     expect(result.dscr.denominator.unknown_reason).toEqual(expect.any(String));
     expect(result.feasibility).toBe("UNKNOWN");
+    expect(result.stress_regimes[0]).toMatchObject({
+      cash_flow: { amount: null, status: "UNKNOWN" },
+      liquidity_headroom: { amount: null, status: "UNKNOWN" },
+      feasibility: "UNKNOWN",
+      binding_constraints: expect.arrayContaining(["DEMAND_SHOCK_OPERATING_BASIS_UNKNOWN"])
+    });
+    expect(result.stress_regimes[1]).toMatchObject({
+      cash_flow: { amount: null, status: "UNKNOWN" },
+      liquidity_headroom: { amount: null, status: "UNKNOWN" },
+      feasibility: "UNKNOWN",
+      binding_constraints: expect.arrayContaining(["WORKFORCE_SHOCK_OPERATING_BASIS_UNKNOWN"])
+    });
   });
 
   it("rejects accounting evidence outside the candidate scope or with a stale digest", () => {
@@ -593,15 +605,15 @@ describe("projectESLFinance", () => {
       "WORKFORCE_CAPACITY_PRESSURE",
       "FUNDING_COVENANT_PRESSURE"
     ]);
-    expect(first.stress_regimes.map((regime) => regime.cash_flow.amount)).toEqual([200, 225, 242]);
+    expect(first.stress_regimes.map((regime) => regime.cash_flow.amount)).toEqual([214, 232, 242]);
     expect(first.stress_regimes.map((regime) => regime.liquidity_headroom.amount)).toEqual([
-      600, 625, 642
+      614, 632, 642
     ]);
     expect(first.stress_regimes.every((regime) => regime.feasibility === "FEASIBLE")).toBe(true);
   });
 
   it("uses the canonical covenant constraint when a stress regime breaches minimum cash", () => {
-    const terminalState = state(650);
+    const terminalState = state(630);
     const terminalStateRef = stateRef(
       "state-close",
       stateDigest(terminalState),
@@ -609,7 +621,7 @@ describe("projectESLFinance", () => {
     );
     const result = projectESLFinance(
       input({
-        path_cash_delta: -350,
+        path_cash_delta: -370,
         terminal_state: terminalState,
         terminal_state_ref: terminalStateRef,
         terminal_state_scope: stateScope(terminalStateRef)
@@ -623,7 +635,7 @@ describe("projectESLFinance", () => {
     expect(demand).toMatchObject({
       covenant_status: "BREACHED",
       feasibility: "INFEASIBLE",
-      liquidity_headroom: { amount: -20, status: "KNOWN" },
+      liquidity_headroom: { amount: -6, status: "KNOWN" },
       binding_constraints: expect.arrayContaining(["COVENANT_MIN_CASH_BREACH"])
     });
     expect(demand?.binding_constraints).not.toContain("STRESSED_MINIMUM_CASH_BREACH");
@@ -678,7 +690,7 @@ describe("projectESLFinance", () => {
     );
 
     expect(result.stress_regimes.map((regime) => regime.cash_flow.amount)).toEqual([
-      -120, -110, -108
+      -136, -118, -108
     ]);
   });
 

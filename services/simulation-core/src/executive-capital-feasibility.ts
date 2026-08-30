@@ -428,7 +428,7 @@ function createStressRegimes(
   baseDebtService: ESLFinanceBasis,
   debtPrincipal: number | null = null,
   baseCovenant: ESLFinanceCovenantStatus = "UNKNOWN",
-  demandShockBasisAvailable = true
+  operatingShockBasisAvailable = true
 ): ESLFinanceStressRegime[] {
   const stressedCash = (amount: number | null, reason: string) =>
     basis(amount, CURRENCY_UNIT, sourceRefs, "HORIZON", reason);
@@ -450,30 +450,45 @@ function createStressRegimes(
       "ROUND"
     );
   };
-  const demandCash =
-    demandShockBasisAvailable && baseCashFlow.status === "KNOWN" && baseCashFlow.amount !== null
-      ? stressedCash(
-          scaled(baseCashFlow.amount, baseCashFlow.amount < 0 ? 1.2 : 0.8),
-          "DEMAND_PRICE_DOWNSIDE_SHOCK"
-        )
-      : stressedCash(
-          null,
-          demandShockBasisAvailable
-            ? "BASE_CASH_FLOW_UNKNOWN"
-            : "DEMAND_SHOCK_OPERATING_BASIS_UNAVAILABLE"
-        );
-  const workforceCash =
-    demandShockBasisAvailable && baseCashFlow.status === "KNOWN" && baseCashFlow.amount !== null
-      ? stressedCash(
-          scaled(baseCashFlow.amount, baseCashFlow.amount < 0 ? 1.1 : 0.9),
-          "WORKFORCE_CAPACITY_PRESSURE_SHOCK"
-        )
-      : stressedCash(
-          null,
-          demandShockBasisAvailable
-            ? "BASE_CASH_FLOW_UNKNOWN"
-            : "WORKFORCE_SHOCK_OPERATING_BASIS_UNAVAILABLE"
-        );
+  const operatingShockCash = (
+    factor: number,
+    shockReason: string,
+    unavailableReason: string
+  ) => {
+    if (
+      !operatingShockBasisAvailable ||
+      baseCashFlow.status !== "KNOWN" ||
+      baseCashFlow.amount === null ||
+      baseOperatingCashFlow.status !== "KNOWN" ||
+      baseOperatingCashFlow.amount === null ||
+      baseCashFlow.time_period !== baseOperatingCashFlow.time_period
+    ) {
+      return stressedCash(
+        null,
+        operatingShockBasisAvailable
+          ? "BASE_CASH_FLOW_OR_OPERATING_BASIS_UNKNOWN"
+          : unavailableReason
+      );
+    }
+    const shockedOperatingCashFlow = scaled(
+      baseOperatingCashFlow.amount,
+      baseOperatingCashFlow.amount < 0 ? 1 + (1 - factor) : factor
+    );
+    return stressedCash(
+      baseCashFlow.amount + shockedOperatingCashFlow - baseOperatingCashFlow.amount,
+      shockReason
+    );
+  };
+  const demandCash = operatingShockCash(
+    0.8,
+    "DEMAND_PRICE_DOWNSIDE_SHOCK",
+    "DEMAND_SHOCK_OPERATING_BASIS_UNAVAILABLE"
+  );
+  const workforceCash = operatingShockCash(
+    0.9,
+    "WORKFORCE_CAPACITY_PRESSURE_SHOCK",
+    "WORKFORCE_SHOCK_OPERATING_BASIS_UNAVAILABLE"
+  );
   const fundingAdjustment = debtPrincipal !== null ? debtPrincipal * 0.02 : null;
   const fundingCash =
     baseCashFlow.status === "KNOWN" && baseCashFlow.amount !== null && fundingAdjustment !== null
@@ -493,7 +508,7 @@ function createStressRegimes(
   ) => {
     const factor = id === "DEMAND_PRICE_DOWNSIDE" ? 0.8 : 0.9;
     if (
-      !demandShockBasisAvailable ||
+      !operatingShockBasisAvailable ||
       baseOperatingCashFlow.status !== "KNOWN" ||
       baseOperatingCashFlow.amount === null ||
       baseDebtService.status !== "KNOWN" ||
@@ -527,7 +542,7 @@ function createStressRegimes(
   ].map(({ id, shock, cash }) => {
     const operatingShockBasisUnknown =
       (id === "DEMAND_PRICE_DOWNSIDE" || id === "WORKFORCE_CAPACITY_PRESSURE") &&
-      !demandShockBasisAvailable;
+      !operatingShockBasisAvailable;
     const liquidity = operatingShockBasisUnknown
       ? basis(
           null,
@@ -978,7 +993,11 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
     debtService,
     debtPrincipal.amount,
     covenant,
-    input.capital_actions.length === 0
+    input.capital_actions.length === 0 &&
+      input.accounting_basis !== undefined &&
+      cashFlow.status === "KNOWN" &&
+      operatingCashFlow.status === "KNOWN" &&
+      cashFlow.time_period === operatingCashFlow.time_period
   );
   const whyNotFeasible =
     covenant === "BREACHED"
