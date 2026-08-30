@@ -200,14 +200,26 @@ function isNonEmptyText(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value === value.trim();
 }
 
-function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
+function hasExactKeys(value: unknown, keys: readonly string[]): boolean {
+  if (!isRecord(value)) return false;
   const actual = Object.keys(value).sort();
   const expected = [...keys].sort();
   return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
 }
 
-function hasOnlyKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
-  return Object.keys(value).every((key) => keys.includes(key));
+function hasExactKeysWithOptional(
+  value: unknown,
+  requiredKeys: readonly string[],
+  optionalKeys: readonly string[]
+): boolean {
+  if (!isRecord(value)) return false;
+  const allowedKeys = new Set([...requiredKeys, ...optionalKeys]);
+  const actualKeys = Object.keys(value);
+  return (
+    requiredKeys.every((key) => actualKeys.includes(key)) &&
+    actualKeys.every((key) => allowedKeys.has(key))
+  );
+
 }
 
 function isModelArtifactReference(value: unknown): value is ModelArtifactReference {
@@ -265,6 +277,9 @@ export function isCourseFactorySourceEvidenceReference(
       "m29_pack_digest",
       "evidence_digest"
     ]) &&
+    hasExactKeys(sourceEpoch, ["epoch_id", "epoch_digest", "source_epoch_base_sha"]) &&
+    hasExactKeys(transfer, ["transfer_id", "pack_digest", "candidate_version"]) &&
+    hasExactKeys(living, ["pack_digest", "epoch_id", "epoch_version", "expires_at"]) &&
     value.schema_version === "course-factory-source-evidence.v1" &&
     value.binding_request_id === "SH-M29-MAIN-PULL-BINDING-REQUEST" &&
     isRecord(sourceEpoch) &&
@@ -309,16 +324,22 @@ export function isCourseFactoryMetadataForTenant(
   tenantId: string
 ): value is CourseFactoryMetadata {
   if (!isRecord(value) || !isExactIdentity(tenantId)) return false;
-  const allowedMetadataKeys = new Set([
-    "known_limits",
-    "provenance",
-    "rights",
-    "schema_version",
-    "source_evidence_reference",
-    "source_manifest",
-    "user_data_policy"
-  ]);
-  if (Object.keys(value).some((key) => !allowedMetadataKeys.has(key))) return false;
+  if (
+    !hasExactKeysWithOptional(
+      value,
+      [
+        "known_limits",
+        "provenance",
+        "rights",
+        "schema_version",
+        "source_manifest",
+        "user_data_policy"
+      ],
+      ["source_evidence_reference"]
+    )
+  ) {
+    return false;
+  }
   const knownLimits = value.known_limits;
   const provenance = value.provenance;
   const rights = value.rights;
@@ -330,7 +351,7 @@ export function isCourseFactoryMetadataForTenant(
     knownLimits.length === 0 ||
     knownLimits.some((item) => typeof item !== "string" || item.trim().length === 0) ||
     !isRecord(provenance) ||
-    !hasOnlyKeys(provenance, ["kind", "source_course_package_reference"]) ||
+    !hasExactKeysWithOptional(provenance, ["kind"], ["source_course_package_reference"]) ||
     !COURSE_FACTORY_PROVENANCE_KINDS.includes(provenance.kind as CourseFactoryProvenanceKind) ||
     !isRecord(rights) ||
     !hasExactKeys(rights, [
@@ -349,14 +370,11 @@ export function isCourseFactoryMetadataForTenant(
     typeof rights.export_allowed !== "boolean" ||
     (rights.expires_at !== null && !isIsoTimestamp(rights.expires_at)) ||
     !isRecord(sourceManifest) ||
-    !hasOnlyKeys(sourceManifest, [
-      "course_blueprint_reference",
-      "model_artifact_reference",
-      "model_version_reference",
-      "parameter_set_reference",
-      "project_profile_reference",
-      "scenario_package_reference"
-    ]) ||
+    !hasExactKeysWithOptional(
+      sourceManifest,
+      ["course_blueprint_reference", "parameter_set_reference", "scenario_package_reference"],
+      ["model_artifact_reference", "model_version_reference", "project_profile_reference"]
+    ) ||
     !isTenantReference(
       sourceManifest.course_blueprint_reference,
       tenantId,

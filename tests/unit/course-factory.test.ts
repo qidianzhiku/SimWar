@@ -120,6 +120,21 @@ function factoryDraft(overrides: Partial<CourseFactoryDraftInput> = {}): CourseF
 const actor = { actor_id: "admin_demo", tenant_id: tenantId, roles: ["tenant_admin"] as const };
 
 describe("R3 CourseFactoryService", () => {
+  it("rejects unknown fields on the factory metadata container", async () => {
+    const { service } = createService();
+    const metadataWithUnknownField = {
+      ...factoryDraft().factory_metadata,
+      private_note: "must not cross the persistence boundary"
+    } as CourseFactoryDraftInput["factory_metadata"];
+
+    await expect(
+      service.createDraft(
+        actor,
+        factoryDraft({ factory_metadata: metadataWithUnknownField })
+      )
+    ).rejects.toEqual(new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID"));
+  });
+
   it("rejects source lineage on ORIGINAL drafts", async () => {
     const { service } = createService();
     await expect(
