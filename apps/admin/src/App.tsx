@@ -66,11 +66,6 @@ const ExecutiveStrategyLabAuditPanel = lazy(() =>
 const ShanghaiFullVerticalAdminPanel = lazy(() => import("./ShanghaiFullVerticalPanel"));
 
 const O4CrossRoundDynamicsPanel = lazy(() => import("@simwar/ui/o4-cross-round-dynamics-panel"));
-const CanServiceFeasibilityPanel = lazy(() =>
-  import("@simwar/ui/can-service-feasibility-panel").then(({ default: Component }) => ({
-    default: Component
-  }))
-);
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const O4_ENABLED =
@@ -1223,19 +1218,9 @@ export function App() {
               apiBase={API_BASE}
               courseId={W5_AUDIT_COURSE_ID}
               draftId={SHANGHAI_FULL_VERTICAL_DRAFT_ID}
-              roundNo={OPERATING_WORLD_ROUND_NO}
-              runId={OPERATING_WORLD_RUN_ID}
-              tenantId={login.tenantId}
-              token={session.access_token}
-            />
-            <CanServiceFeasibilityPanel
-              apiBase={API_BASE}
-              courseId={W5_AUDIT_COURSE_ID}
-              draftId={SHANGHAI_FULL_VERTICAL_DRAFT_ID}
               roundId={OPERATING_WORLD_ROUND_ID}
               roundNo={OPERATING_WORLD_ROUND_NO}
               runId={OPERATING_WORLD_RUN_ID}
-              surface="admin"
               tenantId={login.tenantId}
               token={session.access_token}
             />

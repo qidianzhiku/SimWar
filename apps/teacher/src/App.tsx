@@ -2449,6 +2449,11 @@ export function App() {
               apiBase={API_BASE}
               courseId={selectedRun?.course_id ?? selectedCourseId}
               draftId={selectedShanghaiDraft?.draft_id}
+              enabled={
+                selectedShanghaiDraft?.status === "BOUND" &&
+                selectedShanghaiDraft.exact_runtime_binding?.run_id === selectedRun?.run_id &&
+                selectedShanghaiDraft.exact_runtime_binding?.round_no === selectedRound?.round_no
+              }
               roundNo={selectedRound?.round_no}
               runId={selectedRun?.run_id ?? selectedRunId}
               tenantId={login.tenantId}

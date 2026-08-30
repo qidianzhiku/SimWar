@@ -5,6 +5,7 @@ interface Props {
   apiBase: string;
   courseId?: string | null | undefined;
   draftId?: string | null | undefined;
+  enabled?: boolean;
   roundNo?: number | undefined;
   runId?: string | null | undefined;
   tenantId: string;
@@ -39,6 +40,7 @@ export function ShanghaiFullVerticalTeacherPanel({
   apiBase,
   courseId,
   draftId,
+  enabled = true,
   roundNo,
   runId,
   tenantId,
@@ -68,6 +70,13 @@ export function ShanghaiFullVerticalTeacherPanel({
   useEffect(() => {
     let active = true;
     if (!courseId || !token) {
+      setProjection(null);
+      setError(null);
+      return () => {
+        active = false;
+      };
+    }
+    if (!enabled) {
       setProjection(null);
       setError(null);
       return () => {
@@ -117,7 +126,7 @@ export function ShanghaiFullVerticalTeacherPanel({
     return () => {
       active = false;
     };
-  }, [apiBase, courseId, roundNo, runId, selectedDraftId, tenantId, token]);
+  }, [apiBase, courseId, enabled, roundNo, runId, selectedDraftId, tenantId, token]);
 
   return (
     <section className="summary-panel" aria-label="Shanghai full vertical Teacher projection">
@@ -134,7 +143,11 @@ export function ShanghaiFullVerticalTeacherPanel({
           {error}
         </p>
       ) : null}
-      {!projection && !error ? <p className="lifecycle-status">等待 Teacher projection</p> : null}
+      {!projection && !error ? (
+        <p className="lifecycle-status">
+          {enabled ? "等待 Teacher projection" : "等待当前 Run 的 W5 exact binding"}
+        </p>
+      ) : null}
       {projection ? (
         <>
           <div className="summary-grid">

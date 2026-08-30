@@ -77,6 +77,37 @@ function LifecycleHarness() {
 }
 
 describe("Shanghai full vertical lifecycle wiring", () => {
+  it("does not request a stale draft when the current Run lacks an exact binding", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    try {
+      await act(async () => {
+        root.render(
+          <ShanghaiFullVerticalTeacherPanel
+            apiBase="http://localhost:3000"
+            courseId="course_demo"
+            draftId="w5_draft_1"
+            enabled={false}
+            roundNo={1}
+            runId="run_011"
+            tenantId="tenant_demo"
+            token="teacher-token"
+          />
+        );
+        await Promise.resolve();
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(host.textContent).toContain("等待当前 Run 的 W5 exact binding");
+    } finally {
+      await act(async () => root.unmount());
+      host.remove();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("pushes the W5 Studio draft lifecycle into the O1 preview without a reload", async () => {
     const requests: string[] = [];
     vi.stubGlobal(
