@@ -5,6 +5,7 @@ import type {
   CoursePackageVersionTeacherDto,
   CoursePackageVersionTeacherListDto
 } from "@simwar/shared-contracts";
+import { isCourseFactoryMetadataForTenant } from "@simwar/shared-contracts";
 import {
   type CoursePackageRegistryPort,
   createCoursePackageVersionReference
@@ -15,7 +16,11 @@ import {
  * CoursePackage query authority. Legacy packages still require AVAILABLE;
  * a bare PUBLISHED status is never enough to enter a delivery flow.
  */
-type DeliveryPackageLike = { factory_metadata?: unknown; status: string };
+type DeliveryPackageLike = {
+  factory_metadata?: unknown;
+  status: string;
+  tenant_id?: unknown;
+};
 
 export function isDeliveryReadyCoursePackage<T extends DeliveryPackageLike>(
   version: T | null | undefined
@@ -23,7 +28,9 @@ export function isDeliveryReadyCoursePackage<T extends DeliveryPackageLike>(
   return Boolean(
     version &&
       (version.status === "AVAILABLE" ||
-        (version.status === "PUBLISHED" && version.factory_metadata !== undefined))
+        (version.status === "PUBLISHED" &&
+          typeof version.tenant_id === "string" &&
+          isCourseFactoryMetadataForTenant(version.factory_metadata, version.tenant_id)))
   );
 }
 

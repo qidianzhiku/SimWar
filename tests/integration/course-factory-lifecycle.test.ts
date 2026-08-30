@@ -202,6 +202,21 @@ describe("Course Factory governed lifecycle", () => {
       expect(published.status).toBe(200);
       expect(published.body.data.status).toBe("PUBLISHED");
 
+      const legacyRetire = await requestJson<ApiEnvelope<CourseFactoryVersion>>(
+        baseUrl,
+        `/api/v1/admin/course-package-versions/${reference.course_package_id}/versions/${VERSION}/retire`,
+        {
+          body: {
+            content_digest: reference.content_digest,
+            course_package_id: reference.course_package_id,
+            version: reference.version
+          },
+          method: "POST",
+          token: admin.access_token
+        }
+      );
+      expect(legacyRetire.status).toBe(409);
+
       const teacherCatalog = await requestJson<
         ApiEnvelope<{ catalog: readonly CourseFactoryVersion[] }>
       >(baseUrl, "/api/v1/bff/teacher/course-factory/catalog", { token: teacher.access_token });

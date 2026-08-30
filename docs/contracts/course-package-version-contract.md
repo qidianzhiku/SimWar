@@ -19,7 +19,7 @@ The closed identity is `(tenant_id, course_package_id, version, content_digest)`
 Every dependency uses an exact id, exact version, and SHA-256 content digest;
 `latest`, wildcards, aliases, and unresolved placeholders are invalid.
 
-The legal lifecycle is:
+The baseline C5 lifecycle is:
 
 ```text
 DRAFT -> VALIDATED -> AVAILABLE -> RETIRED
@@ -53,8 +53,9 @@ are run/round/team-bound and remain on the existing canonical decision path.
 The server derives `tenant_id` and `created_by` from the authenticated request;
 client draft, clone, and import inputs cannot supply either as authoritative
 values. Admin endpoints own lifecycle commands and export. The teacher BFF lists
-only `AVAILABLE` teacher-safe projections. There is intentionally no student
-route or student DTO.
+`AVAILABLE` baseline packages and strictly validated `PUBLISHED` Course
+Factory packages as teacher-safe projections. There is intentionally no
+student route or student DTO.
 
 Stable command errors are `COURSE_PACKAGE_INPUT_INVALID`,
 `COURSE_PACKAGE_NOT_FOUND`, `COURSE_PACKAGE_TENANT_SCOPE_VIOLATION`,
@@ -86,6 +87,38 @@ server, and returns `CoursePackageVersionTeacherDto` only. The result is a new
 immutable `DRAFT` package, never a Course or Run; it cannot write a source
 lifecycle, truth, SettlementResult, Score, Rank, ParameterSet, ModelVersion,
 Replay, PostgreSQL, migration, external AI, instructor asset, or role workflow
+record.
+
+## R3 governed Course Factory extension
+
+R3 evolves the same aggregate and the same sole
+`CoursePackageCommandService` writer; it does not create a second registry,
+store, provider, or truth authority. A version carrying valid
+`factory_metadata.schema_version = course-factory.v1` follows this separate
+closed lifecycle:
+
+```text
+DRAFT -> VALIDATED -> APPROVED -> PUBLISHED -> SUPERSEDED -> RETIRED
+                                      \--------------------> RETIRED
+```
+
+The existing baseline lifecycle remains
+`DRAFT -> VALIDATED -> AVAILABLE -> RETIRED`. The legacy C5 lifecycle route
+may retire only an `AVAILABLE` baseline package. It must reject Course Factory
+versions; all factory transitions pass through `CourseFactoryService` and the
+factory-specific command methods on the same writer.
+
+`factory_metadata` is authority-bearing, not a presence flag. The shared
+runtime guard validates the exact tenant, source references, digests, rights,
+expiry timestamp, provenance and no-user-data policy at persistence, service
+and delivery boundaries. A malformed or partial metadata object cannot create
+a factory history, enter the Teacher delivery projection, or reach W025 or
+Learning Design consumption. A legacy `PUBLISHED` value without strictly
+valid factory metadata is not delivery-ready.
+
+R3 remains configuration and delivery authority only. Its factory transitions
+cannot create or mutate a Course, Run, canonical Decision, truth field,
+SettlementResult, Score, Rank, Replay input/result, provider or PostgreSQL
 record.
 
 ## Freeze receipt

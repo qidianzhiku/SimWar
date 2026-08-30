@@ -162,36 +162,36 @@ export class CoursePackageCommandService {
     return this.appendTransition(current, "AVAILABLE");
   }
 
-  async approve(
+  async approveFactory(
     actor: CoursePackageCommandActor,
     reference: CoursePackageVersionReference
   ): Promise<CoursePackageVersion> {
     const current = await this.getOwned(actor, reference);
-    if (current.status !== "VALIDATED") {
+    if (current.status !== "VALIDATED" || current.factory_metadata === undefined) {
       throw new CoursePackageCommandError("COURSE_PACKAGE_LIFECYCLE_INVALID");
     }
     await this.assertDependencies(current);
     return this.appendTransition(current, "APPROVED");
   }
 
-  async publish(
+  async publishFactory(
     actor: CoursePackageCommandActor,
     reference: CoursePackageVersionReference
   ): Promise<CoursePackageVersion> {
     const current = await this.getOwned(actor, reference);
-    if (current.status !== "APPROVED") {
+    if (current.status !== "APPROVED" || current.factory_metadata === undefined) {
       throw new CoursePackageCommandError("COURSE_PACKAGE_LIFECYCLE_INVALID");
     }
     await this.assertDependencies(current);
     return this.appendTransition(current, "PUBLISHED");
   }
 
-  async supersede(
+  async supersedeFactory(
     actor: CoursePackageCommandActor,
     reference: CoursePackageVersionReference
   ): Promise<CoursePackageVersion> {
     const current = await this.getOwned(actor, reference);
-    if (current.status !== "PUBLISHED") {
+    if (current.status !== "PUBLISHED" || current.factory_metadata === undefined) {
       throw new CoursePackageCommandError("COURSE_PACKAGE_LIFECYCLE_INVALID");
     }
     return this.appendTransition(current, "SUPERSEDED");
@@ -202,10 +202,20 @@ export class CoursePackageCommandService {
     reference: CoursePackageVersionReference
   ): Promise<CoursePackageVersion> {
     const current = await this.getOwned(actor, reference);
+    if (current.status !== "AVAILABLE" || current.factory_metadata !== undefined) {
+      throw new CoursePackageCommandError("COURSE_PACKAGE_LIFECYCLE_INVALID");
+    }
+    return this.appendTransition(current, "RETIRED");
+  }
+
+  async retireFactory(
+    actor: CoursePackageCommandActor,
+    reference: CoursePackageVersionReference
+  ): Promise<CoursePackageVersion> {
+    const current = await this.getOwned(actor, reference);
     if (
-      current.status !== "AVAILABLE" &&
-      current.status !== "PUBLISHED" &&
-      current.status !== "SUPERSEDED"
+      (current.status !== "PUBLISHED" && current.status !== "SUPERSEDED") ||
+      current.factory_metadata === undefined
     ) {
       throw new CoursePackageCommandError("COURSE_PACKAGE_LIFECYCLE_INVALID");
     }

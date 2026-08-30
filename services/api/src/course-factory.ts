@@ -14,8 +14,7 @@ import type {
 } from "@simwar/shared-contracts";
 import {
   COURSE_FACTORY_LIFECYCLE_STATES,
-  COURSE_FACTORY_PROVENANCE_KINDS,
-  COURSE_FACTORY_SCHEMA_VERSION
+  isCourseFactoryMetadataForTenant
 } from "@simwar/shared-contracts";
 import type { SimWarStore } from "./store.js";
 import {
@@ -71,34 +70,9 @@ function digest(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value), "utf8").digest("hex");
 }
 
-function isExactDigest(value: unknown): value is string {
-  return typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
-}
-
-function isExactIdentity(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.length > 0 &&
-    value === value.trim() &&
-    /^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$/.test(value) &&
-    !/(?:^|[._:-])(?:any|current|default|fallback|latest|next|unresolved)(?:$|[._:-])/i.test(value)
-  );
-}
-
-function isExactVersion(value: unknown): value is string {
-  return isExactIdentity(value) && !/(?:^|[._:-])[xX*](?:$|[._:-])/.test(value);
-}
-
-function isIsoTimestamp(value: string): boolean {
-  return (
-    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value) &&
-    Number.isFinite(Date.parse(value))
-  );
-}
-
 function isFactoryVersion(value: CoursePackageVersion): value is CourseFactoryVersion {
   return (
-    value.factory_metadata !== undefined &&
+    isCourseFactoryMetadataForTenant(value.factory_metadata, value.tenant_id) &&
     (COURSE_FACTORY_LIFECYCLE_STATES as readonly string[]).includes(value.status)
   );
 }
@@ -164,44 +138,7 @@ function sameParameterReference(
 }
 
 function assertMetadata(versionTenantId: string, metadata: CourseFactoryMetadata): void {
-  if (
-    metadata.schema_version !== COURSE_FACTORY_SCHEMA_VERSION ||
-    !isExactIdentity(metadata.rights.owner_tenant_id) ||
-    metadata.rights.owner_tenant_id !== versionTenantId ||
-    metadata.rights.allowed_tenant_ids.length === 0 ||
-    metadata.rights.allowed_tenant_ids.some((tenantId) => !isExactIdentity(tenantId)) ||
-    !metadata.rights.allowed_tenant_ids.includes(versionTenantId) ||
-    typeof metadata.rights.copy_allowed !== "boolean" ||
-    typeof metadata.rights.export_allowed !== "boolean" ||
-    (metadata.rights.expires_at !== null && !isIsoTimestamp(metadata.rights.expires_at)) ||
-    !COURSE_FACTORY_PROVENANCE_KINDS.includes(metadata.provenance.kind) ||
-    (metadata.provenance.source_course_package_reference !== undefined &&
-      (!isExactIdentity(metadata.provenance.source_course_package_reference.tenant_id) ||
-        !isExactIdentity(metadata.provenance.source_course_package_reference.course_package_id) ||
-        !isExactVersion(metadata.provenance.source_course_package_reference.version) ||
-        !isExactDigest(metadata.provenance.source_course_package_reference.content_digest)))
-  ) {
-    throw new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID");
-  }
-
-  const manifest = metadata.source_manifest;
-  if (
-    manifest.course_blueprint_reference.tenant_id !== versionTenantId ||
-    manifest.scenario_package_reference.tenant_id !== versionTenantId ||
-    !isExactDigest(manifest.course_blueprint_reference.content_digest) ||
-    !isExactDigest(manifest.scenario_package_reference.content_digest) ||
-    !isExactDigest(manifest.parameter_set_reference.content_digest) ||
-    manifest.parameter_set_reference.parameter_set_id.length === 0 ||
-    !isExactVersion(manifest.parameter_set_reference.version)
-  ) {
-    throw new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID");
-  }
-
-  if (
-    metadata.user_data_policy.copied_private_data !== false ||
-    metadata.user_data_policy.copied_user_decisions !== false ||
-    metadata.user_data_policy.copied_user_results !== false
-  ) {
+  if (!isCourseFactoryMetadataForTenant(metadata, versionTenantId)) {
     throw new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID");
   }
 }
@@ -352,7 +289,7 @@ export class CourseFactoryService {
     if (current.status !== "VALIDATED")
       throw new CourseFactoryError("COURSE_FACTORY_LIFECYCLE_INVALID");
     try {
-      return requireFactoryVersion(await this.packageCommands.approve(actor, reference));
+      return requireFactoryVersion(await this.packageCommands.approveFactory(actor, reference));
     } catch (error) {
       mapPackageError(error);
     }
@@ -373,7 +310,7 @@ export class CourseFactoryService {
       throw new CourseFactoryError("COURSE_FACTORY_RIGHTS_EXPIRED");
     }
     try {
-      return requireFactoryVersion(await this.packageCommands.publish(actor, reference));
+      return requireFactoryVersion(await this.packageCommands.publishFactory(actor, reference));
     } catch (error) {
       mapPackageError(error);
     }
@@ -387,7 +324,7 @@ export class CourseFactoryService {
     if (current.status !== "PUBLISHED")
       throw new CourseFactoryError("COURSE_FACTORY_LIFECYCLE_INVALID");
     try {
-      return requireFactoryVersion(await this.packageCommands.supersede(actor, reference));
+      return requireFactoryVersion(await this.packageCommands.supersedeFactory(actor, reference));
     } catch (error) {
       mapPackageError(error);
     }
@@ -402,7 +339,7 @@ export class CourseFactoryService {
       throw new CourseFactoryError("COURSE_FACTORY_LIFECYCLE_INVALID");
     }
     try {
-      return requireFactoryVersion(await this.packageCommands.retire(actor, reference));
+      return requireFactoryVersion(await this.packageCommands.retireFactory(actor, reference));
     } catch (error) {
       mapPackageError(error);
     }

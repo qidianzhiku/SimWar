@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import {
   COURSE_PACKAGE_VERSION_SCHEMA_VERSION,
   COURSE_PACKAGE_VERSION_STATUSES,
+  isCourseFactoryMetadataForTenant,
   type CoursePackageVersion,
   type CoursePackageVersionDraftInput,
   type CoursePackageVersionReference,
@@ -180,7 +181,9 @@ export function assertValidCoursePackageVersion(version: Readonly<CoursePackageV
     version.scenario_package_reference.tenant_id !== version.tenant_id ||
     !isCourseBlueprintReference(version.course_blueprint_reference) ||
     !isScenarioPackageReference(version.scenario_package_reference) ||
-    !isParameterSetReference(version.parameter_set_reference)
+    !isParameterSetReference(version.parameter_set_reference) ||
+    (version.factory_metadata !== undefined &&
+      !isCourseFactoryMetadataForTenant(version.factory_metadata, version.tenant_id))
   ) {
     throw new CoursePackageRegistryError("COURSE_PACKAGE_INPUT_INVALID");
   }

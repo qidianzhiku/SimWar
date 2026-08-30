@@ -11,10 +11,15 @@ import {
   type CoursePackageSourceReadPorts
 } from "../../services/api/src/course-package-command-service";
 import {
+  CoursePackageRegistryError,
   CoursePackageJsonRegistry,
+  createCoursePackageDraftVersion,
   createCoursePackageVersionReference
 } from "../../services/api/src/course-package-json-registry";
-import { CoursePackageQueryService } from "../../services/api/src/course-package-query-service";
+import {
+  CoursePackageQueryService,
+  isDeliveryReadyCoursePackage
+} from "../../services/api/src/course-package-query-service";
 
 const tenantId = "tenant_demo";
 const digest = (character: string) => character.repeat(64);
@@ -111,6 +116,36 @@ function factoryDraft(overrides: Partial<CourseFactoryDraftInput> = {}): CourseF
 const actor = { actor_id: "admin_demo", tenant_id: tenantId, roles: ["tenant_admin"] as const };
 
 describe("R3 CourseFactoryService", () => {
+  it("rejects malformed factory metadata at the persistence boundary", () => {
+    const malformedDraft = {
+      ...packageDraft,
+      factory_metadata: {
+        schema_version: "course-factory.v1"
+      }
+    } as unknown as CoursePackageVersionDraftInput;
+
+    expect(() =>
+      createCoursePackageDraftVersion({
+        actor_id: "usr_admin",
+        draft: malformedDraft,
+        now: "2026-08-30T10:00:00.000Z",
+        tenant_id: tenantId
+      })
+    ).toThrow(new CoursePackageRegistryError("COURSE_PACKAGE_INPUT_INVALID"));
+  });
+
+  it("rejects malformed factory metadata at the delivery boundary", () => {
+    expect(
+      isDeliveryReadyCoursePackage({
+        factory_metadata: {
+          schema_version: "course-factory.v1"
+        },
+        status: "PUBLISHED",
+        tenant_id: tenantId
+      })
+    ).toBe(false);
+  });
+
   it("runs one exact package through Draft, Validated, Approved and Published", async () => {
     const { registry, service } = createService();
 
