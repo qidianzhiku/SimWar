@@ -1,9 +1,24 @@
 import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
+import { tmpdir } from "node:os";
 import { buildM19M24DomainDepthPack, validateM19M24DomainDepthPack } from "@simwar/sh-next-support";
 
-const OUTPUT_ROOT = resolve("D:/codex/artifacts/simwar-sh-m19-m24-evidence-20260830");
+function outputRootFromArgs(argv = process.argv.slice(2), environment = process.env) {
+  let requestedRoot = environment.SIMWAR_M19_M24_EVIDENCE_ROOT ?? null;
+  for (let index = 0; index < argv.length; index += 1) {
+    if (argv[index] !== "--output") {
+      throw new Error(`Unknown argument ${argv[index]}. Use --output <path>.`);
+    }
+    const value = argv[index + 1];
+    if (!value || value.startsWith("--")) throw new Error("--output requires a value.");
+    requestedRoot = value;
+    index += 1;
+  }
+  return resolve(requestedRoot ?? join(tmpdir(), "simwar-sh-m19-m24-evidence"));
+}
+
+const OUTPUT_ROOT = outputRootFromArgs();
 
 function sha256(buffer) {
   return createHash("sha256").update(buffer).digest("hex");
@@ -119,6 +134,12 @@ const macroDetails = {
     evidence: ["SH-M24-E-DELIVERY-READINESS"]
   }
 };
+const macroChecks = Object.fromEntries(
+  ["M19", "M20", "M21", "M22", "M23", "M24"].map((macro) => [
+    macro,
+    pack.mjp.checks.find((check) => check.startsWith(`${macro} `)) ?? null
+  ])
+);
 for (const macro of ["M19", "M20", "M21", "M22", "M23", "M24"]) {
   generated.push(
     await writeJson(`evidence/${macro}/STATE-A-TO-B.json`, {
@@ -135,16 +156,7 @@ for (const macro of ["M19", "M20", "M21", "M22", "M23", "M24"]) {
     await writeJson(`evidence/${macro}/MJP.json`, {
       macro,
       status: "PASS",
-      checks: pack.mjp.checks.filter(
-        (check) =>
-          check.toLowerCase().includes(macro.toLowerCase()) ||
-          macro === "M19" ||
-          macro === "M20" ||
-          macro === "M21" ||
-          macro === "M22" ||
-          macro === "M23" ||
-          macro === "M24"
-      ),
+      checks: macroChecks[macro] ? [macroChecks[macro]] : [],
       state_b: macroDetails[macro].state_b,
       validation_issues: []
     })

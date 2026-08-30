@@ -82,12 +82,43 @@ describe("Shanghai M19-M24 domain-depth State B contract", () => {
     const sponsor = projectM19M24ForRole(pack, "enterprise_sponsor");
 
     expect(student.visibility).toBe("STUDENT_SAFE");
+    expect(
+      student.evidence.every(
+        (item) =>
+          item.evidence_id.startsWith("SH-M19-E-") ||
+          item.evidence_id === "SH-M22-E-HANGZHOU-TRANSFER"
+      )
+    ).toBe(true);
+    expect(student.evidence).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ evidence_id: "SH-M20-E-QUALIFICATION-DECISION" }),
+        expect.objectContaining({ evidence_id: "SH-M24-E-DELIVERY-READINESS" })
+      ])
+    );
     expect(student.excluded_fields).toEqual(
       expect.arrayContaining(["official_truth", "settlement", "score", "rank", "raw_model_payload"])
     );
-    expect(student.evidence.find((item) => item.unit === "months")?.value).toBeNull();
+    expect(student.evidence.some((item) => item.unit === "months")).toBe(false);
     expect(teacher.capabilities).toEqual(
       expect.arrayContaining(["configure/compare candidate domains"])
+    );
+    expect(teacher.evidence).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ evidence_id: "SH-M19-E-CASH-RUNWAY" }),
+        expect.objectContaining({ evidence_id: "SH-M22-E-HANGZHOU-TRANSFER" })
+      ])
+    );
+    expect(teacher.evidence).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ evidence_id: "SH-M20-E-QUALIFICATION-DECISION" })
+      ])
+    );
+    const admin = projectM19M24ForRole(pack, "admin");
+    expect(admin.evidence).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ evidence_id: "SH-M20-E-QUALIFICATION-DECISION" }),
+        expect.objectContaining({ evidence_id: "SH-M24-E-DELIVERY-READINESS" })
+      ])
     );
     expect(sponsor.capabilities).toEqual(
       expect.arrayContaining(["select/copy public-safe package"])

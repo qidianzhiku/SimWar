@@ -1317,6 +1317,15 @@ function roleProjection(
   pack: Omit<M19M24DomainDepthPack, "projections" | "pack_digest">,
   surface: M19M24RoleProjection["surface"]
 ): M19M24RoleProjection {
+  const evidenceVisibility: Record<
+    M19M24RoleProjection["surface"],
+    readonly CandidateVisibility[]
+  > = {
+    student: ["STUDENT_SAFE"],
+    teacher: ["STUDENT_SAFE", "TEACHER_ONLY"],
+    admin: ["STUDENT_SAFE", "TEACHER_ONLY", "INTERNAL_RESEARCH_ONLY"],
+    enterprise_sponsor: ["STUDENT_SAFE"]
+  };
   const visibility =
     surface === "student"
       ? "STUDENT_SAFE"
@@ -1342,8 +1351,9 @@ function roleProjection(
               "audit source/version/rights/expiry/qualification lineage",
               "inspect rollback and writer boundaries"
             ];
-  const safeEvidence = pack.evidence.map(
-    ({ evidence_id, status, temporal_scope, geography, unit, value, confidence }) => ({
+  const safeEvidence = pack.evidence
+    .filter(({ role_visibility }) => evidenceVisibility[surface].includes(role_visibility))
+    .map(({ evidence_id, status, temporal_scope, geography, unit, value, confidence }) => ({
       evidence_id,
       status,
       temporal_scope,
@@ -1351,8 +1361,7 @@ function roleProjection(
       unit,
       value: surface === "student" && (unit === "months" || unit === "ratio") ? null : value,
       confidence
-    })
-  );
+    }));
   return {
     surface,
     visibility,
