@@ -1,7 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { W4MatchedProjectArena, W4ProjectionBase } from "@simwar/shared-contracts";
 
 void import("@simwar/ui/w4-commercial.css");
+
+const GovernedCapitalLifecycleWorkbench = lazy(() =>
+  import("./GovernedCapitalLifecycleWorkbench").then((module) => ({
+    default: module.GovernedCapitalLifecycleWorkbench
+  }))
+);
 
 interface Props {
   token: string;
@@ -298,6 +304,23 @@ export function W4EnterpriseStateWorkbench({
             历史决策不重入：否 · 组合为 derived projection
           </div>
         </section>
+      ) : null}
+      {projection && runId && roundId && roundNo && teamId ? (
+        <Suspense fallback={<p className="sw-w4-panel__note">正在载入治理资本工作台…</p>}>
+          <GovernedCapitalLifecycleWorkbench
+            token={token}
+            tenantId={tenantId}
+            courseId={courseId}
+            runId={runId}
+            roundId={roundId}
+            roundNo={roundNo}
+            teamId={teamId}
+            latestStrategicAction={projection.latest_strategic_action}
+            capitalActions={projection.capital_actions}
+            capitalLifecycles={projection.capital_lifecycles}
+            onChanged={() => setReloadVersion((value) => value + 1)}
+          />
+        </Suspense>
       ) : null}
       <section className="sw-w4-panel__note" aria-label="教师策略工作台">
         <div>

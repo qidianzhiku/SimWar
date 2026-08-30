@@ -43,6 +43,13 @@ type Portfolio = {
       principal: number;
       effective_round_no: number;
     }>;
+    capital_lifecycles: Array<{
+      lifecycle_id: string;
+      instrument: string;
+      status: string;
+      principal: number;
+      transition_history: Array<{ status: string }>;
+    }>;
     operating_units: Array<{ operating_unit_id: string; name: string; status: string }>;
     process_information: { status: string; activity_id: string };
     outcome_information: { status: string; opening_state_ref: unknown; closing_state_ref: unknown };
@@ -179,6 +186,10 @@ export function W4EnterprisePortfolioPanel({
   const operatingUnitCount = portfolios.reduce((sum, item) => sum + item.operating_units.length, 0);
   const initiativeCount = portfolios.reduce((sum, item) => sum + item.initiatives.length, 0);
   const capitalActionCount = portfolios.reduce((sum, item) => sum + item.capital_actions.length, 0);
+  const capitalLifecycleCount = portfolios.reduce(
+    (sum, item) => sum + item.capital_lifecycles.length,
+    0
+  );
   const transactionCount = portfolios.reduce(
     (sum, item) => sum + item.project_transactions.length,
     0
@@ -222,6 +233,10 @@ export function W4EnterprisePortfolioPanel({
         <div className="sw-w4-metric">
           <span className="sw-w4-metric__label">资本动作</span>
           <strong className="sw-w4-metric__value">{capitalActionCount}</strong>
+        </div>
+        <div className="sw-w4-metric">
+          <span className="sw-w4-metric__label">治理资本生命周期</span>
+          <strong className="sw-w4-metric__value">{capitalLifecycleCount}</strong>
         </div>
         <div className="sw-w4-metric">
           <span className="sw-w4-metric__label">项目交易</span>
@@ -290,6 +305,17 @@ export function W4EnterprisePortfolioPanel({
         )}
         {capitalActionCount === 0 ? <li>暂无资本动作记录</li> : null}
       </ul>
+      <ul className="sw-w4-list" aria-label="治理资本生命周期审计">
+        {portfolios.flatMap((portfolio) =>
+          portfolio.capital_lifecycles.map((lifecycle) => (
+            <li key={portfolio.run_id + ":" + lifecycle.lifecycle_id}>
+              {portfolio.run_id} · {lifecycle.instrument} · {lifecycle.status} · 本金{" "}
+              {lifecycle.principal} · {lifecycle.transition_history.length} 次迁移 · 仅审计投影
+            </li>
+          ))
+        )}
+        {capitalLifecycleCount === 0 ? <li>暂无治理资本生命周期记录</li> : null}
+      </ul>
       <ul className="sw-w4-list" aria-label="项目交易审计">
         {portfolios.flatMap((portfolio) =>
           portfolio.project_transactions.map((transaction) => (
@@ -302,8 +328,8 @@ export function W4EnterprisePortfolioPanel({
         {transactionCount === 0 ? <li>暂无项目交易记录</li> : null}
       </ul>
       <p className="sw-w4-panel__note">
-        写入 authority：{projection?.writer_authority ?? "SOLE_W4_ENTERPRISE_STATE_SERVICE"} · 管理员侧仅审计，
-        不提供第二条真值写入路径。
+        写入 authority：{projection?.writer_authority ?? "SOLE_W4_ENTERPRISE_STATE_SERVICE"} ·
+        管理员侧仅审计， 不提供第二条真值写入路径。
       </p>
       {status === "retry" ||
       status === "dependency-missing" ||

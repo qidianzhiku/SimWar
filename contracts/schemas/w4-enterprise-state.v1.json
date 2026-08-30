@@ -8,6 +8,7 @@
   "properties": {
     "contract_version": { "const": "w4-enterprise-state.v1" },
     "outcome": { "$ref": "#/$defs/outcome" },
+    "capital_lifecycle": { "$ref": "#/$defs/capitalLifecycle" },
     "policy_seams": {
       "type": "array",
       "items": { "$ref": "#/$defs/policySeam" }
@@ -186,6 +187,73 @@
         "requires_policy_approval": { "const": true },
         "may_write_enterprise_state": { "const": false },
         "may_write_official_outcome": { "const": false }
+      }
+    },
+    "capitalLifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lifecycle_id",
+        "tenant_id",
+        "course_id",
+        "run_id",
+        "team_id",
+        "round_id",
+        "round_no",
+        "instrument",
+        "status",
+        "principal",
+        "cost_bps",
+        "fee",
+        "term_rounds",
+        "covenant_min_cash",
+        "decision_id",
+        "source_digest",
+        "official_outcome_id",
+        "failure_reason",
+        "transition_history",
+        "writer_authority"
+      ],
+      "properties": {
+        "lifecycle_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "course_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "team_id": { "type": "string", "minLength": 1 },
+        "round_id": { "type": "string", "minLength": 1 },
+        "round_no": { "type": "integer", "minimum": 1 },
+        "instrument": { "enum": ["loan", "refinancing", "m_and_a", "abs", "ipo"] },
+        "status": {
+          "enum": ["ELIGIBLE", "PROPOSED", "APPROVED", "EXECUTING", "CLOSED", "WITHDRAWN", "DEFAULTED"]
+        },
+        "principal": { "type": "number", "minimum": 0 },
+        "cost_bps": { "type": "number", "minimum": 0 },
+        "fee": { "type": "number", "minimum": 0 },
+        "term_rounds": { "type": "integer", "minimum": 1 },
+        "covenant_min_cash": { "type": "number", "minimum": 0 },
+        "decision_id": { "type": "string", "minLength": 1 },
+        "source_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "official_outcome_id": { "type": ["string", "null"] },
+        "failure_reason": { "type": ["string", "null"] },
+        "transition_history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["transition_no", "status", "actor_id", "command_id", "round_id", "round_no"],
+            "properties": {
+              "transition_no": { "type": "integer", "minimum": 1 },
+              "status": {
+                "enum": ["ELIGIBLE", "PROPOSED", "APPROVED", "EXECUTING", "CLOSED", "WITHDRAWN", "DEFAULTED"]
+              },
+              "actor_id": { "type": "string", "minLength": 1 },
+              "command_id": { "type": "string", "minLength": 1 },
+              "round_id": { "type": "string", "minLength": 1 },
+              "round_no": { "type": "integer", "minimum": 1 }
+            }
+          }
+        },
+        "writer_authority": { "const": "SOLE_W4_ENTERPRISE_STATE_SERVICE" }
       }
     }
   }
