@@ -146,9 +146,14 @@ function exactVersion(value: string): boolean {
 }
 
 function exactModelVersionReference(value: string): boolean {
+  const adapterReference = /^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*\.v(?:0|[1-9][0-9]*)$/u.test(value);
+  const semverReference =
+    /^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*@(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/u.test(
+      value
+    );
   return (
     value.trim() === value &&
-    /^[A-Za-z0-9]+(?:[._:@-][A-Za-z0-9]+)*$/u.test(value) &&
+    (adapterReference || semverReference) &&
     !/(?:^|[._:@-])(?:latest|default|current|fallback|next|unresolved)(?:$|[._:@-])/iu.test(value)
   );
 }

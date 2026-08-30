@@ -380,14 +380,30 @@ describe("RegionalTransferProductService", () => {
     );
   });
 
-  it("fails closed when the formal ParameterSet carries a floating model reference", async () => {
+  it.each([
+    "latest",
+    "default",
+    "current",
+    "fallback",
+    "next",
+    "unresolved",
+    "foo",
+    "foo@1",
+    "foo@1.2",
+    "foo@1.2.3.4",
+    "foo@01.2.3",
+    "foo@1.02.3",
+    "foo@1.2.03",
+    "foo.v01",
+    "foo@1.2.x"
+  ])("fails closed for non-exact ParameterSet model reference %s", async (modelVersionRef) => {
     const product = new RegionalTransferProductService({
       now: () => "2026-08-29T12:00:00.000Z",
       persistence: createInMemoryRegionalTransferCandidatePersistence(),
       sources: {
         ...sources(),
         getParameterSet: async () => ({
-          model_version_ref: "latest",
+          model_version_ref: modelVersionRef,
           reference: input().parameter_set_reference,
           status: "APPROVED"
         })
