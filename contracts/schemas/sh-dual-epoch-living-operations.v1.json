@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/sh-dual-epoch-living-operations.v1.json",
+  "title": "Shanghai dual-epoch living scenario operations candidate",
+  "type": "object",
+  "required": ["schema_version", "mission_id", "state_a", "state_b", "state_transition", "epoch_a", "epoch_b", "operation_log", "diff", "impact", "requalification", "rollback_candidate", "historical_resolution", "withdrawal", "revalidation", "operational_controls", "role_visibility", "consumer", "tombstone_reuse", "authority", "mjp", "methods", "efficiency", "known_limits", "pack_digest"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "sh-dual-epoch-living-operations.v1" },
+    "mission_id": { "const": "SIMWAR-SH-M28-DUAL-EPOCH-LIVING-SCENARIO-OPERATIONS" },
+    "state_a": { "$ref": "#/$defs/stateA" },
+    "state_b": { "const": "DUAL_EPOCH_LIVING_SCENARIO_OPERATIONS_EXECUTED_CANDIDATE" },
+    "state_transition": { "$ref": "#/$defs/stateTransition" },
+    "epoch_a": { "$ref": "#/$defs/epoch" },
+    "epoch_b": { "$ref": "#/$defs/epoch" },
+    "operation_log": { "type": "array", "minItems": 7, "items": { "$ref": "#/$defs/operation" } },
+    "diff": { "$ref": "#/$defs/diff" },
+    "impact": { "$ref": "#/$defs/impact" },
+    "requalification": { "$ref": "#/$defs/requalification" },
+    "rollback_candidate": { "$ref": "#/$defs/rollback" },
+    "historical_resolution": { "$ref": "#/$defs/historicalResolution" },
+    "withdrawal": { "$ref": "#/$defs/withdrawal" },
+    "revalidation": { "$ref": "#/$defs/revalidation" },
+    "operational_controls": { "$ref": "#/$defs/operationalControls" },
+    "role_visibility": { "$ref": "#/$defs/roleVisibility" },
+    "consumer": { "$ref": "#/$defs/consumer" },
+    "tombstone_reuse": { "$ref": "#/$defs/tombstoneReuse" },
+    "authority": { "$ref": "#/$defs/authority" },
+    "mjp": { "$ref": "#/$defs/mjp" },
+    "methods": { "$ref": "#/$defs/methods" },
+    "efficiency": { "$ref": "#/$defs/efficiency" },
+    "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "pack_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  },
+  "$defs": {
+    "stateA": {
+      "type": "object",
+      "required": ["name", "limitation"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "const": "SINGLE_EPOCH_STATIC_SCENARIO_WITHOUT_LIVING_OPERATIONS" },
+        "limitation": { "type": "string", "minLength": 1 }
+      }
+    },
+    "stateTransition": {
+      "type": "object",
+      "required": ["from", "to"],
+      "additionalProperties": false,
+      "properties": { "from": { "const": "STATE_A" }, "to": { "const": "STATE_B" } }
+    },
+    "epoch": {
+      "type": "object",
+      "required": ["epoch_id", "version", "status", "parent_epoch_id", "evidence_epoch_ref", "transfer_candidate_ref", "scenario_candidate_ref", "rights_status", "expires_at", "revalidation_required", "content_digest"],
+      "additionalProperties": false,
+      "properties": {
+        "epoch_id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "pattern": "^(?!latest$|default$|current$).+" },
+        "status": { "enum": ["HISTORICAL_CANDIDATE", "REFRESHED_CANDIDATE"] },
+        "parent_epoch_id": { "type": ["string", "null"] },
+        "evidence_epoch_ref": { "$ref": "#/$defs/evidenceEpochRef" },
+        "transfer_candidate_ref": { "$ref": "#/$defs/transferCandidateRef" },
+        "scenario_candidate_ref": { "$ref": "#/$defs/scenarioCandidateRef" },
+        "rights_status": { "const": "PUBLIC_REFERENCE_ONLY" },
+        "expires_at": { "type": "string", "format": "date" },
+        "revalidation_required": { "const": true },
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "evidenceEpochRef": {
+      "type": "object",
+      "required": ["epoch_id", "epoch_digest", "source_epoch_base_sha"],
+      "additionalProperties": false,
+      "properties": { "epoch_id": { "type": "string" }, "epoch_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }, "source_epoch_base_sha": { "type": "string", "pattern": "^[a-f0-9]{40}$" } }
+    },
+    "transferCandidateRef": {
+      "type": "object",
+      "required": ["transfer_id", "pack_digest", "candidate_version"],
+      "additionalProperties": false,
+      "properties": { "transfer_id": { "type": "string" }, "pack_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }, "candidate_version": { "type": "string" } }
+    },
+    "scenarioCandidateRef": {
+      "type": "object",
+      "required": ["scenario_id", "candidate_version", "formal_runtime_admitted"],
+      "additionalProperties": false,
+      "properties": { "scenario_id": { "type": "string" }, "candidate_version": { "type": "string" }, "formal_runtime_admitted": { "const": false } }
+    },
+    "operation": {
+      "type": "object",
+      "required": ["sequence", "operation", "input_refs", "rule", "assumption", "output_refs", "status", "operation_digest"],
+      "additionalProperties": false,
+      "properties": {
+        "sequence": { "type": "integer", "minimum": 1 },
+        "operation": { "enum": ["REFRESH", "DIFF", "IMPACT", "REQUALIFICATION", "ROLLBACK_CANDIDATE", "HISTORICAL_RESOLUTION", "WITHDRAW"] },
+        "input_refs": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "rule": { "type": "string", "minLength": 1 },
+        "assumption": { "type": "string", "minLength": 1 },
+        "output_refs": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "status": { "const": "RECORDED" },
+        "operation_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "diff": {
+      "type": "object",
+      "required": ["status", "from_epoch_id", "to_epoch_id", "changed_fields", "compatibility", "diff_digest"],
+      "additionalProperties": false,
+      "properties": { "status": { "const": "DIFF_RECORDED" }, "from_epoch_id": { "type": "string" }, "to_epoch_id": { "type": "string" }, "changed_fields": { "type": "array", "minItems": 1, "items": { "type": "string" } }, "compatibility": { "const": "SAME_SCHEMA_EXACT_BINDING_RECHECK_REQUIRED" }, "diff_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" } }
+    },
+    "impact": {
+      "type": "object",
+      "required": ["affected_consumers", "requalification_required", "formal_binding_eligible", "impact_digest"],
+      "additionalProperties": false,
+      "properties": { "affected_consumers": { "type": "array", "minItems": 1, "items": { "type": "string" } }, "requalification_required": { "const": true }, "formal_binding_eligible": { "const": false }, "impact_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" } }
+    },
+    "requalification": {
+      "type": "object",
+      "required": ["status", "source_status", "calibration_evidence", "calibration_eligible", "formal_binding_eligible", "result", "reason", "required_rechecks"],
+      "additionalProperties": false,
+      "properties": { "status": { "const": "LIMITED" }, "source_status": { "const": "PUBLIC_SOURCE_BOUND" }, "calibration_evidence": { "const": "NOT_PROVEN" }, "calibration_eligible": { "const": false }, "formal_binding_eligible": { "const": false }, "result": { "const": "REQUALIFICATION_REQUIRED" }, "reason": { "type": "string" }, "required_rechecks": { "type": "array", "minItems": 1, "items": { "type": "string" } } }
+    },
+    "rollback": {
+      "type": "object",
+      "required": ["candidate_epoch_id", "rollback_version", "exact_version_required", "dry_run", "executed", "resolution"],
+      "additionalProperties": false,
+      "properties": { "candidate_epoch_id": { "type": "string" }, "rollback_version": { "type": "string" }, "exact_version_required": { "const": true }, "dry_run": { "const": true }, "executed": { "const": false }, "resolution": { "const": "SAFE_DRY_RUN_CANDIDATE" } }
+    },
+    "historicalResolution": {
+      "type": "object",
+      "required": ["resolved_epoch_id", "resolved_version", "selection_rule", "resolution_status", "history_deleted"],
+      "additionalProperties": false,
+      "properties": { "resolved_epoch_id": { "type": "string" }, "resolved_version": { "type": "string" }, "selection_rule": { "const": "EXACT_EPOCH_ID_AND_VERSION_REQUIRED" }, "resolution_status": { "const": "HISTORICAL_EPOCH_RESOLVED" }, "history_deleted": { "const": false } }
+    },
+    "withdrawal": {
+      "type": "object",
+      "required": ["withdrawn_epoch_id", "withdrawal_status", "withdrawal_action", "withdrawal_is_delete", "delete_executed", "history_deleted"],
+      "additionalProperties": false,
+      "properties": { "withdrawn_epoch_id": { "type": "string" }, "withdrawal_status": { "const": "CANDIDATE_WITHDRAWN" }, "withdrawal_action": { "const": "WITHDRAW" }, "withdrawal_is_delete": { "const": false }, "delete_executed": { "const": false }, "history_deleted": { "const": false } }
+    },
+    "revalidation": {
+      "type": "object",
+      "required": ["expires_at", "exact_source_revalidation_required", "expiry_behavior", "revalidation_before_expiry", "runbook", "alerts"],
+      "additionalProperties": false,
+      "properties": { "expires_at": { "type": "string", "format": "date" }, "exact_source_revalidation_required": { "const": true }, "expiry_behavior": { "const": "REJECT_AND_RECOMPILE_EPOCH" }, "revalidation_before_expiry": { "const": true }, "runbook": { "type": "array", "minItems": 1, "items": { "type": "string" } }, "alerts": { "type": "array", "minItems": 1, "items": { "type": "string" } } }
+    },
+    "operationalControls": {
+      "type": "object",
+      "required": ["scheduler_present", "database_writer_present", "frozen_input_overwrite", "provider", "runtime_authority"],
+      "additionalProperties": false,
+      "properties": { "scheduler_present": { "const": false }, "database_writer_present": { "const": false }, "frozen_input_overwrite": { "const": false }, "provider": { "const": "OFF" }, "runtime_authority": { "const": "JSON_INTERNAL_ONLY" } }
+    },
+    "roleVisibility": {
+      "type": "object",
+      "required": ["teacher", "student", "admin", "enterprise"],
+      "additionalProperties": false,
+      "properties": {
+        "teacher": { "$ref": "#/$defs/teacherVisibility" },
+        "student": { "$ref": "#/$defs/studentVisibility" },
+        "admin": { "$ref": "#/$defs/adminVisibility" },
+        "enterprise": { "$ref": "#/$defs/enterpriseVisibility" }
+      }
+    },
+    "teacherVisibility": { "type": "object", "required": ["visibility", "fields"], "additionalProperties": false, "properties": { "visibility": { "const": "TEACHER_ONLY" }, "fields": { "type": "array", "minItems": 1, "items": { "type": "string" } } } },
+    "studentVisibility": { "type": "object", "required": ["visibility", "fields", "forbidden_fields"], "additionalProperties": false, "properties": { "visibility": { "const": "STUDENT_SAFE" }, "fields": { "type": "array", "minItems": 1, "items": { "type": "string" } }, "forbidden_fields": { "type": "array", "minItems": 1, "items": { "type": "string" } } } },
+    "adminVisibility": { "type": "object", "required": ["visibility", "fields"], "additionalProperties": false, "properties": { "visibility": { "const": "INTERNAL_RESEARCH_ONLY" }, "fields": { "type": "array", "minItems": 1, "items": { "type": "string" } } } },
+    "enterpriseVisibility": { "type": "object", "required": ["visibility", "fields", "forbidden_fields"], "additionalProperties": false, "properties": { "visibility": { "const": "RESTRICTED" }, "fields": { "type": "array", "minItems": 1, "items": { "type": "string" } }, "forbidden_fields": { "type": "array", "minItems": 1, "items": { "type": "string" } } } },
+    "consumer": { "type": "object", "required": ["status", "formal_join", "exact_binding_required", "required_consumer_action"], "additionalProperties": false, "properties": { "status": { "const": "CANDIDATE_ONLY" }, "formal_join": { "const": false }, "exact_binding_required": { "const": true }, "required_consumer_action": { "const": "MAIN_OWNS_FORMAL_BINDING_AND_WRITER" } } },
+    "tombstoneReuse": { "type": "object", "required": ["m19_m24", "reused_capabilities", "no_second_lifecycle_writer"], "additionalProperties": false, "properties": { "m19_m24": { "const": "TOMBSTONED_PROFESSIONAL_CANDIDATE_WITH_LIMITS" }, "reused_capabilities": { "type": "array", "minItems": 1, "items": { "type": "string" } }, "no_second_lifecycle_writer": { "const": true } } },
+    "authority": { "type": "object", "required": ["candidate_writer", "official_truth_write", "settlement_write", "score_write", "rank_write", "parameter_set_formal_write", "second_truth_writer", "provider", "runtime_authority"], "additionalProperties": false, "properties": { "candidate_writer": { "const": "SH_NEXT_SUPPORT_CANDIDATE_COMPILER" }, "official_truth_write": { "const": false }, "settlement_write": { "const": false }, "score_write": { "const": false }, "rank_write": { "const": false }, "parameter_set_formal_write": { "const": false }, "second_truth_writer": { "const": false }, "provider": { "const": "OFF" }, "runtime_authority": { "const": "JSON_INTERNAL_ONLY" } } },
+    "mjp": { "type": "object", "required": ["status", "operation_count", "checks"], "additionalProperties": false, "properties": { "status": { "const": "PASS" }, "operation_count": { "const": 7 }, "checks": { "type": "array", "minItems": 1, "items": { "type": "string" } } } },
+    "methods": { "type": "object", "required": ["keep", "change", "retire", "new"], "additionalProperties": false, "properties": { "keep": { "type": "array", "items": { "type": "string" } }, "change": { "type": "array", "items": { "type": "string" } }, "retire": { "type": "array", "items": { "type": "string" } }, "new": { "type": "array", "items": { "type": "string" } } } },
+    "efficiency": { "type": "object", "required": ["upstream_packs_reused", "operation_records", "manual_numeric_values", "duplicate_writers", "measured_elapsed_seconds", "measurement_status"], "additionalProperties": false, "properties": { "upstream_packs_reused": { "type": "integer", "minimum": 0 }, "operation_records": { "type": "integer", "minimum": 0 }, "manual_numeric_values": { "type": "integer", "minimum": 0 }, "duplicate_writers": { "type": "integer", "minimum": 0 }, "measured_elapsed_seconds": { "type": ["number", "null"], "minimum": 0 }, "measurement_status": { "const": "NOT_RECORDED" } } }
+  }
+}
