@@ -6,6 +6,23 @@ import { buildM30CourseFactorySourceEvidence } from "@simwar/sh-next-support";
 
 function validator(): (value: unknown) => boolean {
   const ajv = new Ajv2020({ allErrors: true, strict: false });
+  ajv.addFormat("date", {
+    type: "string",
+    validate: (value: string) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+      const parsed = new Date(`${value}T00:00:00.000Z`);
+      return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+    }
+  });
+  ajv.addFormat("date-time", {
+    type: "string",
+    validate: (value: string) => {
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)) return false;
+      const parsed = new Date(value);
+      const canonical = value.includes(".") ? value : value.replace("Z", ".000Z");
+      return Number.isFinite(parsed.getTime()) && parsed.toISOString() === canonical;
+    }
+  });
   const schema = JSON.parse(
     readFileSync(resolve("contracts/schemas/course-factory.v1.json"), "utf8")
   );
@@ -74,5 +91,17 @@ describe("M30 CourseFactory source evidence contract", () => {
     const candidate = draft();
     candidate.factory_metadata.source_evidence_reference.formal_binding_eligible = true;
     expect(validator()(candidate)).toBe(false);
+  });
+
+  it("rejects impossible source and rights dates", () => {
+    const validate = validator();
+    const sourceDate = draft();
+    sourceDate.factory_metadata.source_evidence_reference.living_operations.expires_at =
+      "2026-13-40";
+    expect(validate(sourceDate)).toBe(false);
+
+    const rightsDate = draft();
+    rightsDate.factory_metadata.rights.expires_at = "2026-13-40T00:00:00.000Z";
+    expect(validate(rightsDate)).toBe(false);
   });
 });

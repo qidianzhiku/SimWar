@@ -22,6 +22,7 @@
     },
     "timestamp": {
       "type": "string",
+      "format": "date-time",
       "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$"
     },
     "courseBlueprintReference": {
@@ -153,7 +154,11 @@
             "pack_digest": { "$ref": "#/$defs/digest" },
             "epoch_id": { "$ref": "#/$defs/identity" },
             "epoch_version": { "$ref": "#/$defs/exactVersion" },
-            "expires_at": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+            "expires_at": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
           }
         },
         "baseline_region": { "const": "Shanghai" },

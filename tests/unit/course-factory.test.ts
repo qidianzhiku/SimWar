@@ -219,7 +219,13 @@ describe("R3 CourseFactoryService", () => {
   });
 
   it("requires the student's formal run references to match the published package exactly", async () => {
-    const { service } = createService();
+    let now = "2026-08-30T10:00:00.000Z";
+    const registry = new CoursePackageJsonRegistry({ now: () => now });
+    const packages = new CoursePackageCommandService(registry, sources);
+    const service = new CourseFactoryService({
+      packageCommands: packages,
+      packageRegistry: registry
+    });
     const draft = await service.createDraft(
       actor,
       factoryDraft({
@@ -254,6 +260,9 @@ describe("R3 CourseFactoryService", () => {
         }
       })
     ).toBeUndefined();
+
+    now = "2026-12-01T00:00:00.000Z";
+    expect(await service.getStudentSourceEvidence(tenantId, exact)).toBeUndefined();
   });
 
   it("clones only an unexpired published source and preserves exact refs without user data", async () => {

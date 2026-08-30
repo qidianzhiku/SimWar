@@ -168,6 +168,33 @@ describe("Course Factory governed lifecycle", () => {
           copied_user_results: false
         }
       } as const;
+      const malformedEvidenceRequest = await requestJson<ApiEnvelope<unknown>>(
+        baseUrl,
+        "/api/v1/admin/course-factory/versions",
+        {
+          body: {
+            ...references,
+            course_package_id: "course_factory_invalid_source_date",
+            description: "Reject impossible source evidence dates.",
+            factory_metadata: {
+              ...metadata,
+              source_evidence_reference: {
+                ...metadata.source_evidence_reference,
+                living_operations: {
+                  ...metadata.source_evidence_reference.living_operations,
+                  expires_at: "2026-13-40"
+                }
+              }
+            },
+            title: "Invalid source date",
+            version: VERSION
+          },
+          method: "POST",
+          token: admin.access_token
+        }
+      );
+      expect(malformedEvidenceRequest.status).toBe(422);
+
       const created = await requestJson<ApiEnvelope<CourseFactoryVersion>>(
         baseUrl,
         "/api/v1/admin/course-factory/versions",

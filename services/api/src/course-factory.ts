@@ -168,6 +168,14 @@ function isExpired(metadata: CourseFactoryMetadata, now: string): boolean {
   );
 }
 
+function isSourceEvidenceExpired(metadata: CourseFactoryMetadata, now: string): boolean {
+  const expiresAt = metadata.source_evidence_reference?.living_operations.expires_at;
+  if (expiresAt === undefined) return false;
+  const expiryTime = Date.parse(`${expiresAt}T00:00:00.000Z`);
+  const nowTime = Date.parse(now);
+  return !Number.isFinite(expiryTime) || !Number.isFinite(nowTime) || expiryTime <= nowTime;
+}
+
 function mapPackageError(error: unknown): never {
   if (error instanceof CoursePackageCommandError) {
     if (error.code === "COURSE_PACKAGE_NOT_FOUND") {
@@ -467,6 +475,7 @@ export class CourseFactoryService {
         (version) =>
           version.status === "PUBLISHED" &&
           !isExpired(version.factory_metadata, now) &&
+          !isSourceEvidenceExpired(version.factory_metadata, now) &&
           version.factory_metadata.source_evidence_reference !== undefined &&
           sameScenarioReference(
             version.scenario_package_reference,

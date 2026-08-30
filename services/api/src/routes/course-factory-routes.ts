@@ -282,7 +282,10 @@ function sourceEvidenceReference(value: unknown): CourseFactorySourceEvidenceRef
     throw new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID");
   }
   const parsedExpiry = new Date(`${expiresAt}T00:00:00.000Z`);
-  if (parsedExpiry.toISOString().slice(0, 10) !== expiresAt) {
+  if (
+    !Number.isFinite(parsedExpiry.getTime()) ||
+    parsedExpiry.toISOString().slice(0, 10) !== expiresAt
+  ) {
     throw new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID");
   }
   return {

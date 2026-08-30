@@ -17,8 +17,23 @@ function readJson<T = unknown>(path: string): T {
   return JSON.parse(readFileSync(resolve(path), "utf8")) as T;
 }
 
+function isValidDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+function isValidDateTime(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)) return false;
+  const parsed = new Date(value);
+  const canonical = value.includes(".") ? value : value.replace("Z", ".000Z");
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString() === canonical;
+}
+
 function compileCoursePackageSchema() {
   const ajv = new Ajv2020({ allErrors: true, strict: true });
+  ajv.addFormat("date", { type: "string", validate: isValidDate });
+  ajv.addFormat("date-time", { type: "string", validate: isValidDateTime });
   ajv.addSchema(readJson("contracts/schemas/teacher-scenario-studio.v1.json"));
   return ajv.compile(readJson("contracts/schemas/course-package-version.v1.json"));
 }
@@ -154,6 +169,15 @@ describe("CoursePackageVersion contract freeze", () => {
     expect(openApi.components.schemas.CoursePackageVersion?.$ref).toBe(
       "../schemas/course-package-version.v1.json"
     );
+  });
+
+  it("rejects impossible calendar values in timestamp fields", () => {
+    const validate = compileCoursePackageSchema();
+    const valid = readJson<Record<string, unknown>>(
+      "contracts/fixtures/course-package-version.valid.json"
+    );
+
+    expect(validate({ ...valid, created_at: "2026-13-40T00:00:00.000Z" })).toBe(false);
   });
 
   it("accepts the optional Teacher Scenario Studio configuration in the package contract", () => {
