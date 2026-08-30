@@ -299,7 +299,7 @@ export function StudentDecisionDesktop({
       </ol>
 
       <div className="board sdd-layout">
-        <main className="sdd-canvas" aria-label="Workspace Canvas">
+        <section className="sdd-canvas" aria-label="Workspace Canvas">
           {statePanelFor(desktopState, notice, onRecover)}
           {desktopState === "ready" || desktopState === "published" ? (
             <>
@@ -422,7 +422,7 @@ export function StudentDecisionDesktop({
               </section>
             </>
           ) : null}
-        </main>
+        </section>
 
         <aside className="sdd-inspector" aria-label="Context Inspector">
           <div className="panel sdd-card">
