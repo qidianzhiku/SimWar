@@ -6,6 +6,10 @@ import type {
   W020AdvisorySurface,
   W020RoleKey
 } from "@simwar/shared-contracts";
+import {
+  qualifyWorkflowEvidence,
+  type WorkflowEvidenceResult
+} from "./workflow-evidence-policy.js";
 
 export interface AgentGatewayInput {
   context: W020AdvisoryContext;
@@ -40,10 +44,33 @@ function digest(value: unknown): string {
 }
 
 function assertPolicy(input: AgentGatewayInput): void {
+  const candidate = input as unknown as {
+    context?: Record<string, unknown>;
+    surface?: unknown;
+  };
+  if (!candidate.context || typeof candidate.context !== "object") {
+    throw new AgentGatewayError("AGENT_CONTEXT_INVALID");
+  }
+  if (candidate.surface !== "student_role" && candidate.surface !== "teacher_debrief") {
+    throw new AgentGatewayError("AGENT_CONTEXT_INVALID");
+  }
+  if (
+    !["student", "teacher", "admin"].includes(String(candidate.context.actor_role)) ||
+    typeof candidate.context.context_digest !== "string" ||
+    !/^[a-f0-9]{64}$/i.test(candidate.context.context_digest) ||
+    !Array.isArray(candidate.context.source_event_ids) ||
+    !Array.isArray(candidate.context.source_event_types) ||
+    !Array.isArray(candidate.context.advisory_scopes)
+  ) {
+    throw new AgentGatewayError("AGENT_CONTEXT_INVALID");
+  }
   if (input.context.actor_role === "student" && input.surface !== "student_role") throw new AgentGatewayError("AGENT_POLICY_DENIED");
   if (input.context.actor_role !== "student" && input.surface !== "teacher_debrief") throw new AgentGatewayError("AGENT_POLICY_DENIED");
-  if (input.context.context_digest.length !== 64 || input.context.source_event_ids.length > 50) throw new AgentGatewayError("AGENT_CONTEXT_INVALID");
+  if (input.context.source_event_ids.length > 50) throw new AgentGatewayError("AGENT_CONTEXT_INVALID");
   if (input.context.advisory_scopes.length === 0) throw new AgentGatewayError("AGENT_POLICY_DENIED");
+  if (input.context.advisory_scopes.some((scope) => typeof scope !== "string" || scope.trim().length === 0)) {
+    throw new AgentGatewayError("AGENT_CONTEXT_INVALID");
+  }
   if (input.surface === "student_role" && (!input.role_key || input.context.role_key !== input.role_key)) throw new AgentGatewayError("AGENT_POLICY_DENIED");
 }
 
@@ -51,15 +78,21 @@ export function createDeterministicMockGateway(): { generate(input: AgentGateway
   return {
     generate(input) {
       assertPolicy(input);
+      let evidence: WorkflowEvidenceResult;
+      try {
+        evidence = qualifyWorkflowEvidence(input.context);
+      } catch {
+        throw new AgentGatewayError("AGENT_CONTEXT_INVALID");
+      }
       const safeInput = {
         context: input.context,
         role_key: input.role_key ?? null,
         surface: input.surface
       };
       const inputHash = digest(safeInput);
-      const outputText = input.surface === "student_role"
-        ? `Role ${input.role_key ?? "member"} advisory: review the visible role scope and prepare a reversible next decision.`
-        : "Teacher debrief advisory: compare the visible workflow evidence with the course objective and document a follow-up question.";
+      const outputText = evidence.status === "abstained"
+        ? "No qualified workflow evidence is available; advisory generation is withheld until a valid workflow sequence is visible."
+        : `Workflow evidence qualified at ${evidence.current_stage.toLowerCase().replaceAll("_", " ")}; review the visible role scope and prepare a reversible next step without inferring official outcomes.`;
       const outputHash = digest({ inputHash, outputText });
       const modelCallLogId = `model_call_${inputHash.slice(0, 24)}`;
       const coachOutputId = `coach_output_${outputHash.slice(0, 24)}`;
@@ -70,7 +103,7 @@ export function createDeterministicMockGateway(): { generate(input: AgentGateway
           advisory_text: outputText,
           coach_output_id: coachOutputId,
           created_at: now,
-          evidence_refs: input.context.source_event_ids,
+          evidence_refs: evidence.qualified_event_ids,
           model_call_log_id: modelCallLogId,
           output_type: "advisory",
           round_id: input.context.round_id,
