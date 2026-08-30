@@ -62,6 +62,23 @@ export function RegionalTransferAdminWorkbench({
             tenant={tenantId} · rollback={projection.rollback.resolution}
           </span>
           <code>{projection.candidate.candidate_ref.content_digest}</code>
+          <strong>模型迁移资格：{projection.candidate.requalification.status}</strong>
+          <span>
+            ModelVersion：{projection.candidate.requalification.model_version_comparison.status} ·{" "}
+            {projection.candidate.requalification.model_version_comparison.target_model_version_ref}
+          </span>
+          <span>
+            baseline {projection.candidate.requalification.baseline.region} ·{" "}
+            {projection.candidate.requalification.baseline.source.evidence_status} ·{" "}
+            {projection.candidate.requalification.baseline.source.freshness_status}
+          </span>
+          <span>
+            target {projection.candidate.requalification.target.region} ·{" "}
+            {projection.candidate.requalification.target.source.evidence_status} ·{" "}
+            {projection.candidate.requalification.target.source.rights_status}
+          </span>
+          <span>Reality Gap/OOD：NOT_PROVEN · transfer=CANDIDATE_ONLY</span>
+          <span>reasons={projection.candidate.requalification.reason_codes.join("|")}</span>
           {projection.candidate.known_limits.map((limit) => (
             <span key={limit}>{limit}</span>
           ))}
