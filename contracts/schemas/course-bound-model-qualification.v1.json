@@ -55,11 +55,11 @@
             "source_evidence"
           ],
           "properties": {
-            "course_package": { "$ref": "#/$defs/exactRef" },
-            "scenario_package": { "$ref": "#/$defs/exactRef" },
-            "parameter_set": { "$ref": "#/$defs/exactRef" },
-            "model_version": { "$ref": "#/$defs/exactRef" },
-            "source_evidence": { "$ref": "#/$defs/exactRef" }
+            "course_package": { "$ref": "#/$defs/coursePackageRef" },
+            "scenario_package": { "$ref": "#/$defs/scenarioPackageRef" },
+            "parameter_set": { "$ref": "#/$defs/parameterSetRef" },
+            "model_version": { "$ref": "#/$defs/modelVersionRef" },
+            "source_evidence": { "$ref": "#/$defs/sourceEvidenceRef" }
           }
         }
       }
@@ -244,6 +244,26 @@
         },
         "content_digest": { "$ref": "#/$defs/digest" }
       }
+    },
+    "coursePackageRef": {
+      "$ref": "#/$defs/exactRef",
+      "properties": { "resource_type": { "const": "course_package" } }
+    },
+    "scenarioPackageRef": {
+      "$ref": "#/$defs/exactRef",
+      "properties": { "resource_type": { "const": "scenario_package" } }
+    },
+    "parameterSetRef": {
+      "$ref": "#/$defs/exactRef",
+      "properties": { "resource_type": { "const": "parameter_set" } }
+    },
+    "modelVersionRef": {
+      "$ref": "#/$defs/exactRef",
+      "properties": { "resource_type": { "const": "model_version" } }
+    },
+    "sourceEvidenceRef": {
+      "$ref": "#/$defs/exactRef",
+      "properties": { "resource_type": { "const": "source_evidence" } }
     },
     "compatibility": {
       "type": "object",

@@ -250,8 +250,10 @@ function sameReference(left: CourseBoundExactReference, right: CourseBoundExactR
   );
 }
 
-function sameStringArray(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
+function sameStringSet(left: readonly string[], right: readonly string[]): boolean {
+  const leftSet = new Set(left);
+  const rightSet = new Set(right);
+  return leftSet.size === rightSet.size && [...leftSet].every((value) => rightSet.has(value));
 }
 
 function isIsoTimestamp(value: string): boolean {
@@ -264,7 +266,10 @@ function assertExactBindingInput(input: CourseBoundQualificationEvaluationInput)
     [input.scenario_package.reference, "scenario_package"],
     [input.parameter_set.reference, "parameter_set"],
     [input.model_version.reference, "model_version"],
-    [input.source_evidence.reference, "source_evidence"]
+    [input.source_evidence.reference, "source_evidence"],
+    [input.course_package.scenario_package_reference, "scenario_package"],
+    [input.course_package.parameter_set_reference, "parameter_set"],
+    [input.scenario_package.parameter_set_reference, "parameter_set"]
   ];
   if (
     !isSafeIdentity(input.tenant_id) ||
@@ -372,7 +377,7 @@ function evaluateBinding(
     input.scenario_package.parameter_schema_versions.includes(
       input.parameter_set.parameter_schema_version
     ) &&
-    sameStringArray(
+    sameStringSet(
       input.scenario_package.parameter_schema_versions,
       input.model_version.parameter_schema_versions
     );
@@ -436,14 +441,15 @@ function evaluateBinding(
     "SOURCE_COURSE_REFERENCE_MISMATCH",
     "SOURCE_FEATURE_SCHEMA_INCOMPATIBLE"
   ]);
-  const status =
-    reasons.length === 0
-      ? "ELIGIBLE_FOR_SHADOW_WITH_LIMITS"
-      : reasons.some((reason) => rebaseReasons.has(reason))
-        ? "REBASE_REQUIRED"
-        : input.source_evidence.rights_status === "UNKNOWN" ||
-            input.source_evidence.freshness_status === "UNKNOWN"
-          ? "NOT_COMPUTABLE"
+  const status = !tenantMatch
+    ? "NOT_ELIGIBLE"
+    : input.source_evidence.rights_status === "UNKNOWN" ||
+        input.source_evidence.freshness_status === "UNKNOWN"
+      ? "NOT_COMPUTABLE"
+      : reasons.length === 0
+        ? "ELIGIBLE_FOR_SHADOW_WITH_LIMITS"
+        : reasons.some((reason) => rebaseReasons.has(reason))
+          ? "REBASE_REQUIRED"
           : "NOT_ELIGIBLE";
   return { status, reason_codes: reasons, compatibility };
 }

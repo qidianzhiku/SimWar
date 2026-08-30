@@ -34,6 +34,12 @@ source evidence
 The five output references are immutable `(resource_id, resource_type,
 version, content_digest)` tuples. No `latest`, `current`, `default`,
 `fallback`, `next`, `unresolved`, wildcard, or version range is accepted.
+The machine contract constrains each output slot to its declared resource type;
+the same exact-reference shape does not permit a resource to be swapped between
+the CoursePackage, ScenarioPackage, ParameterSet, ModelVersion, or source
+evidence slot. The embedded CoursePackage and ScenarioPackage references are
+validated with the same exactness and resource-type rules before the candidate
+classifier runs.
 
 ## Qualification states
 
@@ -49,8 +55,13 @@ version, content_digest)` tuples. No `latest`, `current`, `default`,
   scenario, parameter, model, or feature/schema compatibility graph conflicts.
   The consumer must provide a coherent exact base before retrying.
 
-Every state has stable reason codes and a deterministic candidate digest. The
-compiler never maps a failed check to a successful candidate by extrapolation.
+Supported parameter-schema version collections are compared as sets, so their
+ordering cannot manufacture a compatibility failure. Fail-closed precedence is
+explicit: tenant-scope failure yields `NOT_ELIGIBLE`, unknown rights/freshness
+evidence yields `NOT_COMPUTABLE`, and only then may a remaining compatibility
+conflict yield `REBASE_REQUIRED`. Every state has stable reason codes and a
+deterministic candidate digest. The compiler never maps a failed check to a
+successful candidate by extrapolation.
 
 ## Authority boundary
 

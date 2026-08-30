@@ -149,6 +149,89 @@ describe("course-bound MOD model qualification", () => {
     ).toThrow("COURSE_BOUND_EXACT_REFERENCE_INVALID");
   });
 
+  it("rejects floating or wrong-type embedded package references", () => {
+    const input = baseInput();
+    const malformedInputs: CourseBoundQualificationInput[] = [
+      {
+        ...input,
+        course_package: {
+          ...input.course_package,
+          scenario_package_reference: {
+            ...input.course_package.scenario_package_reference,
+            version: "latest"
+          }
+        }
+      },
+      {
+        ...input,
+        course_package: {
+          ...input.course_package,
+          parameter_set_reference: {
+            ...input.course_package.parameter_set_reference,
+            version: "^1.0.0"
+          }
+        }
+      },
+      {
+        ...input,
+        scenario_package: {
+          ...input.scenario_package,
+          parameter_set_reference: {
+            ...input.scenario_package.parameter_set_reference,
+            resource_type: "scenario_package"
+          }
+        }
+      }
+    ];
+
+    for (const malformed of malformedInputs) {
+      expect(() => compileCourseBoundModelQualification(malformed)).toThrow(
+        "COURSE_BOUND_EXACT_REFERENCE_INVALID"
+      );
+    }
+  });
+
+  it("treats supported parameter schema versions as an order-insensitive set", () => {
+    const input = baseInput();
+    const result = compileCourseBoundModelQualification({
+      ...input,
+      scenario_package: {
+        ...input.scenario_package,
+        parameter_schema_versions: [...input.scenario_package.parameter_schema_versions].reverse()
+      },
+      model_version: {
+        ...input.model_version,
+        parameter_schema_versions: [...input.model_version.parameter_schema_versions].reverse()
+      }
+    });
+
+    expect(result.status).toBe("ELIGIBLE_FOR_SHADOW_WITH_LIMITS");
+    expect(result.candidate.compatibility.parameter_schema_match).toBe(true);
+  });
+
+  it("prioritizes fail-closed tenant and unknown-evidence states over rebase drift", () => {
+    const input = baseInput();
+    const tenantAndModelDrift = compileCourseBoundModelQualification({
+      ...input,
+      tenant_id: "tenant_other",
+      model_version: { ...input.model_version, model_family: "rcnl" }
+    });
+    expect(tenantAndModelDrift.status).toBe("NOT_ELIGIBLE");
+    expect(tenantAndModelDrift.candidate.reason_codes).toEqual(
+      expect.arrayContaining(["TENANT_SCOPE_MISMATCH", "MODEL_FAMILY_INCOMPATIBLE"])
+    );
+
+    const unknownEvidenceAndModelDrift = compileCourseBoundModelQualification({
+      ...input,
+      source_evidence: { ...input.source_evidence, rights_status: "UNKNOWN" },
+      model_version: { ...input.model_version, model_family: "rcnl" }
+    });
+    expect(unknownEvidenceAndModelDrift.status).toBe("NOT_COMPUTABLE");
+    expect(unknownEvidenceAndModelDrift.candidate.reason_codes).toEqual(
+      expect.arrayContaining(["SOURCE_RIGHTS_NOT_ELIGIBLE", "MODEL_FAMILY_INCOMPATIBLE"])
+    );
+  });
+
   it("withholds MJP PASS when fixtures are incomplete and rejects tampered expectations", () => {
     const input = baseInput();
     const incomplete = compileCourseBoundModelQualification({ ...input, mjp_fixtures: [] });

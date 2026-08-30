@@ -33,6 +33,22 @@ describe("course-bound model qualification contract", () => {
     };
     referenceDrift.exact_binding.refs.model_version.version = "latest";
     expect(validate(referenceDrift)).toBe(false);
+
+    const expectedTypes = {
+      course_package: "course_package",
+      scenario_package: "scenario_package",
+      parameter_set: "parameter_set",
+      model_version: "model_version",
+      source_evidence: "source_evidence"
+    } as const;
+    for (const [slot, expectedType] of Object.entries(expectedTypes)) {
+      const resourceTypeDrift = structuredClone(valid) as {
+        exact_binding: { refs: Record<string, { resource_type: string }> };
+      };
+      resourceTypeDrift.exact_binding.refs[slot].resource_type =
+        expectedType === "course_package" ? "scenario_package" : "course_package";
+      expect(validate(resourceTypeDrift)).toBe(false);
+    }
   });
 
   it("validates generated output and keeps machine semantics consistent", () => {
