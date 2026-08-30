@@ -176,9 +176,18 @@ describe("CoursePackageVersion contract freeze", () => {
     const valid = readJson<Record<string, unknown>>(
       "contracts/fixtures/course-package-version.valid.json"
     );
+    const validVersion = valid as unknown as CoursePackageVersion;
 
     expect(validate({ ...valid, created_at: "2026-13-40T00:00:00.000Z" })).toBe(false);
     expect(validate({ ...valid, created_at: "2026-02-29T00:00:00.000Z" })).toBe(false);
+    for (const created_at of [
+      "2026-02-30T00:00:00.000Z",
+      "2026-01-01T24:00:00.000Z"
+    ]) {
+      expect(() => assertValidCoursePackageVersion({ ...validVersion, created_at })).toThrow(
+        "COURSE_PACKAGE_INPUT_INVALID"
+      );
+    }
   });
 
   it("accepts the optional Teacher Scenario Studio configuration in the package contract", () => {
@@ -385,6 +394,21 @@ describe("CoursePackageVersion contract freeze", () => {
         `#/components/schemas/${responseSchema}`
       );
     }
+
+    expect(
+      openApi.components.schemas.CoursePackageVersionImportInput.properties
+        .source_course_package_version.$ref
+    ).toBe("#/components/schemas/CoursePackageVersionImportSource");
+    expect(openApi.components.schemas.CoursePackageVersionImportSource.allOf).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          properties: {
+            status: { type: "string", enum: ["DRAFT", "VALIDATED", "AVAILABLE", "RETIRED"] }
+          },
+          not: { required: ["factory_metadata"] }
+        })
+      ])
+    );
 
     expect(openApi.paths["/api/v1/bff/student/course-package-versions"]).toBeUndefined();
     expect(openApi.components.schemas.CoursePackageVersionReferenceInput).toMatchObject({

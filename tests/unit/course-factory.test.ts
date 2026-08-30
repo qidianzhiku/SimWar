@@ -132,6 +132,29 @@ describe("R3 CourseFactoryService", () => {
     ).rejects.toEqual(new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID"));
   });
 
+  it("rejects source lineage on ORIGINAL drafts", async () => {
+    const { service } = createService();
+    await expect(
+      service.createDraft(
+        actor,
+        factoryDraft({
+          factory_metadata: {
+            ...factoryDraft().factory_metadata,
+            provenance: {
+              kind: "ORIGINAL",
+              source_course_package_reference: {
+                content_digest: digest("f"),
+                course_package_id: "source_course",
+                tenant_id: tenantId,
+                version: "1.0.0"
+              }
+            }
+          }
+        })
+      )
+    ).rejects.toEqual(new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID"));
+  });
+
   it("rejects malformed factory metadata at persistence and delivery boundaries", () => {
     const malformedDraft = {
       ...packageDraft,
@@ -142,6 +165,33 @@ describe("R3 CourseFactoryService", () => {
       createCoursePackageDraftVersion({
         actor_id: "usr_admin",
         draft: malformedDraft,
+        now: "2026-08-30T10:00:00.000Z",
+        tenant_id: tenantId
+      })
+    ).toThrow(new CoursePackageRegistryError("COURSE_PACKAGE_INPUT_INVALID"));
+  });
+
+  it("rejects ORIGINAL metadata that carries source lineage at the persistence boundary", () => {
+    const originalWithLineage = {
+      ...packageDraft,
+      factory_metadata: {
+        ...factoryDraft().factory_metadata,
+        provenance: {
+          kind: "ORIGINAL",
+          source_course_package_reference: {
+            content_digest: digest("a"),
+            course_package_id: "source_course",
+            tenant_id: tenantId,
+            version: "1.0.0"
+          }
+        }
+      }
+    } as unknown as CoursePackageVersionDraftInput;
+
+    expect(() =>
+      createCoursePackageDraftVersion({
+        actor_id: "usr_admin",
+        draft: originalWithLineage,
         now: "2026-08-30T10:00:00.000Z",
         tenant_id: tenantId
       })
@@ -298,6 +348,57 @@ describe("R3 CourseFactoryService", () => {
     await expect(service.createDraft(actor, unknownMetadataField)).rejects.toEqual(
       new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID")
     );
+
+    const nestedUnknownFieldCandidates = [
+      factoryDraft({
+        factory_metadata: {
+          ...factoryDraft().factory_metadata,
+          rights: { ...factoryDraft().factory_metadata.rights, unexpected: true }
+        }
+      }),
+      factoryDraft({
+        factory_metadata: {
+          ...factoryDraft().factory_metadata,
+          provenance: { ...factoryDraft().factory_metadata.provenance, unexpected: true }
+        }
+      }),
+      factoryDraft({
+        factory_metadata: {
+          ...factoryDraft().factory_metadata,
+          source_manifest: { ...factoryDraft().factory_metadata.source_manifest, unexpected: true }
+        }
+      }),
+      factoryDraft({
+        factory_metadata: {
+          ...factoryDraft().factory_metadata,
+          user_data_policy: { ...factoryDraft().factory_metadata.user_data_policy, unexpected: true }
+        }
+      })
+    ];
+    for (const candidate of nestedUnknownFieldCandidates) {
+      await expect(service.createDraft(actor, candidate)).rejects.toEqual(
+        new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID")
+      );
+    }
+
+    const evidence = buildM30CourseFactorySourceEvidence();
+    const evidenceUnknownFieldCandidates = [
+      { ...evidence, unexpected: true },
+      { ...evidence, source_epoch: { ...evidence.source_epoch, unexpected: true } },
+      { ...evidence, regional_transfer: { ...evidence.regional_transfer, unexpected: true } },
+      { ...evidence, living_operations: { ...evidence.living_operations, unexpected: true } }
+    ];
+    for (const sourceEvidence of evidenceUnknownFieldCandidates) {
+      const candidate = factoryDraft({
+        factory_metadata: {
+          ...factoryDraft().factory_metadata,
+          source_evidence_reference: sourceEvidence
+        }
+      });
+      await expect(service.createDraft(actor, candidate)).rejects.toEqual(
+        new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID")
+      );
+    }
 
     for (const field of ["model_artifact_reference", "model_version_reference"] as const) {
       const candidate = factoryDraft({
@@ -576,6 +677,14 @@ describe("R3 CourseFactoryService", () => {
     expect(projection).not.toHaveProperty("private_data");
     expect(projection).not.toHaveProperty("state_true");
     expect(projection.known_limits.length).toBeGreaterThan(0);
+  });
+
+  it("does not claim exact references when the sponsor catalog is empty", async () => {
+    const { service } = createService();
+    const projection = await service.getSponsorProjection(actor, tenantId);
+
+    expect(projection.catalog).toHaveLength(0);
+    expect(projection.evidence_pack.exact_refs_present).toBe(false);
   });
 
   it("rejects a factory manifest that does not match the package's exact source bindings", async () => {

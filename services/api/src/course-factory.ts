@@ -81,9 +81,12 @@ function digest(value: unknown): string {
 }
 
 function isFactoryVersion(value: CoursePackageVersion): value is CourseFactoryVersion {
+  const metadata = value.factory_metadata;
   return (
-    isCourseFactoryMetadataForTenant(value.factory_metadata, value.tenant_id) &&
-    (COURSE_FACTORY_LIFECYCLE_STATES as readonly string[]).includes(value.status)
+    isCourseFactoryMetadataForTenant(metadata, value.tenant_id) &&
+    (COURSE_FACTORY_LIFECYCLE_STATES as readonly string[]).includes(value.status) &&
+    (!metadata.source_evidence_reference ||
+      validateM30CourseFactorySourceEvidence(metadata.source_evidence_reference).length === 0)
   );
 }
 
@@ -178,6 +181,18 @@ function isSourceEvidenceExpired(metadata: CourseFactoryMetadata, now: string): 
   return !Number.isFinite(expiryTime) || !Number.isFinite(nowTime) || expiryTime <= nowTime;
 }
 
+function projectableM30SourceEvidence(metadata: CourseFactoryMetadata, now: string) {
+  const evidence = metadata.source_evidence_reference;
+  if (
+    !evidence ||
+    isSourceEvidenceExpired(metadata, now) ||
+    validateM30CourseFactorySourceEvidence(evidence).length > 0
+  ) {
+    return undefined;
+  }
+  return evidence;
+}
+
 function mapPackageError(error: unknown): never {
   if (error instanceof CoursePackageCommandError) {
     if (error.code === "COURSE_PACKAGE_NOT_FOUND") {
@@ -205,10 +220,8 @@ function teacherCatalogEntry(
   entry: CourseFactoryCatalogEntry,
   now: string
 ): CourseFactoryTeacherCatalogEntry {
-  const evidence = entry.factory_metadata.source_evidence_reference;
   const sourceManifest = entry.factory_metadata.source_manifest;
-  const projectableEvidence =
-    evidence && !isSourceEvidenceExpired(entry.factory_metadata, now) ? evidence : undefined;
+  const projectableEvidence = projectableM30SourceEvidence(entry.factory_metadata, now);
   return {
     course_package_reference: clone(entry.course_package_reference),
     description: entry.description,
@@ -243,9 +256,7 @@ function sponsorCatalogEntry(
   version: CourseFactoryVersion,
   now: string
 ): CourseFactorySponsorCatalogEntry {
-  const evidence = version.factory_metadata.source_evidence_reference;
-  const projectableEvidence =
-    evidence && !isSourceEvidenceExpired(version.factory_metadata, now) ? evidence : undefined;
+  const projectableEvidence = projectableM30SourceEvidence(version.factory_metadata, now);
   return {
     course_package_reference: createCoursePackageVersionReference(version),
     status: version.status,
@@ -288,7 +299,10 @@ export class CourseFactoryService {
     input: CourseFactoryDraftInput
   ): Promise<CourseFactoryVersion> {
     assertMetadata(actor.tenant_id, input.factory_metadata);
-    if (input.factory_metadata.provenance.kind !== "ORIGINAL") {
+    if (
+      input.factory_metadata.provenance.kind !== "ORIGINAL" ||
+      input.factory_metadata.provenance.source_course_package_reference !== undefined
+    ) {
       throw new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID");
     }
     return this.persistDraft(actor, input);
@@ -620,7 +634,7 @@ export class CourseFactoryService {
         round_count: tenantRounds.length
       },
       evidence_pack: {
-        exact_refs_present: catalog.catalog.every(
+        exact_refs_present: catalog.catalog.length > 0 && catalog.catalog.every(
           (entry) => entry.factory_metadata.source_manifest !== undefined
         ),
         private_data_included: false,

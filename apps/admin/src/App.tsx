@@ -7,6 +7,7 @@ import type {
   AuthSession,
   CoursePackageVersion,
   CoursePackageVersionDraftInput,
+  CoursePackageVersionImportSource,
   SyntheticRunLifecycleControlDTO,
   SyntheticRunLifecycleOperation,
   User
@@ -737,7 +738,7 @@ export function App() {
     try {
       const sourceCoursePackageVersion = JSON.parse(
         coursePackageImportPayload
-      ) as CoursePackageVersion;
+      ) as CoursePackageVersionImportSource;
       await importAdminCoursePackageVersion(
         { source_course_package_version: sourceCoursePackageVersion },
         session.access_token,

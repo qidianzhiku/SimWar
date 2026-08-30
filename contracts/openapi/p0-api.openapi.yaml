@@ -393,7 +393,8 @@ paths:
   /api/v1/admin/course-package-versions/import:
     post:
       operationId: ADMIN_COURSE_PACKAGE_VERSION_IMPORT_V1
-      summary: Import a digest-verified export as a new immutable DRAFT package version.
+      summary: Import a digest-verified legacy package export as a new immutable DRAFT package version.
+      description: Governed CourseFactory exports are not accepted by this generic import contract; use the existing CourseFactory authority for those packages.
       security:
         - SessionBearer: []
       requestBody:
@@ -8866,7 +8867,17 @@ components:
       required: [source_course_package_version]
       properties:
         source_course_package_version:
-          $ref: "#/components/schemas/CoursePackageVersion"
+          $ref: "#/components/schemas/CoursePackageVersionImportSource"
+    CoursePackageVersionImportSource:
+      allOf:
+        - $ref: "#/components/schemas/CoursePackageVersion"
+        - type: object
+          properties:
+            status:
+              type: string
+              enum: [DRAFT, VALIDATED, AVAILABLE, RETIRED]
+          not:
+            required: [factory_metadata]
     CoursePackageVersionTeacher:
       type: object
       additionalProperties: false

@@ -207,6 +207,7 @@ function hasExactKeysWithOptional(
     requiredKeys.every((key) => actualKeys.includes(key)) &&
     actualKeys.every((key) => allowedKeys.has(key))
   );
+
 }
 
 function isModelArtifactReference(value: unknown): value is ModelArtifactReference {
@@ -270,15 +271,18 @@ export function isCourseFactorySourceEvidenceReference(
     value.schema_version === "course-factory-source-evidence.v1" &&
     value.binding_request_id === "SH-M29-MAIN-PULL-BINDING-REQUEST" &&
     isRecord(sourceEpoch) &&
+    hasExactKeys(sourceEpoch, ["epoch_digest", "epoch_id", "source_epoch_base_sha"]) &&
     isExactIdentity(sourceEpoch.epoch_id) &&
     isDigest(sourceEpoch.epoch_digest) &&
     typeof sourceEpoch.source_epoch_base_sha === "string" &&
     /^[a-f0-9]{40}$/.test(sourceEpoch.source_epoch_base_sha) &&
     isRecord(transfer) &&
+    hasExactKeys(transfer, ["candidate_version", "pack_digest", "transfer_id"]) &&
     isExactIdentity(transfer.transfer_id) &&
     isDigest(transfer.pack_digest) &&
     isExactVersion(transfer.candidate_version) &&
     isRecord(living) &&
+    hasExactKeys(living, ["epoch_id", "epoch_version", "expires_at", "pack_digest"]) &&
     isDigest(living.pack_digest) &&
     isExactIdentity(living.epoch_id) &&
     isExactVersion(living.epoch_version) &&
@@ -335,6 +339,7 @@ export function isCourseFactoryMetadataForTenant(
     knownLimits.length === 0 ||
     knownLimits.some((item) => typeof item !== "string" || item.trim().length === 0) ||
     !isRecord(provenance) ||
+    !hasExactKeysWithOptional(provenance, ["kind"], ["source_course_package_reference"]) ||
     !hasExactKeysWithOptional(provenance, ["kind"], ["source_course_package_reference"]) ||
     !COURSE_FACTORY_PROVENANCE_KINDS.includes(provenance.kind as CourseFactoryProvenanceKind) ||
     !isRecord(rights) ||
@@ -404,6 +409,7 @@ export function isCourseFactoryMetadataForTenant(
   }
 
   const sourceReference = provenance.source_course_package_reference;
+  if (provenance.kind === "ORIGINAL" && sourceReference !== undefined) return false;
   return (
     sourceReference === undefined ||
     (isRecord(sourceReference) &&
