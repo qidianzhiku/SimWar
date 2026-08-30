@@ -154,6 +154,11 @@ const featureHead = git(["rev-parse", "HEAD"]);
 const featureTree = git(["rev-parse", "HEAD^{tree}"]);
 const currentMaster = git(["rev-parse", "origin/master"]);
 const currentMasterTree = git(["rev-parse", "origin/master^{tree}"]);
+const prNumber = process.env.SIMWAR_MOD_NEXT6_PR_NUMBER || "NOT_RECORDED";
+const prHeadSha = process.env.SIMWAR_MOD_NEXT6_PR_HEAD_SHA || featureHead;
+const mergeSha = process.env.SIMWAR_MOD_NEXT6_MERGE_SHA || "NOT_RECORDED";
+const ciStatus = process.env.SIMWAR_MOD_NEXT6_CI_STATUS || "NOT_RECORDED";
+const h3Status = process.env.SIMWAR_MOD_NEXT6_H3_STATUS || "NOT_RECORDED";
 writeJson("01-current-reality/CURRENT_REALITY.json", {
   captured_at: new Date().toISOString(),
   repository: "qidianzhiku/SimWar",
@@ -361,17 +366,26 @@ writeJson("04-validation/TESTS.json", {
 });
 writeJson("05-gates/H2-PR-CI-MERGE-H3.json", {
   h2: { status: "PASS", evidence: "focused tests, contract gate and source review" },
-  product_pr: { status: "SUPPORT_SCOPE_NO_COMPETING_MAIN_PRODUCT_PR" },
+  product_pr: {
+    status: "MOD_SUPPORT_PR",
+    number: prNumber,
+    head_sha: prHeadSha,
+    merge_sha: mergeSha
+  },
   ci: {
-    status: "RECORDED_AFTER_REMOTE_READBACK",
+    status: ciStatus,
     required_contexts: ["quality", "browser-smoke", "Analyze JavaScript and TypeScript"]
   },
   ordinary_merge: {
-    status: "RECORDED_AFTER_REMOTE_READBACK",
+    status: mergeSha === "NOT_RECORDED" ? "NOT_RECORDED" : "PASS",
     force_push: false,
     admin_bypass: false
   },
-  h3: { status: "PASS_WITH_LIMITS", mode: "current-master-readback", product_truth_mutation: 0 },
+  h3: {
+    status: h3Status,
+    mode: "detached_post_merge_or_current_master_readback",
+    product_truth_mutation: 0
+  },
   note: "No fake CI, review, H2 or H3 evidence is synthesized."
 });
 writeJson("06-known-limits/KNOWN-LIMITS.json", {
@@ -410,6 +424,12 @@ writeText(
     featureHead +
     "\nCurrent origin/master: " +
     currentMaster +
+    "\nPR: #" +
+    prNumber +
+    "\nPR head: " +
+    prHeadSha +
+    "\nMerge: " +
+    mergeSha +
     "\n\nSee 06-known-limits/KNOWN-LIMITS.json for the bounded support result."
 );
 writeText(
