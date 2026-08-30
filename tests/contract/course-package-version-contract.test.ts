@@ -395,6 +395,21 @@ describe("CoursePackageVersion contract freeze", () => {
       );
     }
 
+    expect(
+      openApi.components.schemas.CoursePackageVersionImportInput.properties
+        .source_course_package_version.$ref
+    ).toBe("#/components/schemas/CoursePackageVersionImportSource");
+    expect(openApi.components.schemas.CoursePackageVersionImportSource.allOf).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          properties: {
+            status: { type: "string", enum: ["DRAFT", "VALIDATED", "AVAILABLE", "RETIRED"] }
+          },
+          not: { required: ["factory_metadata"] }
+        })
+      ])
+    );
+
     expect(openApi.paths["/api/v1/bff/student/course-package-versions"]).toBeUndefined();
     expect(openApi.components.schemas.CoursePackageVersionReferenceInput).toMatchObject({
       properties: {

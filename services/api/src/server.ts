@@ -12,6 +12,7 @@ import type {
   CoursePackageVersionCloneInput,
   CoursePackageVersionDraftInput,
   CoursePackageVersionImportInput,
+  CoursePackageVersionImportSource,
   CoursePackageVersionReference,
   D2EvidenceCaptureInput,
   D2EvidenceQuery,
@@ -5448,7 +5449,10 @@ function parseCoursePackageCloneInput(
   };
 }
 
-function parseCoursePackageImportedVersion(value: unknown, tenantId: string): CoursePackageVersion {
+function parseCoursePackageImportedVersion(
+  value: unknown,
+  tenantId: string
+): CoursePackageVersionImportSource {
   if (!isRecord(value)) throw coursePackageRequestError();
   assertOnlyCoursePackageFields(value, [
     "content_digest",
@@ -5494,7 +5498,7 @@ function parseCoursePackageImportedVersion(value: unknown, tenantId: string): Co
     created_at: requireCoursePackageText(value.created_at),
     created_by: requireCoursePackageExactIdentity(value.created_by),
     schema_version: "course-package-version.v1",
-    status: value.status as CoursePackageVersion["status"],
+    status: value.status as CoursePackageVersionImportSource["status"],
     tenant_id: tenantId
   };
 }

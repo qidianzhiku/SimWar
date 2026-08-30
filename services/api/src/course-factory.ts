@@ -299,7 +299,10 @@ export class CourseFactoryService {
     input: CourseFactoryDraftInput
   ): Promise<CourseFactoryVersion> {
     assertMetadata(actor.tenant_id, input.factory_metadata);
-    if (input.factory_metadata.provenance.kind !== "ORIGINAL") {
+    if (
+      input.factory_metadata.provenance.kind !== "ORIGINAL" ||
+      input.factory_metadata.provenance.source_course_package_reference !== undefined
+    ) {
       throw new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID");
     }
     return this.persistDraft(actor, input);
@@ -631,7 +634,7 @@ export class CourseFactoryService {
         round_count: tenantRounds.length
       },
       evidence_pack: {
-        exact_refs_present: catalog.catalog.every(
+        exact_refs_present: catalog.catalog.length > 0 && catalog.catalog.every(
           (entry) => entry.factory_metadata.source_manifest !== undefined
         ),
         private_data_included: false,

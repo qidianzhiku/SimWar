@@ -77,8 +77,20 @@ export interface CoursePackageVersionCloneInput {
   version: string;
 }
 
+/**
+ * Import accepts only the legacy, non-factory export lifecycle. Governed
+ * CourseFactory exports have their own immutable authority and must not be
+ * silently downgraded into a generic package import.
+ */
+export type CoursePackageVersionImportSource = Omit<
+  CoursePackageVersion,
+  "factory_metadata" | "status"
+> & {
+  status: "DRAFT" | "VALIDATED" | "AVAILABLE" | "RETIRED";
+};
+
 export interface CoursePackageVersionImportInput {
-  source_course_package_version: CoursePackageVersion;
+  source_course_package_version: CoursePackageVersionImportSource;
 }
 
 export interface CoursePackageVersionExportDto {

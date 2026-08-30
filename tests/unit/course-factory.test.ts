@@ -117,6 +117,29 @@ function factoryDraft(overrides: Partial<CourseFactoryDraftInput> = {}): CourseF
 const actor = { actor_id: "admin_demo", tenant_id: tenantId, roles: ["tenant_admin"] as const };
 
 describe("R3 CourseFactoryService", () => {
+  it("rejects source lineage on ORIGINAL drafts", async () => {
+    const { service } = createService();
+    await expect(
+      service.createDraft(
+        actor,
+        factoryDraft({
+          factory_metadata: {
+            ...factoryDraft().factory_metadata,
+            provenance: {
+              kind: "ORIGINAL",
+              source_course_package_reference: {
+                content_digest: digest("f"),
+                course_package_id: "source_course",
+                tenant_id: tenantId,
+                version: "1.0.0"
+              }
+            }
+          }
+        })
+      )
+    ).rejects.toEqual(new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID"));
+  });
+
   it("rejects malformed factory metadata at persistence and delivery boundaries", () => {
     const malformedDraft = {
       ...packageDraft,
@@ -612,6 +635,14 @@ describe("R3 CourseFactoryService", () => {
     expect(projection).not.toHaveProperty("private_data");
     expect(projection).not.toHaveProperty("state_true");
     expect(projection.known_limits.length).toBeGreaterThan(0);
+  });
+
+  it("does not claim exact references when the sponsor catalog is empty", async () => {
+    const { service } = createService();
+    const projection = await service.getSponsorProjection(actor, tenantId);
+
+    expect(projection.catalog).toHaveLength(0);
+    expect(projection.evidence_pack.exact_refs_present).toBe(false);
   });
 
   it("rejects a factory manifest that does not match the package's exact source bindings", async () => {
