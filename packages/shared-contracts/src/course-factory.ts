@@ -337,6 +337,36 @@ export interface CourseFactoryCatalogProjection {
   tenant_id: string;
 }
 
+export interface CourseFactoryTeacherSourceContext {
+  target_region: string;
+  epoch_version: string;
+  qualification_status: "LIMITED";
+  consumption_status: "LOOKAHEAD_READY";
+  exact_binding_required: true;
+  known_limits: readonly string[];
+  source_reference_versions: {
+    course_blueprint: string;
+    scenario_package: string;
+    parameter_set: string;
+  };
+}
+
+/** Teacher catalog entry intentionally excludes factory metadata and raw evidence. */
+export interface CourseFactoryTeacherCatalogEntry {
+  course_package_reference: CoursePackageVersionReference;
+  description: string;
+  status: CourseFactoryLifecycleState;
+  title: string;
+  version: string;
+  source_context?: CourseFactoryTeacherSourceContext;
+}
+
+export interface CourseFactoryTeacherCatalogProjection {
+  catalog: readonly CourseFactoryTeacherCatalogEntry[];
+  known_limits: readonly string[];
+  tenant_id: string;
+}
+
 export interface CourseFactoryAuditProjection {
   course_package_reference: CoursePackageVersionReference;
   diff: readonly { field: string; from: unknown; to: unknown }[];

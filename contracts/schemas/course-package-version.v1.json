@@ -193,10 +193,10 @@
           ],
           "properties": {
             "course_blueprint_reference": { "$ref": "#/$defs/course_blueprint_reference" },
-            "model_artifact_reference": { "type": "object" },
-            "model_version_reference": { "type": "object" },
+            "model_artifact_reference": { "$ref": "#/$defs/model_artifact_reference" },
+            "model_version_reference": { "$ref": "#/$defs/model_version_reference" },
             "parameter_set_reference": { "$ref": "#/$defs/parameter_set_reference" },
-            "project_profile_reference": { "type": "object" },
+            "project_profile_reference": { "$ref": "#/$defs/project_profile_reference" },
             "scenario_package_reference": { "$ref": "#/$defs/scenario_package_reference" }
           }
         },
@@ -269,6 +269,38 @@
       "properties": {
         "content_digest": { "$ref": "#/$defs/digest" },
         "parameter_set_id": { "$ref": "#/$defs/exact_identity" },
+        "version": { "$ref": "#/$defs/exact_version" }
+      }
+    },
+    "model_artifact_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "content_digest", "format", "source_ref"],
+      "properties": {
+        "artifact_id": { "$ref": "#/$defs/exact_identity" },
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "format": { "type": "string", "minLength": 1 },
+        "source_ref": { "type": "string", "minLength": 1 }
+      }
+    },
+    "model_version_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "model_version_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "model_version_id": { "$ref": "#/$defs/exact_identity" },
+        "version": { "$ref": "#/$defs/exact_version" }
+      }
+    },
+    "project_profile_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "project_profile_id", "tenant_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "project_profile_id": { "$ref": "#/$defs/exact_identity" },
+        "tenant_id": { "$ref": "#/$defs/exact_identity" },
         "version": { "$ref": "#/$defs/exact_version" }
       }
     }

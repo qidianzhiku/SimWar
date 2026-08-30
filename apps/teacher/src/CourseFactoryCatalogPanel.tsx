@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import type { ApiEnvelope, CourseFactoryCatalogProjection } from "@simwar/shared-contracts";
+import type {
+  ApiEnvelope,
+  CourseFactoryTeacherCatalogProjection
+} from "@simwar/shared-contracts";
 
 export interface CourseFactoryCatalogPanelProps {
   apiBase: string;
@@ -12,7 +15,7 @@ export function CourseFactoryCatalogPanel({
   tenantId,
   token
 }: CourseFactoryCatalogPanelProps) {
-  const [projection, setProjection] = useState<CourseFactoryCatalogProjection | null>(null);
+  const [projection, setProjection] = useState<CourseFactoryTeacherCatalogProjection | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
   useEffect(() => {
@@ -26,7 +29,7 @@ export function CourseFactoryCatalogPanel({
       signal: controller.signal
     })
       .then(async (response) => {
-        const envelope = (await response.json()) as ApiEnvelope<CourseFactoryCatalogProjection>;
+        const envelope = (await response.json()) as ApiEnvelope<CourseFactoryTeacherCatalogProjection>;
         if (!response.ok) throw new Error(envelope.message || envelope.code);
         return envelope.data;
       })
@@ -65,17 +68,14 @@ export function CourseFactoryCatalogPanel({
               </span>
               <small>exact package digest: {entry.course_package_reference.content_digest}</small>
               <small>
-                source refs: blueprint{" "}
-                {entry.factory_metadata.source_manifest.course_blueprint_reference.version},
-                scenario {entry.factory_metadata.source_manifest.scenario_package_reference.version}
-                , parameter {entry.factory_metadata.source_manifest.parameter_set_reference.version}
+                source refs: blueprint {entry.source_context?.source_reference_versions.course_blueprint},
+                scenario {entry.source_context?.source_reference_versions.scenario_package},
+                parameter {entry.source_context?.source_reference_versions.parameter_set}
               </small>
-              {entry.factory_metadata.source_evidence_reference ? (
+              {entry.source_context ? (
                 <small data-testid="m30-teacher-source-evidence">
                   上海 → 杭州 · qualification:{" "}
-                  {entry.factory_metadata.source_evidence_reference.qualification_status} ·
-                  calibration:{" "}
-                  {entry.factory_metadata.source_evidence_reference.calibration_evidence} · exact
+                  {entry.source_context.qualification_status} · calibration: NOT_PROVEN · exact
                   binding required
                 </small>
               ) : null}

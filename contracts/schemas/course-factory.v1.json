@@ -375,6 +375,60 @@
         "tenant_id": { "$ref": "#/$defs/identity" }
       }
     },
+    "teacherSourceContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_region",
+        "epoch_version",
+        "qualification_status",
+        "consumption_status",
+        "exact_binding_required",
+        "known_limits",
+        "source_reference_versions"
+      ],
+      "properties": {
+        "target_region": { "type": "string", "minLength": 1 },
+        "epoch_version": { "$ref": "#/$defs/exactVersion" },
+        "qualification_status": { "const": "LIMITED" },
+        "consumption_status": { "const": "LOOKAHEAD_READY" },
+        "exact_binding_required": { "const": true },
+        "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "source_reference_versions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["course_blueprint", "scenario_package", "parameter_set"],
+          "properties": {
+            "course_blueprint": { "$ref": "#/$defs/exactVersion" },
+            "scenario_package": { "$ref": "#/$defs/exactVersion" },
+            "parameter_set": { "$ref": "#/$defs/exactVersion" }
+          }
+        }
+      }
+    },
+    "teacherCatalogEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["course_package_reference", "description", "status", "title", "version"],
+      "properties": {
+        "course_package_reference": { "$ref": "#/$defs/coursePackageReference" },
+        "description": { "type": "string", "minLength": 1 },
+        "status": { "const": "PUBLISHED" },
+        "title": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/exactVersion" },
+        "source_context": { "$ref": "#/$defs/teacherSourceContext" }
+      }
+    },
+    "teacherCatalogProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["catalog", "known_limits", "tenant_id"],
+      "properties": {
+        "catalog": { "type": "array", "items": { "$ref": "#/$defs/teacherCatalogEntry" } },
+        "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "tenant_id": { "$ref": "#/$defs/identity" }
+      }
+    },
     "sponsorProjection": {
       "type": "object",
       "additionalProperties": false,

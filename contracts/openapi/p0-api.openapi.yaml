@@ -301,7 +301,7 @@ paths:
           description: Teacher-safe published catalog
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/CourseFactoryCatalogEnvelope" }
+              schema: { $ref: "#/components/schemas/CourseFactoryTeacherCatalogEnvelope" }
         "401": { description: Authentication required }
         "403": { description: Teacher tenant scope required }
   /api/v1/bff/enterprise/course-factory/sponsor:
@@ -8975,6 +8975,8 @@ components:
       $ref: "../schemas/course-factory.v1.json#/$defs/version"
     CourseFactoryCatalogProjection:
       $ref: "../schemas/course-factory.v1.json#/$defs/catalogProjection"
+    CourseFactoryTeacherCatalogProjection:
+      $ref: "../schemas/course-factory.v1.json#/$defs/teacherCatalogProjection"
     CourseFactorySponsorProjection:
       $ref: "../schemas/course-factory.v1.json#/$defs/sponsorProjection"
     CourseFactoryAuditProjection:
@@ -8995,6 +8997,15 @@ components:
       properties:
         code: { type: string }
         data: { $ref: "#/components/schemas/CourseFactoryCatalogProjection" }
+        message: { type: string }
+        request_id: { type: string }
+    CourseFactoryTeacherCatalogEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/CourseFactoryTeacherCatalogProjection" }
         message: { type: string }
         request_id: { type: string }
     CourseFactorySponsorEnvelope:

@@ -9,6 +9,8 @@ import type {
   CourseFactoryMetadata,
   CourseFactorySponsorProjection,
   CourseFactorySponsorCatalogEntry,
+  CourseFactoryTeacherCatalogEntry,
+  CourseFactoryTeacherCatalogProjection,
   CourseFactoryStudentEvidenceProjection,
   CourseFactoryVersion,
   CoursePackageVersion,
@@ -196,6 +198,39 @@ function catalogEntry(version: CourseFactoryVersion): CourseFactoryCatalogEntry 
     status: version.status,
     title: version.title,
     version: version.version
+  };
+}
+
+function teacherCatalogEntry(entry: CourseFactoryCatalogEntry): CourseFactoryTeacherCatalogEntry {
+  const evidence = entry.factory_metadata.source_evidence_reference;
+  const sourceManifest = entry.factory_metadata.source_manifest;
+  return {
+    course_package_reference: clone(entry.course_package_reference),
+    description: entry.description,
+    status: entry.status,
+    title: entry.title,
+    version: entry.version,
+    ...(evidence
+      ? {
+          source_context: {
+            target_region: evidence.target_region,
+            epoch_version: evidence.living_operations.epoch_version,
+            qualification_status: evidence.qualification_status,
+            consumption_status: evidence.consumption_status,
+            exact_binding_required: evidence.exact_binding_required,
+            known_limits: [
+              "PUBLIC_SOURCE_BOUND",
+              "calibration NOT_PROVEN",
+              "qualification LIMITED"
+            ],
+            source_reference_versions: {
+              course_blueprint: sourceManifest.course_blueprint_reference.version,
+              scenario_package: sourceManifest.scenario_package_reference.version,
+              parameter_set: sourceManifest.parameter_set_reference.version
+            }
+          }
+        }
+      : {})
   };
 }
 
@@ -448,14 +483,14 @@ export class CourseFactoryService {
     return { catalog: versions, known_limits: KNOWN_LIMITS, tenant_id: tenantId };
   }
 
-  async getTeacherCatalog(actor: CourseFactoryActor): Promise<CourseFactoryCatalogProjection> {
+  async getTeacherCatalog(actor: CourseFactoryActor): Promise<CourseFactoryTeacherCatalogProjection> {
     const projection = await this.listCatalog(actor);
     const now = this.packageRegistry.currentTime();
     return {
       ...projection,
-      catalog: projection.catalog.filter(
-        (entry) => entry.status === "PUBLISHED" && !isExpired(entry.factory_metadata, now)
-      )
+      catalog: projection.catalog
+        .filter((entry) => entry.status === "PUBLISHED" && !isExpired(entry.factory_metadata, now))
+        .map(teacherCatalogEntry)
     };
   }
 

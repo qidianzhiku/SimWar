@@ -212,6 +212,81 @@ describe("CoursePackageVersion contract freeze", () => {
     expect(() => assertValidCoursePackageVersion(candidate)).not.toThrow();
   });
 
+  it("closes optional factory manifest references instead of accepting arbitrary objects", () => {
+    const validate = compileCoursePackageSchema();
+    const valid = readJson<Record<string, unknown>>(
+      "contracts/fixtures/course-package-version.valid.json"
+    );
+    const reference = {
+      content_digest: "e".repeat(64),
+      project_profile_id: "profile_demo",
+      tenant_id: "tenant_demo",
+      version: "1.0.0"
+    };
+    const factoryPackage = {
+      ...valid,
+      status: "PUBLISHED",
+      factory_metadata: {
+        known_limits: ["JSON runtime only"],
+        provenance: { kind: "ORIGINAL" },
+        rights: {
+          allowed_tenant_ids: ["tenant_demo"],
+          copy_allowed: true,
+          export_allowed: true,
+          expires_at: null,
+          owner_tenant_id: "tenant_demo"
+        },
+        schema_version: "course-factory.v1",
+        source_manifest: {
+          course_blueprint_reference: valid.course_blueprint_reference,
+          model_artifact_reference: {
+            artifact_id: "artifact_demo",
+            content_digest: "f".repeat(64),
+            format: "json",
+            source_ref: "source:artifact_demo"
+          },
+          model_version_reference: {
+            content_digest: "a".repeat(64),
+            model_version_id: "model_demo",
+            version: "1.0.0"
+          },
+          parameter_set_reference: valid.parameter_set_reference,
+          project_profile_reference: reference,
+          scenario_package_reference: valid.scenario_package_reference
+        },
+        user_data_policy: {
+          copied_private_data: false,
+          copied_user_decisions: false,
+          copied_user_results: false
+        }
+      }
+    };
+
+    expect(validate(factoryPackage)).toBe(true);
+    for (const field of [
+      "model_artifact_reference",
+      "model_version_reference",
+      "project_profile_reference"
+    ]) {
+      const candidate = structuredClone(factoryPackage);
+      (candidate.factory_metadata as Record<string, unknown>).source_manifest = {
+        ...(candidate.factory_metadata as Record<string, unknown>).source_manifest as Record<
+          string,
+          unknown
+        >,
+        [field]: {}
+      };
+      expect(validate(candidate), field).toBe(false);
+      expect(validate.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            keyword: "required"
+          })
+        ])
+      );
+    }
+  });
+
   it("freezes one aggregate shape with safe admin and teacher projections", () => {
     expectTypeOf<CoursePackageVersionAdminDto>().toMatchTypeOf<CoursePackageVersion>();
     expectTypeOf<CoursePackageVersionTeacherDto>().not.toMatchTypeOf<CoursePackageVersion>();

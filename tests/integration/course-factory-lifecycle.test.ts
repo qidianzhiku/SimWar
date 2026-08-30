@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import type {
   ApiEnvelope,
   AuthSession,
+  CourseFactoryTeacherCatalogEntry,
   CourseFactoryVersion,
   CoursePackageVersionReference
 } from "../../packages/shared-contracts/src";
@@ -290,15 +291,28 @@ describe("Course Factory governed lifecycle", () => {
       expect(legacyRetire.status).toBe(409);
 
       const teacherCatalog = await requestJson<
-        ApiEnvelope<{ catalog: readonly CourseFactoryVersion[] }>
+        ApiEnvelope<{ catalog: readonly CourseFactoryTeacherCatalogEntry[] }>
       >(baseUrl, "/api/v1/bff/teacher/course-factory/catalog", { token: teacher.access_token });
       expect(teacherCatalog.status).toBe(200);
       expect(teacherCatalog.body.data.catalog).toHaveLength(1);
       expect(teacherCatalog.body.data.catalog[0]?.status).toBe("PUBLISHED");
-      expect(
-        teacherCatalog.body.data.catalog[0]?.factory_metadata.source_evidence_reference
-          ?.binding_request_id
-      ).toBe("SH-M29-MAIN-PULL-BINDING-REQUEST");
+      expect(teacherCatalog.body.data.catalog[0]).not.toHaveProperty("factory_metadata");
+      expect(teacherCatalog.body.data.catalog[0]?.source_context).toEqual({
+        target_region: "Hangzhou",
+        epoch_version: "epoch-b.2026-08-30",
+        qualification_status: "LIMITED",
+        consumption_status: "LOOKAHEAD_READY",
+        exact_binding_required: true,
+        known_limits: ["PUBLIC_SOURCE_BOUND", "calibration NOT_PROVEN", "qualification LIMITED"],
+        source_reference_versions: {
+          course_blueprint: VERSION,
+          scenario_package: VERSION,
+          parameter_set: VERSION
+        }
+      });
+      expect(teacherCatalog.body.data.catalog[0]).not.toHaveProperty(
+        "source_epoch_base_sha"
+      );
 
       const adminCatalog = await requestJson<
         ApiEnvelope<{ catalog: readonly CourseFactoryVersion[] }>
