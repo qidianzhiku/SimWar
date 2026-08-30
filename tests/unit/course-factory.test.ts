@@ -266,6 +266,25 @@ describe("R3 CourseFactoryService", () => {
 
     now = "2026-12-01T00:00:00.000Z";
     expect(await service.getStudentSourceEvidence(tenantId, exact)).toBeUndefined();
+    expect((await service.getTeacherCatalog(actor)).catalog[0]?.source_context).toBeUndefined();
+  });
+
+  it("rejects partial optional model references at the runtime metadata boundary", async () => {
+    const { service } = createService();
+    for (const field of ["model_artifact_reference", "model_version_reference"] as const) {
+      const candidate = factoryDraft({
+        factory_metadata: {
+          ...factoryDraft().factory_metadata,
+          source_manifest: {
+            ...factoryDraft().factory_metadata.source_manifest,
+            [field]: {}
+          }
+        }
+      });
+      await expect(service.createDraft(actor, candidate)).rejects.toEqual(
+        new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID")
+      );
+    }
   });
 
   it("clones only an unexpired published source and preserves exact refs without user data", async () => {

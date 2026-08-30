@@ -201,23 +201,28 @@ function catalogEntry(version: CourseFactoryVersion): CourseFactoryCatalogEntry 
   };
 }
 
-function teacherCatalogEntry(entry: CourseFactoryCatalogEntry): CourseFactoryTeacherCatalogEntry {
+function teacherCatalogEntry(
+  entry: CourseFactoryCatalogEntry,
+  now: string
+): CourseFactoryTeacherCatalogEntry {
   const evidence = entry.factory_metadata.source_evidence_reference;
   const sourceManifest = entry.factory_metadata.source_manifest;
+  const projectableEvidence =
+    evidence && !isSourceEvidenceExpired(entry.factory_metadata, now) ? evidence : undefined;
   return {
     course_package_reference: clone(entry.course_package_reference),
     description: entry.description,
     status: entry.status,
     title: entry.title,
     version: entry.version,
-    ...(evidence
+    ...(projectableEvidence
       ? {
           source_context: {
-            target_region: evidence.target_region,
-            epoch_version: evidence.living_operations.epoch_version,
-            qualification_status: evidence.qualification_status,
-            consumption_status: evidence.consumption_status,
-            exact_binding_required: evidence.exact_binding_required,
+            target_region: projectableEvidence.target_region,
+            epoch_version: projectableEvidence.living_operations.epoch_version,
+            qualification_status: projectableEvidence.qualification_status,
+            consumption_status: projectableEvidence.consumption_status,
+            exact_binding_required: projectableEvidence.exact_binding_required,
             known_limits: [
               "PUBLIC_SOURCE_BOUND",
               "calibration NOT_PROVEN",
@@ -490,7 +495,7 @@ export class CourseFactoryService {
       ...projection,
       catalog: projection.catalog
         .filter((entry) => entry.status === "PUBLISHED" && !isExpired(entry.factory_metadata, now))
-        .map(teacherCatalogEntry)
+        .map((entry) => teacherCatalogEntry(entry, now))
     };
   }
 

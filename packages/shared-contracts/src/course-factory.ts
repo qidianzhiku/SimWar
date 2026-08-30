@@ -183,6 +183,29 @@ function isTenantReference(value: unknown, tenantId: string, identityField: stri
   );
 }
 
+function isNonEmptyText(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value === value.trim();
+}
+
+function isModelArtifactReference(value: unknown): value is ModelArtifactReference {
+  if (!isRecord(value)) return false;
+  return (
+    isExactIdentity(value.artifact_id) &&
+    isDigest(value.content_digest) &&
+    isNonEmptyText(value.format) &&
+    isNonEmptyText(value.source_ref)
+  );
+}
+
+function isModelVersionReference(value: unknown): value is ModelVersionReference {
+  if (!isRecord(value)) return false;
+  return (
+    isExactIdentity(value.model_version_id) &&
+    isExactVersion(value.version) &&
+    isDigest(value.content_digest)
+  );
+}
+
 /**
  * Runtime guard for the governed factory extension carried by CoursePackageVersion.
  * It is intentionally shared by persistence, service and delivery boundaries so
@@ -275,9 +298,9 @@ export function isCourseFactoryMetadataForTenant(
     !isExactVersion(sourceManifest.parameter_set_reference.version) ||
     !isDigest(sourceManifest.parameter_set_reference.content_digest) ||
     (sourceManifest.model_artifact_reference !== undefined &&
-      !isRecord(sourceManifest.model_artifact_reference)) ||
+      !isModelArtifactReference(sourceManifest.model_artifact_reference)) ||
     (sourceManifest.model_version_reference !== undefined &&
-      !isRecord(sourceManifest.model_version_reference)) ||
+      !isModelVersionReference(sourceManifest.model_version_reference)) ||
     (sourceManifest.project_profile_reference !== undefined &&
       !isTenantReference(
         sourceManifest.project_profile_reference,
