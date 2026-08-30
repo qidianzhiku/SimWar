@@ -1,0 +1,9 @@
+{
+  "schema_version": "sh-main-pull-consumption.v1",
+  "mission_id": "SIMWAR-SH-M29-MAIN-PULL-SOURCE-BACKED-CONSUMPTION",
+  "product_proof": {
+    "product_consumption_status": "LOOKAHEAD_READY",
+    "real_route_proof": "PROVEN"
+  },
+  "reason": "An SH support pack cannot claim real MAIN route proof."
+}
