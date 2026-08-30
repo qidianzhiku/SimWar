@@ -239,21 +239,26 @@ function teacherCatalogEntry(
   };
 }
 
-function sponsorCatalogEntry(version: CourseFactoryVersion): CourseFactorySponsorCatalogEntry {
+function sponsorCatalogEntry(
+  version: CourseFactoryVersion,
+  now: string
+): CourseFactorySponsorCatalogEntry {
   const evidence = version.factory_metadata.source_evidence_reference;
+  const projectableEvidence =
+    evidence && !isSourceEvidenceExpired(version.factory_metadata, now) ? evidence : undefined;
   return {
     course_package_reference: createCoursePackageVersionReference(version),
     status: version.status,
     title: version.title,
     version: version.version,
-    ...(evidence
+    ...(projectableEvidence
       ? {
           source_context: {
-            target_region: evidence.target_region,
-            epoch_version: evidence.living_operations.epoch_version,
-            qualification_status: evidence.qualification_status,
-            consumption_status: evidence.consumption_status,
-            exact_binding_required: evidence.exact_binding_required
+            target_region: projectableEvidence.target_region,
+            epoch_version: projectableEvidence.living_operations.epoch_version,
+            qualification_status: projectableEvidence.qualification_status,
+            consumption_status: projectableEvidence.consumption_status,
+            exact_binding_required: projectableEvidence.exact_binding_required
           }
         }
       : {})
@@ -602,9 +607,10 @@ export class CourseFactoryService {
     );
     const tenantRuns = (this.store?.runs ?? []).filter((run) => run.tenant_id === tenantId);
     const tenantRounds = (this.store?.rounds ?? []).filter((round) => round.tenant_id === tenantId);
+    const now = this.packageRegistry.currentTime();
     const sponsorCatalog = (await this.packageRegistry.listForTenant(tenantId))
       .filter(isFactoryVersion)
-      .map(sponsorCatalogEntry);
+      .map((version) => sponsorCatalogEntry(version, now));
     return {
       catalog: sponsorCatalog,
       delivery_progress: {

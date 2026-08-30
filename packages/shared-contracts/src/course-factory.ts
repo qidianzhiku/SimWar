@@ -176,6 +176,7 @@ function isDateOnly(value: unknown): value is string {
 function isTenantReference(value: unknown, tenantId: string, identityField: string): boolean {
   if (!isRecord(value)) return false;
   return (
+    hasExactKeys(value, ["content_digest", identityField, "tenant_id", "version"]) &&
     value.tenant_id === tenantId &&
     isExactIdentity(value[identityField]) &&
     isExactVersion(value.version) &&
@@ -302,6 +303,11 @@ export function isCourseFactoryMetadataForTenant(
       "scenario_package_id"
     ) ||
     !isRecord(sourceManifest.parameter_set_reference) ||
+    !hasExactKeys(sourceManifest.parameter_set_reference, [
+      "content_digest",
+      "parameter_set_id",
+      "version"
+    ]) ||
     !isExactIdentity(sourceManifest.parameter_set_reference.parameter_set_id) ||
     !isExactVersion(sourceManifest.parameter_set_reference.version) ||
     !isDigest(sourceManifest.parameter_set_reference.content_digest) ||
@@ -329,6 +335,12 @@ export function isCourseFactoryMetadataForTenant(
   return (
     sourceReference === undefined ||
     (isRecord(sourceReference) &&
+      hasExactKeys(sourceReference, [
+        "content_digest",
+        "course_package_id",
+        "tenant_id",
+        "version"
+      ]) &&
       isExactIdentity(sourceReference.tenant_id) &&
       isExactIdentity(sourceReference.course_package_id) &&
       isExactVersion(sourceReference.version) &&

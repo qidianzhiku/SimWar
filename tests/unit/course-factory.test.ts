@@ -267,6 +267,9 @@ describe("R3 CourseFactoryService", () => {
     now = "2026-12-01T00:00:00.000Z";
     expect(await service.getStudentSourceEvidence(tenantId, exact)).toBeUndefined();
     expect((await service.getTeacherCatalog(actor)).catalog[0]?.source_context).toBeUndefined();
+    const sponsor = await service.getSponsorProjection(actor, tenantId);
+    expect(sponsor.catalog[0]?.source_context).toBeUndefined();
+    expect(sponsor.evidence_pack.source_evidence_count).toBe(0);
   });
 
   it("rejects malformed optional model references at the runtime metadata boundary", async () => {
@@ -286,7 +289,64 @@ describe("R3 CourseFactoryService", () => {
       );
     }
 
-    const validReferences = {
+    const validReferences = factoryDraft().factory_metadata.source_manifest;
+    for (const field of [
+      "course_blueprint_reference",
+      "scenario_package_reference",
+      "project_profile_reference"
+    ] as const) {
+      const reference = validReferences[field];
+      if (!reference) continue;
+      const candidate = factoryDraft({
+        factory_metadata: {
+          ...factoryDraft().factory_metadata,
+          source_manifest: {
+            ...validReferences,
+            [field]: { ...reference, unexpected: true }
+          }
+        }
+      });
+      await expect(service.createDraft(actor, candidate)).rejects.toEqual(
+        new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID")
+      );
+    }
+
+    const parameterCandidate = factoryDraft({
+      factory_metadata: {
+        ...factoryDraft().factory_metadata,
+        source_manifest: {
+          ...validReferences,
+          parameter_set_reference: {
+            ...validReferences.parameter_set_reference,
+            unexpected: true
+          }
+        }
+      }
+    });
+    await expect(service.createDraft(actor, parameterCandidate)).rejects.toEqual(
+      new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID")
+    );
+
+    const provenanceCandidate = factoryDraft({
+      factory_metadata: {
+        ...factoryDraft().factory_metadata,
+        provenance: {
+          ...factoryDraft().factory_metadata.provenance,
+          source_course_package_reference: {
+            content_digest: digest("c"),
+            course_package_id: "source_course_demo",
+            tenant_id: tenantId,
+            version: "1.0.0",
+            unexpected: true
+          }
+        }
+      }
+    });
+    await expect(service.createDraft(actor, provenanceCandidate)).rejects.toEqual(
+      new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID")
+    );
+
+    const validModelReferences = {
       model_artifact_reference: {
         artifact_id: "artifact_demo",
         content_digest: digest("a"),
@@ -307,7 +367,7 @@ describe("R3 CourseFactoryService", () => {
             ...factoryDraft().factory_metadata,
             source_manifest: {
               ...factoryDraft().factory_metadata.source_manifest,
-              ...validReferences
+              ...validModelReferences
             }
           }
         })
@@ -320,8 +380,8 @@ describe("R3 CourseFactoryService", () => {
           ...factoryDraft().factory_metadata,
           source_manifest: {
             ...factoryDraft().factory_metadata.source_manifest,
-            ...validReferences,
-            [field]: { ...validReferences[field], unexpected: true }
+            ...validModelReferences,
+            [field]: { ...validModelReferences[field], unexpected: true }
           }
         }
       });

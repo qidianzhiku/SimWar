@@ -11,7 +11,7 @@
       "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$",
       "not": {
         "type": "string",
-        "pattern": "(?:^|[._:-])(?:any|current|default|fallback|latest|next|unresolved)(?:$|[._:-])"
+        "pattern": "(?:^|[._:-])(?:[Aa][Nn][Yy]|[Cc][Uu][Rr][Rr][Ee][Nn][Tt]|[Dd][Ee][Ff][Aa][Uu][Ll][Tt]|[Ff][Aa][Ll][Ll][Bb][Aa][Cc][Kk]|[Ll][Aa][Tt][Ee][Ss][Tt]|[Nn][Ee][Xx][Tt]|[Uu][Nn][Rr][Ee][Ss][Oo][Ll][Vv][Ee][Dd])(?:$|[._:-])"
       }
     },
     "exactVersion": {

@@ -97,6 +97,12 @@ describe("Course Factory contract", () => {
     openIdentityCandidate.version = "latest";
     expect(validate(openIdentityCandidate)).toBe(false);
 
+    for (const identity of ["LATEST", "DEFAULT", "Unresolved"]) {
+      const reservedIdentityCandidate = structuredClone(draft());
+      reservedIdentityCandidate.version = identity;
+      expect(validate(reservedIdentityCandidate)).toBe(false);
+    }
+
     const paddedModelArtifactCandidate = structuredClone(draft());
     paddedModelArtifactCandidate.factory_metadata.source_manifest.model_artifact_reference = {
       artifact_id: "artifact_demo",
