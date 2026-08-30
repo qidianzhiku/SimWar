@@ -55,7 +55,10 @@ describe("Shanghai M25 public-source reality evidence epoch", () => {
       expect.arrayContaining(["unsupported_observation_reality_class"])
     );
 
-    const schemaBoundary = structuredClone(pack) as any;
+    const schemaBoundary = structuredClone(pack) as unknown as {
+      regional_transfers: Array<{ approval_status: string }>;
+      scenario_candidates: Array<{ formal_runtime_admitted: boolean }>;
+    };
     schemaBoundary.regional_transfers[0].approval_status = "APPROVED";
     expect(schemaValidator()(schemaBoundary)).toBe(false);
     schemaBoundary.regional_transfers[0].approval_status = "CANDIDATE_ONLY";
