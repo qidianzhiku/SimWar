@@ -86,6 +86,18 @@ function isExactVersion(value: unknown): value is string {
   return isExactIdentity(value) && !/(?:^|[._:-])[xX*](?:$|[._:-])/.test(value);
 }
 
+function isIsoTimestamp(value: unknown): value is string {
+  if (
+    typeof value !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)
+  ) {
+    return false;
+  }
+  const parsed = new Date(value);
+  const canonical = value.includes(".") ? value : value.replace("Z", ".000Z");
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString() === canonical;
+}
+
 function sameReference(
   left: CoursePackageVersionReference,
   right: CoursePackageVersionReference
@@ -176,7 +188,7 @@ export function assertValidCoursePackageVersion(version: Readonly<CoursePackageV
     version.content_digest !== expectedDigest ||
     version.schema_version !== COURSE_PACKAGE_VERSION_SCHEMA_VERSION ||
     !COURSE_PACKAGE_VERSION_STATUSES.includes(version.status) ||
-    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(version.created_at) ||
+    !isIsoTimestamp(version.created_at) ||
     version.course_blueprint_reference.tenant_id !== version.tenant_id ||
     version.scenario_package_reference.tenant_id !== version.tenant_id ||
     !isCourseBlueprintReference(version.course_blueprint_reference) ||

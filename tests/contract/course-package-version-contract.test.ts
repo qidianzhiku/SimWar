@@ -176,9 +176,18 @@ describe("CoursePackageVersion contract freeze", () => {
     const valid = readJson<Record<string, unknown>>(
       "contracts/fixtures/course-package-version.valid.json"
     );
+    const validVersion = valid as unknown as CoursePackageVersion;
 
     expect(validate({ ...valid, created_at: "2026-13-40T00:00:00.000Z" })).toBe(false);
     expect(validate({ ...valid, created_at: "2026-02-29T00:00:00.000Z" })).toBe(false);
+    for (const created_at of [
+      "2026-02-30T00:00:00.000Z",
+      "2026-01-01T24:00:00.000Z"
+    ]) {
+      expect(() => assertValidCoursePackageVersion({ ...validVersion, created_at })).toThrow(
+        "COURSE_PACKAGE_INPUT_INVALID"
+      );
+    }
   });
 
   it("accepts the optional Teacher Scenario Studio configuration in the package contract", () => {

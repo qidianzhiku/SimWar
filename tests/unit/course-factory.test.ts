@@ -284,6 +284,57 @@ describe("R3 CourseFactoryService", () => {
       new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID")
     );
 
+    const nestedUnknownFieldCandidates = [
+      factoryDraft({
+        factory_metadata: {
+          ...factoryDraft().factory_metadata,
+          rights: { ...factoryDraft().factory_metadata.rights, unexpected: true }
+        }
+      }),
+      factoryDraft({
+        factory_metadata: {
+          ...factoryDraft().factory_metadata,
+          provenance: { ...factoryDraft().factory_metadata.provenance, unexpected: true }
+        }
+      }),
+      factoryDraft({
+        factory_metadata: {
+          ...factoryDraft().factory_metadata,
+          source_manifest: { ...factoryDraft().factory_metadata.source_manifest, unexpected: true }
+        }
+      }),
+      factoryDraft({
+        factory_metadata: {
+          ...factoryDraft().factory_metadata,
+          user_data_policy: { ...factoryDraft().factory_metadata.user_data_policy, unexpected: true }
+        }
+      })
+    ];
+    for (const candidate of nestedUnknownFieldCandidates) {
+      await expect(service.createDraft(actor, candidate)).rejects.toEqual(
+        new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID")
+      );
+    }
+
+    const evidence = buildM30CourseFactorySourceEvidence();
+    const evidenceUnknownFieldCandidates = [
+      { ...evidence, unexpected: true },
+      { ...evidence, source_epoch: { ...evidence.source_epoch, unexpected: true } },
+      { ...evidence, regional_transfer: { ...evidence.regional_transfer, unexpected: true } },
+      { ...evidence, living_operations: { ...evidence.living_operations, unexpected: true } }
+    ];
+    for (const sourceEvidence of evidenceUnknownFieldCandidates) {
+      const candidate = factoryDraft({
+        factory_metadata: {
+          ...factoryDraft().factory_metadata,
+          source_evidence_reference: sourceEvidence
+        }
+      });
+      await expect(service.createDraft(actor, candidate)).rejects.toEqual(
+        new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID")
+      );
+    }
+
     for (const field of ["model_artifact_reference", "model_version_reference"] as const) {
       const candidate = factoryDraft({
         factory_metadata: {

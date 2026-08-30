@@ -194,6 +194,10 @@ function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]): 
   return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
 }
 
+function hasOnlyKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
+  return Object.keys(value).every((key) => keys.includes(key));
+}
+
 function isModelArtifactReference(value: unknown): value is ModelArtifactReference {
   if (!isRecord(value)) return false;
   return (
@@ -229,18 +233,41 @@ export function isCourseFactorySourceEvidenceReference(
   const transfer = value.regional_transfer;
   const living = value.living_operations;
   return (
+    hasExactKeys(value, [
+      "schema_version",
+      "binding_request_id",
+      "source_epoch",
+      "regional_transfer",
+      "living_operations",
+      "baseline_region",
+      "target_region",
+      "source_reality_class",
+      "rights_status",
+      "qualification_status",
+      "calibration_evidence",
+      "formal_binding_eligible",
+      "consumption_status",
+      "exact_binding_required",
+      "required_rechecks",
+      "exact_source_refs",
+      "m29_pack_digest",
+      "evidence_digest"
+    ]) &&
     value.schema_version === "course-factory-source-evidence.v1" &&
     value.binding_request_id === "SH-M29-MAIN-PULL-BINDING-REQUEST" &&
     isRecord(sourceEpoch) &&
+    hasExactKeys(sourceEpoch, ["epoch_digest", "epoch_id", "source_epoch_base_sha"]) &&
     isExactIdentity(sourceEpoch.epoch_id) &&
     isDigest(sourceEpoch.epoch_digest) &&
     typeof sourceEpoch.source_epoch_base_sha === "string" &&
     /^[a-f0-9]{40}$/.test(sourceEpoch.source_epoch_base_sha) &&
     isRecord(transfer) &&
+    hasExactKeys(transfer, ["candidate_version", "pack_digest", "transfer_id"]) &&
     isExactIdentity(transfer.transfer_id) &&
     isDigest(transfer.pack_digest) &&
     isExactVersion(transfer.candidate_version) &&
     isRecord(living) &&
+    hasExactKeys(living, ["epoch_id", "epoch_version", "expires_at", "pack_digest"]) &&
     isDigest(living.pack_digest) &&
     isExactIdentity(living.epoch_id) &&
     isExactVersion(living.epoch_version) &&
@@ -291,8 +318,16 @@ export function isCourseFactoryMetadataForTenant(
     knownLimits.length === 0 ||
     knownLimits.some((item) => typeof item !== "string" || item.trim().length === 0) ||
     !isRecord(provenance) ||
+    !hasOnlyKeys(provenance, ["kind", "source_course_package_reference"]) ||
     !COURSE_FACTORY_PROVENANCE_KINDS.includes(provenance.kind as CourseFactoryProvenanceKind) ||
     !isRecord(rights) ||
+    !hasExactKeys(rights, [
+      "allowed_tenant_ids",
+      "copy_allowed",
+      "export_allowed",
+      "expires_at",
+      "owner_tenant_id"
+    ]) ||
     rights.owner_tenant_id !== tenantId ||
     !Array.isArray(rights.allowed_tenant_ids) ||
     rights.allowed_tenant_ids.length === 0 ||
@@ -302,6 +337,14 @@ export function isCourseFactoryMetadataForTenant(
     typeof rights.export_allowed !== "boolean" ||
     (rights.expires_at !== null && !isIsoTimestamp(rights.expires_at)) ||
     !isRecord(sourceManifest) ||
+    !hasOnlyKeys(sourceManifest, [
+      "course_blueprint_reference",
+      "model_artifact_reference",
+      "model_version_reference",
+      "parameter_set_reference",
+      "project_profile_reference",
+      "scenario_package_reference"
+    ]) ||
     !isTenantReference(
       sourceManifest.course_blueprint_reference,
       tenantId,
@@ -332,6 +375,11 @@ export function isCourseFactoryMetadataForTenant(
         "project_profile_id"
       )) ||
     !isRecord(userDataPolicy) ||
+    !hasExactKeys(userDataPolicy, [
+      "copied_private_data",
+      "copied_user_decisions",
+      "copied_user_results"
+    ]) ||
     userDataPolicy.copied_private_data !== false ||
     userDataPolicy.copied_user_decisions !== false ||
     userDataPolicy.copied_user_results !== false ||
