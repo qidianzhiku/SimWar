@@ -413,7 +413,7 @@ export class TeacherConfirmationCommandService {
       input.course_package_ref
     );
     if (
-      !isDeliveryReadyCoursePackage(coursePackage) ||
+      !isDeliveryReadyCoursePackage(coursePackage, this.dependencies.now?.()) ||
       coursePackage.content_digest !== input.course_package_ref.content_digest
     )
       throw new TeacherConfirmationError("D3_NOT_FOUND");

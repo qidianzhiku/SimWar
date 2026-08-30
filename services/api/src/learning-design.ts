@@ -50,6 +50,7 @@ export interface LearningDesignCoursePackageLookup {
     tenantId: string,
     reference: LearningDesignExactReference & { course_package_id: string }
   ): Promise<{ status: string } | null>;
+  currentTime?: () => string;
 }
 
 export interface LearningDesignJsonRegistryDependencies {
@@ -437,7 +438,7 @@ export class LearningDesignCommandService {
     tenantId: string
   ): Promise<void> {
     const packageVersion = await this.coursePackages.getByReference(tenantId, reference);
-    if (!isDeliveryReadyCoursePackage(packageVersion))
+    if (!isDeliveryReadyCoursePackage(packageVersion, this.coursePackages.currentTime?.()))
       throw new LearningDesignCommandError("LEARNING_DESIGN_COURSE_PACKAGE_NOT_AVAILABLE");
   }
 }

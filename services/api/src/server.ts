@@ -643,7 +643,8 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
   );
   const learningDesignCommands = new LearningDesignCommandService(learningDesignRegistry, {
     getByReference: (tenantId, reference) =>
-      coursePackageRegistry.getByReference(tenantId, reference)
+      coursePackageRegistry.getByReference(tenantId, reference),
+    currentTime: () => coursePackageRegistry.currentTime()
   });
   const evidenceCapture = new EvidenceCaptureCommandService({
     coursePackages: coursePackageRegistry,
@@ -8561,13 +8562,20 @@ async function routeRequest(
         context.tenantId,
         courseId
       );
-      const courseFactorySourceEvidence = course
-        ? await runtime.courseFactory.getStudentSourceEvidence(
-            context.tenantId,
-            course.scenario_package_id,
-            course.parameter_set_id
-          )
-        : undefined;
+      const formalRuntimeBinding = await runtime.formalRunRuntimeBindingStore.getForRun(
+        context.tenantId,
+        runId
+      );
+      const courseFactorySourceEvidence =
+        course &&
+        formalRuntimeBinding &&
+        formalRuntimeBinding.tenant_id === context.tenantId &&
+        formalRuntimeBinding.run_id === runId
+          ? await runtime.courseFactory.getStudentSourceEvidence(context.tenantId, {
+              parameter_set_reference: formalRuntimeBinding.parameter_set_reference,
+              scenario_package_reference: formalRuntimeBinding.scenario_package_reference
+            })
+          : undefined;
       sendJson(
         response,
         200,

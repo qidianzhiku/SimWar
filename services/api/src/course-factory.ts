@@ -12,7 +12,9 @@ import type {
   CourseFactoryStudentEvidenceProjection,
   CourseFactoryVersion,
   CoursePackageVersion,
-  CoursePackageVersionReference
+  CoursePackageVersionReference,
+  ParameterSetReference,
+  ScenarioPackageReference
 } from "@simwar/shared-contracts";
 import {
   COURSE_FACTORY_LIFECYCLE_STATES,
@@ -141,6 +143,11 @@ function sameParameterReference(
     left.parameter_set_id === right.parameter_set_id &&
     left.version === right.version
   );
+}
+
+export interface CourseFactoryStudentExactBindingReferences {
+  parameter_set_reference: ParameterSetReference;
+  scenario_package_reference: ScenarioPackageReference;
 }
 
 function assertMetadata(versionTenantId: string, metadata: CourseFactoryMetadata): void {
@@ -451,8 +458,7 @@ export class CourseFactoryService {
    */
   async getStudentSourceEvidence(
     tenantId: string,
-    scenarioPackageId: string,
-    parameterSetId: string
+    references: CourseFactoryStudentExactBindingReferences
   ): Promise<CourseFactoryStudentEvidenceProjection | undefined> {
     const now = this.packageRegistry.currentTime();
     const candidates = (await this.packageRegistry.listForTenant(tenantId))
@@ -462,10 +468,22 @@ export class CourseFactoryService {
           version.status === "PUBLISHED" &&
           !isExpired(version.factory_metadata, now) &&
           version.factory_metadata.source_evidence_reference !== undefined &&
-          version.factory_metadata.source_manifest.scenario_package_reference
-            .scenario_package_id === scenarioPackageId &&
-          version.factory_metadata.source_manifest.parameter_set_reference.parameter_set_id ===
-            parameterSetId &&
+          sameScenarioReference(
+            version.scenario_package_reference,
+            references.scenario_package_reference
+          ) &&
+          sameScenarioReference(
+            version.factory_metadata.source_manifest.scenario_package_reference,
+            references.scenario_package_reference
+          ) &&
+          sameParameterReference(
+            version.parameter_set_reference,
+            references.parameter_set_reference
+          ) &&
+          sameParameterReference(
+            version.factory_metadata.source_manifest.parameter_set_reference,
+            references.parameter_set_reference
+          ) &&
           validateM30CourseFactorySourceEvidence(version.factory_metadata.source_evidence_reference)
             .length === 0
       );

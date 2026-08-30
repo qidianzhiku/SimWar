@@ -245,6 +245,22 @@ describe("Course Factory governed lifecycle", () => {
       expect(audit.status).toBe(200);
       expect(audit.body.data.lifecycle).toEqual(["DRAFT", "VALIDATED", "APPROVED", "PUBLISHED"]);
 
+      const exported = await requestJson<ApiEnvelope<CourseFactoryVersion>>(
+        baseUrl,
+        `/api/v1/admin/course-factory/versions/${reference.course_package_id}/versions/${VERSION}/export?content_digest=${reference.content_digest}`,
+        { token: admin.access_token }
+      );
+      expect(exported.status, JSON.stringify(exported.body)).toBe(200);
+      expect(exported.body.data.status).toBe("PUBLISHED");
+      expect(
+        store.auditLogs.some(
+          (log) =>
+            log.action === "course_factory.export" &&
+            log.resource_id === `${reference.course_package_id}:${VERSION}` &&
+            log.resource_type === "course_factory_version"
+        )
+      ).toBe(true);
+
       const sponsor = await requestJson<
         ApiEnvelope<{
           evidence_pack: { private_data_included: false };

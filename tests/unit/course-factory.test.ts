@@ -20,6 +20,7 @@ import {
   CoursePackageQueryService,
   isDeliveryReadyCoursePackage
 } from "../../services/api/src/course-package-query-service";
+import { buildM30CourseFactorySourceEvidence } from "@simwar/sh-next-support";
 
 const tenantId = "tenant_demo";
 const digest = (character: string) => character.repeat(64);
@@ -212,6 +213,47 @@ describe("R3 CourseFactoryService", () => {
 
     now = "2026-09-01T10:00:00.000Z";
     expect((await service.getTeacherCatalog(actor)).catalog).toHaveLength(0);
+    expect(
+      (await new CoursePackageQueryService(registry).listTeacher(tenantId)).course_package_versions
+    ).toHaveLength(0);
+  });
+
+  it("requires the student's formal run references to match the published package exactly", async () => {
+    const { service } = createService();
+    const draft = await service.createDraft(
+      actor,
+      factoryDraft({
+        factory_metadata: {
+          ...factoryDraft().factory_metadata,
+          source_evidence_reference: buildM30CourseFactorySourceEvidence()
+        }
+      })
+    );
+    const reference = createCoursePackageVersionReference(draft);
+    await service.validate(actor, reference);
+    await service.approve(actor, reference);
+    await service.publish(actor, reference);
+
+    const exact = {
+      parameter_set_reference: packageDraft.parameter_set_reference,
+      scenario_package_reference: packageDraft.scenario_package_reference
+    };
+    expect(await service.getStudentSourceEvidence(tenantId, exact)).toEqual({
+      consumption_status: "LOOKAHEAD_READY",
+      epoch_version: "epoch-b.2026-08-30",
+      exact_binding_required: true,
+      qualification_status: "LIMITED",
+      target_region: "Hangzhou"
+    });
+    expect(
+      await service.getStudentSourceEvidence(tenantId, {
+        ...exact,
+        parameter_set_reference: {
+          ...exact.parameter_set_reference,
+          content_digest: digest("f")
+        }
+      })
+    ).toBeUndefined();
   });
 
   it("clones only an unexpired published source and preserves exact refs without user data", async () => {

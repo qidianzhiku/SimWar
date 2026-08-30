@@ -25,10 +25,7 @@ import type {
   W025LaunchHook
 } from "./validation-environment-launch.js";
 import { digest } from "./validation-environment-launch.js";
-import {
-  isDeliveryReadyCoursePackage,
-  type CoursePackageQueryService
-} from "./course-package-query-service.js";
+import type { CoursePackageQueryService } from "./course-package-query-service.js";
 
 export interface W025LaunchExecutorDependencies {
   readonly actor: CurrentUser;
@@ -147,7 +144,7 @@ export function createW025LaunchExecutor(
         input.target_tenant_id,
         input.course_package_reference
       );
-      if (!isDeliveryReadyCoursePackage(coursePackage))
+      if (!dependencies.coursePackageQueries.isDeliveryReady(coursePackage))
         throw new Error("W025_COURSE_PACKAGE_NOT_AVAILABLE");
       if (
         !sameRef(

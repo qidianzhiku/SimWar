@@ -278,7 +278,7 @@ export class EvidenceCaptureCommandService {
       version: packageRef.version
     });
     if (
-      !isDeliveryReadyCoursePackage(coursePackage) ||
+      !isDeliveryReadyCoursePackage(coursePackage, this.dependencies.now?.()) ||
       coursePackage.content_digest !== packageRef.content_digest
     ) {
       throw new D2EvidenceError("D2_EVIDENCE_COURSE_PACKAGE_NOT_AVAILABLE");

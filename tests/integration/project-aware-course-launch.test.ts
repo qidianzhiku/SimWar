@@ -120,13 +120,13 @@ describe("Project-aware launch BFF", () => {
       version: "1.0.0"
     };
     const scenarioReference = {
-      content_digest: "b".repeat(64),
+      content_digest: "c".repeat(64),
       scenario_package_id: course.scenario_package_id,
       tenant_id: "tenant_demo",
       version: "1.0.0"
     };
     const parameterReference = {
-      content_digest: "c".repeat(64),
+      content_digest: "b".repeat(64),
       parameter_set_id: course.parameter_set_id,
       version: "1.0.0"
     };

@@ -22,16 +22,29 @@ type DeliveryPackageLike = {
   tenant_id?: unknown;
 };
 
+function isNotExpired(expiresAt: string | null, now: string): boolean {
+  const nowMs = Date.parse(now);
+  if (!Number.isFinite(nowMs)) return false;
+  if (expiresAt === null) return true;
+  const expiryMs = Date.parse(expiresAt);
+  return Number.isFinite(expiryMs) && expiryMs > nowMs;
+}
+
 export function isDeliveryReadyCoursePackage<T extends DeliveryPackageLike>(
-  version: T | null | undefined
+  version: T | null | undefined,
+  now = new Date().toISOString()
 ): version is T & { status: "AVAILABLE" | "PUBLISHED" } {
-  return Boolean(
-    version &&
-    (version.status === "AVAILABLE" ||
-      (version.status === "PUBLISHED" &&
-        typeof version.tenant_id === "string" &&
-        isCourseFactoryMetadataForTenant(version.factory_metadata, version.tenant_id)))
-  );
+  if (!version) return false;
+  if (version.status === "AVAILABLE") return true;
+  if (
+    version.status !== "PUBLISHED" ||
+    typeof version.tenant_id !== "string" ||
+    !isCourseFactoryMetadataForTenant(version.factory_metadata, version.tenant_id)
+  ) {
+    return false;
+  }
+  const expiresAt = version.factory_metadata.rights.expires_at;
+  return isNotExpired(expiresAt, now);
 }
 
 export function toTeacherCoursePackageVersionDto(
@@ -50,6 +63,12 @@ export function toTeacherCoursePackageVersionDto(
 export class CoursePackageQueryService {
   constructor(private readonly registry: CoursePackageRegistryPort) {}
 
+  isDeliveryReady(
+    version: CoursePackageVersion | null | undefined
+  ): version is CoursePackageVersion & { status: "AVAILABLE" | "PUBLISHED" } {
+    return isDeliveryReadyCoursePackage(version, this.registry.currentTime());
+  }
+
   async listAdmin(tenantId: string): Promise<CoursePackageVersionAdminListDto> {
     return { course_package_versions: await this.registry.listForTenant(tenantId) };
   }
@@ -58,7 +77,7 @@ export class CoursePackageQueryService {
     const versions = await this.registry.listForTenant(tenantId);
     return {
       course_package_versions: versions
-        .filter(isDeliveryReadyCoursePackage)
+        .filter((version) => this.isDeliveryReady(version))
         .map(toTeacherCoursePackageVersionDto)
     };
   }

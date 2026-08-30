@@ -717,7 +717,10 @@ export async function handleCourseFactoryRoute(
         tenant_id: context.tenantId,
         version: version(decodeURIComponent(exportMatch[2] ?? ""))
       };
-      const result = await service.export(actorFor(context, actor), reference);
+      const result = await deps.executeMutation(
+        () => service.export(actorFor(context, actor), reference),
+        actionAudit(context, actor, "export")
+      );
       deps.sendJson(response, 200, deps.createEnvelope(context, result));
       return true;
     }
