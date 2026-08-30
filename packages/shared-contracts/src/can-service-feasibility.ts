@@ -31,7 +31,7 @@ export interface CanNumericSignal {
 
 export interface CanBooleanSignal {
   source_ref: string;
-  value: boolean;
+  value: boolean | null;
 }
 
 export interface CanServiceFeasibilityDomainInput {
@@ -223,9 +223,22 @@ export function isCanServiceFeasibilityResponse(
   const response = value as Record<string, unknown>;
   const authority = response.authority as Record<string, unknown> | undefined;
   const receipt = response.product_receipt as Record<string, unknown> | undefined;
+  const projectionsAreExclusive =
+    response.surface === "student"
+      ? response.student_projection !== undefined &&
+        response.teacher_projection === undefined &&
+        response.admin_projection === undefined
+      : response.surface === "teacher"
+        ? response.teacher_projection !== undefined &&
+          response.student_projection === undefined &&
+          response.admin_projection === undefined
+        : response.admin_projection !== undefined &&
+          response.student_projection === undefined &&
+          response.teacher_projection === undefined;
   return (
     response.schema_version === CAN_SERVICE_FEASIBILITY_SCHEMA_VERSION &&
     ["teacher", "student", "admin"].includes(String(response.surface)) &&
+    projectionsAreExclusive &&
     exactId(response.candidate_id) &&
     (response.surface === "student"
       ? response.candidate === undefined &&

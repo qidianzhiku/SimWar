@@ -34,7 +34,7 @@ const domainInput: CanServiceFeasibilityDomainInput = {
   demand_units: { source_ref: "w5:customer_demand", unit: "households", value: 40 },
   available_capacity_units: {
     source_ref: "simulation-core:service_capacity",
-    unit: "service_units",
+    unit: "households",
     value: 64
   },
   workforce_units: { source_ref: "w5:caregiver_supply", unit: "people", value: 80 },

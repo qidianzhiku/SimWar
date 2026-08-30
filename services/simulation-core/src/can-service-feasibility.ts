@@ -71,14 +71,15 @@ function assertBinding(binding: CanServiceFeasibilityExactBinding): void {
 
 function assertNumberSignal(
   value: { source_ref: string; unit: string; value: number } | undefined,
-  expectedUnit: string,
+  expectedUnit: string | readonly string[],
   required: boolean
 ): void {
   if (!value && !required) return;
+  const allowedUnits = Array.isArray(expectedUnit) ? expectedUnit : [expectedUnit];
   if (
     !value ||
     !exactId(value.source_ref) ||
-    value.unit !== expectedUnit ||
+    !allowedUnits.includes(value.unit) ||
     !Number.isFinite(value.value) ||
     value.value < 0
   ) {
@@ -86,8 +87,8 @@ function assertNumberSignal(
   }
 }
 
-function assertBooleanSignal(value: { source_ref: string; value: boolean }): void {
-  if (!exactId(value.source_ref) || typeof value.value !== "boolean") {
+function assertBooleanSignal(value: { source_ref: string; value: boolean | null }): void {
+  if (!exactId(value.source_ref) || (value.value !== null && typeof value.value !== "boolean")) {
     throw new CanServiceFeasibilityError("R1_INPUT_INVALID");
   }
 }
@@ -126,7 +127,7 @@ function numericConstraint(input: {
 function booleanConstraint(input: {
   constraint_id: string;
   explanation: string;
-  observed: boolean;
+  observed: boolean | null;
   source_ref: string;
   status: CanConstraintEvidence["status"];
 }): CanConstraintEvidence {
@@ -134,7 +135,7 @@ function booleanConstraint(input: {
     constraint_id: input.constraint_id,
     explanation: input.explanation,
     kind: "ELIGIBILITY",
-    observed: { unit: "boolean", value: input.observed },
+      observed: { unit: "boolean", value: input.observed },
     source_ref: input.source_ref,
     status: input.status,
     threshold: { unit: "boolean", value: true }
@@ -160,7 +161,7 @@ export function evaluateCanServiceFeasibility(
 ): CanServiceFeasibilityCandidate {
   assertBinding(input.binding);
   assertNumberSignal(input.demand_units, "households", true);
-  assertNumberSignal(input.available_capacity_units, "service_units", false);
+  assertNumberSignal(input.available_capacity_units, ["households", "service_units"], false);
   assertNumberSignal(input.workforce_units, "people", true);
   assertNumberSignal(input.minimum_workforce_units, "people", true);
   assertNumberSignal(input.service_quality_budget, "CNY", true);
@@ -174,6 +175,7 @@ export function evaluateCanServiceFeasibility(
   const minimumWorkforce = input.minimum_workforce_units;
   const quality = input.service_quality_budget;
   const minimumQuality = input.minimum_service_quality_budget;
+  const capacityUnitsComparable = capacity?.unit === demand.unit;
   const constraints: CanConstraintEvidence[] = [
     numericConstraint({
       constraint_id: "r1_demand_observed",
@@ -188,13 +190,23 @@ export function evaluateCanServiceFeasibility(
     numericConstraint({
       constraint_id: "r1_capacity_guard",
       explanation: capacity
-        ? "Available service capacity is compared with the exact requested service volume."
+        ? capacityUnitsComparable
+          ? "Available service capacity is compared with the exact requested service volume."
+          : "Available capacity and demand use different semantic units; no conversion evidence is available."
         : "Available service capacity was not supplied for this exact context.",
       kind: "CAPACITY",
-      observed: { unit: "service_units", value: capacity?.value ?? null },
+      observed: { unit: capacity?.unit ?? "service_units", value: capacity?.value ?? null },
       source_ref: capacity?.source_ref ?? "r1:capacity-input-unavailable",
-      status: capacity ? (capacity.value >= demand.value ? "PASS" : "FAIL") : "UNKNOWN",
-      ...(capacity ? { threshold: { unit: demand.unit, value: demand.value } } : {})
+      status: capacity
+        ? capacityUnitsComparable
+          ? capacity.value >= demand.value
+            ? "PASS"
+            : "FAIL"
+          : "UNKNOWN"
+        : "UNKNOWN",
+      ...(capacity && capacityUnitsComparable
+        ? { threshold: { unit: demand.unit, value: demand.value } }
+        : {})
     }),
     numericConstraint({
       constraint_id: "r1_workforce_guard",
@@ -216,17 +228,33 @@ export function evaluateCanServiceFeasibility(
     }),
     booleanConstraint({
       constraint_id: "r1_license_guard",
-      explanation: "Service eligibility requires the exact licensed flag to be true.",
+      explanation:
+        input.eligibility.licensed.value === null
+          ? "The exact licensed signal is unavailable for this context."
+          : "Service eligibility requires the exact licensed flag to be true.",
       observed: input.eligibility.licensed.value,
       source_ref: input.eligibility.licensed.source_ref,
-      status: input.eligibility.licensed.value ? "PASS" : "FAIL"
+      status:
+        input.eligibility.licensed.value === null
+          ? "UNKNOWN"
+          : input.eligibility.licensed.value
+            ? "PASS"
+            : "FAIL"
     }),
     booleanConstraint({
       constraint_id: "r1_staffing_compliance_guard",
-      explanation: "Service eligibility requires exact staffing compliance to be true.",
+      explanation:
+        input.eligibility.staffing_compliant.value === null
+          ? "The exact staffing-compliance signal is unavailable for this context."
+          : "Service eligibility requires exact staffing compliance to be true.",
       observed: input.eligibility.staffing_compliant.value,
       source_ref: input.eligibility.staffing_compliant.source_ref,
-      status: input.eligibility.staffing_compliant.value ? "PASS" : "FAIL"
+      status:
+        input.eligibility.staffing_compliant.value === null
+          ? "UNKNOWN"
+          : input.eligibility.staffing_compliant.value
+            ? "PASS"
+            : "FAIL"
     })
   ];
   const status = statusOf(constraints);
@@ -277,7 +305,16 @@ export function evaluateCanServiceFeasibility(
     );
   }
   for (const constraint of constraints.slice(4)) {
-    if (constraint.status === "FAIL") {
+    if (constraint.status === "UNKNOWN") {
+      whyNotReasons.push(
+        makeWhyNot(
+          "INPUT_UNAVAILABLE",
+          "ELIGIBILITY",
+          "An exact eligibility input is unavailable.",
+          constraint.source_ref
+        )
+      );
+    } else if (constraint.status === "FAIL") {
       whyNotReasons.push(
         makeWhyNot(
           "ELIGIBILITY_FAILED",

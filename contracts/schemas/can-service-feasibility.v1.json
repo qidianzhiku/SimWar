@@ -35,7 +35,9 @@
         "not": {
           "anyOf": [
             { "required": ["candidate"], "properties": { "candidate": {} } },
-            { "required": ["exact_binding"], "properties": { "exact_binding": {} } }
+            { "required": ["exact_binding"], "properties": { "exact_binding": {} } },
+            { "required": ["teacher_projection"], "properties": { "teacher_projection": {} } },
+            { "required": ["admin_projection"], "properties": { "admin_projection": {} } }
           ]
         },
         "properties": {
@@ -50,6 +52,12 @@
       "if": { "properties": { "surface": { "const": "teacher" } }, "required": ["surface"] },
       "then": {
         "required": ["candidate", "exact_binding", "teacher_projection"],
+        "not": {
+          "anyOf": [
+            { "required": ["student_projection"], "properties": { "student_projection": {} } },
+            { "required": ["admin_projection"], "properties": { "admin_projection": {} } }
+          ]
+        },
         "properties": {
           "candidate": {},
           "exact_binding": {},
@@ -62,6 +70,12 @@
       "if": { "properties": { "surface": { "const": "admin" } }, "required": ["surface"] },
       "then": {
         "required": ["admin_projection", "candidate", "exact_binding"],
+        "not": {
+          "anyOf": [
+            { "required": ["student_projection"], "properties": { "student_projection": {} } },
+            { "required": ["teacher_projection"], "properties": { "teacher_projection": {} } }
+          ]
+        },
         "properties": {
           "admin_projection": {},
           "candidate": {},
@@ -148,7 +162,7 @@
       "required": ["source_ref", "value"],
       "properties": {
         "source_ref": { "type": "string", "minLength": 1 },
-        "value": { "type": "boolean" }
+        "value": { "type": ["boolean", "null"] }
       }
     },
     "domainInput": {

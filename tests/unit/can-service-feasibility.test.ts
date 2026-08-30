@@ -36,7 +36,7 @@ function input(
     demand_units: { source_ref: "w5:customer_demand", unit: "households", value: 40 },
     available_capacity_units: {
       source_ref: "simulation-core:service_capacity",
-      unit: "service_units",
+      unit: "households",
       value: 64
     },
     workforce_units: { source_ref: "w5:caregiver_supply", unit: "people", value: 80 },
@@ -117,5 +117,46 @@ describe("R1 CAN service-feasibility domain", () => {
       replay_truth_write: false,
       settlement_write: false
     });
+  });
+
+  it("does not compare capacity and demand when their semantic units differ", () => {
+    const result = evaluateCanServiceFeasibility(
+      input({
+        available_capacity_units: {
+          source_ref: "simulation-core:service_capacity",
+          unit: "service_units",
+          value: 64
+        }
+      })
+    );
+
+    expect(result.status).toBe("UNKNOWN");
+    expect(result.constraints.find((item) => item.kind === "CAPACITY")?.status).toBe("UNKNOWN");
+    expect(result.why_not).toContainEqual(
+      expect.objectContaining({ code: "INPUT_UNAVAILABLE", constraint_kind: "CAPACITY" })
+    );
+  });
+
+  it("keeps unavailable license and staffing signals unknown", () => {
+    const result = evaluateCanServiceFeasibility(
+      input({
+        eligibility: {
+          licensed: { source_ref: "w5:license:input-unavailable", value: null },
+          staffing_compliant: { source_ref: "w5:staffing:input-unavailable", value: null }
+        }
+      })
+    );
+
+    expect(result.status).toBe("UNKNOWN");
+    expect(result.constraints.filter((item) => item.kind === "ELIGIBILITY")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ status: "UNKNOWN", observed: { unit: "boolean", value: null } })
+      ])
+    );
+    expect(result.why_not).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "INPUT_UNAVAILABLE", constraint_kind: "ELIGIBILITY" })
+      ])
+    );
   });
 });

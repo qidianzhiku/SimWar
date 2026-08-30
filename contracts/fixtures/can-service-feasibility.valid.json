@@ -30,7 +30,7 @@
         "constraint_id": "r1_capacity_guard",
         "explanation": "Capacity is sufficient.",
         "kind": "CAPACITY",
-        "observed": { "unit": "service_units", "value": 64 },
+        "observed": { "unit": "households", "value": 64 },
         "source_ref": "simulation-core:service_capacity",
         "status": "PASS",
         "threshold": { "unit": "households", "value": 40 }
@@ -160,7 +160,7 @@
         "constraint_id": "r1_capacity_guard",
         "explanation": "Capacity is sufficient.",
         "kind": "CAPACITY",
-        "observed": { "unit": "service_units", "value": 64 },
+        "observed": { "unit": "households", "value": 64 },
         "source_ref": "simulation-core:service_capacity",
         "status": "PASS",
         "threshold": { "unit": "households", "value": 40 }

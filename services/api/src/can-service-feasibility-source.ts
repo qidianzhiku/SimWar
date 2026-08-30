@@ -9,7 +9,7 @@ import { W5GovernedModelError, type W5ServiceActor } from "./w5-governed-model-s
 import type { W5ExactRuntimeBinding } from "@simwar/shared-contracts";
 
 export interface CanServiceFeasibilitySourceDependencies {
-  readonly repository: Pick<RepositoryFacade, "courses" | "rounds" | "runs">;
+  readonly repository: Pick<RepositoryFacade, "courses" | "rounds" | "runs" | "teams">;
   readonly w5: {
     evaluate: W5CanEvaluate;
     getDraft: W5CanGetDraft;
@@ -146,6 +146,22 @@ export function createW5CanServiceFeasibilitySource(
         ) {
           return null;
         }
+        if (request.surface === "student") {
+          if (!actor.team_id) return null;
+          const enrolledTeam = await dependencies.repository.teams.getTeamForUser(
+            request.tenant_id,
+            request.run_id,
+            actor.user_id
+          );
+          if (
+            !enrolledTeam ||
+            enrolledTeam.team_id !== actor.team_id ||
+            enrolledTeam.tenant_id !== request.tenant_id ||
+            enrolledTeam.course_id !== request.course_id
+          ) {
+            return null;
+          }
+        }
         const w5Actor = actorForW5(actor);
         const scope = {
           activity_id: ACTIVITY_ID,
@@ -174,7 +190,7 @@ export function createW5CanServiceFeasibilitySource(
         if (demand === null || workforce === null || quality === null) return null;
         const capacity = parseConstraint(projection.can.constraints, "capacity");
         const binding = exactBinding(draftBinding, request.round_id);
-        const combinedEligibilityRef = `w5:${request.draft_id}:can.eligible:license_and_staffing`;
+        const eligibilityUnavailableRef = `r1:${request.draft_id}:eligibility:input-unavailable`;
         return {
           ...(capacity === undefined
             ? {}
@@ -192,11 +208,8 @@ export function createW5CanServiceFeasibilitySource(
             value: demand
           },
           eligibility: {
-            licensed: { source_ref: combinedEligibilityRef, value: projection.can.eligible },
-            staffing_compliant: {
-              source_ref: combinedEligibilityRef,
-              value: projection.can.eligible
-            }
+            licensed: { source_ref: eligibilityUnavailableRef, value: null },
+            staffing_compliant: { source_ref: eligibilityUnavailableRef, value: null }
           },
           minimum_service_quality_budget: {
             source_ref: "r1:minimum_service_quality_budget_v1",

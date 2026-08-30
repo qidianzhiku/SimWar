@@ -71,6 +71,16 @@ function dependencies(
           .mockResolvedValue([
             { round_id: "round_demo_1", round_no: 1, run_id: "run_demo", tenant_id: "tenant_demo" }
           ])
+      },
+      teams: {
+        getTeamForUser: vi.fn().mockResolvedValue({
+          team_id: "team_demo",
+          tenant_id: "tenant_demo",
+          course_id: "course_demo",
+          name: "Demo team",
+          captain_user_id: "student_demo",
+          members: [{ user_id: "student_demo", display_name: "Student", role_slot: "CEO" }]
+        })
       }
     },
     w5: {
@@ -97,7 +107,9 @@ describe("R1 CAN W5 exact source adapter", () => {
     expect(result?.demand_units.value).toBe(40);
     expect(result?.workforce_units.value).toBe(80);
     expect(result?.available_capacity_units?.value).toBe(64);
-    expect(result?.eligibility.licensed.source_ref).toContain("license_and_staffing");
+    expect(result?.eligibility.licensed.source_ref).toContain("input-unavailable");
+    expect(result?.eligibility.licensed.value).toBeNull();
+    expect(result?.eligibility.staffing_compliant.value).toBeNull();
   });
 
   it("keeps a missing capacity input absent so the domain emits UNKNOWN", async () => {
@@ -120,6 +132,18 @@ describe("R1 CAN W5 exact source adapter", () => {
 
     await expect(
       createW5CanServiceFeasibilitySource(mismatched).readExactInput(request, actor)
+    ).resolves.toBeNull();
+  });
+
+  it("rejects a student who is not enrolled in the requested run and team", async () => {
+    const notEnrolled = dependencies();
+    notEnrolled.repository.teams.getTeamForUser = vi.fn().mockResolvedValue(null);
+
+    await expect(
+      createW5CanServiceFeasibilitySource(notEnrolled).readExactInput(
+        { ...request, surface: "student" },
+        { roles: ["student"], tenant_id: "tenant_demo", team_id: "team_demo", user_id: "student_demo" }
+      )
     ).resolves.toBeNull();
   });
 });

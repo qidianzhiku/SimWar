@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import Ajv2020 from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
 import {
   CAN_SERVICE_FEASIBILITY_SCHEMA_VERSION,
@@ -27,5 +28,46 @@ describe("R1 CAN service-feasibility contract", () => {
         readJson("contracts/fixtures/can-service-feasibility.student-private.invalid.json")
       )
     ).toBe(false);
+  });
+
+  it("rejects cross-role privileged projections for every surface", () => {
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(
+      readJson("contracts/schemas/can-service-feasibility.v1.json")
+    );
+    const fixture = readJson("contracts/fixtures/can-service-feasibility.valid.json") as Record<
+      string,
+      unknown
+    >;
+    const studentProjection = {
+      candidate_id: fixture.candidate_id,
+      excluded_fields: ["candidate", "exact_binding", "source_refs"],
+      role_safe: true,
+      status: "FEASIBLE",
+      surface: "student",
+      why_not: []
+    };
+    const studentWithAdmin = {
+      ...fixture,
+      surface: "student",
+      source_refs: [],
+      student_projection: studentProjection,
+      admin_projection: fixture.teacher_projection
+    };
+    delete studentWithAdmin.candidate;
+    delete studentWithAdmin.exact_binding;
+    delete studentWithAdmin.teacher_projection;
+    expect(validate(studentWithAdmin)).toBe(false);
+    expect(isCanServiceFeasibilityResponse(studentWithAdmin)).toBe(false);
+
+    const teacherWithStudent = { ...fixture, student_projection: studentProjection };
+    expect(validate(teacherWithStudent)).toBe(false);
+
+    const adminWithStudent = {
+      ...fixture,
+      surface: "admin",
+      admin_projection: fixture.teacher_projection,
+      student_projection: studentProjection
+    };
+    expect(validate(adminWithStudent)).toBe(false);
   });
 });
