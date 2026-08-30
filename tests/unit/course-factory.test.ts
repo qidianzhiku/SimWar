@@ -130,6 +130,8 @@ describe("R3 CourseFactoryService", () => {
         tenant_id: tenantId
       })
     ).toThrow(new CoursePackageRegistryError("COURSE_PACKAGE_INPUT_INVALID"));
+  });
+
   it("rejects malformed factory metadata at the delivery boundary", () => {
     expect(
       isDeliveryReadyCoursePackage({
