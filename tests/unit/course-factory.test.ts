@@ -274,6 +274,16 @@ describe("R3 CourseFactoryService", () => {
 
   it("rejects malformed optional model references at the runtime metadata boundary", async () => {
     const { service } = createService();
+    const unknownMetadataField = factoryDraft({
+      factory_metadata: {
+        ...factoryDraft().factory_metadata,
+        unexpected: true
+      }
+    });
+    await expect(service.createDraft(actor, unknownMetadataField)).rejects.toEqual(
+      new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID")
+    );
+
     for (const field of ["model_artifact_reference", "model_version_reference"] as const) {
       const candidate = factoryDraft({
         factory_metadata: {

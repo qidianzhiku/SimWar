@@ -270,6 +270,16 @@ export function isCourseFactoryMetadataForTenant(
   tenantId: string
 ): value is CourseFactoryMetadata {
   if (!isRecord(value) || !isExactIdentity(tenantId)) return false;
+  const allowedMetadataKeys = new Set([
+    "known_limits",
+    "provenance",
+    "rights",
+    "schema_version",
+    "source_evidence_reference",
+    "source_manifest",
+    "user_data_policy"
+  ]);
+  if (Object.keys(value).some((key) => !allowedMetadataKeys.has(key))) return false;
   const knownLimits = value.known_limits;
   const provenance = value.provenance;
   const rights = value.rights;
