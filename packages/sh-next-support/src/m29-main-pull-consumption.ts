@@ -462,6 +462,7 @@ export function validateM29MainPullConsumptionPack(pack: M29MainPullConsumptionP
     pack.source_pack_refs.m25_epoch.epoch_digest !== m25.source_epoch.epoch_digest ||
     pack.source_pack_refs.m25_epoch.source_epoch_base_sha !==
       m25.source_epoch.source_epoch_base_sha ||
+    pack.source_pack_refs.m27_transfer.transfer_id !== m27.transfer_summary.transfer_id ||
     pack.source_pack_refs.m27_transfer.pack_digest !== m27.pack_digest ||
     pack.source_pack_refs.m27_transfer.candidate_version !== m27.transfer.candidate_ref.version ||
     pack.source_pack_refs.m28_living_operations.pack_digest !== m28.pack_digest ||

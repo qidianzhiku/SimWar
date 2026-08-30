@@ -48,5 +48,9 @@ describe("M29 MAIN-pull source-backed consumption contract", () => {
     const roleDrift = structuredClone(valid);
     roleDrift.role_journey.student.official_truth = "leak";
     expect(validate(roleDrift)).toBe(false);
+
+    const stateDrift = structuredClone(valid);
+    (stateDrift.state_a as Record<string, unknown>).official_truth = "leak";
+    expect(validate(stateDrift)).toBe(false);
   });
 });

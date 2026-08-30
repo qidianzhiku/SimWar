@@ -21,6 +21,12 @@ describe("Shanghai M29 MAIN-pull source-backed regional and enterprise consumpti
   it("fails closed for source, version, digest, and product-proof drift", () => {
     const pack = buildM29MainPullConsumptionPack();
 
+    const transferDrift = structuredClone(pack);
+    transferDrift.source_pack_refs.m27_transfer.transfer_id = "SH-MISMATCHED-TRANSFER";
+    expect(validateM29MainPullConsumptionPack(transferDrift)).toEqual(
+      expect.arrayContaining(["source_pack_binding_invalid"])
+    );
+
     const sourceDrift = structuredClone(pack);
     sourceDrift.source_pack_refs.m27_transfer.candidate_version = "default";
     expect(validateM29MainPullConsumptionPack(sourceDrift)).toEqual(

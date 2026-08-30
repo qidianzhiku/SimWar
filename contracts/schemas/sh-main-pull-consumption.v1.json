@@ -66,6 +66,7 @@
     "stateA": {
       "type": "object",
       "required": ["name", "limitation"],
+      "additionalProperties": false,
       "properties": {
         "name": { "const": "SOURCE_PACK_WITHOUT_MAIN_PULL_BINDING" },
         "limitation": { "type": "string", "minLength": 1 }
