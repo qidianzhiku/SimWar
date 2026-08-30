@@ -43,7 +43,7 @@ import { RegionalTransferProjection } from "./features/regional-transfer-project
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
 import { ModelQualificationProjection } from "./ModelQualificationProjection";
 import { GovernedStakeholderIntelligenceProjection } from "./GovernedStakeholderIntelligenceProjection";
-import { ShanghaiC0ConversionProjection } from "./ShanghaiC0ConversionProjection";
+const ShanghaiC0ConversionProjection = lazy(() => import("./ShanghaiC0ConversionProjection"));
 const ExecutiveStrategyLabProjection = lazy(() =>
   import("./ExecutiveStrategyLabProjection").then(
     ({ ExecutiveStrategyLabProjection: Component }) => ({
@@ -1076,12 +1076,14 @@ export function App() {
         ) : null}
 
         {hasStudentSurface && SHANGHAI_C0_RECEIPT_ID ? (
-          <ShanghaiC0ConversionProjection
-            apiBase={API_BASE}
-            receiptId={SHANGHAI_C0_RECEIPT_ID}
-            tenantId={login.tenantId}
-            token={activeSession?.access_token ?? ""}
-          />
+          <Suspense fallback={<p className="muted">正在载入上海 C0 结果…</p>}>
+            <ShanghaiC0ConversionProjection
+              apiBase={API_BASE}
+              receiptId={SHANGHAI_C0_RECEIPT_ID}
+              tenantId={login.tenantId}
+              token={activeSession?.access_token ?? ""}
+            />
+          </Suspense>
         ) : null}
 
         {hasStudentSurface ? (

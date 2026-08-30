@@ -107,7 +107,7 @@ import { MarketWorldBindingPanel } from "./MarketWorldBindingPanel";
 import { ProjectLibraryPanel } from "./ProjectLibraryPanel";
 import { ProjectAwareCourseLaunchPanel } from "./ProjectAwareCourseLaunchPanel";
 import { GovernedStakeholderIntelligenceWorkspace } from "./GovernedStakeholderIntelligenceWorkspace";
-import { ShanghaiC0ConversionWorkspace } from "./ShanghaiC0ConversionWorkspace";
+const ShanghaiC0ConversionWorkspace = lazy(() => import("./ShanghaiC0ConversionWorkspace"));
 const ExecutiveStrategyLabWorkspace = lazy(() =>
   import("./ExecutiveStrategyLabWorkspace").then(
     ({ ExecutiveStrategyLabWorkspace: Component }) => ({
@@ -2503,19 +2503,21 @@ export function App() {
           </Suspense>
         ) : null}
         {isTeacher && session && SHANGHAI_C0_MACRO_ID && selectedRun && selectedRound && activeTeacherTeamId ? (
-          <ShanghaiC0ConversionWorkspace
-            apiBase={API_BASE}
-            courseId={selectedRun.course_id}
-            macroId={SHANGHAI_C0_MACRO_ID}
-            parameterSetId={selectedRun.parameter_set_id}
-            roundId={selectedRound.round_id}
-            roundNo={selectedRound.round_no}
-            runId={selectedRun.run_id}
-            scenarioPackageId={selectedRun.scenario_package_id}
-            teamId={activeTeacherTeamId}
-            tenantId={login.tenantId}
-            token={session.access_token}
-          />
+          <Suspense fallback={<p className="muted">正在载入上海 C0 工作台…</p>}>
+            <ShanghaiC0ConversionWorkspace
+              apiBase={API_BASE}
+              courseId={selectedRun.course_id}
+              macroId={SHANGHAI_C0_MACRO_ID}
+              parameterSetId={selectedRun.parameter_set_id}
+              roundId={selectedRound.round_id}
+              roundNo={selectedRound.round_no}
+              runId={selectedRun.run_id}
+              scenarioPackageId={selectedRun.scenario_package_id}
+              teamId={activeTeacherTeamId}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+          </Suspense>
         ) : null}
       </section>
 

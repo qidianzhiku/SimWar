@@ -55,7 +55,7 @@ import { ProjectAwareLaunchAuditPanel } from "./ProjectAwareLaunchAuditPanel";
 import { OperatingWorldAuditPanel } from "./OperatingWorldAuditPanel";
 import { W5GovernedModelAuditPanel } from "./W5GovernedModelAuditPanel";
 const ModelQualificationAuditPanel = lazy(() => import("./ModelQualificationAuditPanel"));
-import { ShanghaiC0ConversionAuditPanel } from "./ShanghaiC0ConversionAuditPanel";
+const ShanghaiC0ConversionAuditPanel = lazy(() => import("./ShanghaiC0ConversionAuditPanel"));
 import { GovernedStakeholderIntelligenceAuditPanel } from "./GovernedStakeholderIntelligenceAuditPanel";
 const ExecutiveStrategyLabAuditPanel = lazy(() =>
   import("./ExecutiveStrategyLabAuditPanel").then(
@@ -1188,12 +1188,14 @@ export function App() {
           </Suspense>
         ) : null}
         {session && hasAdminSummaryRole && SHANGHAI_C0_RECEIPT_ID ? (
-          <ShanghaiC0ConversionAuditPanel
-            apiBase={API_BASE}
-            receiptId={SHANGHAI_C0_RECEIPT_ID}
-            tenantId={login.tenantId}
-            token={session.access_token}
-          />
+          <Suspense fallback={<p className="muted">正在载入上海 C0 审计…</p>}>
+            <ShanghaiC0ConversionAuditPanel
+              apiBase={API_BASE}
+              receiptId={SHANGHAI_C0_RECEIPT_ID}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+          </Suspense>
         ) : null}
         {session && isTenantAdmin && W5_AUDIT_COURSE_ID ? (
           <W5GovernedModelAuditPanel
