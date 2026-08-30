@@ -1,0 +1,47 @@
+{
+  "calibration_datasets": [
+    {
+      "calibration_dataset_id": "mq_dataset_leakage_example",
+      "calibration_record_ids": ["record-1"],
+      "content_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "course_id": "course_demo",
+      "created_at": "2026-08-30T12:00:00.000Z",
+      "holdout_leakage_count": 1,
+      "holdout_record_ids": ["record-1"],
+      "record_count": 2,
+      "source_package_id": "mq_source_example",
+      "status": "NOT_ELIGIBLE",
+      "tenant_id": "tenant_demo",
+      "zero_holdout_leakage": false
+    }
+  ],
+  "known_limits": [
+    "Qualification is candidate governance evidence and never official REALIZED truth."
+  ],
+  "model_catalog": [
+    {
+      "artifact": {
+        "artifact_id": "artifact_toy_logit_v2",
+        "content_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "format": "typescript-boundary",
+        "source_ref": "services/simulation-core/src/toy-logit-engine.ts"
+      },
+      "model_family": "toy_logit",
+      "model_version_reference": {
+        "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "model_version_id": "toy_logit_wellness_v2",
+        "version": "2.0.0"
+      },
+      "status": "APPROVED"
+    }
+  ],
+  "operation_id": "MODEL_QUALIFICATION_TEACHER_STUDIO_GET_V1",
+  "qualifications": [],
+  "security": {
+    "activity": "model-qualification-studio",
+    "course": "course_demo",
+    "role": "teacher",
+    "tenant": "tenant_demo"
+  },
+  "source_packages": []
+}

@@ -199,6 +199,12 @@ const modNext6ContractFiles = [
   "contracts/fixtures/mod-next6-consumption.student-private.invalid.json"
 ];
 
+const modelQualificationContractFiles = [
+  "contracts/schemas/model-qualification.v1.json",
+  "contracts/fixtures/model-qualification.valid.json",
+  "contracts/fixtures/model-qualification.student-private.invalid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -289,7 +295,15 @@ const requiredOpenApiPaths = [
   "/api/v1/bff/teacher/esl/strategy-lab",
   "/api/v1/bff/teacher/esl/candidates/{candidateId}",
   "/api/v1/bff/student/esl/candidates/{candidateId}",
-  "/api/v1/bff/admin/esl/audit"
+  "/api/v1/bff/admin/esl/audit",
+  "/api/v1/bff/teacher/model-qualification",
+  "/api/v1/bff/teacher/model-qualification/source-packages",
+  "/api/v1/bff/teacher/model-qualification/datasets",
+  "/api/v1/bff/teacher/model-qualification/qualifications",
+  "/api/v1/bff/teacher/model-qualification/qualifications/{qualificationId}/review",
+  "/api/v1/bff/teacher/model-qualification/qualifications/{qualificationId}/bind",
+  "/api/v1/bff/admin/model-qualification",
+  "/api/v1/bff/student/model-qualification"
 ];
 
 const schemaCases = [
@@ -489,6 +503,11 @@ const schemaCases = [
     schema: "contracts/schemas/mod-next6-consumption.v1.json",
     valid: ["contracts/fixtures/mod-next6-consumption.valid.json"],
     invalid: ["contracts/fixtures/mod-next6-consumption.student-private.invalid.json"]
+  },
+  {
+    schema: "contracts/schemas/model-qualification.v1.json",
+    valid: ["contracts/fixtures/model-qualification.valid.json"],
+    invalid: ["contracts/fixtures/model-qualification.student-private.invalid.json"]
   }
 ];
 
@@ -1006,6 +1025,68 @@ function assertESLOpenApiBindings(openApi) {
   );
 }
 
+function assertModelQualificationOpenApiBindings(openApi) {
+  const responseRef = (path, status = "200") =>
+    jsonContentSchema(openApi?.paths?.[path]?.get?.responses?.[status])?.$ref;
+  assert(
+    responseRef("/api/v1/bff/teacher/model-qualification") ===
+      schemaRef("ModelQualificationTeacherEnvelope"),
+    "Model qualification teacher GET must reference its teacher envelope."
+  );
+  assert(
+    responseRef("/api/v1/bff/admin/model-qualification") ===
+      schemaRef("ModelQualificationAdminEnvelope"),
+    "Model qualification admin GET must reference its admin envelope."
+  );
+  assert(
+    responseRef("/api/v1/bff/student/model-qualification") ===
+      schemaRef("ModelQualificationStudentEnvelope"),
+    "Model qualification student GET must reference its student envelope."
+  );
+  const mutationRefs = [
+    [
+      "/api/v1/bff/teacher/model-qualification/source-packages",
+      "ModelQualificationSourcePackageRequest"
+    ],
+    ["/api/v1/bff/teacher/model-qualification/datasets", "ModelQualificationDatasetRequest"],
+    ["/api/v1/bff/teacher/model-qualification/qualifications", "ModelQualificationRunRequest"],
+    [
+      "/api/v1/bff/teacher/model-qualification/qualifications/{qualificationId}/review",
+      "ModelQualificationReviewRequest"
+    ]
+  ];
+  for (const [path, requestSchema] of mutationRefs) {
+    const operation = openApi?.paths?.[path]?.post;
+    assert(operation, `Missing model qualification mutation operation: ${path}`);
+    assert(
+      jsonContentSchema(operation.requestBody)?.$ref === schemaRef(requestSchema),
+      `Model qualification request must reference ${requestSchema}: ${path}`
+    );
+    assert(
+      jsonContentSchema(
+        operation.responses?.[
+          path.endsWith("source-packages") ||
+          path.endsWith("datasets") ||
+          path.endsWith("qualifications")
+            ? "201"
+            : "200"
+        ]
+      )?.$ref === schemaRef("ModelQualificationMutationEnvelope"),
+      `Model qualification mutation must reference its mutation envelope: ${path}`
+    );
+  }
+  const bind =
+    openApi?.paths?.[
+      "/api/v1/bff/teacher/model-qualification/qualifications/{qualificationId}/bind"
+    ]?.post;
+  assert(bind, "Missing model qualification bind operation.");
+  assert(
+    jsonContentSchema(bind.responses?.["200"])?.$ref ===
+      schemaRef("ModelQualificationMutationEnvelope"),
+    "Model qualification bind must reference its mutation envelope."
+  );
+}
+
 function formatAjvErrors(validate) {
   return validate.errors
     ?.map((error) => `${error.instancePath || "/"} ${error.message ?? "schema error"}`)
@@ -1111,7 +1192,8 @@ export async function runContractValidation(options = {}) {
     ...shanghaiFullVerticalContractFiles,
     ...executiveStrategyLabContractFiles,
     ...shanghaiProductizationContractFiles,
-    ...modNext6ContractFiles
+    ...modNext6ContractFiles,
+    ...modelQualificationContractFiles
   ]);
 
   for (const jsonPath of [
@@ -1138,7 +1220,8 @@ export async function runContractValidation(options = {}) {
     ...shanghaiFullVerticalContractFiles,
     ...executiveStrategyLabContractFiles,
     ...shanghaiProductizationContractFiles,
-    ...modNext6ContractFiles
+    ...modNext6ContractFiles,
+    ...modelQualificationContractFiles
   ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }
@@ -1158,6 +1241,7 @@ export async function runContractValidation(options = {}) {
   assertW023OpenApiBindings(openApi);
   assertW3OpenApiBindings(openApi);
   assertESLOpenApiBindings(openApi);
+  assertModelQualificationOpenApiBindings(openApi);
   assertFrontendDoesNotUseInternalRoutes();
   validateFixtureCases();
   assertStudentFixtureDoesNotExposePrivateFields();

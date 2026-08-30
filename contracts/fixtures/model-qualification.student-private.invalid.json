@@ -1,0 +1,34 @@
+{
+  "known_limits": [],
+  "operation_id": "MODEL_QUALIFICATION_STUDENT_PROJECTION_GET_V1",
+  "qualification": {
+    "binding_status": "BOUND",
+    "decision": "APPROVED",
+    "diagnostics": {
+      "convergence_status": "CONVERGED",
+      "drift_score": 0.01,
+      "holdout_leakage_count": 0,
+      "ood_rate": 0.01,
+      "sensitivity_max_delta": 0.01
+    },
+    "explanation": ["approved"],
+    "model_family": "toy_logit",
+    "model_version": "toy_logit_wellness_v2@2.0.0",
+    "qualification_id": "mq_qualification_1",
+    "review_status": "APPROVED",
+    "source": {
+      "freshness_status": "FRESH",
+      "rights_status": "VALID",
+      "source_version": "1.0.0",
+      "title": "Generic source"
+    },
+    "source_ref": "private-source-not-allowed"
+  },
+  "security": {
+    "activity": "model-qualification-studio",
+    "course": "course_demo",
+    "role": "student",
+    "tenant": "tenant_demo"
+  },
+  "visibility": "ROLE_SAFE_STUDENT"
+}

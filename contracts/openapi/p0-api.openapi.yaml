@@ -5444,6 +5444,153 @@ paths:
         "401": { description: Authentication required }
         "403": { description: Tenant administrator or platform administrator role required }
 
+  /api/v1/bff/teacher/model-qualification:
+    get:
+      operationId: MODEL_QUALIFICATION_TEACHER_STUDIO_GET_V1
+      summary: Read the teacher source-backed model qualification studio.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Teacher source, dataset, catalog and qualification projection.
+          content:
+            application/json:
+              { schema: { $ref: "#/components/schemas/ModelQualificationTeacherEnvelope" } }
+        "401": { description: Authentication required }
+        "403": { description: Teacher or course scope denied }
+  /api/v1/bff/teacher/model-qualification/source-packages:
+    post:
+      operationId: MODEL_QUALIFICATION_SOURCE_PACKAGE_REGISTER_V1
+      summary: Register a source and evidence package for offline qualification.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            { schema: { $ref: "#/components/schemas/ModelQualificationSourcePackageRequest" } }
+      responses:
+        "201":
+          description: Source package registered in the governance plane.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ModelQualificationMutationEnvelope" } } }
+        "401": { description: Authentication required }
+        "403": { description: Teacher or course scope denied }
+        "422": { description: "Source rights, freshness, quality or shape is invalid" }
+
+  /api/v1/bff/teacher/model-qualification/datasets:
+    post:
+      operationId: MODEL_QUALIFICATION_DATASET_REGISTER_V1
+      summary: Create a disjoint calibration and holdout dataset.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            { schema: { $ref: "#/components/schemas/ModelQualificationDatasetRequest" } }
+      responses:
+        "201":
+          description: Calibration dataset registered with leakage diagnostics.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ModelQualificationMutationEnvelope" } } }
+        "401": { description: Authentication required }
+        "403": { description: Teacher or course scope denied }
+        "422": { description: Dataset is malformed or source package is unavailable }
+
+  /api/v1/bff/teacher/model-qualification/qualifications:
+    post:
+      operationId: MODEL_QUALIFICATION_RUN_V1
+      summary: Run deterministic offline source-backed model qualification.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            { schema: { $ref: "#/components/schemas/ModelQualificationRunRequest" } }
+      responses:
+        "201":
+          description: Qualification candidate with diagnostics and explicit limits.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ModelQualificationMutationEnvelope" } } }
+        "401": { description: Authentication required }
+        "403": { description: Teacher or course scope denied }
+        "422": { description: "Exact model reference, dataset or deterministic seed is invalid" }
+
+  /api/v1/bff/teacher/model-qualification/qualifications/{qualificationId}/review:
+    post:
+      operationId: MODEL_QUALIFICATION_REVIEW_V1
+      summary: Record an explicit teacher governance review decision.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: qualificationId, in: path, required: true, schema: { type: string, minLength: 1 } }
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            { schema: { $ref: "#/components/schemas/ModelQualificationReviewRequest" } }
+      responses:
+        "200":
+          description: Reviewed qualification candidate.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ModelQualificationMutationEnvelope" } } }
+        "401": { description: Authentication required }
+        "403": { description: Teacher or course scope denied }
+        "404": { description: Qualification not found }
+        "409": { description: Qualification is not an approved pending candidate }
+        "422": { description: Review decision or note is invalid }
+
+  /api/v1/bff/teacher/model-qualification/qualifications/{qualificationId}/bind:
+    post:
+      operationId: MODEL_QUALIFICATION_BIND_V1
+      summary: Bind a reviewed qualification to the course governance plane.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: qualificationId, in: path, required: true, schema: { type: string, minLength: 1 } }
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Qualification bound without writing official REALIZED truth.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ModelQualificationMutationEnvelope" } } }
+        "401": { description: Authentication required }
+        "403": { description: Teacher or course scope denied }
+        "404": { description: Qualification not found }
+        "409": { description: Explicit governance review is required before binding }
+
+  /api/v1/bff/admin/model-qualification:
+    get:
+      operationId: MODEL_QUALIFICATION_ADMIN_AUDIT_GET_V1
+      summary: Read tenant-safe source-backed model qualification audit data.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Admin qualification and authority projection.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ModelQualificationAdminEnvelope" } } }
+        "401": { description: Authentication required }
+        "403": { description: Tenant administrator scope denied }
+
+  /api/v1/bff/student/model-qualification:
+    get:
+      operationId: MODEL_QUALIFICATION_STUDENT_PROJECTION_GET_V1
+      summary: Read the published role-safe qualification explanation for a student.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: qualificationId, in: query, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Student projection excludes source and artifact internals.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ModelQualificationStudentEnvelope" } } }
+        "401": { description: Authentication required }
+        "403": { description: Student or course scope denied }
+        "404": { description: Qualification not found }
+        "409": { description: Qualification is not bound for student projection }
+
   /api/v1/bff/teacher/regional-transfer/selection:
     get:
       operationId: REGIONAL_TRANSFER_SELECTION_GET_V1
@@ -9432,6 +9579,101 @@ components:
         data: { $ref: "../schemas/shanghai-full-vertical.v1.json#/$defs/admin" }
         message: { type: string }
         request_id: { type: string, minLength: 1 }
+    ModelQualificationTeacherEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/model-qualification.v1.json#/$defs/teacherProjection" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ModelQualificationAdminEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/model-qualification.v1.json#/$defs/adminProjection" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ModelQualificationStudentEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/model-qualification.v1.json#/$defs/studentProjection" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ModelQualificationMutationEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          type: object
+          additionalProperties: false
+          minProperties: 1
+          maxProperties: 1
+          properties:
+            source_package: { $ref: "../schemas/model-qualification.v1.json#/$defs/sourcePackage" }
+            calibration_dataset: { $ref: "../schemas/model-qualification.v1.json#/$defs/dataset" }
+            qualification: { $ref: "../schemas/model-qualification.v1.json#/$defs/qualification" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ModelQualificationSourcePackageRequest:
+      type: object
+      additionalProperties: false
+      required: [content_digest, course_id, evidence_refs, feature_schema_digest, freshness_status, observed_at, quality, rights_status, source_ref, source_version, title]
+      properties:
+        content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        course_id: { type: string, minLength: 1 }
+        evidence_refs: { type: array, minItems: 1, items: { type: string, minLength: 1 } }
+        expires_at: { type: [string, "null"] }
+        feature_schema_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        freshness_status: { enum: [FRESH, STALE, UNKNOWN] }
+        observed_at: { type: string, minLength: 1 }
+        quality:
+          type: object
+          additionalProperties: false
+          required: [conflict_count, missingness_rate, record_count]
+          properties:
+            conflict_count: { type: integer, minimum: 0 }
+            missingness_rate: { type: number, minimum: 0, maximum: 1 }
+            record_count: { type: integer, minimum: 1 }
+        rights_status: { enum: [VALID, EXPIRED, UNKNOWN, RESTRICTED] }
+        source_ref: { type: string, minLength: 1 }
+        source_version: { type: string, minLength: 1 }
+        title: { type: string, minLength: 1 }
+    ModelQualificationDatasetRequest:
+      type: object
+      additionalProperties: false
+      required: [calibration_record_ids, content_digest, course_id, holdout_record_ids, source_package_id]
+      properties:
+        calibration_record_ids: { type: array, minItems: 1, items: { type: string, minLength: 1 } }
+        content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        course_id: { type: string, minLength: 1 }
+        holdout_record_ids: { type: array, minItems: 1, items: { type: string, minLength: 1 } }
+        source_package_id: { type: string, minLength: 1 }
+    ModelQualificationRunRequest:
+      type: object
+      additionalProperties: false
+      required: [calibration_dataset_id, course_id, deterministic_seed, model_version_reference, source_package_id]
+      properties:
+        calibration_dataset_id: { type: string, minLength: 1 }
+        course_id: { type: string, minLength: 1 }
+        deterministic_seed: { type: integer }
+        model_version_reference: { $ref: "../schemas/model-qualification.v1.json#/$defs/modelVersionReference" }
+        source_package_id: { type: string, minLength: 1 }
+    ModelQualificationReviewRequest:
+      type: object
+      additionalProperties: false
+      required: [decision, note]
+      properties:
+        decision: { enum: [APPROVED, REJECTED] }
+        note: { type: string, minLength: 1 }
     W5MutationEnvelope:
       type: object
       additionalProperties: false

@@ -41,6 +41,7 @@ import { ProjectBriefPanel } from "./ProjectBriefPanel";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 import { RegionalTransferProjection } from "./features/regional-transfer-projection";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
+import { ModelQualificationProjection } from "./ModelQualificationProjection";
 import { GovernedStakeholderIntelligenceProjection } from "./GovernedStakeholderIntelligenceProjection";
 const ExecutiveStrategyLabProjection = lazy(() =>
   import("./ExecutiveStrategyLabProjection").then(
@@ -75,6 +76,10 @@ const REGIONAL_TRANSFER_CANDIDATE_ID =
   typeof window === "undefined"
     ? ""
     : (new URLSearchParams(window.location.search).get("regionalTransferCandidateId") ?? "");
+const MODEL_QUALIFICATION_ID =
+  typeof window === "undefined"
+    ? ""
+    : (new URLSearchParams(window.location.search).get("modelQualificationId") ?? "");
 function readStoredReauthContext(): ReauthContext | null {
   if (typeof window === "undefined") return null;
   try {
@@ -1036,6 +1041,16 @@ export function App() {
         ) : null}
 
         {hasStudentSurface ? (
+          <ModelQualificationProjection
+            apiBase={API_BASE}
+            courseId={latestRun?.course_id}
+            qualificationId={MODEL_QUALIFICATION_ID}
+            tenantId={login.tenantId}
+            token={activeSession?.access_token ?? ""}
+          />
+        ) : null}
+
+        {hasStudentSurface ? (
           <GovernedStakeholderIntelligenceProjection
             apiBase={API_BASE}
             candidateId={GSI_CANDIDATE_ID}
@@ -1072,7 +1087,11 @@ export function App() {
         ) : null}
 
         {hasStudentSurface && REGIONAL_TRANSFER_CANDIDATE_ID ? (
-          <section id="student-regional-transfer" className="student-location" aria-label="区域迁移与场景演化">
+          <section
+            id="student-regional-transfer"
+            className="student-location"
+            aria-label="区域迁移与场景演化"
+          >
             <RegionalTransferProjection
               apiBase={API_BASE}
               candidateId={REGIONAL_TRANSFER_CANDIDATE_ID}

@@ -66,6 +66,8 @@ import {
 import type { SimWarStore } from "./store.js";
 import type { W5GovernedModelPersistence } from "./w5-governed-model-service.js";
 import type { W5ScenarioDraft } from "@simwar/shared-contracts";
+import type { ModelQualificationPersistence } from "./model-qualification-service.js";
+import type { ModelQualificationRecord } from "@simwar/shared-contracts";
 import type { GSIRecord } from "@simwar/shared-contracts";
 import {
   createSettlementBusinessKey,
@@ -204,6 +206,36 @@ export function createJsonW5GovernedModelPersistence(
         store.persist();
       } catch (error) {
         drafts.splice(0, drafts.length, ...previousDrafts);
+        store.auditLogs.splice(0, store.auditLogs.length, ...previousAuditLogs);
+        throw error;
+      }
+    }
+  };
+}
+
+/** JSON persistence for source-backed qualification records in the same model-governance writer. */
+export function createJsonModelQualificationPersistence(
+  store: SimWarStore
+): ModelQualificationPersistence {
+  const records = store.modelQualificationRecords ?? (store.modelQualificationRecords = []);
+  return {
+    listRecords() {
+      return clone(records);
+    },
+    commitRecord(record: ModelQualificationRecord, auditLog: AuditLog) {
+      const previousRecords = clone(records);
+      const previousAuditLogs = clone(store.auditLogs);
+      const index = records.findIndex(
+        (candidate) =>
+          candidate.tenant_id === record.tenant_id && candidate.course_id === record.course_id
+      );
+      if (index >= 0) records[index] = clone(record);
+      else records.push(clone(record));
+      store.auditLogs.push(clone(auditLog));
+      try {
+        store.persist();
+      } catch (error) {
+        records.splice(0, records.length, ...previousRecords);
         store.auditLogs.splice(0, store.auditLogs.length, ...previousAuditLogs);
         throw error;
       }

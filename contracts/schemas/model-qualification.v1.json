@@ -1,0 +1,375 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/model-qualification.v1.json",
+  "title": "SimWar source-backed model qualification",
+  "oneOf": [
+    { "$ref": "#/$defs/teacherProjection" },
+    { "$ref": "#/$defs/adminProjection" },
+    { "$ref": "#/$defs/studentProjection" }
+  ],
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "modelVersionReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "model_version_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "model_version_id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "content_digest", "format", "source_ref"],
+      "properties": {
+        "artifact_id": { "type": "string", "minLength": 1 },
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "format": { "type": "string", "minLength": 1 },
+        "source_ref": { "type": "string", "minLength": 1 }
+      }
+    },
+    "catalogEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact", "model_family", "model_version_reference", "status"],
+      "properties": {
+        "artifact": { "$ref": "#/$defs/artifact" },
+        "model_family": { "enum": ["toy_logit", "blp", "rcnl", "w5_governed", "custom"] },
+        "model_version_reference": { "$ref": "#/$defs/modelVersionReference" },
+        "status": { "enum": ["APPROVED", "RETIRED"] }
+      }
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["conflict_count", "missingness_rate", "record_count"],
+      "properties": {
+        "conflict_count": { "type": "integer", "minimum": 0 },
+        "missingness_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "record_count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "sourcePackage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content_digest",
+        "course_id",
+        "evidence_refs",
+        "expires_at",
+        "feature_schema_digest",
+        "freshness_status",
+        "observed_at",
+        "quality",
+        "rights_status",
+        "source_package_id",
+        "source_ref",
+        "source_version",
+        "tenant_id",
+        "title"
+      ],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "course_id": { "type": "string", "minLength": 1 },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "expires_at": { "type": ["string", "null"] },
+        "feature_schema_digest": { "$ref": "#/$defs/digest" },
+        "freshness_status": { "enum": ["FRESH", "STALE", "UNKNOWN"] },
+        "observed_at": { "type": "string", "minLength": 1 },
+        "quality": { "$ref": "#/$defs/quality" },
+        "rights_status": { "enum": ["VALID", "EXPIRED", "UNKNOWN", "RESTRICTED"] },
+        "source_package_id": { "type": "string", "minLength": 1 },
+        "source_ref": { "type": "string", "minLength": 1 },
+        "source_version": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 }
+      }
+    },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "calibration_dataset_id",
+        "calibration_record_ids",
+        "content_digest",
+        "course_id",
+        "created_at",
+        "holdout_leakage_count",
+        "holdout_record_ids",
+        "record_count",
+        "source_package_id",
+        "status",
+        "tenant_id",
+        "zero_holdout_leakage"
+      ],
+      "properties": {
+        "calibration_dataset_id": { "type": "string", "minLength": 1 },
+        "calibration_record_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "course_id": { "type": "string", "minLength": 1 },
+        "created_at": { "type": "string", "minLength": 1 },
+        "holdout_leakage_count": { "type": "integer", "minimum": 0 },
+        "holdout_record_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "record_count": { "type": "integer", "minimum": 2 },
+        "source_package_id": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["READY", "NOT_ELIGIBLE"] },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "zero_holdout_leakage": { "type": "boolean" }
+      }
+    },
+    "diagnostics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseline_error",
+        "convergence_status",
+        "differential_error",
+        "drift_score",
+        "ood_rate",
+        "sensitivity_max_delta"
+      ],
+      "properties": {
+        "baseline_error": { "type": "number", "minimum": 0 },
+        "convergence_status": { "enum": ["CONVERGED", "NOT_CONVERGED"] },
+        "differential_error": { "type": "number", "minimum": 0 },
+        "drift_score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "ood_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "sensitivity_max_delta": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact",
+        "authority_flags",
+        "binding",
+        "calibration_dataset_id",
+        "content_digest",
+        "course_id",
+        "created_at",
+        "decision",
+        "deterministic_seed",
+        "diagnostics",
+        "known_limits",
+        "model_version_reference",
+        "no_implicit_latest",
+        "qualification_id",
+        "reasons",
+        "review",
+        "source_package_id",
+        "tenant_id",
+        "updated_at"
+      ],
+      "properties": {
+        "artifact": { "$ref": "#/$defs/artifact" },
+        "authority_flags": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["official_truth_write", "provider_calls"],
+          "properties": {
+            "official_truth_write": { "const": false },
+            "provider_calls": { "const": 0 }
+          }
+        },
+        "binding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status"],
+          "properties": {
+            "bound_at": { "type": "string" },
+            "bound_by": { "type": "string" },
+            "course_id": { "type": "string" },
+            "status": { "enum": ["UNBOUND", "BOUND"] }
+          }
+        },
+        "calibration_dataset_id": { "type": "string", "minLength": 1 },
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "course_id": { "type": "string", "minLength": 1 },
+        "created_at": { "type": "string", "minLength": 1 },
+        "decision": { "enum": ["APPROVED", "REJECTED", "NOT_ELIGIBLE"] },
+        "deterministic_seed": { "type": "integer" },
+        "diagnostics": { "$ref": "#/$defs/diagnostics" },
+        "known_limits": { "type": "array", "items": { "type": "string" } },
+        "model_version_reference": { "$ref": "#/$defs/modelVersionReference" },
+        "no_implicit_latest": { "const": true },
+        "qualification_id": { "type": "string", "minLength": 1 },
+        "reasons": { "type": "array", "items": { "type": "string" } },
+        "review": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status"],
+          "properties": {
+            "decision_note": { "type": "string" },
+            "reviewed_at": { "type": "string" },
+            "reviewed_by": { "type": "string" },
+            "status": { "enum": ["PENDING", "APPROVED", "REJECTED"] }
+          }
+        },
+        "source_package_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "updated_at": { "type": "string", "minLength": 1 }
+      }
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["activity", "course", "role", "tenant"],
+      "properties": {
+        "activity": { "type": "string", "minLength": 1 },
+        "course": { "type": "string", "minLength": 1 },
+        "role": { "type": "string", "minLength": 1 },
+        "tenant": { "type": "string", "minLength": 1 }
+      }
+    },
+    "teacherProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "calibration_datasets",
+        "known_limits",
+        "model_catalog",
+        "operation_id",
+        "qualifications",
+        "security",
+        "source_packages"
+      ],
+      "properties": {
+        "calibration_datasets": { "type": "array", "items": { "$ref": "#/$defs/dataset" } },
+        "known_limits": { "type": "array", "items": { "type": "string" } },
+        "model_catalog": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/catalogEntry" }
+        },
+        "operation_id": { "const": "MODEL_QUALIFICATION_TEACHER_STUDIO_GET_V1" },
+        "qualifications": { "type": "array", "items": { "$ref": "#/$defs/qualification" } },
+        "security": { "$ref": "#/$defs/security" },
+        "source_packages": { "type": "array", "items": { "$ref": "#/$defs/sourcePackage" } }
+      }
+    },
+    "adminProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority",
+        "calibration_datasets",
+        "known_limits",
+        "model_catalog",
+        "operation_id",
+        "qualifications",
+        "security",
+        "source_packages"
+      ],
+      "properties": {
+        "authority": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ai_provider",
+            "formal_truth_writer",
+            "model_governance_writer",
+            "repository_provider",
+            "writes_formal_truth"
+          ],
+          "properties": {
+            "ai_provider": { "const": "OFF" },
+            "formal_truth_writer": { "const": "SIMULATION_CORE" },
+            "model_governance_writer": { "const": "MAIN_MODEL_GOVERNANCE" },
+            "repository_provider": { "const": "JSON_INTERNAL_ONLY" },
+            "writes_formal_truth": { "const": false }
+          }
+        },
+        "calibration_datasets": { "type": "array", "items": { "$ref": "#/$defs/dataset" } },
+        "known_limits": { "type": "array", "items": { "type": "string" } },
+        "model_catalog": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/catalogEntry" }
+        },
+        "operation_id": { "const": "MODEL_QUALIFICATION_ADMIN_AUDIT_GET_V1" },
+        "qualifications": { "type": "array", "items": { "$ref": "#/$defs/qualification" } },
+        "security": { "$ref": "#/$defs/security" },
+        "source_packages": { "type": "array", "items": { "$ref": "#/$defs/sourcePackage" } }
+      }
+    },
+    "studentProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["known_limits", "operation_id", "qualification", "security", "visibility"],
+      "properties": {
+        "known_limits": { "type": "array", "items": { "type": "string" } },
+        "operation_id": { "const": "MODEL_QUALIFICATION_STUDENT_PROJECTION_GET_V1" },
+        "qualification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "binding_status",
+            "decision",
+            "diagnostics",
+            "explanation",
+            "model_family",
+            "model_version",
+            "qualification_id",
+            "review_status",
+            "source"
+          ],
+          "properties": {
+            "binding_status": { "enum": ["UNBOUND", "BOUND"] },
+            "decision": { "enum": ["APPROVED", "REJECTED", "NOT_ELIGIBLE"] },
+            "diagnostics": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "convergence_status",
+                "drift_score",
+                "holdout_leakage_count",
+                "ood_rate",
+                "sensitivity_max_delta"
+              ],
+              "properties": {
+                "convergence_status": { "enum": ["CONVERGED", "NOT_CONVERGED"] },
+                "drift_score": { "type": "number" },
+                "holdout_leakage_count": { "type": "integer", "minimum": 0 },
+                "ood_rate": { "type": "number" },
+                "sensitivity_max_delta": { "type": "number" }
+              }
+            },
+            "explanation": { "type": "array", "items": { "type": "string" } },
+            "model_family": { "type": "string", "minLength": 1 },
+            "model_version": { "type": "string", "minLength": 1 },
+            "qualification_id": { "type": "string", "minLength": 1 },
+            "review_status": { "enum": ["PENDING", "APPROVED", "REJECTED"] },
+            "source": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["freshness_status", "rights_status", "source_version", "title"],
+              "properties": {
+                "freshness_status": { "enum": ["FRESH", "STALE", "UNKNOWN"] },
+                "rights_status": { "enum": ["VALID", "EXPIRED", "UNKNOWN", "RESTRICTED"] },
+                "source_version": { "type": "string", "minLength": 1 },
+                "title": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        },
+        "security": { "$ref": "#/$defs/security" },
+        "visibility": { "const": "ROLE_SAFE_STUDENT" }
+      }
+    }
+  }
+}

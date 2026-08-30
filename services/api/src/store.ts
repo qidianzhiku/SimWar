@@ -50,6 +50,7 @@ import type {
   W027RolePosition,
   W027RoleRoster,
   W5ScenarioDraft,
+  ModelQualificationRecord,
   OperatingWorldDraft,
   RegionalTransferCandidate,
   W4StoreState
@@ -154,6 +155,8 @@ export interface SimWarStoreSnapshot {
   w027ResolutionAcknowledgements: W027ResolutionAcknowledgement[];
   /** W5 governance-plane drafts; never part of canonical settlement truth. */
   w5GovernedModelDrafts?: W5ScenarioDraft[];
+  /** Source-backed model qualification records; never part of canonical settlement truth. */
+  modelQualificationRecords?: ModelQualificationRecord[];
   /** SH-M3 Operating World governance-plane drafts; never part of settlement truth. */
   operatingWorldDrafts?: OperatingWorldDraft[];
   /** RT-O1 governed regional-transfer candidates; never part of settlement truth. */
@@ -172,7 +175,9 @@ export function readInstructorAssetCollection(store: SimWarStore): InstructorAss
 }
 
 /** Returns a copy so only the RT-O1 product service can mutate regional-transfer candidates. */
-export function readRegionalTransferCandidateCollection(store: SimWarStore): RegionalTransferCandidate[] {
+export function readRegionalTransferCandidateCollection(
+  store: SimWarStore
+): RegionalTransferCandidate[] {
   return structuredClone(store.regionalTransferCandidates ?? []);
 }
 
@@ -854,6 +859,7 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
     w027Resolutions: [],
     w027ResolutionAcknowledgements: [],
     w5GovernedModelDrafts: [],
+    modelQualificationRecords: [],
     operatingWorldDrafts: [],
     regionalTransferCandidates: [],
     w4: {
@@ -939,6 +945,7 @@ function toSnapshot(store: SimWarStore): SimWarStoreSnapshot {
     w027Resolutions: store.w027Resolutions,
     w027ResolutionAcknowledgements: store.w027ResolutionAcknowledgements,
     w5GovernedModelDrafts: store.w5GovernedModelDrafts ?? [],
+    modelQualificationRecords: store.modelQualificationRecords ?? [],
     operatingWorldDrafts: store.operatingWorldDrafts ?? [],
     regionalTransferCandidates: store.regionalTransferCandidates ?? [],
     w4: store.w4,
@@ -1007,6 +1014,7 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
     w027Resolutions: snapshot.w027Resolutions ?? [],
     w027ResolutionAcknowledgements: snapshot.w027ResolutionAcknowledgements ?? [],
     w5GovernedModelDrafts: snapshot.w5GovernedModelDrafts ?? [],
+    modelQualificationRecords: snapshot.modelQualificationRecords ?? [],
     operatingWorldDrafts: snapshot.operatingWorldDrafts ?? [],
     regionalTransferCandidates: snapshot.regionalTransferCandidates ?? [],
     w4: {
