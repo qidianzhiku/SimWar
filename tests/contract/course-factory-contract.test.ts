@@ -138,6 +138,20 @@ describe("Course Factory contract", () => {
       version: "1.0.0"
     };
     expect(validate(originalLineageCandidate)).toBe(false);
+
+    const missingNonOriginalLineageCandidate = structuredClone(draft());
+    missingNonOriginalLineageCandidate.factory_metadata.provenance.kind = "CLONED";
+    expect(validate(missingNonOriginalLineageCandidate)).toBe(false);
+
+    const crossTenantLineageCandidate = structuredClone(draft());
+    crossTenantLineageCandidate.factory_metadata.provenance.kind = "CLONED";
+    crossTenantLineageCandidate.factory_metadata.provenance.source_course_package_reference = {
+      content_digest: "b".repeat(64),
+      course_package_id: "source_course",
+      tenant_id: "tenant_other",
+      version: "1.0.0"
+    };
+    expect(validate(crossTenantLineageCandidate)).toBe(false);
   });
 
   it("binds all factory routes to exact request and response contracts", () => {
