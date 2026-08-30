@@ -178,6 +178,7 @@ describe("CoursePackageVersion contract freeze", () => {
     );
 
     expect(validate({ ...valid, created_at: "2026-13-40T00:00:00.000Z" })).toBe(false);
+    expect(validate({ ...valid, created_at: "2026-02-29T00:00:00.000Z" })).toBe(false);
   });
 
   it("accepts the optional Teacher Scenario Studio configuration in the package contract", () => {

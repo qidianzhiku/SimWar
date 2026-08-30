@@ -103,6 +103,16 @@ describe("Course Factory contract", () => {
       expect(validate(reservedIdentityCandidate)).toBe(false);
     }
 
+    for (const timestamp of [
+      "2026-02-29T00:00:00.000Z",
+      "2026-04-31T00:00:00.000Z",
+      "2026-01-01T24:00:00.000Z"
+    ]) {
+      const invalidTimestampCandidate = structuredClone(draft());
+      invalidTimestampCandidate.factory_metadata.rights.expires_at = timestamp;
+      expect(validate(invalidTimestampCandidate)).toBe(false);
+    }
+
     const paddedModelArtifactCandidate = structuredClone(draft());
     paddedModelArtifactCandidate.factory_metadata.source_manifest.model_artifact_reference = {
       artifact_id: "artifact_demo",
