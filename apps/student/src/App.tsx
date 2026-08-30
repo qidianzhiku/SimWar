@@ -43,6 +43,11 @@ import { RegionalTransferProjection } from "./features/regional-transfer-project
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
 import { ModelQualificationProjection } from "./ModelQualificationProjection";
 import { GovernedStakeholderIntelligenceProjection } from "./GovernedStakeholderIntelligenceProjection";
+import {
+  getStudentDecisionDesktopState,
+  StudentDecisionDesktop,
+  type StudentDecisionDesktopContext
+} from "./StudentDecisionDesktop";
 const ShanghaiC0ConversionProjection = lazy(() => import("./ShanghaiC0ConversionProjection"));
 const ExecutiveStrategyLabProjection = lazy(() =>
   import("./ExecutiveStrategyLabProjection").then(
@@ -53,7 +58,6 @@ const ExecutiveStrategyLabProjection = lazy(() =>
 );
 import { isW3ContextAvailable } from "./p2b-w3-context";
 import {
-  AllowedActionButton,
   AppShell,
   AuthorityBadge,
   ContextBar,
@@ -824,8 +828,6 @@ export function App() {
     serverAllowsLegacySubmit
   );
   const roleWorkflowActive = roleWorkflowAvailability === "active";
-  const isEditable = (field: string): boolean =>
-    latestRound?.status === "open" && isStudentFieldEditable(cockpit, field);
   const cards: Array<[string, ReactNode]> = [
     ["身份", session?.user.display_name ?? "未登录"],
     ["课程", state?.courses[0]?.title ?? "等待课程"],
@@ -862,6 +864,71 @@ export function App() {
   const noticeCopy = getStudentNoticeCopy(notice);
   const w5Convergence = w5Projection?.convergence;
   const w5Demand = w5Convergence?.demand_realization;
+  const course = state?.courses.find((candidate) => candidate.course_id === latestRun?.course_id);
+  const desktopContext: StudentDecisionDesktopContext | null =
+    latestRun && latestRound && team
+      ? {
+          tenant_id: login.tenantId,
+          course_id: latestRun.course_id,
+          ...(course?.title ? { course_title: course.title } : {}),
+          run_id: latestRun.run_id,
+          round_id: latestRound.round_id,
+          round_no: latestRound.round_no,
+          team_id: team.team_id
+        }
+      : cockpit
+        ? {
+            tenant_id: cockpit.student_cockpit.tenant_id,
+            course_id: cockpit.student_cockpit.course_id,
+            run_id: cockpit.student_cockpit.run_id,
+            round_id: cockpit.student_cockpit.round_id,
+            round_no: cockpit.student_cockpit.round_no,
+            team_id: cockpit.student_cockpit.team_id
+          }
+        : null;
+  const desktopExactContextReady = Boolean(
+    session &&
+    isStudentSession &&
+    cockpit &&
+    latestRun &&
+    latestRound &&
+    team &&
+    cockpit.student_cockpit.tenant_id === login.tenantId &&
+    cockpit.student_cockpit.course_id === latestRun.course_id &&
+    cockpit.student_cockpit.run_id === latestRun.run_id &&
+    cockpit.student_cockpit.round_id === latestRound.round_id &&
+    cockpit.student_cockpit.round_no === latestRound.round_no &&
+    cockpit.student_cockpit.team_id === team.team_id
+  );
+  const desktopState = getStudentDecisionDesktopState({
+    hasSession: Boolean(session),
+    isStudentSession,
+    workspacePhase,
+    contextRecoveryState,
+    exactContextReady: desktopExactContextReady,
+    hasPublishedResult: Boolean(myResult)
+  });
+  function updateDesktopDecision(
+    field: DecisionPayloadFieldPath,
+    value: string | number | DecisionPayload["capacity_plan"]
+  ): void {
+    setDecision((current) => {
+      switch (field) {
+        case "pricing.base_price":
+          return { ...current, pricing: { base_price: Number(value) } };
+        case "marketing_budget":
+          return { ...current, marketing_budget: Number(value) };
+        case "service_quality_budget":
+          return { ...current, service_quality_budget: Number(value) };
+        case "capacity_plan":
+          return { ...current, capacity_plan: value as DecisionPayload["capacity_plan"] };
+        case "cash_buffer_target":
+          return { ...current, cash_buffer_target: Number(value) };
+        case "strategy_statement":
+          return { ...current, strategy_statement: String(value) };
+      }
+    });
+  }
 
   return (
     <AppShell
@@ -980,6 +1047,23 @@ export function App() {
             )}
           </WorkbenchFrame>
         </section>
+
+        <StudentDecisionDesktop
+          desktopState={desktopState}
+          context={desktopContext}
+          cockpit={cockpit}
+          decision={decision}
+          {...(submittedDecision ? { submittedDecision } : {})}
+          {...(myResult ? { publishedResult: myResult } : {})}
+          busy={busy}
+          canSubmit={canSubmit}
+          roleWorkflowActive={roleWorkflowActive}
+          roleWorkflowAvailability={roleWorkflowAvailability}
+          notice={noticeCopy.primary}
+          onDecisionChange={updateDesktopDecision}
+          onSubmit={() => void submitDecision()}
+          onRecover={() => void refresh().catch(() => undefined)}
+        />
 
         {hasStudentSurface ? (
           <section className="known-limits-disclosure" aria-label="known limits product disclosure">
@@ -1274,194 +1358,6 @@ export function App() {
               </WorkbenchFrame>
             </section>
           </>
-        ) : null}
-
-        {hasStudentSurface ? (
-          <section className="workspace">
-            <article
-              id="student-submission"
-              className="panel form-panel student-location"
-              aria-label="最终提交"
-            >
-              <div className="panel-title">
-                <h2>结构化决策</h2>
-                <span role="status">
-                  {noticeCopy.primary}{" "}
-                  {noticeCopy.compatibility ? (
-                    <span className="compatibility-copy">{noticeCopy.compatibility}</span>
-                  ) : null}
-                </span>
-              </div>
-              <label>
-                定价
-                <input
-                  min="6000"
-                  max="30000"
-                  type="number"
-                  disabled={busy || !isEditable("pricing.base_price")}
-                  value={decision.pricing.base_price}
-                  onChange={(event) =>
-                    setDecision((current) => ({
-                      ...current,
-                      pricing: { base_price: Number(event.target.value) }
-                    }))
-                  }
-                />
-              </label>
-              <label>
-                营销预算
-                <input
-                  min="0"
-                  max="1000000"
-                  type="number"
-                  disabled={busy || !isEditable("marketing_budget")}
-                  value={decision.marketing_budget}
-                  onChange={(event) =>
-                    setDecision((current) => ({
-                      ...current,
-                      marketing_budget: Number(event.target.value)
-                    }))
-                  }
-                />
-              </label>
-              <label>
-                服务质量预算
-                <input
-                  min="0"
-                  max="1000000"
-                  type="number"
-                  disabled={busy || !isEditable("service_quality_budget")}
-                  value={decision.service_quality_budget}
-                  onChange={(event) =>
-                    setDecision((current) => ({
-                      ...current,
-                      service_quality_budget: Number(event.target.value)
-                    }))
-                  }
-                />
-              </label>
-              <label>
-                产能计划
-                <select
-                  disabled={busy || !isEditable("capacity_plan")}
-                  value={decision.capacity_plan}
-                  onChange={(event) =>
-                    setDecision((current) => ({
-                      ...current,
-                      capacity_plan: event.target.value as DecisionPayload["capacity_plan"]
-                    }))
-                  }
-                >
-                  <option value="contract">收缩</option>
-                  <option value="hold">保持</option>
-                  <option value="expand">扩张</option>
-                </select>
-              </label>
-              <label>
-                现金缓冲
-                <input
-                  max="0.6"
-                  min="0"
-                  step="0.01"
-                  type="number"
-                  disabled={busy || !isEditable("cash_buffer_target")}
-                  value={decision.cash_buffer_target}
-                  onChange={(event) =>
-                    setDecision((current) => ({
-                      ...current,
-                      cash_buffer_target: Number(event.target.value)
-                    }))
-                  }
-                />
-              </label>
-              <label>
-                策略说明
-                <textarea
-                  disabled={busy || !isEditable("strategy_statement")}
-                  value={decision.strategy_statement}
-                  onChange={(event) =>
-                    setDecision((current) => ({
-                      ...current,
-                      strategy_statement: event.target.value
-                    }))
-                  }
-                />
-              </label>
-              <AllowedActionButton
-                className="primary"
-                action="decision:submit"
-                allowedActions={cockpit?.decision_form.allowed_actions ?? []}
-                disabled={!canSubmit}
-                loading={busy}
-                disabledReason={
-                  roleWorkflowActive
-                    ? "角色协作已启用，请完成团队确认后再提交。"
-                    : roleWorkflowAvailability === "checking"
-                      ? "正在核验服务端角色协作状态，正式提交暂时关闭。"
-                      : roleWorkflowAvailability === "error"
-                        ? "角色协作状态加载失败，正式提交已关闭。"
-                        : "当前回合尚未授予正式提交权限。"
-                }
-                onClick={() => void submitDecision()}
-              >
-                提交正式决策
-              </AllowedActionButton>
-              {roleWorkflowActive ? (
-                <p className="evidence-note">
-                  当前 Run 已启用角色协作，正式 Decision 仅由团队确认生成。
-                </p>
-              ) : null}
-            </article>
-
-            <article
-              id="student-results"
-              className="panel feedback student-location"
-              aria-label="结果与因果链"
-            >
-              <div className="panel-title">
-                <h2>M1 安全结果反馈</h2>
-                <span>
-                  {myResult ? "结果已发布" : "等待结果"}{" "}
-                  <span className="compatibility-copy">{myResult ? "published" : "pending"}</span>
-                </span>
-              </div>
-              {myResult ? (
-                <>
-                  <div className="feedback-block runtime-note">
-                    <span>结果边界</span>
-                    <strong>
-                      服务端正式结果 <span className="compatibility-copy">{resultLabel}</span>
-                    </strong>
-                    <p>学员视图只展示可见结果与反馈，不暴露正式真值字段。</p>
-                  </div>
-                  <div className="feedback-block">
-                    <span>发生了什么</span>
-                    <strong>
-                      排名 {myResult.state_obs.rank} / 分数 {myResult.state_obs.score}
-                    </strong>
-                    <p>
-                      服务需求 {myResult.state_obs.served_demand}，利润状态{" "}
-                      {myResult.state_obs.profit_band}。
-                    </p>
-                  </div>
-                  <div className="feedback-block">
-                    <span>为什么发生</span>
-                    <p>{myResult.state_est.explanation}</p>
-                  </div>
-                  <div className="feedback-block">
-                    <span>下一步风险</span>
-                    <strong>{myResult.state_est.next_round_risk}</strong>
-                    <p>建议关注 {myResult.state_est.recommended_focus}。</p>
-                  </div>
-                  <p className="runtime-limits">
-                    当前边界：{publishedResult?.explicit_non_proof.join(" / ")}
-                  </p>
-                </>
-              ) : (
-                <p className="muted">结果发布后显示可见反馈。</p>
-              )}
-            </article>
-          </section>
         ) : null}
 
         {hasStudentSurface ? (
