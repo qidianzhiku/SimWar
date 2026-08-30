@@ -96,6 +96,23 @@ describe("Course Factory contract", () => {
     const openIdentityCandidate = structuredClone(draft());
     openIdentityCandidate.version = "latest";
     expect(validate(openIdentityCandidate)).toBe(false);
+
+    const paddedModelArtifactCandidate = structuredClone(draft());
+    paddedModelArtifactCandidate.factory_metadata.source_manifest.model_artifact_reference = {
+      artifact_id: "artifact_demo",
+      content_digest: "e".repeat(64),
+      format: " json ",
+      source_ref: "source:artifact_demo"
+    };
+    expect(validate(paddedModelArtifactCandidate)).toBe(false);
+
+    const paddedModelVersionCandidate = structuredClone(draft());
+    paddedModelVersionCandidate.factory_metadata.source_manifest.model_version_reference = {
+      content_digest: "f".repeat(64),
+      model_version_id: "model_demo",
+      version: "1.0.0"
+    };
+    expect(validate(paddedModelVersionCandidate)).toBe(true);
   });
 
   it("binds all factory routes to exact request and response contracts", () => {
