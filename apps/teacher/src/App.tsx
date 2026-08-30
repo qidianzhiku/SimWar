@@ -20,7 +20,7 @@ import {
   validateReauthIdentity,
   type ReauthContext
 } from "@simwar/shared-contracts";
-import { CanServiceFeasibilityPanel, StatePanel } from "@simwar/ui";
+import { StatePanel } from "@simwar/ui";
 import type {
   ApiEnvelope,
   AuthSession,
@@ -70,6 +70,11 @@ const RoleWorkflowPanel = lazy(() =>
   }))
 );
 const O4CrossRoundDynamicsPanel = lazy(() => import("@simwar/ui/o4-cross-round-dynamics-panel"));
+const CanServiceFeasibilityPanel = lazy(() =>
+  import("@simwar/ui/can-service-feasibility-panel").then(({ default: Component }) => ({
+    default: Component
+  }))
+);
 import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { InstructorIntelligencePanel } from "./InstructorIntelligencePanel";
 import {
