@@ -1,0 +1,235 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/sh-public-source-evidence-epoch.v1.json",
+  "title": "Shanghai public-source reality evidence epoch candidate",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "mission_id",
+    "state_a",
+    "state_b",
+    "state_transition",
+    "source_epoch",
+    "source_assets",
+    "observations",
+    "features",
+    "transformations",
+    "regional_transfers",
+    "scenario_candidates",
+    "conflict_ledger",
+    "provenance_graph",
+    "role_visibility",
+    "model_handoff",
+    "authority",
+    "known_limits",
+    "pack_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "sh-public-source-evidence-epoch.v1" },
+    "mission_id": { "const": "SIMWAR-SH-M25-PUBLIC-SOURCE-REALITY-EVIDENCE-EPOCH" },
+    "state_a": {
+      "type": "object",
+      "required": ["name", "reality_classes", "evidence_gap"],
+      "properties": {
+        "name": { "const": "REFERENCE_ONLY_ANCHORS_WITHOUT_CURRENT_PUBLIC_EPOCH" },
+        "reality_classes": {
+          "type": "array",
+          "prefixItems": [{ "const": "SYNTHETIC" }, { "const": "REFERENCE_ONLY" }],
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "evidence_gap": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "state_b": { "const": "PUBLIC_SOURCE_REALITY_EVIDENCE_EPOCH_BOUND" },
+    "state_transition": {
+      "type": "object",
+      "required": ["from", "to"],
+      "properties": { "from": { "const": "STATE_A" }, "to": { "const": "STATE_B" } },
+      "additionalProperties": false
+    },
+    "source_epoch": {
+      "type": "object",
+      "required": [
+        "epoch_id",
+        "source_epoch_base_sha",
+        "fetched_at",
+        "expires_at",
+        "revalidation_policy",
+        "source_receipts",
+        "epoch_digest"
+      ],
+      "properties": {
+        "epoch_id": { "const": "SH-PUBLIC-SOURCE-EPOCH-2026-08-30" },
+        "source_epoch_base_sha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "fetched_at": { "type": "string", "format": "date" },
+        "expires_at": { "type": "string", "format": "date" },
+        "revalidation_policy": { "type": "string", "minLength": 1 },
+        "source_receipts": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/sourceReceipt" } },
+        "epoch_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "source_assets": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "#/$defs/sourceAsset" }
+    },
+    "observations": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "#/$defs/observation" }
+    },
+    "features": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/feature" }
+    },
+    "transformations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/transformation" }
+    },
+    "regional_transfers": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/transfer" }
+    },
+    "scenario_candidates": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "#/$defs/scenario" }
+    },
+    "conflict_ledger": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["conflict_id", "sources", "conflict_type", "observed_positions", "resolution", "status", "impact"],
+        "properties": {
+          "conflict_id": { "type": "string" },
+          "sources": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+          "conflict_type": { "enum": ["RETRIEVAL_SCOPE", "DATE_SCOPE", "DEFINITION_SCOPE"] },
+          "observed_positions": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+          "resolution": { "const": "PRESERVED" },
+          "status": { "enum": ["OPEN", "CLOSED_WITH_EXPLICIT_SCOPE"] },
+          "impact": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "authority": {
+      "type": "object",
+      "required": ["official_truth_write", "settlement_write", "parameter_set_formal_write", "provider", "second_truth_writer"],
+      "properties": {
+        "candidate_writer": { "const": "SH_NEXT_SUPPORT_CANDIDATE_COMPILER" },
+        "official_truth_write": { "const": false },
+        "settlement_write": { "const": false },
+        "parameter_set_formal_write": { "const": false },
+        "provider": { "const": "OFF" },
+        "runtime_authority": { "const": "JSON_INTERNAL_ONLY" },
+        "second_truth_writer": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "pack_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  },
+  "$defs": {
+    "sourceReceipt": {
+      "type": "object",
+      "required": ["source_id", "source_type", "publisher", "title", "url", "retrieved_at", "retrieval_status", "exact_locator", "geography", "time_scope", "rights_status", "expiry", "source_digest"],
+      "properties": {
+        "source_id": { "type": "string" },
+        "source_type": { "const": "OFFICIAL_PUBLIC_PAGE" },
+        "publisher": { "type": "string" },
+        "title": { "type": "string" },
+        "url": { "type": "string", "format": "uri" },
+        "published_or_reference_date": { "type": "string" },
+        "retrieved_at": { "type": "string", "format": "date" },
+        "retrieval_status": { "enum": ["RETRIEVED", "RETRIEVED_WITH_JS_LIMIT"] },
+        "exact_locator": { "type": "string" },
+        "definition": { "type": "string" },
+        "geography": { "enum": ["Shanghai", "Hangzhou"] },
+        "time_scope": { "type": "string" },
+        "unit_basis": { "type": "string" },
+        "rights_status": { "const": "PUBLIC_REFERENCE_ONLY" },
+        "expiry": { "type": "string", "format": "date" },
+        "revalidation_required": { "const": true },
+        "excerpt_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "source_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "sourceAsset": {
+      "type": "object",
+      "required": ["source_id", "source_type", "reality_class", "source_receipt_id", "geography", "hash"],
+      "properties": {
+        "source_id": { "type": "string" },
+        "source_type": { "const": "PUBLIC_DOCUMENT" },
+        "reality_class": { "const": "PUBLIC_SOURCE_BOUND" },
+        "source_receipt_id": { "type": "string" },
+        "source_date": { "type": "string" },
+        "geography": { "enum": ["Shanghai", "Hangzhou"] },
+        "time_scope": { "type": "string" },
+        "provenance": { "type": "string" },
+        "license_or_usage_status": { "const": "PUBLIC_REFERENCE_ONLY" },
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "NOT_ESTABLISHED"] },
+        "sensitivity": { "const": "PUBLIC" },
+        "role_visibility": { "enum": ["TEACHER_ONLY", "STUDENT_SAFE", "INTERNAL_RESEARCH_ONLY", "RESTRICTED"] },
+        "derived_from": { "type": "array", "items": { "type": "string" } },
+        "content_basis": { "type": "string" },
+        "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "observation": {
+      "type": "object",
+      "required": ["observation_id", "source_id", "field", "location", "period", "basis", "unit", "geography", "value", "confidence", "evidence_reality_class", "observation_status", "exact_locator", "expiry", "observation_digest"],
+      "properties": {
+        "observation_id": { "type": "string" },
+        "source_id": { "type": "string" },
+        "field": { "type": "string" },
+        "location": { "type": "string" },
+        "period": { "type": "string" },
+        "basis": { "type": "string" },
+        "unit": { "type": "string", "minLength": 1 },
+        "geography": { "enum": ["Shanghai", "Hangzhou"] },
+        "value": {},
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "NOT_ESTABLISHED"] },
+        "evidence_reality_class": { "enum": ["SYNTHETIC", "REFERENCE_ONLY", "PUBLIC_SOURCE_BOUND", "DEIDENTIFIED_PRIVATE", "HUMAN"] },
+        "observation_status": { "enum": ["OBSERVED", "UNKNOWN", "CONFLICT"] },
+        "exact_locator": { "type": "string" },
+        "expiry": { "type": "string", "format": "date" },
+        "observation_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "feature": {
+      "type": "object",
+      "required": ["feature_id", "name", "value", "unit", "range", "source_ids", "observation_ids", "temporal_scope", "geography", "confidence", "possible_mod_consumer", "calibration_evidence", "visibility", "feature_digest"],
+      "properties": {
+        "feature_id": { "type": "string" },
+        "name": { "type": "string" },
+        "value": {},
+        "unit": { "type": "string", "minLength": 1 },
+        "range": { "type": "object", "required": ["min", "max"], "properties": { "min": {}, "max": {} }, "additionalProperties": false },
+        "source_ids": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "observation_ids": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "temporal_scope": { "type": "string" },
+        "geography": { "enum": ["Shanghai", "Hangzhou"] },
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "NOT_ESTABLISHED"] },
+        "possible_mod_consumer": { "type": "string" },
+        "calibration_evidence": { "const": "NOT_PROVEN" },
+        "visibility": { "enum": ["TEACHER_ONLY", "STUDENT_SAFE", "INTERNAL_RESEARCH_ONLY", "RESTRICTED"] },
+        "feature_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "transformation": { "type": "object", "required": ["transformation_id", "input", "rule", "assumption", "output", "unit", "time_scope", "geography", "confidence", "provenance", "transformation_digest"], "additionalProperties": true },
+    "transfer": { "type": "object", "required": ["transfer_id", "baseline_geography", "target_geography", "output", "unit", "source_feature_ids", "target_feature_ids", "evidence_reality_class", "transfer_digest"], "additionalProperties": true },
+    "scenario": { "type": "object", "required": ["scenario_id", "title", "geography", "time_scope", "data_type", "source_ids", "feature_ids", "transfer_ids", "visibility", "premise", "no_correct_answer_prefilled", "formal_runtime_admitted", "scenario_digest"], "additionalProperties": true }
+  },
+  "additionalProperties": false
+}
