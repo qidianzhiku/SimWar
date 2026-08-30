@@ -10,6 +10,7 @@ import {
   qualifyWorkflowEvidence,
   type WorkflowEvidenceResult
 } from "./workflow-evidence-policy.js";
+import { buildStudentDecisionChallenge } from "./student-decision-challenge.js";
 
 export interface AgentGatewayInput {
   context: W020AdvisoryContext;
@@ -90,9 +91,15 @@ export function createDeterministicMockGateway(): { generate(input: AgentGateway
         surface: input.surface
       };
       const inputHash = digest(safeInput);
-      const outputText = evidence.status === "abstained"
-        ? "No qualified workflow evidence is available; advisory generation is withheld until a valid workflow sequence is visible."
-        : `Workflow evidence qualified at ${evidence.current_stage.toLowerCase().replaceAll("_", " ")}; review the visible role scope and prepare a reversible next step without inferring official outcomes.`;
+      const generatedAdvice = input.surface === "student_role"
+        ? buildStudentDecisionChallenge(input.context, evidence)
+        : {
+            advisory_text: evidence.status === "abstained"
+              ? "No qualified workflow evidence is available; advisory generation is withheld until a valid workflow sequence is visible."
+              : `Workflow evidence qualified at ${evidence.current_stage.toLowerCase().replaceAll("_", " ")}; compare the visible workflow evidence and document a follow-up question without inferring official outcomes.`,
+            output_type: "advisory" as const
+          };
+      const outputText = generatedAdvice.advisory_text;
       const outputHash = digest({ inputHash, outputText });
       const modelCallLogId = `model_call_${inputHash.slice(0, 24)}`;
       const coachOutputId = `coach_output_${outputHash.slice(0, 24)}`;
@@ -105,7 +112,7 @@ export function createDeterministicMockGateway(): { generate(input: AgentGateway
           created_at: now,
           evidence_refs: evidence.qualified_event_ids,
           model_call_log_id: modelCallLogId,
-          output_type: "advisory",
+          output_type: generatedAdvice.output_type,
           round_id: input.context.round_id,
           run_id: input.context.run_id,
           ...(input.context.role_key ? { role_key: input.context.role_key } : {}),
