@@ -114,6 +114,12 @@ const spineSteps = [
   ["support", "支持栏", "进入协作与复盘"]
 ] as const;
 
+const supportLinkStyle = {
+  alignItems: "center",
+  display: "inline-flex",
+  minHeight: 44
+} as const;
+
 function spineStatus(
   state: StudentDecisionDesktopState,
   key: (typeof spineSteps)[number][0]
@@ -466,19 +472,27 @@ export function StudentDecisionDesktop({
           <h3>支持与恢复</h3>
           <ul>
             <li>
-              <a href="#student-private-draft">个人角色草稿</a>
+              <a href="#student-private-draft" style={supportLinkStyle}>
+                个人角色草稿
+              </a>
               <span>{roleWorkflowActive ? "服务端已开放" : "查看当前状态"}</span>
             </li>
             <li>
-              <a href="#student-confirmation">团队确认</a>
+              <a href="#student-confirmation" style={supportLinkStyle}>
+                团队确认
+              </a>
               <span>仅服务端确认链</span>
             </li>
             <li>
-              <a href="#student-debrief">决策复盘</a>
+              <a href="#student-debrief" style={supportLinkStyle}>
+                决策复盘
+              </a>
               <span>学习建议只读</span>
             </li>
             <li>
-              <a href="#student-learning-report">学习报告</a>
+              <a href="#student-learning-report" style={supportLinkStyle}>
+                学习报告
+              </a>
               <span>advisory-only</span>
             </li>
           </ul>
