@@ -140,6 +140,10 @@ describe("M2-P5 decision learning BFF route", () => {
         createEnvelope: (_context, value) => value,
         requireStudent: () => ({ ...actor, roles: ["student"] }),
         requireTeacher: () => actor,
+        requiresStudentDecisionContextEvidence: async ({ context }) => {
+          expect(context).toEqual(exactContext);
+          return true;
+        },
         resolveStudentDecisionContextEvidence: async ({ context }) => {
           expect(context).toEqual(exactContext);
           return evidence;
@@ -164,6 +168,37 @@ describe("M2-P5 decision learning BFF route", () => {
         }
       }
     });
+  });
+
+  it("fails closed before returning a project-aware learning projection without evidence", async () => {
+    const url = new URL(
+      "http://localhost/api/v1/bff/student/m2p5/runs/run_m2p5/rounds/1/decision-learning?" + query
+    );
+    let status = 0;
+    const service = {
+      getJourney: async () => {
+        throw new Error("project-aware admission must run before projection composition");
+      }
+    } as unknown as M2P5DecisionLearningCrossRoundService;
+
+    await handleM2P5DecisionLearningRoute(
+      service,
+      { method: "GET" } as never,
+      {} as never,
+      url,
+      { requestId: "request_m2p5", tenantId: "tenant_demo" },
+      {
+        createEnvelope: (_context, value) => value,
+        requireStudent: () => ({ ...actor, roles: ["student"] }),
+        requireTeacher: () => actor,
+        requiresStudentDecisionContextEvidence: async () => true,
+        sendJson: (_response, nextStatus) => {
+          status = nextStatus;
+        }
+      }
+    );
+
+    expect(status).toBe(409);
   });
 
   it("keeps blocked downstream continuity when the journey is not complete", async () => {
@@ -233,7 +268,8 @@ describe("M2-P5 decision learning BFF route", () => {
   });
 
   it("fails closed when a requested evidence identity cannot be resolved", async () => {
-    const evidenceId = "sdcx.v1.activity_consequence_course_demo_CEO_round_m2p5_1_1_run_m2p5_team_alpha_tenant_demo";
+    const evidenceId =
+      "sdcx.v1.activity_consequence_course_demo_CEO_round_m2p5_1_1_run_m2p5_team_alpha_tenant_demo";
     const url = new URL(
       "http://localhost/api/v1/bff/student/m2p5/runs/run_m2p5/rounds/1/decision-learning?" +
         query +

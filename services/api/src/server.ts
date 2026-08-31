@@ -195,6 +195,7 @@ import {
   resolveOperatingWorldBindingDigest
 } from "./operating-world-consequence-trace.js";
 import {
+  M2P5DecisionLearningError,
   M2P5DecisionLearningCrossRoundService,
   type M2P5DecisionLearningActor
 } from "./m2p5-decision-learning-crossround.js";
@@ -5086,6 +5087,7 @@ async function requireStudentDecisionContextEvidenceForRoleAction(
   scope: ReturnType<typeof roleWorkflowScopeFromBody>,
   requestedEvidenceId: string | undefined
 ): Promise<void> {
+  const currentActor = requireActor(context);
   const binding = await runtime.formalRunRuntimeBindingStore.getForRun(
     context.tenantId,
     scope.run_id
@@ -5103,14 +5105,17 @@ async function requireStudentDecisionContextEvidenceForRoleAction(
     : undefined;
   if (!run || !round || round.run_id !== run.run_id) return;
 
-  const workspace = await runtime.roleWorkflow.getStudentWorkspace(actor, scope);
-  const currentActor = requireActor(context);
-  const projectAssignments = await runtime.projectLibrary.getAssignmentsForScope(
-    { actor_id: currentActor.user_id, tenant_id: context.tenantId },
-    { course_id: run.course_id, run_id: run.run_id, team_ids: [scope.team_id] }
-  );
-  if (projectAssignments.length === 0) return;
-  if (projectAssignments.length !== 1) {
+  const admission = await resolveProjectAwareStudentDecisionContextAdmission(runtime, {
+    actorUserId: currentActor.user_id,
+    courseId: run.course_id,
+    roundId: round.round_id,
+    roundNo: round.round_no,
+    runId: run.run_id,
+    teamId: scope.team_id,
+    tenantId: context.tenantId
+  });
+  if (admission === "NOT_REQUIRED") return;
+  if (admission === "CONFLICT") {
     throw new HttpError(
       409,
       "PROJECT_ASSIGNMENT_CONFLICT",
@@ -5118,6 +5123,7 @@ async function requireStudentDecisionContextEvidenceForRoleAction(
     );
   }
 
+  const workspace = await runtime.roleWorkflow.getStudentWorkspace(actor, scope);
   const evidence = await runtime.resolveStudentDecisionContextEvidence({
     actor: {
       roles: currentActor.roles,
@@ -5157,6 +5163,45 @@ async function requireStudentDecisionContextEvidenceForRoleAction(
       "exact READY student decision context evidence is required"
     );
   }
+}
+
+type ProjectAwareStudentDecisionContextAdmission = "NOT_REQUIRED" | "REQUIRED" | "CONFLICT";
+
+async function resolveProjectAwareStudentDecisionContextAdmission(
+  runtime: ApiRuntime,
+  input: {
+    actorUserId: string;
+    courseId: string;
+    roundId: string;
+    roundNo: number;
+    runId: string;
+    teamId: string;
+    tenantId: string;
+  }
+): Promise<ProjectAwareStudentDecisionContextAdmission> {
+  const binding = await runtime.formalRunRuntimeBindingStore.getForRun(input.tenantId, input.runId);
+  if (!binding || binding.decision_admission_policy !== "ROLE_WORKFLOW_REQUIRED") {
+    return "NOT_REQUIRED";
+  }
+
+  const run = await runtime.repositoryProvider.facade.runs.getRun(input.tenantId, input.runId);
+  if (!run || run.course_id !== input.courseId) return "NOT_REQUIRED";
+  const round = (
+    await runtime.repositoryProvider.facade.rounds.listRoundsForRun(input.tenantId, input.runId)
+  ).find(
+    (candidate) =>
+      candidate.round_id === input.roundId &&
+      candidate.run_id === input.runId &&
+      candidate.round_no === input.roundNo
+  );
+  if (!round) return "NOT_REQUIRED";
+
+  const projectAssignments = await runtime.projectLibrary.getAssignmentsForScope(
+    { actor_id: input.actorUserId, tenant_id: input.tenantId },
+    { course_id: input.courseId, run_id: input.runId, team_ids: [input.teamId] }
+  );
+  if (projectAssignments.length === 0) return "NOT_REQUIRED";
+  return projectAssignments.length === 1 ? "REQUIRED" : "CONFLICT";
 }
 
 function assertOnlyRoleWorkflowFields(
@@ -7733,6 +7778,21 @@ async function routeRequest(
           createEnvelope(routeContext as RequestContext, payload),
         requireStudent: () => requireD4Student(context),
         requireTeacher: () => requireD4Teacher(context),
+        requiresStudentDecisionContextEvidence: async ({ actor, context: journeyContext }) => {
+          const admission = await resolveProjectAwareStudentDecisionContextAdmission(runtime, {
+            actorUserId: actor.user_id,
+            courseId: journeyContext.course_id,
+            roundId: journeyContext.round_id,
+            roundNo: journeyContext.round_no,
+            runId: journeyContext.run_id,
+            teamId: journeyContext.team_id,
+            tenantId: journeyContext.tenant_id
+          });
+          if (admission === "CONFLICT") {
+            throw new M2P5DecisionLearningError("M2P5_CONTEXT_EVIDENCE_INVALID");
+          }
+          return admission === "REQUIRED";
+        },
         resolveStudentDecisionContextEvidence: runtime.resolveStudentDecisionContextEvidence,
         sendJson
       }

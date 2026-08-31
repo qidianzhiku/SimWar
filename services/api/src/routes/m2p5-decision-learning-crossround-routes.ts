@@ -20,6 +20,10 @@ export interface M2P5RouteHelpers {
   readonly createEnvelope: (context: M2P5RouteContext, payload: unknown) => unknown;
   readonly requireStudent: () => M2P5DecisionLearningActor;
   readonly requireTeacher: () => M2P5DecisionLearningActor;
+  readonly requiresStudentDecisionContextEvidence?: (input: {
+    actor: M2P5DecisionLearningActor;
+    context: M2P5DecisionLearningContext;
+  }) => Promise<boolean>;
   readonly resolveStudentDecisionContextEvidence?: (input: {
     actor: M2P5DecisionLearningActor;
     context: M2P5DecisionLearningContext;
@@ -77,10 +81,9 @@ function continuityFromJourney(
     context: "PROVEN",
     decision: "PROVEN",
     consequence:
-      result.official_consequence.record.publication.status === "PUBLISHED"
-        ? "PROVEN"
-        : "BLOCKED",
-    debrief: result.learning_loop.teacher_debrief_availability === "AVAILABLE" ? "PROVEN" : "BLOCKED",
+      result.official_consequence.record.publication.status === "PUBLISHED" ? "PROVEN" : "BLOCKED",
+    debrief:
+      result.learning_loop.teacher_debrief_availability === "AVAILABLE" ? "PROVEN" : "BLOCKED",
     regional_transfer:
       result.learning_loop.transfer_status === "READY" &&
       result.cross_round.status !== "BLOCKED" &&
@@ -126,22 +129,30 @@ export async function handleM2P5DecisionLearningRoute(
       identity(match[2]),
       Number(match[3])
     );
-    const result = await service.getJourney({
-      actor,
-      context,
-      surface
-    });
     const requestedEvidence = url.searchParams.has("decision_context_evidence_id")
       ? identity(url.searchParams.get("decision_context_evidence_id"))
       : undefined;
     if (requestedEvidence && surface !== "student") {
       throw new M2P5DecisionLearningError("M2P5_CONTEXT_EVIDENCE_INVALID");
     }
-    const evidence = requestedEvidence
-      ? await helpers.resolveStudentDecisionContextEvidence?.({ actor, context })
-      : undefined;
+    const evidenceRequired =
+      surface === "student"
+        ? (await helpers.requiresStudentDecisionContextEvidence?.({ actor, context })) === true
+        : false;
+    if (evidenceRequired && !requestedEvidence) {
+      throw new M2P5DecisionLearningError("M2P5_CONTEXT_EVIDENCE_INVALID");
+    }
+    const result = await service.getJourney({
+      actor,
+      context,
+      surface
+    });
+    const evidence =
+      requestedEvidence || evidenceRequired
+        ? await helpers.resolveStudentDecisionContextEvidence?.({ actor, context })
+        : undefined;
     if (
-      requestedEvidence &&
+      (requestedEvidence || evidenceRequired) &&
       (!evidence ||
         evidence.status !== "READY" ||
         evidence.evidence_id !== requestedEvidence ||
