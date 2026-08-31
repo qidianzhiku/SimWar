@@ -915,18 +915,23 @@ export function App() {
     latestRun && latestRound && team && projectAwareEvidenceAvailability === "required"
   );
   const projectAwareEvidenceGateRequired = Boolean(
-    latestRun && latestRound && team && projectAwareEvidenceAvailability !== "disabled"
+    latestRun &&
+      latestRound &&
+      team &&
+      projectAwareEvidenceAvailability !== "disabled" &&
+      projectAwareEvidenceAvailability !== "checking"
   );
   const decisionContextEvidenceReady = Boolean(
-    !projectAwareEvidenceExpected ||
-    (decisionContextEvidence?.status === "READY" &&
-      decisionContextEvidence.scope.tenant_id === login.tenantId &&
-      decisionContextEvidence.scope.course_id === latestRun?.course_id &&
-      decisionContextEvidence.scope.run_id === latestRun?.run_id &&
-      decisionContextEvidence.scope.round_id === latestRound?.round_id &&
-      decisionContextEvidence.scope.round_no === latestRound?.round_no &&
-      decisionContextEvidence.scope.team_id === team?.team_id &&
-      decisionContextEvidence.scope.role_key === w3RoleKey)
+    projectAwareEvidenceAvailability === "disabled" ||
+      (projectAwareEvidenceAvailability === "required" &&
+        decisionContextEvidence?.status === "READY" &&
+        decisionContextEvidence.scope.tenant_id === login.tenantId &&
+        decisionContextEvidence.scope.course_id === latestRun?.course_id &&
+        decisionContextEvidence.scope.run_id === latestRun?.run_id &&
+        decisionContextEvidence.scope.round_id === latestRound?.round_id &&
+        decisionContextEvidence.scope.round_no === latestRound?.round_no &&
+        decisionContextEvidence.scope.team_id === team?.team_id &&
+        decisionContextEvidence.scope.role_key === w3RoleKey)
   );
   const desktopState = getStudentDecisionDesktopState({
     hasSession: Boolean(session),

@@ -20,6 +20,19 @@ describe("Project-aware commercial visual contract", () => {
     expect(brief).toContain('onAvailabilityChange?.("error")');
   });
 
+  it("keeps the role workspace read continuity independent from evidence readiness", () => {
+    const panel = source("apps/student/src/StudentRoleWorkflowPanel.tsx");
+    const contextKey = panel.slice(
+      panel.indexOf("const contextKey"),
+      panel.indexOf("const decisionContextGateReady")
+    );
+    expect(contextKey).not.toContain("decisionContextEvidenceId");
+    expect(contextKey).not.toContain("decisionContextEvidenceRequired");
+    expect(contextKey).not.toContain("decisionContextEvidenceReady");
+    expect(panel).toContain("props.token\n    ]");
+    expect(panel).not.toContain("decisionContextGateReady\n    ]");
+  });
+
   it("loads one shared Figma-aligned visual layer in all three apps", () => {
     for (const app of ["admin", "teacher", "student"]) {
       expect(

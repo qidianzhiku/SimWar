@@ -179,10 +179,7 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
     props.runId,
     props.teamId,
     props.tenantId,
-    props.token,
-    props.decisionContextEvidenceId,
-    props.decisionContextEvidenceRequired,
-    props.decisionContextEvidenceReady
+    props.token
   ].join("|");
 
   const decisionContextGateReady =
@@ -311,8 +308,7 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
       props.runId,
       props.teamId,
       props.tenantId,
-      props.token,
-      decisionContextGateReady
+      props.token
     ]
   );
 
