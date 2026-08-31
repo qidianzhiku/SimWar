@@ -65,7 +65,7 @@ describe("W020 advisory BFF routes", () => {
       createEnvelope: (_context: unknown, payload: unknown) => ({ code: "OK", data: payload }),
       requireStudent: () => undefined,
       requireTeacher: () => undefined,
-      requireAdmin: () => undefined
+      requireTeacherOrAdmin: () => undefined
     };
     const handled = await handleW020AdvisoryRoute(
       service,

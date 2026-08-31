@@ -86,7 +86,7 @@ function route(
       createEnvelope: (_context, payload) => ({ code: "OK", data: payload }),
       requireStudent: () => undefined,
       requireTeacher: () => undefined,
-      requireAdmin: () => undefined
+      requireTeacherOrAdmin: () => undefined
     }
   ).then(() => ({
     target,

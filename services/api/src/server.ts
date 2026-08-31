@@ -7801,7 +7801,19 @@ async function routeRequest(
             createEnvelope(routeContext as RequestContext, payload),
           requireStudent: () => requireD4Student(context),
           requireTeacher: () => requireD4Teacher(context),
-          requireAdmin: () => requireD4Admin(context)
+          requireTeacherOrAdmin: () => {
+            const actor = requirePermission(context, "course:read");
+            if (
+              !actorHasAnyRole(actor, ["teacher", "tenant_admin", "admin", "platform_admin"]) ||
+              (actor.tenant_id !== context.tenantId && !actorHasAnyRole(actor, ["platform_admin"]))
+            ) {
+              throw new HttpError(
+                403,
+                "D4_REPORT_SCOPE_VIOLATION",
+                "teacher or admin scope required"
+              );
+            }
+          }
         }
       )
     )
