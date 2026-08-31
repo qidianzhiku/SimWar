@@ -12,6 +12,7 @@ import {
 } from "./workflow-evidence-policy.js";
 import { buildStudentDecisionChallenge } from "./student-decision-challenge.js";
 import { buildTeacherDebriefIntelligence } from "./teacher-debrief-intelligence.js";
+import { hasRoleDecisionLens } from "./role-decision-lens.js";
 
 export interface AgentGatewayInput {
   context: W020AdvisoryContext;
@@ -94,6 +95,8 @@ function assertPolicy(input: AgentGatewayInput): void {
     input.surface === "student_role" &&
     (!input.role_key || input.context.role_key !== input.role_key)
   )
+    throw new AgentGatewayError("AGENT_POLICY_DENIED");
+  if (input.surface === "student_role" && !hasRoleDecisionLens(input.context))
     throw new AgentGatewayError("AGENT_POLICY_DENIED");
 }
 

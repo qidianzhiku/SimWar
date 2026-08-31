@@ -137,7 +137,7 @@ describe("W020 R1 workflow evidence policy", () => {
     const gateway = createDeterministicMockGateway();
     const result = gateway.generate({
       context: gatewayContext({
-        advisory_scopes: [injection, "confirm", "settle", "publish", "state_true"]
+        advisory_scopes: ["strategy", injection, "confirm", "settle", "publish", "state_true"]
       }),
       role_key: "CEO",
       surface: "student_role"
