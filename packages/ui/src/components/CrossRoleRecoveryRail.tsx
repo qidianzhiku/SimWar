@@ -209,7 +209,6 @@ export function CrossRoleRecoveryRail({
   return (
     <section
       className="sw-ui sw-state-panel sw-recovery-rail"
-      data-state={status}
       data-recovery-status={status}
       data-recovery-role={role}
       aria-labelledby={headingId}
