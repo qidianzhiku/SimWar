@@ -612,6 +612,9 @@ describe("Role Workflow HTTP boundary", () => {
 
   it("runs Teacher assignment through Student safe drafts to one confirmed canonical Decision", async () => {
     const { baseUrl, server, store } = await startServer();
+    store.formalRunRuntimeBindings.push(
+      createPolicyBinding(scope.run_id, "ROLE_WORKFLOW_REQUIRED")
+    );
     try {
       const teacherToken = await login(baseUrl, "teacher");
       const tokens = new Map<string, string>();
@@ -732,6 +735,46 @@ describe("Role Workflow HTTP boundary", () => {
       });
       expect(JSON.stringify(captainWorkspace.body.data)).not.toContain("merged_payload");
 
+      const blockedProjectAssignment: ProjectAssignment = {
+        assigned_at: "2026-08-30T08:00:00.000Z",
+        assigned_by: "usr_teacher",
+        assignment_id: "project-w027-alias-gate",
+        course_id: "course_demo",
+        project_profile_reference: {
+          content_digest: "project-w027-alias-gate-digest".padEnd(64, "0"),
+          project_profile_id: "project-w027-alias-gate",
+          tenant_id: "tenant_demo",
+          version: "1.0.0"
+        },
+        run_id: scope.run_id,
+        schema_version: "project-assignment.v1",
+        team_id: scope.team_id,
+        tenant_id: "tenant_demo"
+      };
+      store.projectAssignments.push(blockedProjectAssignment);
+      const blockedW027Merge = await request<unknown>(baseUrl, "/api/v1/bff/student/w027/merge", {
+        body: scope,
+        method: "POST",
+        token: tokens.get("role_ceo")
+      });
+      expect(blockedW027Merge.status).toBe(409);
+      expect(blockedW027Merge.body.code).toBe("STUDENT_DECISION_CONTEXT_EVIDENCE_REQUIRED");
+      expect(store.decisionMergeCommits).toHaveLength(1);
+
+      const blockedW027Confirm = await request<unknown>(
+        baseUrl,
+        "/api/v1/bff/student/w027/confirm",
+        {
+          body: { ...scope, merge_commit_id: merge.body.data.merge_commit_id },
+          method: "POST",
+          token: tokens.get("role_ceo")
+        }
+      );
+      expect(blockedW027Confirm.status).toBe(409);
+      expect(blockedW027Confirm.body.code).toBe("STUDENT_DECISION_CONTEXT_EVIDENCE_REQUIRED");
+      expect(store.teamConfirmations).toEqual([]);
+      store.projectAssignments = [];
+
       const [confirmation, repeatedConfirmation] = await Promise.all([
         request<TeamConfirmation>(baseUrl, "/api/v1/bff/student/role-workspace/confirm", {
           body: { ...scope, merge_commit_id: merge.body.data.merge_commit_id },
@@ -755,9 +798,6 @@ describe("Role Workflow HTTP boundary", () => {
         team_confirmation_id: confirmation.body.data.team_confirmation_id
       });
 
-      store.formalRunRuntimeBindings.push(
-        createPolicyBinding(scope.run_id, "ROLE_WORKFLOW_REQUIRED")
-      );
       const w4BeforeFormalMismatch = structuredClone(store.w4);
       const mismatchedW4Decision = await request<unknown>(
         baseUrl,

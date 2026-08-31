@@ -9062,10 +9062,28 @@ async function routeRequest(
   if (request.method === "POST" && url.pathname === "/api/v1/bff/student/w027/merge") {
     const actor = w027Actor(context, "student");
     const body = await readJson<Record<string, unknown>>(request);
-    assertOnlyRoleWorkflowFields(body, ["round_id", "run_id", "team_id"]);
-    const input = roleWorkflowScopeFromBody(body);
-    const data = await executeRoleWorkflow(() =>
-      runtime.roleWorkflow.createMergeCommit(actor, input)
+    assertOnlyRoleWorkflowFields(body, [
+      "decision_context_evidence_id",
+      "round_id",
+      "run_id",
+      "team_id"
+    ]);
+    const scope = roleWorkflowScopeFromBody(body);
+    const decisionContextEvidenceId = roleWorkflowEvidenceIdFromBody(body);
+    const data = await executeLockedRoleWorkflow(
+      runtime,
+      context.tenantId,
+      scope.run_id,
+      async () => {
+        await requireStudentDecisionContextEvidenceForRoleAction(
+          runtime,
+          context,
+          actor,
+          scope,
+          decisionContextEvidenceId
+        );
+        return runtime.roleWorkflow.createMergeCommit(actor, scope);
+      }
     );
     sendJson(response, 201, createEnvelope(context, data));
     return;
@@ -9074,11 +9092,38 @@ async function routeRequest(
   if (request.method === "POST" && url.pathname === "/api/v1/bff/student/w027/confirm") {
     const actor = w027Actor(context, "student");
     const body = await readJson<Record<string, unknown>>(request);
-    assertOnlyRoleWorkflowFields(body, ["merge_commit_id", "round_id", "run_id", "team_id"]);
-    const input = roleWorkflowScopeFromBody(body);
+    assertOnlyRoleWorkflowFields(body, [
+      "decision_context_evidence_id",
+      "merge_commit_id",
+      "round_id",
+      "run_id",
+      "team_id"
+    ]);
+    const scope = roleWorkflowScopeFromBody(body);
+    const decisionContextEvidenceId = roleWorkflowEvidenceIdFromBody(body);
     const mergeCommitId = roleWorkflowString(body.merge_commit_id, "merge_commit_id");
-    const data = await executeRoleWorkflow(() =>
-      runtime.roleWorkflow.confirmTeamDecision(actor, { ...input, merge_commit_id: mergeCommitId })
+    const data = await executeLockedRoleWorkflow(
+      runtime,
+      context.tenantId,
+      scope.run_id,
+      async () => {
+        const existing = await runtime.roleWorkflow.getExistingTeamConfirmation(actor, {
+          ...scope,
+          merge_commit_id: mergeCommitId
+        });
+        if (existing) return existing;
+        await requireStudentDecisionContextEvidenceForRoleAction(
+          runtime,
+          context,
+          actor,
+          scope,
+          decisionContextEvidenceId
+        );
+        return runtime.roleWorkflow.confirmTeamDecision(actor, {
+          ...scope,
+          merge_commit_id: mergeCommitId
+        });
+      }
     );
     sendJson(response, 200, createEnvelope(context, data));
     return;

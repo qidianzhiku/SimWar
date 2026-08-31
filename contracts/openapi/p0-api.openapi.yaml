@@ -3548,6 +3548,10 @@ paths:
               additionalProperties: false
               required: [run_id, round_id, team_id]
               properties:
+                decision_context_evidence_id:
+                  type: string
+                  minLength: 1
+                  description: Exact server-issued student decision context evidence identity for evidence-enabled project runs.
                 run_id: { type: string }
                 round_id: { type: string }
                 team_id: { type: string }
@@ -3569,6 +3573,10 @@ paths:
               additionalProperties: false
               required: [run_id, round_id, team_id, merge_commit_id]
               properties:
+                decision_context_evidence_id:
+                  type: string
+                  minLength: 1
+                  description: Exact server-issued student decision context evidence identity for evidence-enabled project runs.
                 run_id: { type: string }
                 round_id: { type: string }
                 team_id: { type: string }
