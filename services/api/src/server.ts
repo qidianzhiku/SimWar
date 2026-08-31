@@ -9368,11 +9368,22 @@ async function routeRequest(
     ) {
       throw new HttpError(422, "ROLE_WORKFLOW-422-001", "role workflow request invalid");
     }
+    const resolutionInput = {
+      ...scope,
+      selected_values: parseTeamResolutionValues(body.selected_values),
+      source_digest: roleWorkflowString(body.source_digest, "source_digest"),
+      source_section_ids: body.source_section_ids as string[]
+    };
     const data = await executeLockedRoleWorkflow(
       runtime,
       context.tenantId,
       scope.run_id,
       async () => {
+        const existing = await runtime.roleWorkflow.getExistingTeamResolution(
+          actor,
+          resolutionInput
+        );
+        if (existing) return existing;
         await requireStudentDecisionContextEvidenceForRoleAction(
           runtime,
           context,
@@ -9380,12 +9391,7 @@ async function routeRequest(
           scope,
           decisionContextEvidenceId
         );
-        return runtime.roleWorkflow.proposeTeamResolution(actor, {
-          ...scope,
-          selected_values: parseTeamResolutionValues(body.selected_values),
-          source_digest: roleWorkflowString(body.source_digest, "source_digest"),
-          source_section_ids: body.source_section_ids as string[]
-        });
+        return runtime.roleWorkflow.proposeTeamResolution(actor, resolutionInput);
       }
     );
     sendJson(response, 201, createEnvelope(context, data));

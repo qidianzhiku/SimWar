@@ -8267,9 +8267,6 @@ components:
       additionalProperties: false
       required: [round_id, run_id, team_id]
       properties:
-        decision_context_evidence_id:
-          type: string
-          minLength: 1
         round_id:
           type: string
           minLength: 1
@@ -8300,7 +8297,19 @@ components:
           type: string
           minLength: 1
     RoleWorkflowResetInput:
-      $ref: "#/components/schemas/RoleWorkflowScopeInput"
+      type: object
+      additionalProperties: false
+      required: [round_id, run_id, team_id]
+      properties:
+        round_id:
+          type: string
+          minLength: 1
+        run_id:
+          type: string
+          minLength: 1
+        team_id:
+          type: string
+          minLength: 1
     RoleWorkflowDecisionPayload:
       type: object
       additionalProperties: false
@@ -8569,7 +8578,22 @@ components:
           type: string
           minLength: 1
     RoleWorkflowMergeInput:
-      $ref: "#/components/schemas/RoleWorkflowScopeInput"
+      type: object
+      additionalProperties: false
+      required: [round_id, run_id, team_id]
+      properties:
+        decision_context_evidence_id:
+          type: string
+          minLength: 1
+        round_id:
+          type: string
+          minLength: 1
+        run_id:
+          type: string
+          minLength: 1
+        team_id:
+          type: string
+          minLength: 1
     RoleWorkflowConfirmInput:
       type: object
       additionalProperties: false

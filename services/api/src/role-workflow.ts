@@ -835,22 +835,7 @@ export class RoleWorkflowCommandService {
     const snapshot = await this.read(actor, input);
     this.assertRoundScope(snapshot);
     this.assertPostConfirmationMutable(snapshot);
-    const assignment = this.findActorAssignment(actor, snapshot);
-    const configuredPolicy = await this.dependencies.resolveW027DecisionPolicy?.(
-      { ...input, course_id: snapshot.run?.course_id ?? "", tenant_id: actor.tenant_id },
-      assignment.role_key
-    );
-    if (!configuredPolicy && snapshot.team!.captain_user_id !== actor.actor_id) {
-      throw new RoleWorkflowError("ROLE_WORKFLOW_CAPTAIN_REQUIRED");
-    }
-    if (
-      !(
-        configuredPolicy?.can_propose_resolution ??
-        DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key].can_create_merge_commit
-      )
-    ) {
-      throw new RoleWorkflowError("ROLE_WORKFLOW_MERGE_DENIED");
-    }
+    await this.assertResolutionProposalAllowed(actor, input, snapshot);
     const divergenceSet = this.buildDivergenceSet(snapshot, input);
     if (!divergenceSet) throw new RoleWorkflowError("ROLE_WORKFLOW_SECTIONS_NOT_READY");
     if (divergenceSet.divergences.length === 0) {
@@ -904,6 +889,32 @@ export class RoleWorkflowCommandService {
       resolution
     });
     return toSafeResolution(resolution);
+  }
+
+  /**
+   * Reuses a previously persisted resolution before the caller revalidates
+   * short-lived decision-context evidence. This keeps a lost-response retry
+   * idempotent while retaining the normal student and captain authorization
+   * checks and exact source/value binding.
+   */
+  async getExistingTeamResolution(
+    actor: RoleWorkflowActor,
+    input: TeamResolutionInput
+  ): Promise<TeamResolutionSafeDTO | undefined> {
+    this.requireStudent(actor);
+    const snapshot = await this.read(actor, input);
+    this.assertRoundScope(snapshot);
+    this.assertPostConfirmationMutable(snapshot);
+    await this.assertResolutionProposalAllowed(actor, input, snapshot);
+    const existing = snapshot.resolutions
+      .filter(
+        (resolution) =>
+          resolution.source_digest === input.source_digest &&
+          sameStrings(resolution.source_section_ids, input.source_section_ids) &&
+          stableSerialize(resolution.selected_values) === stableSerialize(input.selected_values)
+      )
+      .at(-1);
+    return existing ? toSafeResolution(existing) : undefined;
   }
 
   async acknowledgeResolution(
@@ -1402,6 +1413,29 @@ export class RoleWorkflowCommandService {
           sameStrings(resolution.source_section_ids, divergenceSet.source_section_ids)
       )
       .at(-1);
+  }
+
+  private async assertResolutionProposalAllowed(
+    actor: RoleWorkflowActor,
+    input: TeamResolutionInput,
+    snapshot: RoleWorkflowRepositorySnapshot
+  ): Promise<void> {
+    const assignment = this.findActorAssignment(actor, snapshot);
+    const configuredPolicy = await this.dependencies.resolveW027DecisionPolicy?.(
+      { ...input, course_id: snapshot.run?.course_id ?? "", tenant_id: actor.tenant_id },
+      assignment.role_key
+    );
+    if (!configuredPolicy && snapshot.team!.captain_user_id !== actor.actor_id) {
+      throw new RoleWorkflowError("ROLE_WORKFLOW_CAPTAIN_REQUIRED");
+    }
+    if (
+      !(
+        configuredPolicy?.can_propose_resolution ??
+        DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key].can_create_merge_commit
+      )
+    ) {
+      throw new RoleWorkflowError("ROLE_WORKFLOW_MERGE_DENIED");
+    }
   }
 
   private currentAcknowledgements(
