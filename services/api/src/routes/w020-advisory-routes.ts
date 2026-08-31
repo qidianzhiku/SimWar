@@ -14,6 +14,7 @@ export interface W020AdvisoryRouteHelpers {
   createEnvelope(context: W020AdvisoryRouteContext, payload: unknown): unknown;
   requireStudent(context: W020AdvisoryRouteContext): void;
   requireTeacher(context: W020AdvisoryRouteContext): void;
+  requireAdmin(context: W020AdvisoryRouteContext): void;
 }
 
 function object(value: unknown): Record<string, unknown> {
@@ -119,8 +120,8 @@ export async function handleW020AdvisoryRoute(
       helpers.sendJson(response, 201, helpers.createEnvelope(context, receipt));
       return true;
     }
-    helpers.requireTeacher(context);
     if (request.method === "GET" && url.pathname === "/api/v1/bff/teacher/advisors/audit") {
+      helpers.requireAdmin(context);
       helpers.sendJson(
         response,
         200,
@@ -131,6 +132,7 @@ export async function handleW020AdvisoryRoute(
       );
       return true;
     }
+    helpers.requireTeacher(context);
     const surfaceByPath: Record<string, W020AdvisorySurface> = {
       "/api/v1/bff/teacher/advisors/debrief": "teacher_debrief",
       "/api/v1/bff/teacher/intelligence/challenge/competitive": "competitive_challenge",

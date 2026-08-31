@@ -42,6 +42,14 @@ const teacher: CurrentUser = {
   user_id: "usr_teacher"
 };
 
+const admin: CurrentUser = {
+  display_name: "Admin",
+  permissions: ["course:read"],
+  roles: ["tenant_admin"],
+  tenant_id: "tenant_demo",
+  user_id: "usr_admin"
+};
+
 function response() {
   return {
     statusCode: 0,
@@ -55,11 +63,17 @@ function response() {
   };
 }
 
-function route(service: GovernedAdvisoryService, actor: CurrentUser, path: string, body: unknown) {
+function route(
+  service: GovernedAdvisoryService,
+  actor: CurrentUser,
+  path: string,
+  body: unknown,
+  method = "POST"
+) {
   const target = response();
   return handleW020AdvisoryRoute(
     service,
-    { method: "POST" } as never,
+    { method } as never,
     target as never,
     new URL(`http://localhost${path}`),
     { requestId: "req-w6", tenantId: actor.tenant_id, actor },
@@ -71,7 +85,8 @@ function route(service: GovernedAdvisoryService, actor: CurrentUser, path: strin
       },
       createEnvelope: (_context, payload) => ({ code: "OK", data: payload }),
       requireStudent: () => undefined,
-      requireTeacher: () => undefined
+      requireTeacher: () => undefined,
+      requireAdmin: () => undefined
     }
   ).then(() => ({
     target,
@@ -133,5 +148,21 @@ describe("W6 governed intelligence real BFF route contract", () => {
     });
     expect(result.target.statusCode).toBe(422);
     expect(result.payload.data).toMatchObject({ code: "W020_INPUT_INVALID" });
+  });
+
+  it("allows tenant admin to read the tenant-safe audit projection", async () => {
+    const service = new GovernedAdvisoryService({
+      repository: { list: async () => [], append: async () => undefined },
+      roleWorkflow: { readRoleWorkflow: () => snapshot, commitRoleWorkflow: () => undefined }
+    });
+    const result = await route(
+      service,
+      admin,
+      "/api/v1/bff/teacher/advisors/audit",
+      undefined,
+      "GET"
+    );
+    expect(result.target.statusCode).toBe(200);
+    expect(result.payload.data).toMatchObject({ entries: [], known_limits: expect.any(Array) });
   });
 });

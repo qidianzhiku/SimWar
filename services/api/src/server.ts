@@ -7800,7 +7800,8 @@ async function routeRequest(
           createEnvelope: (routeContext, payload) =>
             createEnvelope(routeContext as RequestContext, payload),
           requireStudent: () => requireD4Student(context),
-          requireTeacher: () => requireD4Teacher(context)
+          requireTeacher: () => requireD4Teacher(context),
+          requireAdmin: () => requireD4Admin(context)
         }
       )
     )

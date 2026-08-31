@@ -52,6 +52,45 @@ test("W6 real-BFF journey exposes governed assistance across Teacher, Student an
     headers: { authorization: `Bearer ${teacherToken}`, "x-tenant-id": tenantId }
   });
   expect(roundResponse.ok()).toBe(true);
+  const roundId = ((await roundResponse.json()) as ApiEnvelope<{ round_id: string }>).data.round_id;
+
+  const assignmentResponse = await request.put(
+    `${apiBaseUrl}/api/v1/bff/teacher/role-workflows/assignments`,
+    {
+      data: {
+        course_id: "course_demo",
+        role_key: "CEO",
+        run_id: runId,
+        team_id: "team_alpha",
+        user_id: "usr_student"
+      },
+      headers: {
+        authorization: `Bearer ${teacherToken}`,
+        "content-type": "application/json",
+        "x-tenant-id": tenantId
+      }
+    }
+  );
+  expect(assignmentResponse.status()).toBe(201);
+  const studentToken = await login(request, "student");
+  const sectionResponse = await request.put(
+    `${apiBaseUrl}/api/v1/bff/student/role-workspace/section`,
+    {
+      data: {
+        expected_version: 0,
+        payload: { strategy_statement: "A bounded evidence-backed team plan." },
+        round_id: roundId,
+        run_id: runId,
+        team_id: "team_alpha"
+      },
+      headers: {
+        authorization: `Bearer ${studentToken}`,
+        "content-type": "application/json",
+        "x-tenant-id": tenantId
+      }
+    }
+  );
+  expect(sectionResponse.status()).toBe(200);
 
   await signIn(page, teacherBaseUrl, "teacher", "教师登录");
   const teacherPanel = page.getByRole("region", { name: "Governed Intelligence Workspace" });
