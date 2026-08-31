@@ -1039,8 +1039,10 @@ export class RoleWorkflowCommandService {
     actor: RoleWorkflowActor,
     input: RoundWorkflowScope
   ): Promise<StudentRoleWorkflowMergeDTO> {
-    const { snapshot, readySections, resolution, sourceSectionIds, existing } =
-      await this.loadMergeCandidate(actor, input);
+    const { readySections, resolution, sourceSectionIds, existing } = await this.loadMergeCandidate(
+      actor,
+      input
+    );
     if (existing) return toStudentMergeDto(existing);
 
     const mergeCommit: DecisionMergeCommit = {
@@ -1126,7 +1128,13 @@ export class RoleWorkflowCommandService {
     const existing = snapshot.merge_commits.find((candidate) =>
       sameStrings(candidate.source_section_ids, sourceSectionIds)
     );
-    return { existing, readySections, resolution, snapshot, sourceSectionIds };
+    return {
+      readySections,
+      ...(resolution ? { resolution } : {}),
+      snapshot,
+      sourceSectionIds,
+      ...(existing ? { existing } : {})
+    };
   }
 
   async confirmTeamDecision(
