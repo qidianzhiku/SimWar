@@ -10,9 +10,14 @@ const readJson = (path: string): unknown =>
 describe("M2-P5 decision learning cross-round contract", () => {
   it("accepts the bounded safe fixture and rejects private truth fields", () => {
     const schema = readJson("contracts/schemas/m2p5-decision-learning-crossround.v1.json");
+    const decisionContextEvidenceSchema = readJson(
+      "contracts/schemas/student-decision-context-evidence.v1.json"
+    );
     const valid = readJson("contracts/fixtures/m2p5-decision-learning-crossround.valid.json");
     const invalid = readJson("contracts/fixtures/m2p5-decision-learning-crossround.invalid.json");
-    const validate = new Ajv2020({ strict: true, validateFormats: false }).compile(schema);
+    const ajv = new Ajv2020({ strict: true, validateFormats: false });
+    ajv.addSchema(decisionContextEvidenceSchema);
+    const validate = ajv.compile(schema);
 
     expect(validate(valid)).toBe(true);
     expect(validate(invalid)).toBe(false);

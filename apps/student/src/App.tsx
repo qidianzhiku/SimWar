@@ -28,6 +28,7 @@ import type {
   P0DemoState,
   DecisionPayloadFieldPath,
   StudentBffCockpitDTO,
+  StudentDecisionContextEvidence,
   W5GovernedModelStudentProjection,
   W3OfficialConsequenceContext
 } from "@simwar/shared-contracts";
@@ -424,6 +425,8 @@ async function apiRequest<TData>(
 export function App() {
   const [state, setState] = useState<P0DemoState | null>(null);
   const [cockpit, setCockpit] = useState<StudentBffCockpitDTO | null>(null);
+  const [decisionContextEvidence, setDecisionContextEvidence] =
+    useState<StudentDecisionContextEvidence | null>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [decision, setDecision] = useState<DecisionPayload>(defaultDecision);
@@ -527,6 +530,7 @@ export function App() {
     }
     setState(null);
     setCockpit(null);
+    setDecisionContextEvidence(null);
     setWorkspacePhase("loading");
     setRoleWorkflowAvailability("checking");
 
@@ -663,6 +667,7 @@ export function App() {
     setSession(null);
     setState(null);
     setCockpit(null);
+    setDecisionContextEvidence(null);
     setWorkspacePhase("idle");
     setRoleWorkflowAvailability("checking");
     setDecision(defaultDecision);
@@ -904,12 +909,30 @@ export function App() {
     cockpit.student_cockpit.round_no === latestRound.round_no &&
     cockpit.student_cockpit.team_id === team.team_id
   );
+  const projectAwareEvidenceExpected = Boolean(
+    latestRun &&
+    latestRound &&
+    team &&
+    latestRun.course_id === PROJECT_AWARE_COURSE_ID &&
+    latestRun.run_id === PROJECT_AWARE_RUN_ID
+  );
+  const decisionContextEvidenceReady = Boolean(
+    !projectAwareEvidenceExpected ||
+      (decisionContextEvidence?.status === "READY" &&
+        decisionContextEvidence.scope.tenant_id === login.tenantId &&
+        decisionContextEvidence.scope.course_id === latestRun?.course_id &&
+        decisionContextEvidence.scope.run_id === latestRun?.run_id &&
+        decisionContextEvidence.scope.round_id === latestRound?.round_id &&
+        decisionContextEvidence.scope.round_no === latestRound?.round_no &&
+        decisionContextEvidence.scope.team_id === team?.team_id &&
+        decisionContextEvidence.scope.role_key === w3RoleKey)
+  );
   const desktopState = getStudentDecisionDesktopState({
     hasSession: Boolean(session),
     isStudentSession,
     workspacePhase,
     contextRecoveryState,
-    exactContextReady: desktopExactContextReady,
+    exactContextReady: desktopExactContextReady && decisionContextEvidenceReady,
     hasPublishedResult: Boolean(myResult)
   });
   function updateDesktopDecision(
@@ -1252,6 +1275,7 @@ export function App() {
                   teamId={team?.team_id}
                   tenantId={login.tenantId}
                   token={activeSession?.access_token ?? ""}
+                  onEvidenceChange={setDecisionContextEvidence}
                 />
               </Suspense>
             ) : null}
@@ -1352,6 +1376,7 @@ export function App() {
             <StudentDecisionDesktop
               desktopState={desktopState}
               context={desktopContext}
+              decisionContextEvidence={decisionContextEvidence}
               cockpit={cockpit}
               decision={decision}
               {...(submittedDecision ? { submittedDecision } : {})}
@@ -1385,6 +1410,10 @@ export function App() {
                   tenantId={login.tenantId}
                   token={activeSession?.access_token ?? ""}
                   published={W3_ENABLED && w3ContextReady && Boolean(myResult)}
+                  decisionContextEvidence={
+                    projectAwareEvidenceExpected ? decisionContextEvidence ?? null : null
+                  }
+                  decisionContextEvidenceRequired={projectAwareEvidenceExpected}
                   crossRoundEnabled={W3_ENABLED && w3ContextReady}
                   m4={
                     latestRun &&

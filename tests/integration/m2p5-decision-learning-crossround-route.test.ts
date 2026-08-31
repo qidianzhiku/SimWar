@@ -8,6 +8,7 @@ import {
   type M2P5DecisionLearningDependencies,
   M2P5DecisionLearningActor
 } from "../../services/api/src/m2p5-decision-learning-crossround";
+import { createStudentDecisionContextEvidence } from "../../packages/shared-contracts/src/student-decision-context-evidence";
 
 const actor: M2P5DecisionLearningActor = {
   roles: ["teacher"],
@@ -89,6 +90,102 @@ describe("M2-P5 decision learning BFF route", () => {
         tenant_id: "tenant_demo"
       }
     });
+  });
+
+  it("requires the exact ready evidence identity and advances the same scope", async () => {
+    const exactContext = {
+      activity_id: "activity_consequence",
+      course_id: "course_demo",
+      role_key: "CEO",
+      round_id: "round_m2p5_1",
+      round_no: 1,
+      run_id: "run_m2p5",
+      team_id: "team_alpha",
+      tenant_id: "tenant_demo"
+    } as const;
+    const sourceContext = {
+      target_region: "Hangzhou" as const,
+      epoch_version: "epoch-b.2026-08-30",
+      qualification_status: "LIMITED" as const,
+      consumption_status: "LOOKAHEAD_READY" as const,
+      exact_binding_required: true as const
+    };
+    const evidence = createStudentDecisionContextEvidence(exactContext, sourceContext);
+    const url = new URL(
+      "http://localhost/api/v1/bff/student/m2p5/runs/run_m2p5/rounds/1/decision-learning?" +
+        query +
+        `&decision_context_evidence_id=${encodeURIComponent(evidence.evidence_id)}`
+    );
+    let payload: Record<string, unknown> | undefined;
+    const service = {
+      getJourney: async () => ({ schema_version: "m2p5-decision-learning-crossround.v1" })
+    } as unknown as M2P5DecisionLearningCrossRoundService;
+
+    await handleM2P5DecisionLearningRoute(
+      service,
+      { method: "GET" } as never,
+      {} as never,
+      url,
+      { requestId: "request_m2p5", tenantId: "tenant_demo" },
+      {
+        createEnvelope: (_context, value) => value,
+        requireStudent: () => ({ ...actor, roles: ["student"] }),
+        requireTeacher: () => actor,
+        resolveStudentDecisionContextEvidence: async ({ context }) => {
+          expect(context).toEqual(exactContext);
+          return evidence;
+        },
+        sendJson: (_response, status, value) => {
+          expect(status).toBe(200);
+          payload = value as Record<string, unknown>;
+        }
+      }
+    );
+
+    expect(payload).toMatchObject({
+      decision_context_evidence: {
+        evidence_id: evidence.evidence_id,
+        status: "READY",
+        continuity: {
+          context: "PROVEN",
+          decision: "PROVEN",
+          consequence: "PROVEN",
+          debrief: "PROVEN",
+          regional_transfer: "PROVEN"
+        }
+      }
+    });
+  });
+
+  it("fails closed when a requested evidence identity cannot be resolved", async () => {
+    const evidenceId = "sdcx.v1.activity_consequence_course_demo_CEO_round_m2p5_1_1_run_m2p5_team_alpha_tenant_demo";
+    const url = new URL(
+      "http://localhost/api/v1/bff/student/m2p5/runs/run_m2p5/rounds/1/decision-learning?" +
+        query +
+        `&decision_context_evidence_id=${evidenceId}`
+    );
+    let status = 0;
+    const service = {
+      getJourney: async () => ({ schema_version: "m2p5-decision-learning-crossround.v1" })
+    } as unknown as M2P5DecisionLearningCrossRoundService;
+
+    await handleM2P5DecisionLearningRoute(
+      service,
+      { method: "GET" } as never,
+      {} as never,
+      url,
+      { requestId: "request_m2p5", tenantId: "tenant_demo" },
+      {
+        createEnvelope: (_context, value) => value,
+        requireStudent: () => ({ ...actor, roles: ["student"] }),
+        requireTeacher: () => actor,
+        sendJson: (_response, nextStatus) => {
+          status = nextStatus;
+        }
+      }
+    );
+
+    expect(status).toBe(409);
   });
 
   it("emits the derived learning loop through the existing real composition route", async () => {

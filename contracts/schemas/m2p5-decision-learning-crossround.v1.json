@@ -156,6 +156,9 @@
     "project_context": { "$ref": "#/$defs/projectContext" },
     "cross_round": { "$ref": "#/$defs/crossRound" },
     "learning_loop": { "$ref": "#/$defs/learningLoop" },
+    "decision_context_evidence": {
+      "$ref": "student-decision-context-evidence.v1.json"
+    },
     "known_limits": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/safeText" } }
   },
   "$defs": {

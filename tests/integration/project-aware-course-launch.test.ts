@@ -323,7 +323,21 @@ describe("Project-aware launch BFF", () => {
       store.teams.push(betaTeam);
 
       const studentToken = await login(baseUrl, "student");
-      const studentContext = await request<{ scope: { team_id: string }; role_context: unknown }>(
+      const studentContext = await request<{
+        scope: { team_id: string };
+        role_context: unknown;
+        decision_context_evidence: {
+          status: string;
+          evidence_version: string;
+          scope: { course_id: string; run_id: string; round_no: number; team_id: string };
+          source_context?: {
+            target_region: string;
+            epoch_version: string;
+            qualification_status: string;
+          };
+          continuity: Record<string, string>;
+        };
+      }>(
         baseUrl,
         `/api/v1/bff/student/project-aware-context?course_id=course_demo&run_id=${M2P3_RUN_ID}&team_id=team_alpha`,
         { token: studentToken }
@@ -342,6 +356,31 @@ describe("Project-aware launch BFF", () => {
       });
       expect(JSON.stringify(studentContext.body.data.course_factory_source_evidence)).not.toMatch(
         /digest|private|settlement|score|rank|raw_source/i
+      );
+      expect(studentContext.body.data.decision_context_evidence).toMatchObject({
+        status: "READY",
+        evidence_version: "student-decision-context.v1",
+        scope: {
+          course_id: "course_demo",
+          run_id: M2P3_RUN_ID,
+          round_no: 1,
+          team_id: "team_alpha"
+        },
+        source_context: {
+          target_region: "Hangzhou",
+          epoch_version: "epoch-b.2026-08-30",
+          qualification_status: "LIMITED"
+        },
+        continuity: {
+          context: "PROVEN",
+          decision: "PROVEN",
+          consequence: "PENDING_PUBLISH",
+          debrief: "PENDING_PUBLISH",
+          regional_transfer: "PENDING_PUBLISH"
+        }
+      });
+      expect(JSON.stringify(studentContext.body.data.decision_context_evidence)).not.toMatch(
+        /raw_source|locator|digest|private|hidden_calibration|model_truth|state_true|score|rank|settlement/i
       );
 
       const studentCockpit = await request<{

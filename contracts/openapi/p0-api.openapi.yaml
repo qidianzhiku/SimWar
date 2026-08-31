@@ -4979,6 +4979,11 @@ paths:
         - { name: round_no, in: query, required: true, schema: { type: integer, minimum: 1 } }
         - { name: run_id, in: query, required: true, schema: { type: string } }
         - { name: team_id, in: query, required: true, schema: { type: string } }
+        - name: decision_context_evidence_id
+          in: query
+          required: false
+          description: Exact server-issued student decision context evidence identity; no implicit latest or fallback is accepted.
+          schema: { type: string, minLength: 1 }
       responses:
         "200":
           description: Exact student-safe cross-round projection.
@@ -5014,6 +5019,11 @@ paths:
         - { name: round_no, in: query, required: true, schema: { type: integer, minimum: 1 } }
         - { name: run_id, in: query, required: true, schema: { type: string } }
         - { name: team_id, in: query, required: true, schema: { type: string } }
+        - name: decision_context_evidence_id
+          in: query
+          required: false
+          description: Exact server-issued evidence identity; teacher surfaces reject this student-only continuity binding.
+          schema: { type: string, minLength: 1 }
       responses:
         "200":
           description: Exact teacher-safe cross-round projection.
@@ -6823,11 +6833,13 @@ components:
     ProjectAwareStudentContext:
       type: object
       additionalProperties: false
-      required: [project_brief, role_context, schema_version, scope]
+      required: [decision_context_evidence, project_brief, role_context, schema_version, scope]
       properties:
         schema_version: { const: project-aware-launch.v1 }
         course_factory_source_evidence:
           $ref: "#/components/schemas/CourseFactoryStudentEvidenceProjection"
+        decision_context_evidence:
+          $ref: "#/components/schemas/StudentDecisionContextEvidence"
         scope:
           type: object
           additionalProperties: false
@@ -6920,6 +6932,8 @@ components:
         qualification_status: { const: LIMITED }
         consumption_status: { const: LOOKAHEAD_READY }
         exact_binding_required: { const: true }
+    StudentDecisionContextEvidence:
+      $ref: "../schemas/student-decision-context-evidence.v1.json"
     ProjectAwareAdminAuditEnvelope:
       type: object
       additionalProperties: false

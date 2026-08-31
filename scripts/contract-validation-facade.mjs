@@ -223,6 +223,12 @@ const m29ContractFiles = [
   "contracts/fixtures/sh-main-pull-consumption.invalid.json"
 ];
 
+const m31ContractFiles = [
+  "contracts/schemas/student-decision-context-evidence.v1.json",
+  "contracts/fixtures/student-decision-context-evidence.valid.json",
+  "contracts/fixtures/student-decision-context-evidence.invalid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -536,6 +542,11 @@ const schemaCases = [
     schema: "contracts/schemas/sh-dual-epoch-living-operations.v1.json",
     valid: ["contracts/fixtures/sh-dual-epoch-living-operations.valid.json"],
     invalid: ["contracts/fixtures/sh-dual-epoch-living-operations.invalid.json"]
+  },
+  {
+    schema: "contracts/schemas/student-decision-context-evidence.v1.json",
+    valid: ["contracts/fixtures/student-decision-context-evidence.valid.json"],
+    invalid: ["contracts/fixtures/student-decision-context-evidence.invalid.json"]
   }
 ];
 
@@ -1231,7 +1242,8 @@ export async function runContractValidation(options = {}) {
     ...modelQualificationContractFiles,
     ...r1CanServiceFeasibilityContractFiles,
     ...m28ContractFiles,
-    ...m29ContractFiles
+    ...m29ContractFiles,
+    ...m31ContractFiles
   ]);
 
   for (const jsonPath of [
@@ -1262,7 +1274,8 @@ export async function runContractValidation(options = {}) {
     ...modelQualificationContractFiles,
     ...r1CanServiceFeasibilityContractFiles,
     ...m28ContractFiles,
-    ...m29ContractFiles
+    ...m29ContractFiles,
+    ...m31ContractFiles
   ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }

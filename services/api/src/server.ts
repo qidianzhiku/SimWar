@@ -16,6 +16,8 @@ import type {
   CoursePackageVersionReference,
   D2EvidenceCaptureInput,
   D2EvidenceQuery,
+  M2P5DecisionLearningContext,
+  StudentDecisionContextEvidence,
   DecisionAdmissionPolicy,
   LearningGoalDraftInput,
   LearningGoalVersionReference,
@@ -95,6 +97,7 @@ import {
   createParameterSetReference,
   createPluginReleaseReference,
   createScenarioPackageReference,
+  createStudentDecisionContextEvidence,
   isTruthProtectedField
 } from "@simwar/shared-contracts";
 import {
@@ -190,7 +193,10 @@ import {
   projectOperatingWorldConsequenceTrace,
   resolveOperatingWorldBindingDigest
 } from "./operating-world-consequence-trace.js";
-import { M2P5DecisionLearningCrossRoundService } from "./m2p5-decision-learning-crossround.js";
+import {
+  M2P5DecisionLearningCrossRoundService,
+  type M2P5DecisionLearningActor
+} from "./m2p5-decision-learning-crossround.js";
 import { O4CrossRoundDynamicsService } from "./o4-cross-round-dynamics.js";
 import {
   W027DecisionExperienceError,
@@ -460,6 +466,10 @@ interface ApiRuntime {
   w027DecisionExperience: W027DecisionExperienceService;
   w3OfficialConsequence: W3OfficialConsequenceLearningService;
   m2p5DecisionLearning: M2P5DecisionLearningCrossRoundService;
+  resolveStudentDecisionContextEvidence: (input: {
+    actor: M2P5DecisionLearningActor;
+    context: M2P5DecisionLearningContext;
+  }) => Promise<StudentDecisionContextEvidence | undefined>;
   o4CrossRoundDynamics: O4CrossRoundDynamicsService;
   w4EnterpriseStateRepository: W4Repository;
   w4EnterpriseStateService: ReturnType<typeof createEnterpriseStateStrategicEvolutionService>;
@@ -1295,6 +1305,35 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
         tenant_id: context.tenant_id
       })
   });
+  const resolveStudentDecisionContextEvidence = async ({
+    context
+  }: {
+    context: M2P5DecisionLearningContext;
+  }) => {
+    const run = await repositoryProvider.facade.runs.getRun(context.tenant_id, context.run_id);
+    if (!run || run.course_id !== context.course_id) return undefined;
+    const course = await repositoryProvider.facade.courses.getCourse(
+      context.tenant_id,
+      context.course_id
+    );
+    const binding = await formalRunRuntimeBindingStore.getForRun(
+      context.tenant_id,
+      context.run_id
+    );
+    if (
+      !course ||
+      !binding ||
+      binding.tenant_id !== context.tenant_id ||
+      binding.run_id !== context.run_id
+    ) {
+      return undefined;
+    }
+    const sourceEvidence = await courseFactory.getStudentSourceEvidence(context.tenant_id, {
+      parameter_set_reference: binding.parameter_set_reference,
+      scenario_package_reference: binding.scenario_package_reference
+    });
+    return createStudentDecisionContextEvidence(context, sourceEvidence);
+  };
   const o4CrossRoundDynamics = new O4CrossRoundDynamicsService({
     getRun: (tenantId, runId) =>
       repositoryProvider.facade.runs
@@ -1367,6 +1406,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     w027DecisionExperience,
     w3OfficialConsequence,
     m2p5DecisionLearning,
+    resolveStudentDecisionContextEvidence,
     o4CrossRoundDynamics,
     w4EnterpriseStateRepository,
     w4EnterpriseStateService,
@@ -7602,6 +7642,7 @@ async function routeRequest(
           createEnvelope(routeContext as RequestContext, payload),
         requireStudent: () => requireD4Student(context),
         requireTeacher: () => requireD4Teacher(context),
+        resolveStudentDecisionContextEvidence: runtime.resolveStudentDecisionContextEvidence,
         sendJson
       }
     )
@@ -8616,6 +8657,19 @@ async function routeRequest(
               scenario_package_reference: formalRuntimeBinding.scenario_package_reference
             })
           : undefined;
+      const decisionContextEvidence = createStudentDecisionContextEvidence(
+        {
+          activity_id: "activity_consequence",
+          course_id: courseId,
+          role_key: workspace.context.role_key,
+          round_id: round.round_id,
+          round_no: round.round_no,
+          run_id: runId,
+          team_id: teamId,
+          tenant_id: actor.tenant_id
+        },
+        courseFactorySourceEvidence
+      );
       sendJson(
         response,
         200,
@@ -8631,7 +8685,8 @@ async function routeRequest(
           project_brief: projectBrief,
           ...(courseFactorySourceEvidence
             ? { course_factory_source_evidence: courseFactorySourceEvidence }
-            : {})
+            : {}),
+          decision_context_evidence: decisionContextEvidence
         })
       );
     } catch (error) {
