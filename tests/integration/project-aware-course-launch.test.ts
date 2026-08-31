@@ -232,6 +232,21 @@ describe("Project-aware launch BFF", () => {
       expect(store.w4.decisions).toHaveLength(0);
       expect(store.w4.outcomes).toHaveLength(0);
 
+      const studentBriefToken = await login(baseUrl, "student");
+      const studentBrief = await request<{
+        decision_context_evidence_required: boolean;
+        project_profile_reference: { project_profile_id: string };
+      }>(
+        baseUrl,
+        `/api/v1/bff/student/project-brief?course_id=course_demo&run_id=${M2P3_RUN_ID}&round_id=${M2P3_ROUND_ID}&team_id=team_alpha`,
+        { token: studentBriefToken }
+      );
+      expect(studentBrief.status, JSON.stringify(studentBrief.body)).toBe(200);
+      expect(studentBrief.body.data.decision_context_evidence_required).toBe(true);
+      expect(studentBrief.body.data.project_profile_reference.project_profile_id).toBe(
+        M2P3_PROFILE_ID
+      );
+
       const teacherWorkspace = await request<{
         live_round_ops: {
           exact_scope: { run_id: string; round_id: string };

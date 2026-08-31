@@ -173,6 +173,8 @@ export interface ProjectProfileStudentBrief {
   project_profile_reference: ProjectProfileRef;
   service_bundle: string;
   title: string;
+  /** Server-evaluated M31 admission predicate for the exact Course/Run context. */
+  decision_context_evidence_required?: boolean;
 }
 
 export interface ProjectLibraryAdminAuditProjection {

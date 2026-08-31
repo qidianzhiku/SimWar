@@ -6,6 +6,7 @@ import type {
   AuthSession,
   AuditLog,
   FormalRunRuntimeBinding,
+  ProjectAssignment,
   Round,
   RoleDecisionSection,
   RoleId,
@@ -309,6 +310,69 @@ describe("Role Workflow HTTP boundary", () => {
       expect(saved.status).toBe(200);
       expect(saved.body.data.status).toBe("draft");
       expect(store.roleDecisionSections).toHaveLength(1);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("rejects role writes while project assignment identity is ambiguous", async () => {
+    const { baseUrl, server, store } = await startServer();
+    store.formalRunRuntimeBindings.push(
+      createPolicyBinding(scope.run_id, "ROLE_WORKFLOW_REQUIRED")
+    );
+    store.projectAssignments.push(
+      ...["project-a", "project-b"].map(
+        (assignmentId): ProjectAssignment => ({
+          assigned_at: "2026-08-30T08:00:00.000Z",
+          assigned_by: "usr_teacher",
+          assignment_id: assignmentId,
+          course_id: "course_demo",
+          project_profile_reference: {
+            content_digest: `${assignmentId}-digest`.padEnd(64, "0"),
+            project_profile_id: assignmentId,
+            tenant_id: "tenant_demo",
+            version: "1.0.0"
+          },
+          run_id: scope.run_id,
+          schema_version: "project-assignment.v1",
+          team_id: scope.team_id,
+          tenant_id: "tenant_demo"
+        })
+      )
+    );
+    try {
+      const teacherToken = await login(baseUrl, "teacher");
+      const studentToken = await login(baseUrl, "role_ceo");
+      const assigned = await request<StudentRoleAssignment>(
+        baseUrl,
+        "/api/v1/bff/teacher/role-workflows/assignments",
+        {
+          body: {
+            course_id: "course_demo",
+            role_key: "CEO",
+            run_id: scope.run_id,
+            team_id: scope.team_id,
+            user_id: "role_ceo"
+          },
+          method: "PUT",
+          token: teacherToken
+        }
+      );
+      expect(assigned.status).toBe(201);
+
+      const saved = await request<unknown>(baseUrl, "/api/v1/bff/student/role-workspace/section", {
+        body: {
+          ...scope,
+          decision_context_evidence_id: "stale-evidence-id",
+          expected_version: 0,
+          payload: { strategy_statement: "Ambiguous project identity must fail closed." }
+        },
+        method: "PUT",
+        token: studentToken
+      });
+      expect(saved.status).toBe(409);
+      expect(saved.body.code).toBe("PROJECT_ASSIGNMENT_CONFLICT");
+      expect(store.roleDecisionSections).toEqual([]);
     } finally {
       await stopServer(server);
     }

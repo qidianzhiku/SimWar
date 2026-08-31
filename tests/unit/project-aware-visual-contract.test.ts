@@ -14,8 +14,10 @@ describe("Project-aware commercial visual contract", () => {
     const brief = source("apps/student/src/ProjectBriefPanel.tsx");
     expect(app).not.toContain("VITE_SIMWAR_PROJECT_AWARE_COURSE_ID");
     expect(app).not.toContain("VITE_SIMWAR_PROJECT_AWARE_RUN_ID");
-    expect(app).toContain("onAvailabilityChange={setProjectAwareEvidenceEnabled}");
-    expect(brief).toContain("onAvailabilityChange?.(Boolean(envelope.data))");
+    expect(app).toContain("onAvailabilityChange={setProjectAwareEvidenceAvailability}");
+    expect(app).toContain("roundId={latestRound?.round_id}");
+    expect(brief).toContain("decision_context_evidence_required");
+    expect(brief).toContain('onAvailabilityChange?.("error")');
   });
 
   it("loads one shared Figma-aligned visual layer in all three apps", () => {

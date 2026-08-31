@@ -38,7 +38,7 @@ import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { StudentLearningReportPanel } from "./StudentLearningReport";
 import { W3OfficialConsequenceLearningPanel } from "./W3OfficialConsequenceLearningPanel";
 const ShanghaiFullVerticalStudentPanel = lazy(() => import("./ShanghaiFullVerticalPanel"));
-import { ProjectBriefPanel } from "./ProjectBriefPanel";
+import { ProjectBriefPanel, type ProjectAwareEvidenceAvailability } from "./ProjectBriefPanel";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 import { RegionalTransferProjection } from "./features/regional-transfer-projection";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
@@ -425,7 +425,8 @@ export function App() {
   const [cockpit, setCockpit] = useState<StudentBffCockpitDTO | null>(null);
   const [decisionContextEvidence, setDecisionContextEvidence] =
     useState<StudentDecisionContextEvidence | null>(null);
-  const [projectAwareEvidenceEnabled, setProjectAwareEvidenceEnabled] = useState(false);
+  const [projectAwareEvidenceAvailability, setProjectAwareEvidenceAvailability] =
+    useState<ProjectAwareEvidenceAvailability>("checking");
   const [session, setSession] = useState<AuthSession | null>(null);
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [decision, setDecision] = useState<DecisionPayload>(defaultDecision);
@@ -530,7 +531,7 @@ export function App() {
     setState(null);
     setCockpit(null);
     setDecisionContextEvidence(null);
-    setProjectAwareEvidenceEnabled(false);
+    setProjectAwareEvidenceAvailability("checking");
     setWorkspacePhase("loading");
     setRoleWorkflowAvailability("checking");
 
@@ -668,7 +669,7 @@ export function App() {
     setState(null);
     setCockpit(null);
     setDecisionContextEvidence(null);
-    setProjectAwareEvidenceEnabled(false);
+    setProjectAwareEvidenceAvailability("checking");
     setWorkspacePhase("idle");
     setRoleWorkflowAvailability("checking");
     setDecision(defaultDecision);
@@ -911,7 +912,10 @@ export function App() {
     cockpit.student_cockpit.team_id === team.team_id
   );
   const projectAwareEvidenceExpected = Boolean(
-    latestRun && latestRound && team && projectAwareEvidenceEnabled
+    latestRun && latestRound && team && projectAwareEvidenceAvailability === "required"
+  );
+  const projectAwareEvidenceGateRequired = Boolean(
+    latestRun && latestRound && team && projectAwareEvidenceAvailability !== "disabled"
   );
   const decisionContextEvidenceReady = Boolean(
     !projectAwareEvidenceExpected ||
@@ -1257,10 +1261,11 @@ export function App() {
             <ProjectBriefPanel
               courseId={latestRun?.course_id}
               runId={latestRun?.run_id}
+              roundId={latestRound?.round_id}
               teamId={team?.team_id}
               tenantId={login.tenantId}
               token={activeSession?.access_token ?? ""}
-              onAvailabilityChange={setProjectAwareEvidenceEnabled}
+              onAvailabilityChange={setProjectAwareEvidenceAvailability}
             />
             {latestRun && projectAwareEvidenceExpected ? (
               <Suspense fallback={<p className="muted">正在载入项目上下文…</p>}>
@@ -1293,7 +1298,7 @@ export function App() {
                 decisionContextEvidenceId={
                   projectAwareEvidenceExpected ? decisionContextEvidence?.evidence_id : undefined
                 }
-                decisionContextEvidenceRequired={projectAwareEvidenceExpected}
+                decisionContextEvidenceRequired={projectAwareEvidenceGateRequired}
                 decisionContextEvidenceReady={decisionContextEvidenceReady}
                 onAvailabilityChange={setRoleWorkflowAvailability}
               />
@@ -1415,7 +1420,7 @@ export function App() {
                   decisionContextEvidence={
                     projectAwareEvidenceExpected ? (decisionContextEvidence ?? null) : null
                   }
-                  decisionContextEvidenceRequired={projectAwareEvidenceExpected}
+                  decisionContextEvidenceRequired={projectAwareEvidenceGateRequired}
                   crossRoundEnabled={W3_ENABLED && w3ContextReady}
                   m4={
                     latestRun &&

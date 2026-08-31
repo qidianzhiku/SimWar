@@ -1,18 +1,22 @@
 import { useEffect, useState } from "react";
 import type { ProjectProfileStudentBrief } from "@simwar/shared-contracts";
 
+export type ProjectAwareEvidenceAvailability = "checking" | "required" | "disabled" | "error";
+
 interface ProjectBriefPanelProps {
   courseId?: string | undefined;
   runId?: string | undefined;
+  roundId?: string | undefined;
   teamId?: string | undefined;
   tenantId: string;
   token: string;
-  onAvailabilityChange?: (available: boolean) => void;
+  onAvailabilityChange?: (availability: ProjectAwareEvidenceAvailability) => void;
 }
 
 export function ProjectBriefPanel({
   courseId,
   runId,
+  roundId,
   teamId,
   tenantId,
   token,
@@ -26,15 +30,15 @@ export function ProjectBriefPanel({
     if (!token || !courseId || !runId || !teamId) {
       setState(token ? "empty" : "idle");
       setBrief(null);
-      onAvailabilityChange?.(false);
+      onAvailabilityChange?.("disabled");
       return;
     }
     const controller = new AbortController();
     setState("loading");
     setError("");
-    onAvailabilityChange?.(false);
+    onAvailabilityChange?.("checking");
     fetch(
-      `${import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000"}/api/v1/bff/student/project-brief?course_id=${encodeURIComponent(courseId)}&run_id=${encodeURIComponent(runId)}&team_id=${encodeURIComponent(teamId)}`,
+      `${import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000"}/api/v1/bff/student/project-brief?course_id=${encodeURIComponent(courseId)}&run_id=${encodeURIComponent(runId)}${roundId ? `&round_id=${encodeURIComponent(roundId)}` : ""}&team_id=${encodeURIComponent(teamId)}`,
       {
         headers: { authorization: `Bearer ${token}`, "x-tenant-id": tenantId },
         signal: controller.signal
@@ -48,17 +52,23 @@ export function ProjectBriefPanel({
         if (!response.ok) throw new Error(envelope.code ?? "PROJECT_BRIEF_LOAD_FAILED");
         setBrief(envelope.data ?? null);
         setState(envelope.data ? "ready" : "empty");
-        onAvailabilityChange?.(Boolean(envelope.data));
+        onAvailabilityChange?.(
+          envelope.data?.decision_context_evidence_required === false
+            ? "disabled"
+            : envelope.data
+              ? "required"
+              : "disabled"
+        );
       })
       .catch((nextError: unknown) => {
         if (controller.signal.aborted) return;
         setBrief(null);
         setError(nextError instanceof Error ? nextError.message : "项目简报暂不可用");
         setState("error");
-        onAvailabilityChange?.(false);
+        onAvailabilityChange?.("error");
       });
     return () => controller.abort();
-  }, [courseId, onAvailabilityChange, runId, teamId, tenantId, token]);
+  }, [courseId, onAvailabilityChange, roundId, runId, teamId, tenantId, token]);
 
   return (
     <article className="panel bff-panel" aria-label="学生项目安全简报">

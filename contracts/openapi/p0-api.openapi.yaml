@@ -2237,6 +2237,11 @@ paths:
           in: query
           required: true
           schema: { type: string }
+        - name: round_id
+          in: query
+          required: false
+          description: Exact round used to evaluate the server-owned student decision evidence admission predicate.
+          schema: { type: string, minLength: 1 }
         - name: assignment_id
           in: query
           required: false

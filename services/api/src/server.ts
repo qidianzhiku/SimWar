@@ -5110,6 +5110,13 @@ async function requireStudentDecisionContextEvidenceForRoleAction(
     { course_id: run.course_id, run_id: run.run_id, team_ids: [scope.team_id] }
   );
   if (projectAssignments.length === 0) return;
+  if (projectAssignments.length !== 1) {
+    throw new HttpError(
+      409,
+      "PROJECT_ASSIGNMENT_CONFLICT",
+      "exactly one project assignment is required for student decision admission"
+    );
+  }
 
   const evidence = await runtime.resolveStudentDecisionContextEvidence({
     actor: {
@@ -8654,6 +8661,7 @@ async function routeRequest(
     const actor = roleWorkflowActor(context, "student");
     const courseId = url.searchParams.get("course_id") ?? "";
     const runId = url.searchParams.get("run_id") ?? "";
+    const roundId = url.searchParams.get("round_id")?.trim();
     const teamId = url.searchParams.get("team_id") ?? "";
     const assignmentId = url.searchParams.get("assignment_id")?.trim();
     if (!courseId || !runId || !teamId) {
@@ -8681,7 +8689,27 @@ async function routeRequest(
         throw error;
       }
     }
-    sendJson(response, 200, createEnvelope(context, data));
+    const run = await runtime.repositoryProvider.facade.runs.getRun(context.tenantId, runId);
+    const runRounds = run
+      ? await runtime.repositoryProvider.facade.rounds.listRoundsForRun(context.tenantId, runId)
+      : [];
+    const binding = await runtime.formalRunRuntimeBindingStore.getForRun(context.tenantId, runId);
+    const decisionContextEvidenceRequired = Boolean(
+      data &&
+      run &&
+      binding?.decision_admission_policy === "ROLE_WORKFLOW_REQUIRED" &&
+      (roundId ? runRounds.some((round) => round.round_id === roundId) : runRounds.length > 0)
+    );
+    sendJson(
+      response,
+      200,
+      createEnvelope(
+        context,
+        data
+          ? { ...data, decision_context_evidence_required: decisionContextEvidenceRequired }
+          : null
+      )
+    );
     return;
   }
 

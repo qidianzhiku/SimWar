@@ -75,6 +75,13 @@ export function ProjectAwareStudentContextPanel(props: ProjectAwareStudentContex
     })
       .then((next) => {
         if (controller.signal.aborted) return;
+        if (!next.decision_context_evidence) {
+          setContext(null);
+          props.onEvidenceChange?.(null);
+          setError("当前页面暂时无法读取连续证据，请刷新后重试。");
+          setPhase("error");
+          return;
+        }
         setContext(next);
         props.onEvidenceChange?.(next.decision_context_evidence);
         setPhase("ready");
@@ -153,8 +160,7 @@ export function ProjectAwareStudentContextPanel(props: ProjectAwareStudentContex
                 <h3 className="sw-project-aware__receipt-title">
                   {context.decision_context_evidence.status === "READY"
                     ? "可继续使用同一 exact context"
-                    : "来源证据不可继续"
-                  }
+                    : "来源证据不可继续"}
                 </h3>
               </div>
               <strong className="sw-project-aware__badge" data-state="readonly">
@@ -171,21 +177,24 @@ export function ProjectAwareStudentContextPanel(props: ProjectAwareStudentContex
               <article className="sw-project-aware__metric">
                 <span className="sw-project-aware__metric-label">连续 scope</span>
                 <strong className="sw-project-aware__metric-value">
-                  {context.decision_context_evidence.scope.round_id} · {context.decision_context_evidence.scope.team_id}
+                  {context.decision_context_evidence.scope.round_id} ·{" "}
+                  {context.decision_context_evidence.scope.team_id}
                 </strong>
               </article>
               {context.decision_context_evidence.source_context ? (
                 <article className="sw-project-aware__metric">
                   <span className="sw-project-aware__metric-label">来源状态</span>
                   <strong className="sw-project-aware__metric-value">
-                    {context.decision_context_evidence.source_context.epoch_version} · {context.decision_context_evidence.source_context.qualification_status}
+                    {context.decision_context_evidence.source_context.epoch_version} ·{" "}
+                    {context.decision_context_evidence.source_context.qualification_status}
                   </strong>
                 </article>
               ) : null}
             </div>
             {context.decision_context_evidence.blocker_codes ? (
               <p className="sw-project-aware__note">
-                当前不会进入正式决策、后果或复盘链：{context.decision_context_evidence.blocker_codes.join(" / ")}。
+                当前不会进入正式决策、后果或复盘链：
+                {context.decision_context_evidence.blocker_codes.join(" / ")}。
               </p>
             ) : (
               <p className="sw-project-aware__note">
