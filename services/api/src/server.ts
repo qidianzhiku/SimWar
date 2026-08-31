@@ -5105,6 +5105,12 @@ async function requireStudentDecisionContextEvidenceForRoleAction(
 
   const workspace = await runtime.roleWorkflow.getStudentWorkspace(actor, scope);
   const currentActor = requireActor(context);
+  const projectAssignments = await runtime.projectLibrary.getAssignmentsForScope(
+    { actor_id: currentActor.user_id, tenant_id: context.tenantId },
+    { course_id: run.course_id, run_id: run.run_id, team_ids: [scope.team_id] }
+  );
+  if (projectAssignments.length === 0) return;
+
   const evidence = await runtime.resolveStudentDecisionContextEvidence({
     actor: {
       roles: currentActor.roles,

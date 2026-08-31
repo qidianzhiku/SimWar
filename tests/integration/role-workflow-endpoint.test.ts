@@ -268,6 +268,52 @@ describe("Role Workflow HTTP boundary", () => {
     }
   });
 
+  it("does not apply the M31 evidence gate to a formal run without a project assignment", async () => {
+    const { baseUrl, server, store } = await startServer();
+    store.formalRunRuntimeBindings.push(
+      createPolicyBinding(scope.run_id, "ROLE_WORKFLOW_REQUIRED")
+    );
+    try {
+      const teacherToken = await login(baseUrl, "teacher");
+      const studentToken = await login(baseUrl, "role_ceo");
+      const assigned = await request<StudentRoleAssignment>(
+        baseUrl,
+        "/api/v1/bff/teacher/role-workflows/assignments",
+        {
+          body: {
+            course_id: "course_demo",
+            role_key: "CEO",
+            run_id: scope.run_id,
+            team_id: scope.team_id,
+            user_id: "role_ceo"
+          },
+          method: "PUT",
+          token: teacherToken
+        }
+      );
+      expect(assigned.status).toBe(201);
+
+      const saved = await request<RoleDecisionSection>(
+        baseUrl,
+        "/api/v1/bff/student/role-workspace/section",
+        {
+          body: {
+            ...scope,
+            expected_version: 0,
+            payload: { strategy_statement: "Ordinary formal workflow remains supported." }
+          },
+          method: "PUT",
+          token: studentToken
+        }
+      );
+      expect(saved.status).toBe(200);
+      expect(saved.body.data.status).toBe("draft");
+      expect(store.roleDecisionSections).toHaveLength(1);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
   it("fails closed when a run has neither a formal policy nor an explicit compatibility marker", async () => {
     const { baseUrl, server, store } = await startServer();
     store.auditLogs = [];
