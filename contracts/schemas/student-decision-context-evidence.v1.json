@@ -34,6 +34,36 @@
       "items": { "$ref": "#/$defs/safeText" }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "READY" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": { "source_context": {} },
+        "required": ["source_context"],
+        "not": {
+          "properties": { "blocker_codes": {} },
+          "required": ["blocker_codes"]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "status": { "const": "BLOCKED" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": { "blocker_codes": {} },
+        "required": ["blocker_codes"],
+        "not": {
+          "properties": { "source_context": {} },
+          "required": ["source_context"]
+        }
+      }
+    }
+  ],
   "$defs": {
     "identity": {
       "type": "string",

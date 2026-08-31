@@ -58,6 +58,80 @@ describe("M2-P5 decision learning cross-round contract", () => {
     expect(validate(wrongCanonicalType)).toBe(false);
   });
 
+  it("enforces the status-dependent source evidence lifecycle", () => {
+    const schema = readJson("contracts/schemas/student-decision-context-evidence.v1.json");
+    const ajv = new Ajv2020({ strict: true, validateFormats: false });
+    const validate = ajv.compile(schema);
+    const ready = {
+      schema_version: "student-decision-context-evidence.v1",
+      evidence_id: "sdcx.v1.ready",
+      evidence_version: "student-decision-context.v1",
+      status: "READY",
+      scope: {
+        activity_id: "activity_consequence",
+        course_id: "course_demo",
+        role_key: "CEO",
+        round_id: "round_m31",
+        round_no: 1,
+        run_id: "run_m31",
+        team_id: "team_alpha",
+        tenant_id: "tenant_demo"
+      },
+      source_context: {
+        target_region: "Hangzhou",
+        epoch_version: "epoch-b.2026-08-30",
+        qualification_status: "LIMITED",
+        consumption_status: "LOOKAHEAD_READY",
+        exact_binding_required: true
+      },
+      continuity: {
+        context: "PROVEN",
+        decision: "PROVEN",
+        consequence: "PENDING_PUBLISH",
+        debrief: "PENDING_PUBLISH",
+        regional_transfer: "PENDING_PUBLISH"
+      },
+      known_limits: ["qualification LIMITED"]
+    };
+    const blocked = structuredClone(ready) as Record<string, unknown>;
+    delete blocked.source_context;
+    Object.assign(blocked, {
+      evidence_id: "sdcx.v1.blocked",
+      status: "BLOCKED",
+      continuity: {
+        context: "PROVEN",
+        decision: "BLOCKED",
+        consequence: "BLOCKED",
+        debrief: "BLOCKED",
+        regional_transfer: "BLOCKED"
+      },
+      blocker_codes: ["SOURCE_EVIDENCE_UNAVAILABLE"]
+    });
+
+    expect(validate(ready)).toBe(true);
+    expect(validate(blocked)).toBe(true);
+
+    const readyWithoutSource = structuredClone(ready) as Record<string, unknown>;
+    delete readyWithoutSource.source_context;
+    expect(validate(readyWithoutSource)).toBe(false);
+
+    const readyWithBlocker = {
+      ...ready,
+      blocker_codes: ["SOURCE_EVIDENCE_UNAVAILABLE"]
+    };
+    expect(validate(readyWithBlocker)).toBe(false);
+
+    const blockedWithoutBlocker = structuredClone(blocked) as Record<string, unknown>;
+    delete blockedWithoutBlocker.blocker_codes;
+    expect(validate(blockedWithoutBlocker)).toBe(false);
+
+    const blockedWithSource = {
+      ...blocked,
+      source_context: ready.source_context
+    };
+    expect(validate(blockedWithSource)).toBe(false);
+  });
+
   it("binds both exact-scope BFF surfaces to the M2-P5 response schema", () => {
     const openApi = yaml.load(
       readFileSync(resolve("contracts/openapi/p0-api.openapi.yaml"), "utf8")
