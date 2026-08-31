@@ -5105,6 +5105,11 @@ async function requireStudentDecisionContextEvidenceForRoleAction(
     : undefined;
   if (!run || !round || round.run_id !== run.run_id) return;
 
+  // Authorize the requested team scope before consulting project assignments.
+  // This prevents assignment-count differences from becoming a cross-team
+  // enumeration oracle for role-action requests.
+  await runtime.roleWorkflow.getStudentWorkspace(actor, scope);
+
   const admission = await resolveProjectAwareStudentDecisionContextAdmission(runtime, {
     actorUserId: currentActor.user_id,
     courseId: run.course_id,

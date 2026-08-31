@@ -14,6 +14,7 @@ import {
   M1_TEACHING_PRODUCT_PACKAGE,
   REAUTH_CONTEXT_STORAGE_KEY,
   isSameReauthBusinessContext,
+  normalizeW027RoleKey,
   parseReauthContext,
   serializeReauthContext,
   validateReauthIdentity,
@@ -504,8 +505,12 @@ export function App() {
   }, [latestRun, latestRound, team, state]);
 
   const isStudentSession = Boolean(session && isStudentSessionAllowed(session.user.roles));
-  const w3RoleKey =
-    team?.members.find((member) => member.user_id === session?.user.user_id)?.role_slot ?? "CEO";
+  const assignedW3RoleKey = team?.members.find(
+    (member) => member.user_id === session?.user.user_id
+  )?.role_slot as string | undefined;
+  const w3RoleKey = normalizeW027RoleKey(
+    (assignedW3RoleKey ?? "CEO") as Parameters<typeof normalizeW027RoleKey>[0]
+  );
   const w3QueryContext = readW3QueryContext();
   const w3Context =
     w3QueryContext ??
@@ -1449,7 +1454,7 @@ export function App() {
               <Suspense fallback={<p className="muted">正在载入 Student Coach…</p>}>
                 <StudentCoachPanel
                   apiBase={API_BASE}
-                  roleKey={w3RoleKey === "risk" ? "COO" : w3RoleKey}
+                  roleKey={w3RoleKey}
                   roundId={latestRound?.round_id}
                   runId={latestRun?.run_id}
                   teamId={team?.team_id}
