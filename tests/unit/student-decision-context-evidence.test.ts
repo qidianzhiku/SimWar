@@ -77,7 +77,13 @@ describe("M31 student decision context evidence", () => {
       "STUDENT_CONTEXT_EVIDENCE_SCOPE_MISMATCH"
     );
 
-    const advanced = advanceStudentDecisionContextEvidence(evidence, scope);
+    const advanced = advanceStudentDecisionContextEvidence(evidence, scope, {
+      context: "PROVEN",
+      decision: "PROVEN",
+      consequence: "PROVEN",
+      debrief: "PROVEN",
+      regional_transfer: "PROVEN"
+    });
     expect(advanced.evidence_id).toBe(evidence.evidence_id);
     expect(advanced.continuity).toEqual({
       context: "PROVEN",
@@ -86,5 +92,37 @@ describe("M31 student decision context evidence", () => {
       debrief: "PROVEN",
       regional_transfer: "PROVEN"
     });
+  });
+
+  it("preserves blocked downstream stages until the journey proves them", () => {
+    const evidence = createStudentDecisionContextEvidence(scope, source);
+    const advanced = advanceStudentDecisionContextEvidence(evidence, scope, {
+      context: "PROVEN",
+      decision: "PROVEN",
+      consequence: "PROVEN",
+      debrief: "BLOCKED",
+      regional_transfer: "BLOCKED"
+    });
+
+    expect(advanced.continuity).toEqual({
+      context: "PROVEN",
+      decision: "PROVEN",
+      consequence: "PROVEN",
+      debrief: "BLOCKED",
+      regional_transfer: "BLOCKED"
+    });
+  });
+
+  it("uses an unambiguous scope identity when fields contain underscores", () => {
+    const left = createStudentDecisionContextEvidence(
+      { ...scope, activity_id: "activity_a_b", course_id: "course" },
+      source
+    );
+    const right = createStudentDecisionContextEvidence(
+      { ...scope, activity_id: "activity_a", course_id: "b_course" },
+      source
+    );
+
+    expect(left.evidence_id).not.toBe(right.evidence_id);
   });
 });

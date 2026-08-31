@@ -54,7 +54,12 @@ function exactScopeKey(scope: StudentDecisionContextScope): string {
     scope.run_id,
     scope.team_id,
     scope.tenant_id
-  ].join("|");
+  ]
+    .map((part) => {
+      const value = String(part);
+      return `${value.length}:${value}`;
+    })
+    .join("");
 }
 
 function evidenceId(scope: StudentDecisionContextScope, sourceBindingId?: string): string {
@@ -115,7 +120,8 @@ export function createStudentDecisionContextEvidence(
 
 export function advanceStudentDecisionContextEvidence(
   evidence: StudentDecisionContextEvidence,
-  scope: StudentDecisionContextScope
+  scope: StudentDecisionContextScope,
+  continuity: StudentDecisionContextEvidenceContinuity
 ): StudentDecisionContextEvidence {
   if (!isStudentDecisionContextEvidenceScope(evidence, scope)) {
     throw new Error("STUDENT_CONTEXT_EVIDENCE_SCOPE_MISMATCH");
@@ -123,12 +129,6 @@ export function advanceStudentDecisionContextEvidence(
   if (evidence.status !== "READY" || !evidence.source_context) return { ...evidence };
   return {
     ...evidence,
-    continuity: {
-      context: "PROVEN",
-      decision: "PROVEN",
-      consequence: "PROVEN",
-      debrief: "PROVEN",
-      regional_transfer: "PROVEN"
-    }
+    continuity: { ...continuity }
   };
 }

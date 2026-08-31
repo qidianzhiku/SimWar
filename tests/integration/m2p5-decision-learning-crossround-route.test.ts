@@ -118,7 +118,16 @@ describe("M2-P5 decision learning BFF route", () => {
     );
     let payload: Record<string, unknown> | undefined;
     const service = {
-      getJourney: async () => ({ schema_version: "m2p5-decision-learning-crossround.v1" })
+      getJourney: async () => ({
+        cross_round: { status: "ENTRY_READY" },
+        learning_loop: {
+          teacher_debrief_availability: "AVAILABLE",
+          transfer_status: "READY",
+          next_opening_state_readiness: "ENTRY_READY"
+        },
+        official_consequence: { record: { publication: { status: "PUBLISHED" } } },
+        schema_version: "m2p5-decision-learning-crossround.v1"
+      })
     } as unknown as M2P5DecisionLearningCrossRoundService;
 
     await handleM2P5DecisionLearningRoute(
@@ -152,6 +161,72 @@ describe("M2-P5 decision learning BFF route", () => {
           consequence: "PROVEN",
           debrief: "PROVEN",
           regional_transfer: "PROVEN"
+        }
+      }
+    });
+  });
+
+  it("keeps blocked downstream continuity when the journey is not complete", async () => {
+    const exactContext = {
+      activity_id: "activity_consequence",
+      course_id: "course_demo",
+      role_key: "CEO",
+      round_id: "round_m2p5_1",
+      round_no: 1,
+      run_id: "run_m2p5",
+      team_id: "team_alpha",
+      tenant_id: "tenant_demo"
+    } as const;
+    const evidence = createStudentDecisionContextEvidence(exactContext, {
+      target_region: "Hangzhou",
+      epoch_version: "epoch-b.2026-08-30",
+      qualification_status: "LIMITED",
+      consumption_status: "LOOKAHEAD_READY",
+      exact_binding_required: true
+    });
+    const url = new URL(
+      "http://localhost/api/v1/bff/student/m2p5/runs/run_m2p5/rounds/1/decision-learning?" +
+        query +
+        `&decision_context_evidence_id=${encodeURIComponent(evidence.evidence_id)}`
+    );
+    let payload: Record<string, unknown> | undefined;
+    const service = {
+      getJourney: async () => ({
+        cross_round: { status: "BLOCKED" },
+        learning_loop: {
+          teacher_debrief_availability: "BLOCKED",
+          transfer_status: "BLOCKED",
+          next_opening_state_readiness: "BLOCKED"
+        },
+        official_consequence: { record: { publication: { status: "PUBLISHED" } } },
+        schema_version: "m2p5-decision-learning-crossround.v1"
+      })
+    } as unknown as M2P5DecisionLearningCrossRoundService;
+
+    await handleM2P5DecisionLearningRoute(
+      service,
+      { method: "GET" } as never,
+      {} as never,
+      url,
+      { requestId: "request_m2p5", tenantId: "tenant_demo" },
+      {
+        createEnvelope: (_context, value) => value,
+        requireStudent: () => ({ ...actor, roles: ["student"] }),
+        requireTeacher: () => actor,
+        resolveStudentDecisionContextEvidence: async () => evidence,
+        sendJson: (_response, status, value) => {
+          expect(status).toBe(200);
+          payload = value as Record<string, unknown>;
+        }
+      }
+    );
+
+    expect(payload).toMatchObject({
+      decision_context_evidence: {
+        continuity: {
+          consequence: "PROVEN",
+          debrief: "BLOCKED",
+          regional_transfer: "BLOCKED"
         }
       }
     });

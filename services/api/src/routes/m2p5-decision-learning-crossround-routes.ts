@@ -2,7 +2,8 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import {
   advanceStudentDecisionContextEvidence,
   type M2P5DecisionLearningContext,
-  type StudentDecisionContextEvidence
+  type StudentDecisionContextEvidence,
+  type StudentDecisionContextEvidenceContinuity
 } from "@simwar/shared-contracts";
 import {
   M2P5DecisionLearningError,
@@ -67,6 +68,26 @@ function errorStatus(code: string): number {
     return 409;
   }
   return 422;
+}
+
+function continuityFromJourney(
+  result: Awaited<ReturnType<M2P5DecisionLearningCrossRoundService["getJourney"]>>
+): StudentDecisionContextEvidenceContinuity {
+  return {
+    context: "PROVEN",
+    decision: "PROVEN",
+    consequence:
+      result.official_consequence.record.publication.status === "PUBLISHED"
+        ? "PROVEN"
+        : "BLOCKED",
+    debrief: result.learning_loop.teacher_debrief_availability === "AVAILABLE" ? "PROVEN" : "BLOCKED",
+    regional_transfer:
+      result.learning_loop.transfer_status === "READY" &&
+      result.cross_round.status !== "BLOCKED" &&
+      result.learning_loop.next_opening_state_readiness !== "BLOCKED"
+        ? "PROVEN"
+        : "BLOCKED"
+  };
 }
 
 export function isM2P5DecisionLearningRoute(method: string | undefined, url: URL): boolean {
@@ -138,7 +159,11 @@ export async function handleM2P5DecisionLearningRoute(
     const responseData = evidence
       ? {
           ...result,
-          decision_context_evidence: advanceStudentDecisionContextEvidence(evidence, context)
+          decision_context_evidence: advanceStudentDecisionContextEvidence(
+            evidence,
+            context,
+            continuityFromJourney(result)
+          )
         }
       : result;
     helpers.sendJson(response, 200, helpers.createEnvelope(routeContext, responseData));
