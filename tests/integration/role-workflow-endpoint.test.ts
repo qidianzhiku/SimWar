@@ -378,6 +378,119 @@ describe("Role Workflow HTTP boundary", () => {
     }
   });
 
+  it("returns an existing confirmation before rechecking expired project evidence", async () => {
+    const { baseUrl, server, store } = await startServer();
+    store.formalRunRuntimeBindings.push(
+      createPolicyBinding(scope.run_id, "ROLE_WORKFLOW_REQUIRED")
+    );
+    try {
+      const teacherToken = await login(baseUrl, "teacher");
+      const tokens = new Map<string, string>();
+      for (const username of ["role_ceo", "role_cfo", "role_cmo", "role_coo"]) {
+        tokens.set(username, await login(baseUrl, username));
+        const roleKey =
+          username === "role_coo" ? "COO" : username.replace("role_", "").toUpperCase();
+        const assigned = await request<StudentRoleAssignment>(
+          baseUrl,
+          "/api/v1/bff/teacher/role-workflows/assignments",
+          {
+            body: {
+              course_id: "course_demo",
+              role_key: roleKey,
+              run_id: scope.run_id,
+              team_id: scope.team_id,
+              user_id: username
+            },
+            method: "PUT",
+            token: teacherToken
+          }
+        );
+        expect(assigned.status).toBe(201);
+      }
+
+      const payloads = new Map<string, object>([
+        ["role_ceo", { strategy_statement: "Existing confirmation must be retryable." }],
+        ["role_cfo", { cash_buffer_target: 0.2, service_quality_budget: 125000 }],
+        ["role_cmo", { marketing_budget: 150000, pricing: { base_price: 12800 } }],
+        ["role_coo", { capacity_plan: "expand" }]
+      ]);
+      for (const username of ["role_ceo", "role_cfo", "role_cmo", "role_coo"]) {
+        const saved = await request<RoleDecisionSection>(
+          baseUrl,
+          "/api/v1/bff/student/role-workspace/section",
+          {
+            body: { ...scope, expected_version: 0, payload: payloads.get(username) },
+            method: "PUT",
+            token: tokens.get(username)
+          }
+        );
+        expect(saved.status).toBe(200);
+        const ready = await request<RoleDecisionSection>(
+          baseUrl,
+          "/api/v1/bff/student/role-workspace/ready",
+          {
+            body: { ...scope, expected_version: saved.body.data.version },
+            method: "POST",
+            token: tokens.get(username)
+          }
+        );
+        expect(ready.status).toBe(200);
+      }
+
+      const merge = await request<StudentRoleWorkflowMergeDTO>(
+        baseUrl,
+        "/api/v1/bff/student/role-workspace/merge",
+        { body: scope, method: "POST", token: tokens.get("role_ceo") }
+      );
+      expect(merge.status).toBe(201);
+      const firstConfirmation = await request<TeamConfirmation>(
+        baseUrl,
+        "/api/v1/bff/student/role-workspace/confirm",
+        {
+          body: { ...scope, merge_commit_id: merge.body.data.merge_commit_id },
+          method: "POST",
+          token: tokens.get("role_ceo")
+        }
+      );
+      expect(firstConfirmation.status).toBe(201);
+
+      store.projectAssignments.push({
+        assigned_at: "2026-08-30T08:00:00.000Z",
+        assigned_by: "usr_teacher",
+        assignment_id: "project-confirm-retry",
+        course_id: "course_demo",
+        project_profile_reference: {
+          content_digest: "project-confirm-retry-digest".padEnd(64, "0"),
+          project_profile_id: "project-confirm-retry",
+          tenant_id: "tenant_demo",
+          version: "1.0.0"
+        },
+        run_id: scope.run_id,
+        schema_version: "project-assignment.v1",
+        team_id: scope.team_id,
+        tenant_id: "tenant_demo"
+      });
+
+      const retriedConfirmation = await request<TeamConfirmation>(
+        baseUrl,
+        "/api/v1/bff/student/role-workspace/confirm",
+        {
+          body: { ...scope, merge_commit_id: merge.body.data.merge_commit_id },
+          method: "POST",
+          token: tokens.get("role_ceo")
+        }
+      );
+      expect(retriedConfirmation.status).toBe(200);
+      expect(retriedConfirmation.body.data.team_confirmation_id).toBe(
+        firstConfirmation.body.data.team_confirmation_id
+      );
+      expect(store.teamConfirmations).toHaveLength(1);
+      expect(store.decisions).toHaveLength(1);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
   it("fails closed when a run has neither a formal policy nor an explicit compatibility marker", async () => {
     const { baseUrl, server, store } = await startServer();
     store.auditLogs = [];

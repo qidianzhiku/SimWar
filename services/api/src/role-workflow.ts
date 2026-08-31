@@ -1082,33 +1082,24 @@ export class RoleWorkflowCommandService {
     return this.withWorkflowLock(key, () => this.confirmTeamDecisionUnsafe(actor, input));
   }
 
+  async getExistingTeamConfirmation(
+    actor: RoleWorkflowActor,
+    input: ConfirmTeamDecisionInput
+  ): Promise<TeamConfirmation | undefined> {
+    const key = `${actor.tenant_id}:${input.run_id}:${input.team_id}:${input.round_id}`;
+    return this.withWorkflowLock(key, async () => {
+      const { existing } = await this.loadConfirmableTeamDecision(actor, input);
+      return existing ? clone(existing) : undefined;
+    });
+  }
+
   private async confirmTeamDecisionUnsafe(
     actor: RoleWorkflowActor,
     input: ConfirmTeamDecisionInput
   ): Promise<TeamConfirmation> {
-    this.requireStudent(actor);
-    const snapshot = await this.read(actor, input);
-    this.assertRoundScope(snapshot);
-    const assignment = this.findActorAssignment(actor, snapshot);
-    const policy = DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key];
-    const configuredPolicy = await this.dependencies.resolveW027DecisionPolicy?.(
-      { ...input, course_id: snapshot.run?.course_id ?? "", tenant_id: actor.tenant_id },
-      assignment.role_key
-    );
-    if (
-      !(configuredPolicy?.can_confirm_team_decision ?? policy.can_submit_canonical_decision) ||
-      (!configuredPolicy &&
-        (assignment.role_key !== "CEO" || snapshot.team!.captain_user_id !== actor.actor_id))
-    ) {
-      throw new RoleWorkflowError("ROLE_WORKFLOW_CONFIRMATION_DENIED");
-    }
-    const mergeCommit = snapshot.merge_commits.find(
-      (candidate) => candidate.merge_commit_id === input.merge_commit_id
-    );
-    if (!mergeCommit) throw new RoleWorkflowError("ROLE_WORKFLOW_MERGE_NOT_FOUND");
-    this.assertCurrentMergeGeneration(snapshot, mergeCommit);
-    const existing = snapshot.confirmations.find(
-      (candidate) => candidate.merge_commit_id === input.merge_commit_id
+    const { existing, mergeCommit, snapshot } = await this.loadConfirmableTeamDecision(
+      actor,
+      input
     );
     if (existing) return clone(existing);
     this.assertPostConfirmationMutable(snapshot);
@@ -1153,6 +1144,41 @@ export class RoleWorkflowCommandService {
       kind: "append_confirmation"
     });
     return clone(confirmation);
+  }
+
+  private async loadConfirmableTeamDecision(
+    actor: RoleWorkflowActor,
+    input: ConfirmTeamDecisionInput
+  ): Promise<{
+    existing: TeamConfirmation | undefined;
+    mergeCommit: DecisionMergeCommit;
+    snapshot: RoleWorkflowRepositorySnapshot;
+  }> {
+    this.requireStudent(actor);
+    const snapshot = await this.read(actor, input);
+    this.assertRoundScope(snapshot);
+    const assignment = this.findActorAssignment(actor, snapshot);
+    const policy = DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key];
+    const configuredPolicy = await this.dependencies.resolveW027DecisionPolicy?.(
+      { ...input, course_id: snapshot.run?.course_id ?? "", tenant_id: actor.tenant_id },
+      assignment.role_key
+    );
+    if (
+      !(configuredPolicy?.can_confirm_team_decision ?? policy.can_submit_canonical_decision) ||
+      (!configuredPolicy &&
+        (assignment.role_key !== "CEO" || snapshot.team!.captain_user_id !== actor.actor_id))
+    ) {
+      throw new RoleWorkflowError("ROLE_WORKFLOW_CONFIRMATION_DENIED");
+    }
+    const mergeCommit = snapshot.merge_commits.find(
+      (candidate) => candidate.merge_commit_id === input.merge_commit_id
+    );
+    if (!mergeCommit) throw new RoleWorkflowError("ROLE_WORKFLOW_MERGE_NOT_FOUND");
+    this.assertCurrentMergeGeneration(snapshot, mergeCommit);
+    const existing = snapshot.confirmations.find(
+      (candidate) => candidate.merge_commit_id === input.merge_commit_id
+    );
+    return { existing, mergeCommit, snapshot };
   }
 
   async assertDirectDecisionSubmissionAllowed(

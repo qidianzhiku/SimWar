@@ -9425,6 +9425,13 @@ async function routeRequest(
       context.tenantId,
       scope.run_id,
       async () => {
+        const existing = await runtime.roleWorkflow.getExistingTeamConfirmation(actor, {
+          ...scope,
+          merge_commit_id: mergeCommitId
+        });
+        if (existing) {
+          return { data: existing, wasExisting: true };
+        }
         await requireStudentDecisionContextEvidenceForRoleAction(
           runtime,
           context,
@@ -9432,18 +9439,12 @@ async function routeRequest(
           scope,
           decisionContextEvidenceId
         );
-        const before = await runtime.repositoryProvider.ports.roleWorkflow.readRoleWorkflow({
-          ...scope,
-          tenant_id: context.tenantId
-        });
         return {
           data: await runtime.roleWorkflow.confirmTeamDecision(actor, {
             ...scope,
             merge_commit_id: mergeCommitId
           }),
-          wasExisting: before.confirmations.some(
-            (candidate) => candidate.merge_commit_id === mergeCommitId
-          )
+          wasExisting: false
         };
       }
     );
