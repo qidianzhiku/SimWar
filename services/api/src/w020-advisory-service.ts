@@ -5,10 +5,14 @@ import {
   type CurrentUser,
   type W020AdvisoryAuditDto,
   type W020AdvisoryContext,
+  type W020AdvisoryEvaluation,
+  type W020AdvisoryPolicy,
   type W020AdvisoryProjection,
   type W020AdvisoryReceipt,
   type W020AdvisoryRecord,
   type W020AdvisoryRequest,
+  type W020AdvisorySurface,
+  type W020EvidenceCitation,
   type W020RoleKey
 } from "@simwar/shared-contracts";
 import type {
@@ -20,8 +24,18 @@ const KNOWN_LIMITS = [
   "JSON_INTERNAL_ONLY is the active runtime authority.",
   "The deterministic mock is advisory-only and does not prove AI effectiveness.",
   "Human Validation, Pilot and Production are not performed or authorized.",
-  "Durable recovery and external provider integration are not proven."
+  "Durable recovery and external provider integration are not proven.",
+  "Human review remains the final authority for every recommendation."
 ] as const;
+
+const STUDENT_SURFACES = new Set<W020AdvisorySurface>(["student_role", "student_coach"]);
+const TEACHER_SURFACES = new Set<W020AdvisorySurface>([
+  "teacher_copilot",
+  "teacher_debrief",
+  "rubric_assistant",
+  "competitive_challenge",
+  "stakeholder_challenge"
+]);
 
 export class W020AdvisoryError extends Error {
   constructor(
@@ -88,15 +102,100 @@ function assertId(value: string | undefined): string {
   return value;
 }
 
+function titleForSurface(surface: W020AdvisorySurface): string {
+  const titles: Record<W020AdvisorySurface, string> = {
+    competitive_challenge: "Competitive Challenge",
+    rubric_assistant: "Debrief Rubric Assistant",
+    stakeholder_challenge: "Stakeholder Challenge",
+    student_coach: "Student Coach",
+    student_role: "Student Role Advisor",
+    teacher_copilot: "Teacher Copilot",
+    teacher_debrief: "Teacher Debrief Advisor"
+  };
+  return titles[surface];
+}
+
+function citationsForContext(context: W020AdvisoryContext): W020EvidenceCitation[] {
+  if (context.source_event_ids.length > 0) {
+    return context.source_event_ids.map((sourceId, index) => ({
+      citation_id: `event:${sourceId}`,
+      label: context.source_event_types[index] ?? "workflow_event",
+      source_id: sourceId,
+      source_type: "workflow_event"
+    }));
+  }
+  return [
+    {
+      citation_id: `context:${context.context_digest}`,
+      label: "No source event evidence available",
+      source_id: context.context_digest,
+      source_type: "governed_context"
+    }
+  ];
+}
+
+function policy(): W020AdvisoryPolicy {
+  return {
+    formal_truth_write: false,
+    human_final_authority: true,
+    pre_publish_student_exposure: false,
+    provider: "OFF"
+  };
+}
+
+function evaluation(context: W020AdvisoryContext): W020AdvisoryEvaluation {
+  const hasSourceEvidence = context.source_event_ids.length > 0;
+  return {
+    checks: [
+      "exact_course_run_round_team_binding",
+      "role_scope_allowlist",
+      "evidence_citation_present",
+      "provider_off",
+      "formal_truth_write_false",
+      "human_final_authority"
+    ],
+    fallback: hasSourceEvidence ? "deterministic_rule" : "abstain_no_source_evidence",
+    status: hasSourceEvidence ? "passed" : "abstained"
+  };
+}
+
 function projection(record: W020AdvisoryRecord): W020AdvisoryProjection {
+  const evaluated = evaluation(record.context);
   return {
     advisory_only: true,
-    evidence_refs: [...record.context.source_event_ids],
-    known_limits: [...KNOWN_LIMITS],
+    evidence_citations: citationsForContext(record.context),
+    evaluation: evaluated,
+    evidence_refs: [...record.coach_output.evidence_refs],
+    known_limits: [
+      ...KNOWN_LIMITS,
+      ...(evaluated.status === "abstained"
+        ? ["No source events were available; the assistant abstained."]
+        : [])
+    ],
+    policy: policy(),
     recommendations: [record.coach_output.advisory_text],
     surface: record.surface,
-    title: record.surface === "student_role" ? "Student Role Advisor" : "Teacher Debrief Advisor"
+    title: titleForSurface(record.surface)
   };
+}
+
+function scopesForSurface(
+  roleKey: W020RoleKey | undefined,
+  surface: W020AdvisorySurface
+): string[] {
+  if (roleKey)
+    return [...(DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[roleKey]?.advisory_scopes ?? [])];
+  return surface === "teacher_copilot"
+    ? ["strategy", "cross_functional_alignment"]
+    : surface === "rubric_assistant"
+      ? ["learning_objectives", "rubric"]
+      : surface.endsWith("challenge")
+        ? ["bounded_challenge", "evidence_review"]
+        : ["debrief"];
+}
+
+function supportedRoleKey(value: string | undefined): W020RoleKey | undefined {
+  return value && ["CEO", "CFO", "CMO", "COO"].includes(value) ? (value as W020RoleKey) : undefined;
 }
 
 export interface W020AdvisoryServiceDependencies {
@@ -114,6 +213,22 @@ export class GovernedAdvisoryService {
   constructor(private readonly dependencies: W020AdvisoryServiceDependencies) {
     this.gateway = dependencies.gateway ?? createDeterministicMockGateway();
     this.now = dependencies.now ?? (() => new Date().toISOString());
+  }
+
+  async createAdvisory(
+    actor: W020Actor,
+    request: W020AdvisoryRequest,
+    requestId: string
+  ): Promise<W020AdvisoryReceipt> {
+    const actorRole = roleForActor(actor);
+    if (STUDENT_SURFACES.has(request.surface)) {
+      if (actorRole !== "student" || !actor.team_id || request.team_id !== actor.team_id)
+        throw new W020AdvisoryError("W020_FORBIDDEN");
+      return this.create(actor, request, requestId, actorRole);
+    }
+    if (!TEACHER_SURFACES.has(request.surface) || actorRole === "student")
+      throw new W020AdvisoryError("W020_FORBIDDEN");
+    return this.create(actor, request, requestId, actorRole);
   }
 
   async createStudentRoleAdvisory(
@@ -201,9 +316,8 @@ export class GovernedAdvisoryService {
     if (actorRole === "student" && (!assignment || assignment.user_id !== actor.user_id))
       throw new W020AdvisoryError("W020_FORBIDDEN");
     const roleKey = assignment?.role_key ?? request.role_key;
-    const scopes = roleKey
-      ? [...(DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[roleKey]?.advisory_scopes ?? [])]
-      : ["debrief"];
+    const advisoryRoleKey = supportedRoleKey(roleKey);
+    const scopes = scopesForSurface(advisoryRoleKey, request.surface);
     if (scopes.length === 0) throw new W020AdvisoryError("W020_FORBIDDEN");
     const safeEvents = snapshot.events
       .filter((event) => !event.round_id || event.round_id === roundId)
@@ -220,7 +334,7 @@ export class GovernedAdvisoryService {
       context_digest: digest({
         actor_role: actorRole,
         course_id: snapshot.course.course_id,
-        role_key: roleKey ?? null,
+        role_key: advisoryRoleKey ?? null,
         round_id: roundId,
         run_id: runId,
         source_events: safeEvents,
@@ -229,7 +343,7 @@ export class GovernedAdvisoryService {
       }),
       course_id: snapshot.course.course_id,
       discriminator: "w020_role_safe_context",
-      ...(roleKey ? { role_key: roleKey as W020RoleKey } : {}),
+      ...(advisoryRoleKey ? { role_key: advisoryRoleKey } : {}),
       round_id: roundId,
       run_id: runId,
       source_event_ids: safeEvents.map((event) => event.event_id),
@@ -248,7 +362,17 @@ export class GovernedAdvisoryService {
         (record) => record.idempotency_key === idempotencyKey
       );
       if (existing) {
-        if (existing.request_digest !== requestDigest)
+        const existingRoleKey = existing.context.role_key ?? null;
+        const requestRoleKey = context.role_key ?? null;
+        const sameExactScope =
+          existing.tenant_id === actor.tenant_id &&
+          existing.context.course_id === context.course_id &&
+          existing.context.run_id === context.run_id &&
+          existing.context.round_id === context.round_id &&
+          existing.context.team_id === context.team_id &&
+          existing.surface === request.surface &&
+          existingRoleKey === requestRoleKey;
+        if (!sameExactScope || existing.request_digest !== requestDigest)
           throw new W020AdvisoryError("W020_DUPLICATE_CONFLICT");
         return this.receipt(existing, requestId, "reused");
       }
@@ -259,8 +383,12 @@ export class GovernedAdvisoryService {
       };
       const generated = this.gateway.generate(gatewayInput);
       const createdAt = this.now();
+      const citations = citationsForContext(context);
       const record: W020AdvisoryRecord = {
-        coach_output: generated.coach_output,
+        coach_output: {
+          ...generated.coach_output,
+          evidence_refs: citations.map((citation) => citation.citation_id)
+        },
         context,
         created_at: createdAt,
         discriminator: "w020_advisory_record",

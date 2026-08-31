@@ -26,11 +26,20 @@ export class AgentGatewayError extends Error {
 }
 
 function canonicalize(value: unknown): string {
-  if (value === null || typeof value === "boolean" || typeof value === "number" || typeof value === "string") return JSON.stringify(value);
+  if (
+    value === null ||
+    typeof value === "boolean" ||
+    typeof value === "number" ||
+    typeof value === "string"
+  )
+    return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonicalize).join(",")}]`;
   if (value && typeof value === "object") {
     const object = value as Record<string, unknown>;
-    return `{${Object.keys(object).sort().map((key) => `${JSON.stringify(key)}:${canonicalize(object[key])}`).join(",")}}`;
+    return `{${Object.keys(object)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalize(object[key])}`)
+      .join(",")}}`;
   }
   throw new AgentGatewayError("AGENT_CONTEXT_INVALID");
 }
@@ -40,14 +49,32 @@ function digest(value: unknown): string {
 }
 
 function assertPolicy(input: AgentGatewayInput): void {
-  if (input.context.actor_role === "student" && input.surface !== "student_role") throw new AgentGatewayError("AGENT_POLICY_DENIED");
-  if (input.context.actor_role !== "student" && input.surface !== "teacher_debrief") throw new AgentGatewayError("AGENT_POLICY_DENIED");
-  if (input.context.context_digest.length !== 64 || input.context.source_event_ids.length > 50) throw new AgentGatewayError("AGENT_CONTEXT_INVALID");
-  if (input.context.advisory_scopes.length === 0) throw new AgentGatewayError("AGENT_POLICY_DENIED");
-  if (input.surface === "student_role" && (!input.role_key || input.context.role_key !== input.role_key)) throw new AgentGatewayError("AGENT_POLICY_DENIED");
+  const studentSurfaces = new Set(["student_role", "student_coach"]);
+  const teacherSurfaces = new Set([
+    "teacher_copilot",
+    "teacher_debrief",
+    "rubric_assistant",
+    "competitive_challenge",
+    "stakeholder_challenge"
+  ]);
+  if (input.context.actor_role === "student" && !studentSurfaces.has(input.surface))
+    throw new AgentGatewayError("AGENT_POLICY_DENIED");
+  if (input.context.actor_role !== "student" && !teacherSurfaces.has(input.surface))
+    throw new AgentGatewayError("AGENT_POLICY_DENIED");
+  if (input.context.context_digest.length !== 64 || input.context.source_event_ids.length > 50)
+    throw new AgentGatewayError("AGENT_CONTEXT_INVALID");
+  if (input.context.advisory_scopes.length === 0)
+    throw new AgentGatewayError("AGENT_POLICY_DENIED");
+  if (
+    input.surface === "student_role" &&
+    (!input.role_key || input.context.role_key !== input.role_key)
+  )
+    throw new AgentGatewayError("AGENT_POLICY_DENIED");
 }
 
-export function createDeterministicMockGateway(): { generate(input: AgentGatewayInput): AgentGatewayResult } {
+export function createDeterministicMockGateway(): {
+  generate(input: AgentGatewayInput): AgentGatewayResult;
+} {
   return {
     generate(input) {
       assertPolicy(input);
@@ -57,9 +84,20 @@ export function createDeterministicMockGateway(): { generate(input: AgentGateway
         surface: input.surface
       };
       const inputHash = digest(safeInput);
-      const outputText = input.surface === "student_role"
-        ? `Role ${input.role_key ?? "member"} advisory: review the visible role scope and prepare a reversible next decision.`
-        : "Teacher debrief advisory: compare the visible workflow evidence with the course objective and document a follow-up question.";
+      const outputText =
+        input.context.source_event_ids.length === 0
+          ? "No source evidence is available; the assistant abstains and asks the human reviewer to inspect the exact context."
+          : input.surface === "student_role" || input.surface === "student_coach"
+            ? `Role ${input.role_key ?? "member"} coach: review the cited role evidence and prepare a reversible next decision for human review.`
+            : input.surface === "teacher_copilot"
+              ? "Teacher Copilot: compare the cited workflow evidence with the course objective and document a reversible follow-up question."
+              : input.surface === "rubric_assistant"
+                ? "Rubric Assistant: use the cited workflow evidence to draft a discussion point; the teacher remains the final evaluator."
+                : input.surface === "competitive_challenge"
+                  ? "Competitive Challenge: inspect the cited evidence, test one bounded hypothesis, and keep the conclusion advisory-only."
+                  : input.surface === "stakeholder_challenge"
+                    ? "Stakeholder Challenge: inspect the cited evidence, name one stakeholder trade-off, and keep the conclusion advisory-only."
+                    : "Teacher debrief advisory: compare the visible workflow evidence with the course objective and document a follow-up question.";
       const outputHash = digest({ inputHash, outputText });
       const modelCallLogId = `model_call_${inputHash.slice(0, 24)}`;
       const coachOutputId = `coach_output_${outputHash.slice(0, 24)}`;
@@ -91,7 +129,14 @@ export function createDeterministicMockGateway(): { generate(input: AgentGateway
           output_hash: outputHash,
           prompt_tokens: 0,
           provider: "deterministic-mock",
-          purpose: input.surface === "student_role" ? "coach_advice" : "debrief",
+          purpose:
+            input.surface === "student_role" ||
+            input.surface === "student_coach" ||
+            input.surface === "teacher_copilot"
+              ? "coach_advice"
+              : input.surface === "teacher_debrief"
+                ? "debrief"
+                : "learning_support",
           status: "succeeded",
           tenant_id: input.context.tenant_id
         }

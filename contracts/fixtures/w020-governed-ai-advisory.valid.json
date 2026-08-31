@@ -55,6 +55,25 @@
     "title": "Role advisor",
     "recommendations": ["Review the visible role scope."],
     "evidence_refs": ["event_001"],
+    "evidence_citations": [
+      {
+        "citation_id": "event:event_001",
+        "label": "section_saved",
+        "source_id": "event_001",
+        "source_type": "workflow_event"
+      }
+    ],
+    "policy": {
+      "formal_truth_write": false,
+      "human_final_authority": true,
+      "pre_publish_student_exposure": false,
+      "provider": "OFF"
+    },
+    "evaluation": {
+      "checks": ["exact_context", "evidence_citation_present"],
+      "fallback": "deterministic_rule",
+      "status": "passed"
+    },
     "known_limits": ["Human Validation not performed"]
   },
   "formal_truth_write": false,

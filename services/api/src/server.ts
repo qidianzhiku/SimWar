@@ -7783,7 +7783,9 @@ async function routeRequest(
 
   if (
     url.pathname.startsWith("/api/v1/bff/student/advisors") ||
-    url.pathname.startsWith("/api/v1/bff/teacher/advisors")
+    url.pathname.startsWith("/api/v1/bff/student/intelligence") ||
+    url.pathname.startsWith("/api/v1/bff/teacher/advisors") ||
+    url.pathname.startsWith("/api/v1/bff/teacher/intelligence")
   ) {
     if (
       await handleW020AdvisoryRoute(
