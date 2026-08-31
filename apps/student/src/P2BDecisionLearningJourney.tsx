@@ -232,6 +232,10 @@ export function StudentDecisionLearningJourney({
   ]);
 
   const record = state.phase === "ready" || state.phase === "stale" ? state.record : undefined;
+  const displayedDecisionContextEvidence =
+    (crossRound.phase === "ready" || crossRound.phase === "stale"
+      ? crossRound.data.decision_context_evidence
+      : undefined) ?? decisionContextEvidence;
 
   function scrollToStage(stage: string): void {
     const target = document.getElementById(`student-p2b-${stage}`);
@@ -312,44 +316,45 @@ export function StudentDecisionLearningJourney({
         </span>
       </div>
 
-      {decisionContextEvidence ? (
+      {displayedDecisionContextEvidence ? (
         <section
           className="p2b-context-evidence"
           data-testid="student-decision-context-continuity"
-          data-evidence-status={decisionContextEvidence.status}
-          data-evidence-version={decisionContextEvidence.evidence_version}
+          data-evidence-status={displayedDecisionContextEvidence.status}
+          data-evidence-version={displayedDecisionContextEvidence.evidence_version}
           aria-label="学员决策上下文连续证据"
         >
           <div>
             <span className="p2b-stage-kicker">M31 · DECISION CONTEXT THREAD</span>
             <strong>
-              {decisionContextEvidence.status === "READY"
+              {displayedDecisionContextEvidence.status === "READY"
                 ? "当前决策已绑定同一份安全证据上下文"
                 : "当前决策上下文被安全阻断"}
             </strong>
           </div>
           <p>
-            回合 {decisionContextEvidence.scope.round_no} · 团队 {decisionContextEvidence.scope.team_id} ·
-            证据版本 {decisionContextEvidence.evidence_version}
+            回合 {displayedDecisionContextEvidence.scope.round_no} · 团队{" "}
+            {displayedDecisionContextEvidence.scope.team_id} · 证据版本{" "}
+            {displayedDecisionContextEvidence.evidence_version}
           </p>
-          {decisionContextEvidence.source_context ? (
+          {displayedDecisionContextEvidence.source_context ? (
             <p>
-              目标区域：{decisionContextEvidence.source_context.target_region} · 证据周期：
-              {decisionContextEvidence.source_context.epoch_version} · 资格：
-              {decisionContextEvidence.source_context.qualification_status}
+              目标区域：{displayedDecisionContextEvidence.source_context.target_region} · 证据周期：
+              {displayedDecisionContextEvidence.source_context.epoch_version} · 资格：
+              {displayedDecisionContextEvidence.source_context.qualification_status}
             </p>
           ) : null}
           <div className="p2b-learning-loop-grid" data-testid="student-decision-context-stages">
-            {Object.entries(decisionContextEvidence.continuity).map(([stage, status]) => (
+            {Object.entries(displayedDecisionContextEvidence.continuity).map(([stage, status]) => (
               <div key={stage}>
                 <span>{stage}</span>
                 <strong>{status}</strong>
               </div>
             ))}
           </div>
-          {decisionContextEvidence.blocker_codes?.length ? (
+          {displayedDecisionContextEvidence.blocker_codes?.length ? (
             <p className="p2b-known-limit">
-              阻断：{decisionContextEvidence.blocker_codes.join(" / ")}
+              阻断：{displayedDecisionContextEvidence.blocker_codes.join(" / ")}
             </p>
           ) : null}
         </section>

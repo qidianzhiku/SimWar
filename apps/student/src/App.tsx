@@ -918,14 +918,14 @@ export function App() {
   );
   const decisionContextEvidenceReady = Boolean(
     !projectAwareEvidenceExpected ||
-      (decisionContextEvidence?.status === "READY" &&
-        decisionContextEvidence.scope.tenant_id === login.tenantId &&
-        decisionContextEvidence.scope.course_id === latestRun?.course_id &&
-        decisionContextEvidence.scope.run_id === latestRun?.run_id &&
-        decisionContextEvidence.scope.round_id === latestRound?.round_id &&
-        decisionContextEvidence.scope.round_no === latestRound?.round_no &&
-        decisionContextEvidence.scope.team_id === team?.team_id &&
-        decisionContextEvidence.scope.role_key === w3RoleKey)
+    (decisionContextEvidence?.status === "READY" &&
+      decisionContextEvidence.scope.tenant_id === login.tenantId &&
+      decisionContextEvidence.scope.course_id === latestRun?.course_id &&
+      decisionContextEvidence.scope.run_id === latestRun?.run_id &&
+      decisionContextEvidence.scope.round_id === latestRound?.round_id &&
+      decisionContextEvidence.scope.round_no === latestRound?.round_no &&
+      decisionContextEvidence.scope.team_id === team?.team_id &&
+      decisionContextEvidence.scope.role_key === w3RoleKey)
   );
   const desktopState = getStudentDecisionDesktopState({
     hasSession: Boolean(session),
@@ -1294,6 +1294,11 @@ export function App() {
                 tenantId={login.tenantId}
                 token={activeSession?.access_token}
                 activeRoleKeys={team ? team.members.map((member) => member.role_slot) : []}
+                decisionContextEvidenceId={
+                  projectAwareEvidenceExpected ? decisionContextEvidence?.evidence_id : undefined
+                }
+                decisionContextEvidenceRequired={projectAwareEvidenceExpected}
+                decisionContextEvidenceReady={decisionContextEvidenceReady}
                 onAvailabilityChange={setRoleWorkflowAvailability}
               />
             </Suspense>
@@ -1412,7 +1417,7 @@ export function App() {
                   token={activeSession?.access_token ?? ""}
                   published={W3_ENABLED && w3ContextReady && Boolean(myResult)}
                   decisionContextEvidence={
-                    projectAwareEvidenceExpected ? decisionContextEvidence ?? null : null
+                    projectAwareEvidenceExpected ? (decisionContextEvidence ?? null) : null
                   }
                   decisionContextEvidenceRequired={projectAwareEvidenceExpected}
                   crossRoundEnabled={W3_ENABLED && w3ContextReady}

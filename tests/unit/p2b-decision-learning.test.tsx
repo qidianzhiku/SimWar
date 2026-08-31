@@ -349,12 +349,12 @@ describe("P2-B FE-19 student decision learning", () => {
 
     const continuity = host.querySelector('[data-testid="student-decision-context-continuity"]');
     expect(continuity?.getAttribute("data-evidence-status")).toBe("READY");
-    expect(continuity?.getAttribute("data-evidence-version")).toBe(
-      "student-decision-context.v1"
-    );
+    expect(continuity?.getAttribute("data-evidence-version")).toBe("student-decision-context.v1");
     expect(host.querySelector('[data-testid="student-m2p6-learning-loop"]')).not.toBeNull();
     expect(continuity?.textContent).toContain("目标区域：Hangzhou");
     expect(continuity?.textContent).toContain("regional_transfer");
+    expect(continuity?.textContent).not.toContain("PENDING_PUBLISH");
+    expect(continuity?.textContent).toContain("PROVEN");
     root.unmount();
     host.remove();
     fetchSpy.mockRestore();

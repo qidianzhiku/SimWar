@@ -383,6 +383,63 @@ describe("Project-aware launch BFF", () => {
         /raw_source|locator|digest|private|hidden_calibration|model_truth|state_true|score|rank|settlement/i
       );
 
+      const decisionContextEvidenceId =
+        studentContext.body.data.decision_context_evidence.evidence_id;
+      const missingEvidenceSave = await request(
+        baseUrl,
+        "/api/v1/bff/student/role-workspace/section",
+        {
+          body: {
+            round_id: M2P3_ROUND_ID,
+            run_id: M2P3_RUN_ID,
+            team_id: "team_alpha",
+            expected_version: 0,
+            payload: { strategy_statement: "must remain blocked without exact evidence" }
+          },
+          method: "PUT",
+          token: studentToken
+        }
+      );
+      expect(missingEvidenceSave.status).toBe(409);
+      expect(missingEvidenceSave.body.code).toBe("STUDENT_DECISION_CONTEXT_EVIDENCE_REQUIRED");
+
+      const mismatchedEvidenceSave = await request(
+        baseUrl,
+        "/api/v1/bff/student/role-workspace/section",
+        {
+          body: {
+            decision_context_evidence_id: `${decisionContextEvidenceId}-mismatch`,
+            round_id: M2P3_ROUND_ID,
+            run_id: M2P3_RUN_ID,
+            team_id: "team_alpha",
+            expected_version: 0,
+            payload: { strategy_statement: "must remain blocked for mismatched evidence" }
+          },
+          method: "PUT",
+          token: studentToken
+        }
+      );
+      expect(mismatchedEvidenceSave.status).toBe(409);
+      expect(mismatchedEvidenceSave.body.code).toBe("STUDENT_DECISION_CONTEXT_EVIDENCE_REQUIRED");
+
+      const admittedEvidenceSave = await request(
+        baseUrl,
+        "/api/v1/bff/student/role-workspace/section",
+        {
+          body: {
+            decision_context_evidence_id: decisionContextEvidenceId,
+            round_id: M2P3_ROUND_ID,
+            run_id: M2P3_RUN_ID,
+            team_id: "team_alpha",
+            expected_version: 0,
+            payload: { strategy_statement: "exact source-backed context admitted" }
+          },
+          method: "PUT",
+          token: studentToken
+        }
+      );
+      expect(admittedEvidenceSave.status).toBe(200);
+
       const studentCockpit = await request<{
         project_context: {
           exact_scope: { team_id: string; run_id: string };
@@ -429,5 +486,5 @@ describe("Project-aware launch BFF", () => {
       server.close();
       rmSync(directory, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 });

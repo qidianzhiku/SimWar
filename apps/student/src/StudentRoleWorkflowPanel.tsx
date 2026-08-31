@@ -95,6 +95,9 @@ interface StudentRoleWorkflowPanelProps {
   tenantId: string;
   token: string | undefined;
   activeRoleKeys?: readonly RoleKey[];
+  decisionContextEvidenceId?: string | undefined;
+  decisionContextEvidenceRequired?: boolean | undefined;
+  decisionContextEvidenceReady?: boolean | undefined;
   onAvailabilityChange?: (availability: "checking" | "active" | "inactive" | "error") => void;
 }
 
@@ -176,8 +179,14 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
     props.runId,
     props.teamId,
     props.tenantId,
-    props.token
+    props.token,
+    props.decisionContextEvidenceId,
+    props.decisionContextEvidenceRequired,
+    props.decisionContextEvidenceReady
   ].join("|");
+
+  const decisionContextGateReady =
+    !props.decisionContextEvidenceRequired || props.decisionContextEvidenceReady === true;
 
   function beginRefresh(): { requestId: number; controller: AbortController } {
     const requestId = ++requestIdentity.current;
@@ -296,7 +305,15 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
         setNotice(message);
       }
     },
-    [props.active, props.roundId, props.runId, props.teamId, props.tenantId, props.token]
+    [
+      props.active,
+      props.roundId,
+      props.runId,
+      props.teamId,
+      props.tenantId,
+      props.token,
+      decisionContextGateReady
+    ]
   );
 
   useEffect(() => {
@@ -344,7 +361,10 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
     return {
       round_id: props.roundId,
       run_id: props.runId,
-      team_id: props.teamId
+      team_id: props.teamId,
+      ...(props.decisionContextEvidenceId
+        ? { decision_context_evidence_id: props.decisionContextEvidenceId }
+        : {})
     };
   }
 
@@ -363,6 +383,10 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
     success: string,
     method = "POST"
   ): Promise<T | undefined> {
+    if (!decisionContextGateReady) {
+      setNotice("当前 exact decision context evidence 尚未 READY，服务端不会接受正式决策动作");
+      return undefined;
+    }
     const { requestId, controller } = beginAction();
     setBusy(true);
     try {
@@ -459,6 +483,7 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
   );
   const fieldsLocked =
     busy ||
+    !decisionContextGateReady ||
     workspace?.section?.status === "ready" ||
     !workspace?.context.permissions.can_save_section;
 
@@ -516,6 +541,12 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
               </strong>
             </div>
           </div>
+          {!decisionContextGateReady ? (
+            <p className="evidence-note" role="status">
+              当前运行的决策上下文证据未通过 exact scope / READY
+              校验；保存、就绪、合并、确认和分歧动作均保持关闭。
+            </p>
+          ) : null}
           <section
             className="decision-trace market-world-brief"
             aria-label="Shanghai Market World brief"
@@ -548,12 +579,14 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
                   </article>
                 </div>
                 <p className="evidence-note">
-                  这是当前角色可用的产品上下文，不是 settlement truth；不包含私有校准、其他队伍数据或正式结果。
+                  这是当前角色可用的产品上下文，不是 settlement
+                  truth；不包含私有校准、其他队伍数据或正式结果。
                 </p>
               </>
             ) : (
               <p className="muted">
-                Market World 尚未在已发布 Course 上完成精确绑定，或当前版本处于 stale/unknown；正式角色工作区仍可继续按服务端状态运行。
+                Market World 尚未在已发布 Course 上完成精确绑定，或当前版本处于
+                stale/unknown；正式角色工作区仍可继续按服务端状态运行。
               </p>
             )}
           </section>
@@ -610,7 +643,7 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
                       选择团队值
                       <select
                         aria-label={`选择团队值 ${divergence.field}`}
-                        disabled={busy}
+                        disabled={busy || !decisionContextGateReady}
                         value={resolutionSelections[divergence.field] ?? ""}
                         onChange={(event) => {
                           const candidate = divergence.candidates.find(
@@ -666,7 +699,7 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
                   {!ownAcknowledgement ? (
                     <div className="role-workflow-actions">
                       <button
-                        disabled={busy}
+                        disabled={busy || !decisionContextGateReady}
                         onClick={() => void acknowledgeResolution("ACKNOWLEDGED")}
                       >
                         确认解决方案
@@ -682,7 +715,7 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
                       </label>
                       <button
                         className="secondary"
-                        disabled={busy || !dissentNote.trim()}
+                        disabled={busy || !decisionContextGateReady || !dissentNote.trim()}
                         onClick={() => void acknowledgeResolution("DISSENT_PRESERVED")}
                       >
                         保留异议并确认
@@ -693,7 +726,10 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
                   )}
                 </>
               ) : workspace.context.permissions.can_create_merge_commit ? (
-                <button disabled={busy} onClick={() => void proposeResolution()}>
+                <button
+                  disabled={busy || !decisionContextGateReady}
+                  onClick={() => void proposeResolution()}
+                >
                   提出团队解决方案
                 </button>
               ) : null}
@@ -817,6 +853,7 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
             <button
               disabled={
                 busy ||
+                !decisionContextGateReady ||
                 workspace.section?.status === "ready" ||
                 !workspace.context.permissions.can_save_section
               }
@@ -838,6 +875,7 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
             <button
               disabled={
                 busy ||
+                !decisionContextGateReady ||
                 !workspace.section ||
                 workspace.section.status === "ready" ||
                 !workspace.context.permissions.can_mark_ready
@@ -859,6 +897,7 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
               <button
                 disabled={
                   busy ||
+                  !decisionContextGateReady ||
                   workspace.section?.status !== "ready" ||
                   (Boolean(divergenceSet?.divergences.length) &&
                     (!teamResolution || !allResolutionAcknowledged))
@@ -878,7 +917,12 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
             workspace.context.permissions.can_submit_canonical_decision ? (
               <button
                 className="primary"
-                disabled={busy || !workspace.merge_candidate || Boolean(workspace.confirmation)}
+                disabled={
+                  busy ||
+                  !decisionContextGateReady ||
+                  !workspace.merge_candidate ||
+                  Boolean(workspace.confirmation)
+                }
                 onClick={() =>
                   void mutate<TeamConfirmation>(
                     "/api/v1/bff/student/role-workspace/confirm",

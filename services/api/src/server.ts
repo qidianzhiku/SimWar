@@ -98,6 +98,7 @@ import {
   createPluginReleaseReference,
   createScenarioPackageReference,
   createStudentDecisionContextEvidence,
+  isStudentDecisionContextEvidenceScope,
   isTruthProtectedField
 } from "@simwar/shared-contracts";
 import {
@@ -1316,10 +1317,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
       context.tenant_id,
       context.course_id
     );
-    const binding = await formalRunRuntimeBindingStore.getForRun(
-      context.tenant_id,
-      context.run_id
-    );
+    const binding = await formalRunRuntimeBindingStore.getForRun(context.tenant_id, context.run_id);
     if (
       !course ||
       !binding ||
@@ -1331,8 +1329,8 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     const sourceEvidenceBinding = await courseFactory.getStudentSourceEvidenceWithBinding(
       context.tenant_id,
       {
-      parameter_set_reference: binding.parameter_set_reference,
-      scenario_package_reference: binding.scenario_package_reference
+        parameter_set_reference: binding.parameter_set_reference,
+        scenario_package_reference: binding.scenario_package_reference
       }
     );
     return createStudentDecisionContextEvidence(
@@ -5073,6 +5071,79 @@ function roleWorkflowScopeFromBody(body: Record<string, unknown>) {
     run_id: roleWorkflowString(body.run_id, "run_id"),
     team_id: roleWorkflowString(body.team_id, "team_id")
   };
+}
+
+function roleWorkflowEvidenceIdFromBody(body: Record<string, unknown>): string | undefined {
+  return body.decision_context_evidence_id === undefined
+    ? undefined
+    : roleWorkflowString(body.decision_context_evidence_id, "decision_context_evidence_id");
+}
+
+async function requireStudentDecisionContextEvidenceForRoleAction(
+  runtime: ApiRuntime,
+  context: RequestContext,
+  actor: RoleWorkflowActor,
+  scope: ReturnType<typeof roleWorkflowScopeFromBody>,
+  requestedEvidenceId: string | undefined
+): Promise<void> {
+  const binding = await runtime.formalRunRuntimeBindingStore.getForRun(
+    context.tenantId,
+    scope.run_id
+  );
+  if (!binding || binding.decision_admission_policy !== "ROLE_WORKFLOW_REQUIRED") return;
+
+  const run = await runtime.repositoryProvider.facade.runs.getRun(context.tenantId, scope.run_id);
+  const round = run
+    ? (
+        await runtime.repositoryProvider.facade.rounds.listRoundsForRun(
+          context.tenantId,
+          scope.run_id
+        )
+      ).find((candidate) => candidate.round_id === scope.round_id)
+    : undefined;
+  if (!run || !round || round.run_id !== run.run_id) return;
+
+  const workspace = await runtime.roleWorkflow.getStudentWorkspace(actor, scope);
+  const currentActor = requireActor(context);
+  const evidence = await runtime.resolveStudentDecisionContextEvidence({
+    actor: {
+      roles: currentActor.roles,
+      tenant_id: currentActor.tenant_id,
+      user_id: currentActor.user_id
+    },
+    context: {
+      activity_id: "activity_consequence",
+      course_id: run.course_id,
+      role_key: workspace.context.role_key,
+      round_id: round.round_id,
+      round_no: round.round_no,
+      run_id: run.run_id,
+      team_id: scope.team_id,
+      tenant_id: context.tenantId
+    }
+  });
+  if (
+    !requestedEvidenceId ||
+    !evidence ||
+    evidence.status !== "READY" ||
+    evidence.evidence_id !== requestedEvidenceId ||
+    !isStudentDecisionContextEvidenceScope(evidence, {
+      activity_id: "activity_consequence",
+      course_id: run.course_id,
+      role_key: workspace.context.role_key,
+      round_id: round.round_id,
+      round_no: round.round_no,
+      run_id: run.run_id,
+      team_id: scope.team_id,
+      tenant_id: context.tenantId
+    })
+  ) {
+    throw new HttpError(
+      409,
+      "STUDENT_DECISION_CONTEXT_EVIDENCE_REQUIRED",
+      "exact READY student decision context evidence is required"
+    );
+  }
 }
 
 function assertOnlyRoleWorkflowFields(
@@ -9040,6 +9111,7 @@ async function routeRequest(
     const actor = roleWorkflowActor(context, "student");
     const body = await readJson<Record<string, unknown>>(request);
     assertOnlyRoleWorkflowFields(body, [
+      "decision_context_evidence_id",
       "expected_version",
       "payload",
       "round_id",
@@ -9047,6 +9119,7 @@ async function routeRequest(
       "team_id"
     ]);
     const scope = roleWorkflowScopeFromBody(body);
+    const decisionContextEvidenceId = roleWorkflowEvidenceIdFromBody(body);
     if (
       typeof body.expected_version !== "number" ||
       !Number.isSafeInteger(body.expected_version) ||
@@ -9055,12 +9128,24 @@ async function routeRequest(
       throw new HttpError(422, "ROLE_WORKFLOW-422-001", "role workflow request invalid");
     }
     const payload = parseRoleWorkflowPayload(body.payload);
-    const data = await executeLockedRoleWorkflow(runtime, context.tenantId, scope.run_id, () =>
-      runtime.roleWorkflow.saveSection(actor, {
-        ...scope,
-        expected_version: body.expected_version as number,
-        payload
-      })
+    const data = await executeLockedRoleWorkflow(
+      runtime,
+      context.tenantId,
+      scope.run_id,
+      async () => {
+        await requireStudentDecisionContextEvidenceForRoleAction(
+          runtime,
+          context,
+          actor,
+          scope,
+          decisionContextEvidenceId
+        );
+        return runtime.roleWorkflow.saveSection(actor, {
+          ...scope,
+          expected_version: body.expected_version as number,
+          payload
+        });
+      }
     );
     sendJson(response, 200, createEnvelope(context, data));
     return;
@@ -9069,16 +9154,35 @@ async function routeRequest(
   if (request.method === "POST" && url.pathname === "/api/v1/bff/student/role-workspace/ready") {
     const actor = roleWorkflowActor(context, "student");
     const body = await readJson<Record<string, unknown>>(request);
-    assertOnlyRoleWorkflowFields(body, ["expected_version", "round_id", "run_id", "team_id"]);
+    assertOnlyRoleWorkflowFields(body, [
+      "decision_context_evidence_id",
+      "expected_version",
+      "round_id",
+      "run_id",
+      "team_id"
+    ]);
     const scope = roleWorkflowScopeFromBody(body);
+    const decisionContextEvidenceId = roleWorkflowEvidenceIdFromBody(body);
     if (typeof body.expected_version !== "number" || !Number.isSafeInteger(body.expected_version)) {
       throw new HttpError(422, "ROLE_WORKFLOW-422-001", "role workflow request invalid");
     }
-    const data = await executeLockedRoleWorkflow(runtime, context.tenantId, scope.run_id, () =>
-      runtime.roleWorkflow.markSectionReady(actor, {
-        ...scope,
-        expected_version: body.expected_version as number
-      })
+    const data = await executeLockedRoleWorkflow(
+      runtime,
+      context.tenantId,
+      scope.run_id,
+      async () => {
+        await requireStudentDecisionContextEvidenceForRoleAction(
+          runtime,
+          context,
+          actor,
+          scope,
+          decisionContextEvidenceId
+        );
+        return runtime.roleWorkflow.markSectionReady(actor, {
+          ...scope,
+          expected_version: body.expected_version as number
+        });
+      }
     );
     sendJson(response, 200, createEnvelope(context, data));
     return;
@@ -9094,11 +9198,13 @@ async function routeRequest(
       "round_id",
       "run_id",
       "team_id",
+      "decision_context_evidence_id",
       "source_section_ids",
       "source_digest",
       "selected_values"
     ]);
     const scope = roleWorkflowScopeFromBody(body);
+    const decisionContextEvidenceId = roleWorkflowEvidenceIdFromBody(body);
     if (
       !Array.isArray(body.source_section_ids) ||
       body.source_section_ids.length === 0 ||
@@ -9106,13 +9212,25 @@ async function routeRequest(
     ) {
       throw new HttpError(422, "ROLE_WORKFLOW-422-001", "role workflow request invalid");
     }
-    const data = await executeLockedRoleWorkflow(runtime, context.tenantId, scope.run_id, () =>
-      runtime.roleWorkflow.proposeTeamResolution(actor, {
-        ...scope,
-        selected_values: parseTeamResolutionValues(body.selected_values),
-        source_digest: roleWorkflowString(body.source_digest, "source_digest"),
-        source_section_ids: body.source_section_ids as string[]
-      })
+    const data = await executeLockedRoleWorkflow(
+      runtime,
+      context.tenantId,
+      scope.run_id,
+      async () => {
+        await requireStudentDecisionContextEvidenceForRoleAction(
+          runtime,
+          context,
+          actor,
+          scope,
+          decisionContextEvidenceId
+        );
+        return runtime.roleWorkflow.proposeTeamResolution(actor, {
+          ...scope,
+          selected_values: parseTeamResolutionValues(body.selected_values),
+          source_digest: roleWorkflowString(body.source_digest, "source_digest"),
+          source_section_ids: body.source_section_ids as string[]
+        });
+      }
     );
     sendJson(response, 201, createEnvelope(context, data));
     return;
@@ -9128,24 +9246,38 @@ async function routeRequest(
       "round_id",
       "run_id",
       "team_id",
+      "decision_context_evidence_id",
       "resolution_id",
       "status",
       "dissent_note"
     ]);
     const scope = roleWorkflowScopeFromBody(body);
+    const decisionContextEvidenceId = roleWorkflowEvidenceIdFromBody(body);
     if (body.status !== "ACKNOWLEDGED" && body.status !== "DISSENT_PRESERVED") {
       throw new HttpError(422, "ROLE_WORKFLOW-422-001", "role workflow request invalid");
     }
     if (body.dissent_note !== undefined && typeof body.dissent_note !== "string") {
       throw new HttpError(422, "ROLE_WORKFLOW-422-001", "role workflow request invalid");
     }
-    const data = await executeLockedRoleWorkflow(runtime, context.tenantId, scope.run_id, () =>
-      runtime.roleWorkflow.acknowledgeResolution(actor, {
-        ...scope,
-        resolution_id: roleWorkflowString(body.resolution_id, "resolution_id"),
-        status: body.status as "ACKNOWLEDGED" | "DISSENT_PRESERVED",
-        ...(body.dissent_note !== undefined ? { dissent_note: body.dissent_note as string } : {})
-      })
+    const data = await executeLockedRoleWorkflow(
+      runtime,
+      context.tenantId,
+      scope.run_id,
+      async () => {
+        await requireStudentDecisionContextEvidenceForRoleAction(
+          runtime,
+          context,
+          actor,
+          scope,
+          decisionContextEvidenceId
+        );
+        return runtime.roleWorkflow.acknowledgeResolution(actor, {
+          ...scope,
+          resolution_id: roleWorkflowString(body.resolution_id, "resolution_id"),
+          status: body.status as "ACKNOWLEDGED" | "DISSENT_PRESERVED",
+          ...(body.dissent_note !== undefined ? { dissent_note: body.dissent_note as string } : {})
+        });
+      }
     );
     sendJson(response, 201, createEnvelope(context, data));
     return;
@@ -9154,10 +9286,28 @@ async function routeRequest(
   if (request.method === "POST" && url.pathname === "/api/v1/bff/student/role-workspace/merge") {
     const actor = roleWorkflowActor(context, "student");
     const body = await readJson<Record<string, unknown>>(request);
-    assertOnlyRoleWorkflowFields(body, ["round_id", "run_id", "team_id"]);
+    assertOnlyRoleWorkflowFields(body, [
+      "decision_context_evidence_id",
+      "round_id",
+      "run_id",
+      "team_id"
+    ]);
     const scope = roleWorkflowScopeFromBody(body);
-    const data = await executeLockedRoleWorkflow(runtime, context.tenantId, scope.run_id, () =>
-      runtime.roleWorkflow.createMergeCommit(actor, scope)
+    const decisionContextEvidenceId = roleWorkflowEvidenceIdFromBody(body);
+    const data = await executeLockedRoleWorkflow(
+      runtime,
+      context.tenantId,
+      scope.run_id,
+      async () => {
+        await requireStudentDecisionContextEvidenceForRoleAction(
+          runtime,
+          context,
+          actor,
+          scope,
+          decisionContextEvidenceId
+        );
+        return runtime.roleWorkflow.createMergeCommit(actor, scope);
+      }
     );
     sendJson(response, 201, createEnvelope(context, data));
     return;
@@ -9166,14 +9316,28 @@ async function routeRequest(
   if (request.method === "POST" && url.pathname === "/api/v1/bff/student/role-workspace/confirm") {
     const actor = roleWorkflowActor(context, "student");
     const body = await readJson<Record<string, unknown>>(request);
-    assertOnlyRoleWorkflowFields(body, ["merge_commit_id", "round_id", "run_id", "team_id"]);
+    assertOnlyRoleWorkflowFields(body, [
+      "decision_context_evidence_id",
+      "merge_commit_id",
+      "round_id",
+      "run_id",
+      "team_id"
+    ]);
     const scope = roleWorkflowScopeFromBody(body);
+    const decisionContextEvidenceId = roleWorkflowEvidenceIdFromBody(body);
     const mergeCommitId = roleWorkflowString(body.merge_commit_id, "merge_commit_id");
     const result = await executeLockedRoleWorkflow(
       runtime,
       context.tenantId,
       scope.run_id,
       async () => {
+        await requireStudentDecisionContextEvidenceForRoleAction(
+          runtime,
+          context,
+          actor,
+          scope,
+          decisionContextEvidenceId
+        );
         const before = await runtime.repositoryProvider.ports.roleWorkflow.readRoleWorkflow({
           ...scope,
           tenant_id: context.tenantId

@@ -8141,6 +8141,9 @@ components:
       additionalProperties: false
       required: [round_id, run_id, team_id]
       properties:
+        decision_context_evidence_id:
+          type: string
+          minLength: 1
         round_id:
           type: string
           minLength: 1
@@ -8402,6 +8405,9 @@ components:
       additionalProperties: false
       required: [expected_version, payload, round_id, run_id, team_id]
       properties:
+        decision_context_evidence_id:
+          type: string
+          minLength: 1
         expected_version:
           type: integer
           minimum: 0
@@ -8421,6 +8427,9 @@ components:
       additionalProperties: false
       required: [expected_version, round_id, run_id, team_id]
       properties:
+        decision_context_evidence_id:
+          type: string
+          minLength: 1
         expected_version:
           type: integer
           minimum: 1
@@ -8440,6 +8449,9 @@ components:
       additionalProperties: false
       required: [merge_commit_id, round_id, run_id, team_id]
       properties:
+        decision_context_evidence_id:
+          type: string
+          minLength: 1
         merge_commit_id:
           type: string
           minLength: 1
@@ -8457,6 +8469,9 @@ components:
       additionalProperties: false
       required: [round_id, run_id, source_digest, source_section_ids, selected_values, team_id]
       properties:
+        decision_context_evidence_id:
+          type: string
+          minLength: 1
         round_id:
           type: string
           minLength: 1
@@ -8497,6 +8512,9 @@ components:
       additionalProperties: false
       required: [resolution_id, round_id, run_id, status, team_id]
       properties:
+        decision_context_evidence_id:
+          type: string
+          minLength: 1
         resolution_id:
           type: string
           minLength: 1
