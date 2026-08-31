@@ -218,4 +218,25 @@ describe("W6 governed intelligence vertical slice", () => {
         throw new W020AdvisoryError("W020_INPUT_INVALID");
     }).toThrowError("W020_INPUT_INVALID");
   });
+
+  it("preserves the assigned CHRO role through the student coach path", async () => {
+    const chroStudent: CurrentUser = {
+      ...student,
+      user_id: "usr_chro"
+    };
+    const chroSnapshot = structuredClone(snapshot) as Record<string, unknown>;
+    chroSnapshot.assignments = [
+      { assignment_id: "assignment_chro", status: "active", role_key: "CHRO", user_id: "usr_chro" }
+    ];
+    const receipt = await service([], chroSnapshot as never).createAdvisory(
+      chroStudent,
+      {
+        ...request("student_coach", "chro-coach-001"),
+        role_key: "CHRO"
+      },
+      "req-chro"
+    );
+    expect(receipt.context.role_key).toBe("CHRO");
+    expect(receipt.coach_output.advisory_text).toContain("CHRO");
+  });
 });

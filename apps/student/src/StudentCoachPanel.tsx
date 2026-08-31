@@ -1,5 +1,5 @@
-import { useState } from "react";
-import type { W020AdvisoryReceipt } from "@simwar/shared-contracts";
+import { useRef, useState } from "react";
+import type { W020AdvisoryReceipt, W020RoleKey } from "@simwar/shared-contracts";
 
 export interface StudentCoachPanelProps {
   apiBase: string;
@@ -8,7 +8,17 @@ export interface StudentCoachPanelProps {
   runId?: string | undefined;
   roundId?: string | undefined;
   teamId?: string | undefined;
-  roleKey?: "CEO" | "CFO" | "CMO" | "COO" | undefined;
+  roleKey?: W020RoleKey | undefined;
+}
+
+export function buildStudentCoachIdempotencyKey(
+  runId: string,
+  roundId: string,
+  teamId: string,
+  roleKey: W020RoleKey,
+  generation: number
+): string {
+  return `w6:student_coach:${runId}:${roundId}:${teamId}:${roleKey}:${generation}`;
 }
 
 export function StudentCoachPanel({
@@ -23,12 +33,14 @@ export function StudentCoachPanel({
   const [receipt, setReceipt] = useState<W020AdvisoryReceipt | null>(null);
   const [message, setMessage] = useState("等待精确 Course / Run / Round / Team 上下文");
   const [busy, setBusy] = useState(false);
+  const generationRef = useRef(0);
 
   async function requestCoach(): Promise<void> {
     if (!runId || !roundId || !teamId) {
       setMessage("等待精确 Course / Run / Round / Team 上下文");
       return;
     }
+    const generation = ++generationRef.current;
     setBusy(true);
     try {
       const response = await fetch(`${apiBase}/api/v1/bff/student/intelligence/coach`, {
@@ -40,7 +52,13 @@ export function StudentCoachPanel({
         },
         body: JSON.stringify({
           discriminator: "w020_advisory_request",
-          idempotency_key: `w6:student_coach:${runId}:${roundId}:${teamId}:${roleKey}`,
+          idempotency_key: buildStudentCoachIdempotencyKey(
+            runId,
+            roundId,
+            teamId,
+            roleKey,
+            generation
+          ),
           role_key: roleKey,
           round_id: roundId,
           run_id: runId,

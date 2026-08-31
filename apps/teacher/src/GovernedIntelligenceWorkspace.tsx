@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { W020AdvisoryReceipt, W020AdvisorySurface } from "@simwar/shared-contracts";
 
 export interface GovernedIntelligenceWorkspaceProps {
@@ -46,6 +46,27 @@ function envelope(value: unknown): W020AdvisoryReceipt {
   return data as W020AdvisoryReceipt;
 }
 
+export function resolveGovernedIntelligenceTeamId(
+  teamId: string | undefined,
+  teamIds: readonly string[] | undefined,
+  currentTeamId: string,
+  contextChanged: boolean
+): string {
+  const availableTeamIds = teamIds ?? [];
+  const preferredTeamId =
+    teamId && (availableTeamIds.length === 0 || availableTeamIds.includes(teamId))
+      ? teamId
+      : (availableTeamIds[0] ?? "");
+  if (contextChanged) return preferredTeamId;
+  if (
+    !currentTeamId ||
+    (availableTeamIds.length > 0 && !availableTeamIds.includes(currentTeamId))
+  ) {
+    return preferredTeamId;
+  }
+  return currentTeamId;
+}
+
 export function GovernedIntelligenceWorkspace({
   apiBase,
   tenantId,
@@ -56,9 +77,19 @@ export function GovernedIntelligenceWorkspace({
   teamIds
 }: GovernedIntelligenceWorkspaceProps) {
   const [selectedTeamId, setSelectedTeamId] = useState(teamId ?? "");
+  const contextKey = [runId ?? "", roundId ?? "", teamId ?? "", ...(teamIds ?? [])].join("\u001f");
+  const previousContextKey = useRef(contextKey);
   const [busy, setBusy] = useState<W020AdvisorySurface | null>(null);
   const [receipt, setReceipt] = useState<W020AdvisoryReceipt | null>(null);
   const [message, setMessage] = useState("等待精确 Course / Run / Round / Team 上下文");
+
+  useEffect(() => {
+    const contextChanged = previousContextKey.current !== contextKey;
+    previousContextKey.current = contextKey;
+    setSelectedTeamId((current) =>
+      resolveGovernedIntelligenceTeamId(teamId, teamIds, current, contextChanged)
+    );
+  }, [contextKey, runId, roundId, teamId, teamIds]);
 
   async function request(surface: (typeof actions)[number]): Promise<void> {
     if (!runId || !roundId || !selectedTeamId) {

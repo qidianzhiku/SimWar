@@ -28,6 +28,11 @@ const ROLE_LENSES: Record<W020RoleKey, RoleDecisionLens> = {
     role_key: "COO",
     required_scopes: ["operations", "service_delivery", "quality_control", "risk_register"],
     guidance: "Focus on capacity, delivery, and service-quality feasibility questions."
+  },
+  CHRO: {
+    role_key: "CHRO",
+    required_scopes: ["people", "capability", "change_readiness"],
+    guidance: "Focus on team capability, change readiness, and people-impact evidence questions."
   }
 };
 

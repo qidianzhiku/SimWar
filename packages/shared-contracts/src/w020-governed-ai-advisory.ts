@@ -12,7 +12,7 @@ export type W020AdvisorySurface =
   | "competitive_challenge"
   | "stakeholder_challenge";
 export type W020AdvisoryStatus = "generated" | "reused";
-export type W020RoleKey = "CEO" | "CFO" | "CMO" | "COO";
+export type W020RoleKey = "CEO" | "CFO" | "CMO" | "COO" | "CHRO";
 
 export interface W020EvidenceCitation {
   citation_id: string;
@@ -116,7 +116,7 @@ export interface W020AdvisoryAuditDto {
   context_digest: string;
 }
 
-const W020_ROLE_KEYS = new Set<W020RoleKey>(["CEO", "CFO", "CMO", "COO"]);
+const W020_ROLE_KEYS = new Set<W020RoleKey>(["CEO", "CFO", "CMO", "COO", "CHRO"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);

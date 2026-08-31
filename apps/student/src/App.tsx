@@ -1409,7 +1409,7 @@ export function App() {
               <Suspense fallback={<p className="muted">正在载入 Student Coach…</p>}>
                 <StudentCoachPanel
                   apiBase={API_BASE}
-                  roleKey={w3RoleKey === "CHRO" || w3RoleKey === "risk" ? "CEO" : w3RoleKey}
+                  roleKey={w3RoleKey === "risk" ? "COO" : w3RoleKey}
                   roundId={latestRound?.round_id}
                   runId={latestRun?.run_id}
                   teamId={team?.team_id}

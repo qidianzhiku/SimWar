@@ -7079,7 +7079,7 @@ components:
         run_id: { type: string, minLength: 1 }
         round_id: { type: string, minLength: 1 }
         team_id: { type: string, minLength: 1 }
-        role_key: { enum: [CEO, CFO, CMO, COO] }
+        role_key: { enum: [CEO, CFO, CMO, COO, CHRO] }
         idempotency_key: { type: string, minLength: 1 }
     W020AdvisoryEnvelope:
       type: object

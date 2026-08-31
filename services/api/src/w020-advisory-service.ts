@@ -233,7 +233,9 @@ function scopesForSurface(
 }
 
 function supportedRoleKey(value: string | undefined): W020RoleKey | undefined {
-  return value && ["CEO", "CFO", "CMO", "COO"].includes(value) ? (value as W020RoleKey) : undefined;
+  return value && ["CEO", "CFO", "CMO", "COO", "CHRO"].includes(value)
+    ? (value as W020RoleKey)
+    : undefined;
 }
 
 export interface W020AdvisoryServiceDependencies {
