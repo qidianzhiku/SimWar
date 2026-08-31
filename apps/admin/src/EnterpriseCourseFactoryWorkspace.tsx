@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { CrossRoleRecoveryRail } from "@simwar/ui";
 import type {
   ApiEnvelope,
   CourseFactoryCatalogProjection,
@@ -178,6 +179,24 @@ export function EnterpriseCourseFactoryWorkspace({
         CoursePackage authority。页面不创建新的 Enterprise app、truth writer、store、模型 registry
         或正式仿真结果。
       </p>
+      <CrossRoleRecoveryRail
+        role="enterprise"
+        status={
+          !token
+            ? "signed-out"
+            : state === "error"
+              ? "error"
+              : state === "loading"
+                ? "loading"
+                : "ready"
+        }
+        contextEntries={[
+          { label: "租户", value: tenantId || "未提供" },
+          { label: "范围", value: scopeLabels[scope] },
+          { label: "来源", value: "CoursePackage authority" }
+        ]}
+        onRecover={token ? () => void load(new AbortController().signal) : undefined}
+      />
       <dl className="enterprise-course-factory-context" aria-label="Enterprise 投影上下文">
         <div>
           <dt>服务端范围</dt>

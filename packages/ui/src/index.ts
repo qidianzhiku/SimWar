@@ -15,6 +15,18 @@ export { RoleNavigation } from "./components/RoleNavigation.js";
 export type { RoleNavigationItem, RoleNavigationProps } from "./components/RoleNavigation.js";
 export { StatePanel } from "./components/StatePanel.js";
 export type { StatePanelProps, StateStatus } from "./components/StatePanel.js";
+export {
+  CrossRoleRecoveryRail,
+  getRecoveryStateCopy,
+  recoveryStatuses
+} from "./components/CrossRoleRecoveryRail.js";
+export type {
+  CrossRoleRecoveryRailProps,
+  RecoveryContextEntry,
+  RecoveryRole,
+  RecoveryStateCopy,
+  RecoveryStatus
+} from "./components/CrossRoleRecoveryRail.js";
 export { WorkbenchFrame } from "./workbenches/WorkbenchFrame.js";
 export type { WorkbenchFrameProps } from "./workbenches/WorkbenchFrame.js";
 export { M4MultipathCounterfactualTransferPanel } from "./components/M4MultipathCounterfactualTransferPanel.js";

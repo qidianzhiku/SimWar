@@ -20,7 +20,7 @@ import {
   validateReauthIdentity,
   type ReauthContext
 } from "@simwar/shared-contracts";
-import { StatePanel } from "@simwar/ui";
+import { CrossRoleRecoveryRail, StatePanel } from "@simwar/ui";
 import type {
   ApiEnvelope,
   AuthSession,
@@ -2230,6 +2230,34 @@ export function App() {
       stateMessage={teacherShellState.message}
       primaryAction={primaryCommand}
     >
+      <CrossRoleRecoveryRail
+        role="teacher"
+        status={
+          !session
+            ? contextRecoveryState === "REAUTH_REQUIRED"
+              ? "reauth-required"
+              : "signed-out"
+            : contextRecoveryState === "CONTEXT_STALE"
+              ? "stale"
+              : contextRecoveryState === "CONTEXT_UNAUTHORIZED"
+                ? "reauth-required"
+                : workspaceLoadState === "loading"
+                  ? "loading"
+                  : workspaceLoadState === "error"
+                    ? "error"
+                    : "ready"
+        }
+        contextEntries={[
+          { label: "租户", value: session?.user.tenant_id ?? "未登录" },
+          { label: "课程", value: courseWorkspace?.visible_state.course_title ?? "未选择" },
+          { label: "运行", value: selectedRun?.run_id ?? "未选择" },
+          { label: "回合", value: selectedRound?.round_no ?? "未选择" }
+        ]}
+        onRecover={session ? () => void refresh(selectedRun?.run_id) : undefined}
+        onReauthenticate={() =>
+          document.querySelector<HTMLInputElement>('[aria-label="tenant"]')?.focus()
+        }
+      />
       <TeacherLocation id="teacher-today">
         <header className="topbar">
           <div>
