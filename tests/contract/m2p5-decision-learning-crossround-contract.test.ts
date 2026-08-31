@@ -162,4 +162,44 @@ describe("M2-P5 decision learning cross-round contract", () => {
       $ref: "../schemas/m2p5-decision-learning-crossround.v1.json"
     });
   });
+
+  it("keeps student evidence admission discoverable only on student reads", () => {
+    const openApi = yaml.load(
+      readFileSync(resolve("contracts/openapi/p0-api.openapi.yaml"), "utf8")
+    ) as {
+      paths?: Record<
+        string,
+        {
+          get?: {
+            parameters?: Array<{ name?: string }>;
+            responses?: Record<string, unknown>;
+          };
+        }
+      >;
+      components?: {
+        schemas?: Record<
+          string,
+          { required?: unknown[]; properties?: Record<string, unknown> }
+        >;
+      };
+    };
+    const teacherParameters = openApi.paths?.[
+      "/api/v1/bff/teacher/m2p5/runs/{runId}/rounds/{roundNo}/decision-learning"
+    ]?.get?.parameters ?? [];
+    expect(teacherParameters.some(({ name }) => name === "decision_context_evidence_id")).toBe(
+      false
+    );
+    expect(openApi.paths?.["/api/v1/bff/student/project-brief"]?.get?.responses?.["200"])
+      .toMatchObject({
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/StudentProjectBriefEnvelope" }
+          }
+        }
+      });
+    expect(openApi.components?.schemas?.StudentProjectBrief).toMatchObject({
+      required: expect.arrayContaining(["decision_context_evidence_required"]),
+      properties: { decision_context_evidence_required: { type: "boolean" } }
+    });
+  });
 });
