@@ -9,6 +9,15 @@ function source(path: string): string {
 }
 
 describe("Project-aware commercial visual contract", () => {
+  it("derives Student evidence enablement from the runtime assignment projection", () => {
+    const app = source("apps/student/src/App.tsx");
+    const brief = source("apps/student/src/ProjectBriefPanel.tsx");
+    expect(app).not.toContain("VITE_SIMWAR_PROJECT_AWARE_COURSE_ID");
+    expect(app).not.toContain("VITE_SIMWAR_PROJECT_AWARE_RUN_ID");
+    expect(app).toContain("onAvailabilityChange={setProjectAwareEvidenceEnabled}");
+    expect(brief).toContain("onAvailabilityChange?.(Boolean(envelope.data))");
+  });
+
   it("loads one shared Figma-aligned visual layer in all three apps", () => {
     for (const app of ["admin", "teacher", "student"]) {
       expect(

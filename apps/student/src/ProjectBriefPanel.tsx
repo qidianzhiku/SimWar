@@ -7,6 +7,7 @@ interface ProjectBriefPanelProps {
   teamId?: string | undefined;
   tenantId: string;
   token: string;
+  onAvailabilityChange?: (available: boolean) => void;
 }
 
 export function ProjectBriefPanel({
@@ -14,7 +15,8 @@ export function ProjectBriefPanel({
   runId,
   teamId,
   tenantId,
-  token
+  token,
+  onAvailabilityChange
 }: ProjectBriefPanelProps) {
   const [brief, setBrief] = useState<ProjectProfileStudentBrief | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "ready" | "empty" | "error">("idle");
@@ -24,11 +26,13 @@ export function ProjectBriefPanel({
     if (!token || !courseId || !runId || !teamId) {
       setState(token ? "empty" : "idle");
       setBrief(null);
+      onAvailabilityChange?.(false);
       return;
     }
     const controller = new AbortController();
     setState("loading");
     setError("");
+    onAvailabilityChange?.(false);
     fetch(
       `${import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000"}/api/v1/bff/student/project-brief?course_id=${encodeURIComponent(courseId)}&run_id=${encodeURIComponent(runId)}&team_id=${encodeURIComponent(teamId)}`,
       {
@@ -44,15 +48,17 @@ export function ProjectBriefPanel({
         if (!response.ok) throw new Error(envelope.code ?? "PROJECT_BRIEF_LOAD_FAILED");
         setBrief(envelope.data ?? null);
         setState(envelope.data ? "ready" : "empty");
+        onAvailabilityChange?.(Boolean(envelope.data));
       })
       .catch((nextError: unknown) => {
         if (controller.signal.aborted) return;
         setBrief(null);
         setError(nextError instanceof Error ? nextError.message : "项目简报暂不可用");
         setState("error");
+        onAvailabilityChange?.(false);
       });
     return () => controller.abort();
-  }, [courseId, runId, teamId, tenantId, token]);
+  }, [courseId, onAvailabilityChange, runId, teamId, tenantId, token]);
 
   return (
     <article className="panel bff-panel" aria-label="学生项目安全简报">

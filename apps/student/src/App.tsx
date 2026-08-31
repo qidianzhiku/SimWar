@@ -120,8 +120,6 @@ function clearStoredReauthContext(): void {
     // Best effort only; no credential is stored here.
   }
 }
-const PROJECT_AWARE_COURSE_ID = import.meta.env.VITE_SIMWAR_PROJECT_AWARE_COURSE_ID ?? "";
-const PROJECT_AWARE_RUN_ID = import.meta.env.VITE_SIMWAR_PROJECT_AWARE_RUN_ID ?? "";
 const StudentDecisionLearningJourney = lazy(() => import("./P2BDecisionLearningJourney"));
 const W4EnterpriseStatePanel = lazy(async () => {
   const module = await import("./W4EnterpriseStatePanel");
@@ -427,6 +425,7 @@ export function App() {
   const [cockpit, setCockpit] = useState<StudentBffCockpitDTO | null>(null);
   const [decisionContextEvidence, setDecisionContextEvidence] =
     useState<StudentDecisionContextEvidence | null>(null);
+  const [projectAwareEvidenceEnabled, setProjectAwareEvidenceEnabled] = useState(false);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [decision, setDecision] = useState<DecisionPayload>(defaultDecision);
@@ -531,6 +530,7 @@ export function App() {
     setState(null);
     setCockpit(null);
     setDecisionContextEvidence(null);
+    setProjectAwareEvidenceEnabled(false);
     setWorkspacePhase("loading");
     setRoleWorkflowAvailability("checking");
 
@@ -668,6 +668,7 @@ export function App() {
     setState(null);
     setCockpit(null);
     setDecisionContextEvidence(null);
+    setProjectAwareEvidenceEnabled(false);
     setWorkspacePhase("idle");
     setRoleWorkflowAvailability("checking");
     setDecision(defaultDecision);
@@ -910,11 +911,7 @@ export function App() {
     cockpit.student_cockpit.team_id === team.team_id
   );
   const projectAwareEvidenceExpected = Boolean(
-    latestRun &&
-    latestRound &&
-    team &&
-    latestRun.course_id === PROJECT_AWARE_COURSE_ID &&
-    latestRun.run_id === PROJECT_AWARE_RUN_ID
+    latestRun && latestRound && team && projectAwareEvidenceEnabled
   );
   const decisionContextEvidenceReady = Boolean(
     !projectAwareEvidenceExpected ||
@@ -1263,10 +1260,9 @@ export function App() {
               teamId={team?.team_id}
               tenantId={login.tenantId}
               token={activeSession?.access_token ?? ""}
+              onAvailabilityChange={setProjectAwareEvidenceEnabled}
             />
-            {latestRun &&
-            latestRun.course_id === PROJECT_AWARE_COURSE_ID &&
-            latestRun.run_id === PROJECT_AWARE_RUN_ID ? (
+            {latestRun && projectAwareEvidenceExpected ? (
               <Suspense fallback={<p className="muted">正在载入项目上下文…</p>}>
                 <ProjectAwareStudentContextPanel
                   baseUrl={API_BASE}
