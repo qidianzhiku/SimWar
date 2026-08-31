@@ -4,6 +4,7 @@ export interface ProjectAwareStudentContextRequest {
   baseUrl: string;
   courseId: string;
   runId: string;
+  roundId?: string | undefined;
   signal?: AbortSignal;
   teamId: string;
   tenantId: string;
@@ -56,6 +57,7 @@ export async function fetchProjectAwareStudentContext(
     run_id: input.runId,
     team_id: input.teamId
   });
+  if (input.roundId) query.set("round_id", input.roundId);
   const response = await fetch(
     apiUrl(input.baseUrl, `/api/v1/bff/student/project-aware-context?${query.toString()}`),
     {

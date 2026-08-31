@@ -66,6 +66,8 @@ describe("Project-aware launch contract", () => {
     }
     expect(openapi).toContain("ROUND_NOT_OPEN");
     expect(openapi).toContain("ProjectAwareLaunchReceiptEnvelope");
+    expect(openapi).toContain("StudentDecisionContextEvidence");
+    expect(openapi).toContain("decision_context_evidence");
   });
 
   it("declares the full evidence-bound blocker contract", () => {

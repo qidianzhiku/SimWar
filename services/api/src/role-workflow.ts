@@ -835,22 +835,7 @@ export class RoleWorkflowCommandService {
     const snapshot = await this.read(actor, input);
     this.assertRoundScope(snapshot);
     this.assertPostConfirmationMutable(snapshot);
-    const assignment = this.findActorAssignment(actor, snapshot);
-    const configuredPolicy = await this.dependencies.resolveW027DecisionPolicy?.(
-      { ...input, course_id: snapshot.run?.course_id ?? "", tenant_id: actor.tenant_id },
-      assignment.role_key
-    );
-    if (!configuredPolicy && snapshot.team!.captain_user_id !== actor.actor_id) {
-      throw new RoleWorkflowError("ROLE_WORKFLOW_CAPTAIN_REQUIRED");
-    }
-    if (
-      !(
-        configuredPolicy?.can_propose_resolution ??
-        DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key].can_create_merge_commit
-      )
-    ) {
-      throw new RoleWorkflowError("ROLE_WORKFLOW_MERGE_DENIED");
-    }
+    await this.assertResolutionProposalAllowed(actor, input, snapshot);
     const divergenceSet = this.buildDivergenceSet(snapshot, input);
     if (!divergenceSet) throw new RoleWorkflowError("ROLE_WORKFLOW_SECTIONS_NOT_READY");
     if (divergenceSet.divergences.length === 0) {
@@ -904,6 +889,32 @@ export class RoleWorkflowCommandService {
       resolution
     });
     return toSafeResolution(resolution);
+  }
+
+  /**
+   * Reuses a previously persisted resolution before the caller revalidates
+   * short-lived decision-context evidence. This keeps a lost-response retry
+   * idempotent while retaining the normal student and captain authorization
+   * checks and exact source/value binding.
+   */
+  async getExistingTeamResolution(
+    actor: RoleWorkflowActor,
+    input: TeamResolutionInput
+  ): Promise<TeamResolutionSafeDTO | undefined> {
+    this.requireStudent(actor);
+    const snapshot = await this.read(actor, input);
+    this.assertRoundScope(snapshot);
+    this.assertPostConfirmationMutable(snapshot);
+    await this.assertResolutionProposalAllowed(actor, input, snapshot);
+    const existing = snapshot.resolutions
+      .filter(
+        (resolution) =>
+          resolution.source_digest === input.source_digest &&
+          sameStrings(resolution.source_section_ids, input.source_section_ids) &&
+          stableSerialize(resolution.selected_values) === stableSerialize(input.selected_values)
+      )
+      .at(-1);
+    return existing ? toSafeResolution(existing) : undefined;
   }
 
   async acknowledgeResolution(
@@ -975,30 +986,142 @@ export class RoleWorkflowCommandService {
     return toSafeAcknowledgement(acknowledgement);
   }
 
+  /**
+   * Returns an exact acknowledgement already persisted for this actor's role.
+   * The lookup intentionally does not require current decision-context
+   * evidence: a lost-response retry must be able to recover the same safe
+   * process receipt after short-lived evidence changes.
+   */
+  async getExistingResolutionAcknowledgement(
+    actor: RoleWorkflowActor,
+    input: ResolutionAcknowledgementInput
+  ): Promise<ResolutionAcknowledgementSafeDTO | undefined> {
+    this.requireStudent(actor);
+    const snapshot = await this.read(actor, input);
+    this.assertRoundScope(snapshot);
+    const assignment = this.findActorAssignment(actor, snapshot);
+    const resolution = snapshot.resolutions.find(
+      (candidate) =>
+        candidate.resolution_id === input.resolution_id &&
+        candidate.round_id === input.round_id &&
+        candidate.run_id === input.run_id &&
+        candidate.team_id === input.team_id &&
+        candidate.tenant_id === actor.tenant_id
+    );
+    if (!resolution) return undefined;
+    const existing = snapshot.acknowledgements.find(
+      (candidate) =>
+        candidate.resolution_id === resolution.resolution_id &&
+        candidate.role_key === assignment.role_key &&
+        candidate.status === input.status &&
+        candidate.dissent_note === input.dissent_note
+    );
+    return existing ? toSafeAcknowledgement(existing) : undefined;
+  }
+
   async createMergeCommit(
     actor: RoleWorkflowActor,
     input: RoundWorkflowScope
   ): Promise<StudentRoleWorkflowMergeDTO> {
     const key = `${actor.tenant_id}:${input.run_id}:${input.team_id}:${input.round_id}`;
-    const previous = this.mergeLocks.get(key) ?? Promise.resolve();
-    let release!: () => void;
-    const current = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    this.mergeLocks.set(key, current);
-    await previous;
-    try {
-      return await this.createMergeCommitUnsafe(actor, input);
-    } finally {
-      release();
-      if (this.mergeLocks.get(key) === current) this.mergeLocks.delete(key);
+    return this.withWorkflowLock(key, () => this.createMergeCommitUnsafe(actor, input));
+  }
+
+  async getExistingMergeCommit(
+    actor: RoleWorkflowActor,
+    input: RoundWorkflowScope
+  ): Promise<StudentRoleWorkflowMergeDTO | undefined> {
+    const key = `${actor.tenant_id}:${input.run_id}:${input.team_id}:${input.round_id}`;
+    return this.withWorkflowLock(key, () => this.getExistingMergeCommitUnsafe(actor, input));
+  }
+
+  private async getExistingMergeCommitUnsafe(
+    actor: RoleWorkflowActor,
+    input: RoundWorkflowScope
+  ): Promise<StudentRoleWorkflowMergeDTO | undefined> {
+    this.requireStudent(actor);
+    const snapshot = await this.read(actor, input);
+    this.assertRoundScope(snapshot);
+    this.assertPostConfirmationMutable(snapshot);
+    const assignment = this.findActorAssignment(actor, snapshot);
+    const configuredPolicy = await this.dependencies.resolveW027DecisionPolicy?.(
+      { ...input, course_id: snapshot.run?.course_id ?? "", tenant_id: actor.tenant_id },
+      assignment.role_key
+    );
+    if (
+      !(
+        configuredPolicy?.can_merge_team_decision ??
+        DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key].can_create_merge_commit
+      )
+    ) {
+      throw new RoleWorkflowError("ROLE_WORKFLOW_MERGE_DENIED");
     }
+    if (!configuredPolicy && snapshot.team!.captain_user_id !== actor.actor_id) {
+      throw new RoleWorkflowError("ROLE_WORKFLOW_CAPTAIN_REQUIRED");
+    }
+    const activeAssignments = snapshot.assignments.filter(
+      (candidate) => candidate.status === "active"
+    );
+    const mergeOrder = roleMergeOrderForSnapshot(snapshot);
+    const currentSections = activeAssignments
+      .map((candidate) => this.latestSection(snapshot, candidate))
+      .sort(
+        (left, right) =>
+          mergeOrder.indexOf(left?.role_key as RoleId) -
+          mergeOrder.indexOf(right?.role_key as RoleId)
+      );
+    if (currentSections.length === 0 || currentSections.some((section) => !section))
+      return undefined;
+    const sourceSectionIds = currentSections.map((section) => section!.section_id);
+    const existing = snapshot.merge_commits.find((candidate) =>
+      sameStrings(candidate.source_section_ids, sourceSectionIds)
+    );
+    return existing ? toStudentMergeDto(existing) : undefined;
   }
 
   private async createMergeCommitUnsafe(
     actor: RoleWorkflowActor,
     input: RoundWorkflowScope
   ): Promise<StudentRoleWorkflowMergeDTO> {
+    const { readySections, resolution, sourceSectionIds, existing } = await this.loadMergeCandidate(
+      actor,
+      input
+    );
+    if (existing) return toStudentMergeDto(existing);
+
+    const mergeCommit: DecisionMergeCommit = {
+      created_at: this.now(),
+      created_by: actor.actor_id,
+      merge_commit_id: this.createId("merge_commit"),
+      merged_payload: buildMergedPayload(
+        readySections as RoleDecisionSection[],
+        resolution?.selected_values
+      ),
+      round_id: input.round_id,
+      run_id: input.run_id,
+      source_section_ids: sourceSectionIds,
+      status: "validated",
+      team_id: input.team_id,
+      tenant_id: actor.tenant_id
+    };
+    await this.repository.commitRoleWorkflow({
+      event: this.createEvent(actor, input, "merge_created", mergeCommit.merge_commit_id),
+      kind: "append_merge",
+      merge_commit: mergeCommit
+    });
+    return toStudentMergeDto(mergeCommit);
+  }
+
+  private async loadMergeCandidate(
+    actor: RoleWorkflowActor,
+    input: RoundWorkflowScope
+  ): Promise<{
+    snapshot: RoleWorkflowRepositorySnapshot;
+    readySections: Array<RoleDecisionSection | undefined>;
+    resolution?: TeamResolution;
+    sourceSectionIds: string[];
+    existing?: DecisionMergeCommit;
+  }> {
     this.requireStudent(actor);
     const snapshot = await this.read(actor, input);
     this.assertRoundScope(snapshot);
@@ -1049,29 +1172,13 @@ export class RoleWorkflowCommandService {
     const existing = snapshot.merge_commits.find((candidate) =>
       sameStrings(candidate.source_section_ids, sourceSectionIds)
     );
-    if (existing) return toStudentMergeDto(existing);
-
-    const mergeCommit: DecisionMergeCommit = {
-      created_at: this.now(),
-      created_by: actor.actor_id,
-      merge_commit_id: this.createId("merge_commit"),
-      merged_payload: buildMergedPayload(
-        readySections as RoleDecisionSection[],
-        resolution?.selected_values
-      ),
-      round_id: input.round_id,
-      run_id: input.run_id,
-      source_section_ids: sourceSectionIds,
-      status: "validated",
-      team_id: input.team_id,
-      tenant_id: actor.tenant_id
+    return {
+      readySections,
+      ...(resolution ? { resolution } : {}),
+      snapshot,
+      sourceSectionIds,
+      ...(existing ? { existing } : {})
     };
-    await this.repository.commitRoleWorkflow({
-      event: this.createEvent(actor, input, "merge_created", mergeCommit.merge_commit_id),
-      kind: "append_merge",
-      merge_commit: mergeCommit
-    });
-    return toStudentMergeDto(mergeCommit);
   }
 
   async confirmTeamDecision(
@@ -1082,33 +1189,24 @@ export class RoleWorkflowCommandService {
     return this.withWorkflowLock(key, () => this.confirmTeamDecisionUnsafe(actor, input));
   }
 
+  async getExistingTeamConfirmation(
+    actor: RoleWorkflowActor,
+    input: ConfirmTeamDecisionInput
+  ): Promise<TeamConfirmation | undefined> {
+    const key = `${actor.tenant_id}:${input.run_id}:${input.team_id}:${input.round_id}`;
+    return this.withWorkflowLock(key, async () => {
+      const { existing } = await this.loadConfirmableTeamDecision(actor, input);
+      return existing ? clone(existing) : undefined;
+    });
+  }
+
   private async confirmTeamDecisionUnsafe(
     actor: RoleWorkflowActor,
     input: ConfirmTeamDecisionInput
   ): Promise<TeamConfirmation> {
-    this.requireStudent(actor);
-    const snapshot = await this.read(actor, input);
-    this.assertRoundScope(snapshot);
-    const assignment = this.findActorAssignment(actor, snapshot);
-    const policy = DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key];
-    const configuredPolicy = await this.dependencies.resolveW027DecisionPolicy?.(
-      { ...input, course_id: snapshot.run?.course_id ?? "", tenant_id: actor.tenant_id },
-      assignment.role_key
-    );
-    if (
-      !(configuredPolicy?.can_confirm_team_decision ?? policy.can_submit_canonical_decision) ||
-      (!configuredPolicy &&
-        (assignment.role_key !== "CEO" || snapshot.team!.captain_user_id !== actor.actor_id))
-    ) {
-      throw new RoleWorkflowError("ROLE_WORKFLOW_CONFIRMATION_DENIED");
-    }
-    const mergeCommit = snapshot.merge_commits.find(
-      (candidate) => candidate.merge_commit_id === input.merge_commit_id
-    );
-    if (!mergeCommit) throw new RoleWorkflowError("ROLE_WORKFLOW_MERGE_NOT_FOUND");
-    this.assertCurrentMergeGeneration(snapshot, mergeCommit);
-    const existing = snapshot.confirmations.find(
-      (candidate) => candidate.merge_commit_id === input.merge_commit_id
+    const { existing, mergeCommit, snapshot } = await this.loadConfirmableTeamDecision(
+      actor,
+      input
     );
     if (existing) return clone(existing);
     this.assertPostConfirmationMutable(snapshot);
@@ -1153,6 +1251,41 @@ export class RoleWorkflowCommandService {
       kind: "append_confirmation"
     });
     return clone(confirmation);
+  }
+
+  private async loadConfirmableTeamDecision(
+    actor: RoleWorkflowActor,
+    input: ConfirmTeamDecisionInput
+  ): Promise<{
+    existing: TeamConfirmation | undefined;
+    mergeCommit: DecisionMergeCommit;
+    snapshot: RoleWorkflowRepositorySnapshot;
+  }> {
+    this.requireStudent(actor);
+    const snapshot = await this.read(actor, input);
+    this.assertRoundScope(snapshot);
+    const assignment = this.findActorAssignment(actor, snapshot);
+    const policy = DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key];
+    const configuredPolicy = await this.dependencies.resolveW027DecisionPolicy?.(
+      { ...input, course_id: snapshot.run?.course_id ?? "", tenant_id: actor.tenant_id },
+      assignment.role_key
+    );
+    if (
+      !(configuredPolicy?.can_confirm_team_decision ?? policy.can_submit_canonical_decision) ||
+      (!configuredPolicy &&
+        (assignment.role_key !== "CEO" || snapshot.team!.captain_user_id !== actor.actor_id))
+    ) {
+      throw new RoleWorkflowError("ROLE_WORKFLOW_CONFIRMATION_DENIED");
+    }
+    const mergeCommit = snapshot.merge_commits.find(
+      (candidate) => candidate.merge_commit_id === input.merge_commit_id
+    );
+    if (!mergeCommit) throw new RoleWorkflowError("ROLE_WORKFLOW_MERGE_NOT_FOUND");
+    this.assertCurrentMergeGeneration(snapshot, mergeCommit);
+    const existing = snapshot.confirmations.find(
+      (candidate) => candidate.merge_commit_id === input.merge_commit_id
+    );
+    return { existing, mergeCommit, snapshot };
   }
 
   async assertDirectDecisionSubmissionAllowed(
@@ -1313,6 +1446,29 @@ export class RoleWorkflowCommandService {
           sameStrings(resolution.source_section_ids, divergenceSet.source_section_ids)
       )
       .at(-1);
+  }
+
+  private async assertResolutionProposalAllowed(
+    actor: RoleWorkflowActor,
+    input: TeamResolutionInput,
+    snapshot: RoleWorkflowRepositorySnapshot
+  ): Promise<void> {
+    const assignment = this.findActorAssignment(actor, snapshot);
+    const configuredPolicy = await this.dependencies.resolveW027DecisionPolicy?.(
+      { ...input, course_id: snapshot.run?.course_id ?? "", tenant_id: actor.tenant_id },
+      assignment.role_key
+    );
+    if (!configuredPolicy && snapshot.team!.captain_user_id !== actor.actor_id) {
+      throw new RoleWorkflowError("ROLE_WORKFLOW_CAPTAIN_REQUIRED");
+    }
+    if (
+      !(
+        configuredPolicy?.can_propose_resolution ??
+        DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key].can_create_merge_commit
+      )
+    ) {
+      throw new RoleWorkflowError("ROLE_WORKFLOW_MERGE_DENIED");
+    }
   }
 
   private currentAcknowledgements(

@@ -1,0 +1,25 @@
+{
+  "schema_version": "student-decision-context-evidence.v1",
+  "evidence_id": "sdcx.v1.activity_consequence_course_demo_CEO_round_m31_1_run_m31_team_alpha_tenant_demo",
+  "evidence_version": "student-decision-context.v1",
+  "status": "READY",
+  "scope": {
+    "activity_id": "activity_consequence",
+    "course_id": "course_demo",
+    "role_key": "CEO",
+    "round_id": "round_m31",
+    "round_no": 1,
+    "run_id": "run_m31",
+    "team_id": "team_alpha",
+    "tenant_id": "tenant_demo"
+  },
+  "continuity": {
+    "context": "PROVEN",
+    "decision": "PROVEN",
+    "consequence": "PENDING_PUBLISH",
+    "debrief": "PENDING_PUBLISH",
+    "regional_transfer": "PENDING_PUBLISH"
+  },
+  "known_limits": ["Safe projection"],
+  "state_true": { "cash": 1 }
+}

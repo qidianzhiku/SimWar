@@ -113,6 +113,16 @@ function referenceOf(version: CoursePackageVersion): CoursePackageVersionReferen
   return createCoursePackageVersionReference(version);
 }
 
+function studentSourceBindingId(
+  version: CourseFactoryVersion,
+  sourceEvidence: CourseFactoryStudentEvidenceProjection
+): string {
+  return `source-${digest({
+    course_package_reference: createCoursePackageVersionReference(version),
+    source_evidence: sourceEvidence
+  }).slice(0, 24)}`;
+}
+
 function sameReference(
   left: CoursePackageVersionReference,
   right: CoursePackageVersionReference
@@ -158,6 +168,11 @@ function sameParameterReference(
 export interface CourseFactoryStudentExactBindingReferences {
   parameter_set_reference: ParameterSetReference;
   scenario_package_reference: ScenarioPackageReference;
+}
+
+export interface CourseFactoryStudentSourceEvidenceWithBinding {
+  source_binding_id: string;
+  source_evidence: CourseFactoryStudentEvidenceProjection;
 }
 
 function assertMetadata(versionTenantId: string, metadata: CourseFactoryMetadata): void {
@@ -530,10 +545,10 @@ export class CourseFactoryService {
    * and fail-closed: more than one matching published package is ambiguous,
    * while a stale or invalid M30 evidence reference is never projected.
    */
-  async getStudentSourceEvidence(
+  async getStudentSourceEvidenceWithBinding(
     tenantId: string,
     references: CourseFactoryStudentExactBindingReferences
-  ): Promise<CourseFactoryStudentEvidenceProjection | undefined> {
+  ): Promise<CourseFactoryStudentSourceEvidenceWithBinding | undefined> {
     const now = this.packageRegistry.currentTime();
     const candidates = (await this.packageRegistry.listForTenant(tenantId))
       .filter(isFactoryVersion)
@@ -567,13 +582,24 @@ export class CourseFactoryService {
       candidates[0]!.factory_metadata.source_evidence_reference!,
       "student"
     );
-    return {
+    const sourceEvidence: CourseFactoryStudentEvidenceProjection = {
       target_region: projection.target_region as "Hangzhou",
       epoch_version: projection.epoch_version as string,
       qualification_status: projection.qualification_status as "LIMITED",
       consumption_status: projection.consumption_status as "LOOKAHEAD_READY",
       exact_binding_required: true
     };
+    return {
+      source_binding_id: studentSourceBindingId(candidates[0]!, sourceEvidence),
+      source_evidence: sourceEvidence
+    };
+  }
+
+  async getStudentSourceEvidence(
+    tenantId: string,
+    references: CourseFactoryStudentExactBindingReferences
+  ): Promise<CourseFactoryStudentEvidenceProjection | undefined> {
+    return (await this.getStudentSourceEvidenceWithBinding(tenantId, references))?.source_evidence;
   }
 
   async getAudit(

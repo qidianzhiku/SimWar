@@ -232,6 +232,21 @@ describe("Project-aware launch BFF", () => {
       expect(store.w4.decisions).toHaveLength(0);
       expect(store.w4.outcomes).toHaveLength(0);
 
+      const studentBriefToken = await login(baseUrl, "student");
+      const studentBrief = await request<{
+        decision_context_evidence_required: boolean;
+        project_profile_reference: { project_profile_id: string };
+      }>(
+        baseUrl,
+        `/api/v1/bff/student/project-brief?course_id=course_demo&run_id=${M2P3_RUN_ID}&round_id=${M2P3_ROUND_ID}&team_id=team_alpha`,
+        { token: studentBriefToken }
+      );
+      expect(studentBrief.status, JSON.stringify(studentBrief.body)).toBe(200);
+      expect(studentBrief.body.data.decision_context_evidence_required).toBe(true);
+      expect(studentBrief.body.data.project_profile_reference.project_profile_id).toBe(
+        M2P3_PROFILE_ID
+      );
+
       const teacherWorkspace = await request<{
         live_round_ops: {
           exact_scope: { run_id: string; round_id: string };
@@ -323,7 +338,21 @@ describe("Project-aware launch BFF", () => {
       store.teams.push(betaTeam);
 
       const studentToken = await login(baseUrl, "student");
-      const studentContext = await request<{ scope: { team_id: string }; role_context: unknown }>(
+      const studentContext = await request<{
+        scope: { team_id: string };
+        role_context: unknown;
+        decision_context_evidence: {
+          status: string;
+          evidence_version: string;
+          scope: { course_id: string; run_id: string; round_no: number; team_id: string };
+          source_context?: {
+            target_region: string;
+            epoch_version: string;
+            qualification_status: string;
+          };
+          continuity: Record<string, string>;
+        };
+      }>(
         baseUrl,
         `/api/v1/bff/student/project-aware-context?course_id=course_demo&run_id=${M2P3_RUN_ID}&team_id=team_alpha`,
         { token: studentToken }
@@ -343,6 +372,88 @@ describe("Project-aware launch BFF", () => {
       expect(JSON.stringify(studentContext.body.data.course_factory_source_evidence)).not.toMatch(
         /digest|private|settlement|score|rank|raw_source/i
       );
+      expect(studentContext.body.data.decision_context_evidence).toMatchObject({
+        status: "READY",
+        evidence_version: "student-decision-context.v1",
+        scope: {
+          course_id: "course_demo",
+          run_id: M2P3_RUN_ID,
+          round_no: 1,
+          team_id: "team_alpha"
+        },
+        source_context: {
+          target_region: "Hangzhou",
+          epoch_version: "epoch-b.2026-08-30",
+          qualification_status: "LIMITED"
+        },
+        continuity: {
+          context: "PROVEN",
+          decision: "PROVEN",
+          consequence: "PENDING_PUBLISH",
+          debrief: "PENDING_PUBLISH",
+          regional_transfer: "PENDING_PUBLISH"
+        }
+      });
+      expect(JSON.stringify(studentContext.body.data.decision_context_evidence)).not.toMatch(
+        /raw_source|locator|digest|private|hidden_calibration|model_truth|state_true|score|rank|settlement/i
+      );
+
+      const decisionContextEvidenceId =
+        studentContext.body.data.decision_context_evidence.evidence_id;
+      const missingEvidenceSave = await request(
+        baseUrl,
+        "/api/v1/bff/student/role-workspace/section",
+        {
+          body: {
+            round_id: M2P3_ROUND_ID,
+            run_id: M2P3_RUN_ID,
+            team_id: "team_alpha",
+            expected_version: 0,
+            payload: { strategy_statement: "must remain blocked without exact evidence" }
+          },
+          method: "PUT",
+          token: studentToken
+        }
+      );
+      expect(missingEvidenceSave.status).toBe(409);
+      expect(missingEvidenceSave.body.code).toBe("STUDENT_DECISION_CONTEXT_EVIDENCE_REQUIRED");
+
+      const mismatchedEvidenceSave = await request(
+        baseUrl,
+        "/api/v1/bff/student/role-workspace/section",
+        {
+          body: {
+            decision_context_evidence_id: `${decisionContextEvidenceId}-mismatch`,
+            round_id: M2P3_ROUND_ID,
+            run_id: M2P3_RUN_ID,
+            team_id: "team_alpha",
+            expected_version: 0,
+            payload: { strategy_statement: "must remain blocked for mismatched evidence" }
+          },
+          method: "PUT",
+          token: studentToken
+        }
+      );
+      expect(mismatchedEvidenceSave.status).toBe(409);
+      expect(mismatchedEvidenceSave.body.code).toBe("STUDENT_DECISION_CONTEXT_EVIDENCE_REQUIRED");
+
+      const admittedEvidenceSave = await request(
+        baseUrl,
+        "/api/v1/bff/student/role-workspace/section",
+        {
+          body: {
+            decision_context_evidence_id: decisionContextEvidenceId,
+            round_id: M2P3_ROUND_ID,
+            run_id: M2P3_RUN_ID,
+            team_id: "team_alpha",
+            expected_version: 0,
+            payload: { strategy_statement: "exact source-backed context admitted" }
+          },
+          method: "PUT",
+          token: studentToken
+        }
+      );
+      expect(admittedEvidenceSave.status).toBe(200);
 
       const studentCockpit = await request<{
         project_context: {
@@ -390,5 +501,5 @@ describe("Project-aware launch BFF", () => {
       server.close();
       rmSync(directory, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 });

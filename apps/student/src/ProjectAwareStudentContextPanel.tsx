@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import type { ProjectAwareStudentContext } from "@simwar/shared-contracts";
+import type {
+  ProjectAwareStudentContext,
+  StudentDecisionContextEvidence
+} from "@simwar/shared-contracts";
 import { fetchProjectAwareStudentContext } from "./project-aware-student-context-client";
 
 void import("@simwar/ui/project-aware.css");
@@ -8,9 +11,11 @@ export interface ProjectAwareStudentContextPanelProps {
   baseUrl: string;
   courseId?: string | undefined;
   runId?: string | undefined;
+  roundId?: string | undefined;
   teamId?: string | undefined;
   tenantId: string;
   token: string;
+  onEvidenceChange?: (evidence: StudentDecisionContextEvidence | null) => void;
 }
 
 type PanelPhase = "empty" | "loading" | "ready" | "error";
@@ -49,6 +54,7 @@ export function ProjectAwareStudentContextPanel(props: ProjectAwareStudentContex
       setPhase("empty");
       setContext(null);
       setError("");
+      props.onEvidenceChange?.(null);
       return;
     }
 
@@ -56,10 +62,12 @@ export function ProjectAwareStudentContextPanel(props: ProjectAwareStudentContex
     setPhase("loading");
     setContext(null);
     setError("");
+    props.onEvidenceChange?.(null);
     void fetchProjectAwareStudentContext({
       baseUrl: props.baseUrl,
       courseId: props.courseId,
       runId: props.runId,
+      roundId: props.roundId,
       signal: controller.signal,
       teamId: props.teamId,
       tenantId: props.tenantId,
@@ -67,12 +75,21 @@ export function ProjectAwareStudentContextPanel(props: ProjectAwareStudentContex
     })
       .then((next) => {
         if (controller.signal.aborted) return;
+        if (!next.decision_context_evidence) {
+          setContext(null);
+          props.onEvidenceChange?.(null);
+          setError("当前页面暂时无法读取连续证据，请刷新后重试。");
+          setPhase("error");
+          return;
+        }
         setContext(next);
+        props.onEvidenceChange?.(next.decision_context_evidence);
         setPhase("ready");
       })
       .catch(() => {
         if (controller.signal.aborted) return;
         setContext(null);
+        props.onEvidenceChange?.(null);
         setError("当前页面暂时无法读取项目资料，请稍后重试。");
         setPhase("error");
       });
@@ -82,9 +99,11 @@ export function ProjectAwareStudentContextPanel(props: ProjectAwareStudentContex
     props.baseUrl,
     props.courseId,
     props.runId,
+    props.roundId,
     props.teamId,
     props.tenantId,
     props.token,
+    props.onEvidenceChange,
     reloadKey
   ]);
 
@@ -129,6 +148,60 @@ export function ProjectAwareStudentContextPanel(props: ProjectAwareStudentContex
 
       {context ? (
         <>
+          <article
+            className="sw-project-aware sw-project-aware--nested"
+            aria-label="学员决策上下文证据"
+            data-testid="student-decision-context-evidence"
+            data-evidence-status={context.decision_context_evidence.status}
+          >
+            <div className="sw-project-aware__receipt-heading">
+              <div>
+                <p className="sw-project-aware__eyebrow">决策上下文 · 连续证据</p>
+                <h3 className="sw-project-aware__receipt-title">
+                  {context.decision_context_evidence.status === "READY"
+                    ? "可继续使用同一 exact context"
+                    : "来源证据不可继续"}
+                </h3>
+              </div>
+              <strong className="sw-project-aware__badge" data-state="readonly">
+                {context.decision_context_evidence.status}
+              </strong>
+            </div>
+            <div className="sw-project-aware__metrics">
+              <article className="sw-project-aware__metric">
+                <span className="sw-project-aware__metric-label">证据版本</span>
+                <code className="sw-project-aware__code">
+                  {context.decision_context_evidence.evidence_version}
+                </code>
+              </article>
+              <article className="sw-project-aware__metric">
+                <span className="sw-project-aware__metric-label">连续 scope</span>
+                <strong className="sw-project-aware__metric-value">
+                  {context.decision_context_evidence.scope.round_id} ·{" "}
+                  {context.decision_context_evidence.scope.team_id}
+                </strong>
+              </article>
+              {context.decision_context_evidence.source_context ? (
+                <article className="sw-project-aware__metric">
+                  <span className="sw-project-aware__metric-label">来源状态</span>
+                  <strong className="sw-project-aware__metric-value">
+                    {context.decision_context_evidence.source_context.epoch_version} ·{" "}
+                    {context.decision_context_evidence.source_context.qualification_status}
+                  </strong>
+                </article>
+              ) : null}
+            </div>
+            {context.decision_context_evidence.blocker_codes ? (
+              <p className="sw-project-aware__note">
+                当前不会进入正式决策、后果或复盘链：
+                {context.decision_context_evidence.blocker_codes.join(" / ")}。
+              </p>
+            ) : (
+              <p className="sw-project-aware__note">
+                服务端为当前租户、课程、运行、回合、队伍返回同一只读证据身份；学生不获得原始来源或正式结果内部字段。
+              </p>
+            )}
+          </article>
           <div className="sw-project-aware__metrics">
             <article className="sw-project-aware__metric">
               <span className="sw-project-aware__metric-label">课程与运行</span>

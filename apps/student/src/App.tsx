@@ -14,6 +14,7 @@ import {
   M1_TEACHING_PRODUCT_PACKAGE,
   REAUTH_CONTEXT_STORAGE_KEY,
   isSameReauthBusinessContext,
+  normalizeW027RoleKey,
   parseReauthContext,
   serializeReauthContext,
   validateReauthIdentity,
@@ -28,6 +29,7 @@ import type {
   P0DemoState,
   DecisionPayloadFieldPath,
   StudentBffCockpitDTO,
+  StudentDecisionContextEvidence,
   W5GovernedModelStudentProjection,
   W3OfficialConsequenceContext
 } from "@simwar/shared-contracts";
@@ -37,7 +39,7 @@ import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { StudentLearningReportPanel } from "./StudentLearningReport";
 import { W3OfficialConsequenceLearningPanel } from "./W3OfficialConsequenceLearningPanel";
 const ShanghaiFullVerticalStudentPanel = lazy(() => import("./ShanghaiFullVerticalPanel"));
-import { ProjectBriefPanel } from "./ProjectBriefPanel";
+import { ProjectBriefPanel, type ProjectAwareEvidenceAvailability } from "./ProjectBriefPanel";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 import { RegionalTransferProjection } from "./features/regional-transfer-projection";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
@@ -123,8 +125,6 @@ function clearStoredReauthContext(): void {
     // Best effort only; no credential is stored here.
   }
 }
-const PROJECT_AWARE_COURSE_ID = import.meta.env.VITE_SIMWAR_PROJECT_AWARE_COURSE_ID ?? "";
-const PROJECT_AWARE_RUN_ID = import.meta.env.VITE_SIMWAR_PROJECT_AWARE_RUN_ID ?? "";
 const StudentDecisionLearningJourney = lazy(() => import("./P2BDecisionLearningJourney"));
 const W4EnterpriseStatePanel = lazy(async () => {
   const module = await import("./W4EnterpriseStatePanel");
@@ -428,6 +428,10 @@ async function apiRequest<TData>(
 export function App() {
   const [state, setState] = useState<P0DemoState | null>(null);
   const [cockpit, setCockpit] = useState<StudentBffCockpitDTO | null>(null);
+  const [decisionContextEvidence, setDecisionContextEvidence] =
+    useState<StudentDecisionContextEvidence | null>(null);
+  const [projectAwareEvidenceAvailability, setProjectAwareEvidenceAvailability] =
+    useState<ProjectAwareEvidenceAvailability>("checking");
   const [session, setSession] = useState<AuthSession | null>(null);
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [decision, setDecision] = useState<DecisionPayload>(defaultDecision);
@@ -502,8 +506,12 @@ export function App() {
   }, [latestRun, latestRound, team, state]);
 
   const isStudentSession = Boolean(session && isStudentSessionAllowed(session.user.roles));
-  const w3RoleKey =
-    team?.members.find((member) => member.user_id === session?.user.user_id)?.role_slot ?? "CEO";
+  const assignedW3RoleKey = team?.members.find(
+    (member) => member.user_id === session?.user.user_id
+  )?.role_slot as string | undefined;
+  const w3RoleKey = normalizeW027RoleKey(
+    (assignedW3RoleKey ?? "CEO") as Parameters<typeof normalizeW027RoleKey>[0]
+  );
   const w3QueryContext = readW3QueryContext();
   const w3Context =
     w3QueryContext ??
@@ -531,6 +539,8 @@ export function App() {
     }
     setState(null);
     setCockpit(null);
+    setDecisionContextEvidence(null);
+    setProjectAwareEvidenceAvailability("checking");
     setWorkspacePhase("loading");
     setRoleWorkflowAvailability("checking");
 
@@ -667,6 +677,8 @@ export function App() {
     setSession(null);
     setState(null);
     setCockpit(null);
+    setDecisionContextEvidence(null);
+    setProjectAwareEvidenceAvailability("checking");
     setWorkspacePhase("idle");
     setRoleWorkflowAvailability("checking");
     setDecision(defaultDecision);
@@ -921,12 +933,33 @@ export function App() {
     cockpit.student_cockpit.round_no === latestRound.round_no &&
     cockpit.student_cockpit.team_id === team.team_id
   );
+  const projectAwareEvidenceExpected = Boolean(
+    latestRun && latestRound && team && projectAwareEvidenceAvailability === "required"
+  );
+  const projectAwareEvidenceGateRequired = Boolean(
+    latestRun &&
+      latestRound &&
+      team &&
+      projectAwareEvidenceAvailability !== "disabled"
+  );
+  const decisionContextEvidenceReady = Boolean(
+    !projectAwareEvidenceGateRequired ||
+      (projectAwareEvidenceAvailability === "required" &&
+        decisionContextEvidence?.status === "READY" &&
+        decisionContextEvidence.scope.tenant_id === login.tenantId &&
+        decisionContextEvidence.scope.course_id === latestRun?.course_id &&
+        decisionContextEvidence.scope.run_id === latestRun?.run_id &&
+        decisionContextEvidence.scope.round_id === latestRound?.round_id &&
+        decisionContextEvidence.scope.round_no === latestRound?.round_no &&
+        decisionContextEvidence.scope.team_id === team?.team_id &&
+        decisionContextEvidence.scope.role_key === w3RoleKey)
+  );
   const desktopState = getStudentDecisionDesktopState({
     hasSession: Boolean(session),
     isStudentSession,
     workspacePhase,
     contextRecoveryState,
-    exactContextReady: desktopExactContextReady,
+    exactContextReady: desktopExactContextReady && decisionContextEvidenceReady,
     hasPublishedResult: Boolean(myResult)
   });
   function updateDesktopDecision(
@@ -1269,21 +1302,23 @@ export function App() {
             <ProjectBriefPanel
               courseId={latestRun?.course_id}
               runId={latestRun?.run_id}
+              roundId={latestRound?.round_id}
               teamId={team?.team_id}
               tenantId={login.tenantId}
               token={activeSession?.access_token ?? ""}
+              onAvailabilityChange={setProjectAwareEvidenceAvailability}
             />
-            {latestRun &&
-            latestRun.course_id === PROJECT_AWARE_COURSE_ID &&
-            latestRun.run_id === PROJECT_AWARE_RUN_ID ? (
+            {latestRun && projectAwareEvidenceExpected ? (
               <Suspense fallback={<p className="muted">正在载入项目上下文…</p>}>
                 <ProjectAwareStudentContextPanel
                   baseUrl={API_BASE}
                   courseId={latestRun.course_id}
                   runId={latestRun.run_id}
+                  roundId={latestRound?.round_id}
                   teamId={team?.team_id}
                   tenantId={login.tenantId}
                   token={activeSession?.access_token ?? ""}
+                  onEvidenceChange={setDecisionContextEvidence}
                 />
               </Suspense>
             ) : null}
@@ -1301,6 +1336,11 @@ export function App() {
                 tenantId={login.tenantId}
                 token={activeSession?.access_token}
                 activeRoleKeys={team ? team.members.map((member) => member.role_slot) : []}
+                decisionContextEvidenceId={
+                  projectAwareEvidenceExpected ? decisionContextEvidence?.evidence_id : undefined
+                }
+                decisionContextEvidenceRequired={projectAwareEvidenceGateRequired}
+                decisionContextEvidenceReady={decisionContextEvidenceReady}
                 onAvailabilityChange={setRoleWorkflowAvailability}
               />
             </Suspense>
@@ -1384,6 +1424,7 @@ export function App() {
             <StudentDecisionDesktop
               desktopState={desktopState}
               context={desktopContext}
+              decisionContextEvidence={decisionContextEvidence}
               cockpit={cockpit}
               decision={decision}
               {...(submittedDecision ? { submittedDecision } : {})}
@@ -1417,6 +1458,10 @@ export function App() {
                   tenantId={login.tenantId}
                   token={activeSession?.access_token ?? ""}
                   published={W3_ENABLED && w3ContextReady && Boolean(myResult)}
+                  decisionContextEvidence={
+                    projectAwareEvidenceExpected ? (decisionContextEvidence ?? null) : null
+                  }
+                  decisionContextEvidenceRequired={projectAwareEvidenceGateRequired}
                   crossRoundEnabled={W3_ENABLED && w3ContextReady}
                   m4={
                     latestRun &&
@@ -1438,7 +1483,7 @@ export function App() {
               <Suspense fallback={<p className="muted">正在载入 Student Coach…</p>}>
                 <StudentCoachPanel
                   apiBase={API_BASE}
-                  roleKey={w3RoleKey === "risk" ? "COO" : w3RoleKey}
+                  roleKey={w3RoleKey}
                   roundId={latestRound?.round_id}
                   runId={latestRun?.run_id}
                   teamId={team?.team_id}

@@ -35,6 +35,7 @@ export class M2P5DecisionLearningError extends Error {
       | "M2P5_SCOPE_VIOLATION"
       | "M2P5_ROUND_NOT_FOUND"
       | "M2P5_OFFICIAL_RESULT_NOT_PUBLISHED"
+      | "M2P5_CONTEXT_EVIDENCE_INVALID"
       | "M2P5_OUTPUT_INVALID"
   ) {
     super(code);

@@ -5,6 +5,7 @@ import type {
   W3OfficialConsequenceResponse
 } from "./w3-official-consequence-learning.js";
 import type { W4StateRef } from "./w4-enterprise-state.js";
+import type { StudentDecisionContextEvidence } from "./student-decision-context-evidence.js";
 
 export const M2P5_DECISION_LEARNING_SCHEMA_VERSION =
   "m2p5-decision-learning-crossround.v1" as const;
@@ -110,5 +111,6 @@ export interface M2P5DecisionLearningResponse {
   readonly project_context: M2P5ProjectContextProjection;
   readonly cross_round: M2P5CrossRoundProjection;
   readonly learning_loop: M2P6LearningLoopProjection;
+  readonly decision_context_evidence?: StudentDecisionContextEvidence;
   readonly known_limits: readonly string[];
 }

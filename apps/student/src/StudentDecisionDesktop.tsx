@@ -3,6 +3,7 @@ import type {
   Decision,
   DecisionPayload,
   DecisionPayloadFieldPath,
+  StudentDecisionContextEvidence,
   StudentBffCockpitDTO,
   StudentSafeTeamSettlement
 } from "@simwar/shared-contracts";
@@ -30,6 +31,7 @@ export type StudentDecisionDesktopRoleWorkflowAvailability =
 export interface StudentDecisionDesktopProps {
   desktopState: StudentDecisionDesktopState;
   context: StudentDecisionDesktopContext | null;
+  decisionContextEvidence?: StudentDecisionContextEvidence | null;
   cockpit: StudentBffCockpitDTO | null;
   decision: DecisionPayload;
   submittedDecision?: Decision;
@@ -170,6 +172,7 @@ function desktopStateCopy(state: StudentDecisionDesktopState): string {
 export function StudentDecisionDesktop({
   desktopState,
   context,
+  decisionContextEvidence,
   cockpit,
   decision,
   submittedDecision,
@@ -243,6 +246,39 @@ export function StudentDecisionDesktop({
           <strong>{context?.team_id ?? "未绑定"}</strong>
         </div>
       </div>
+
+      {decisionContextEvidence ? (
+        <div
+          className="bff-surface sdd-context-evidence"
+          data-testid="desktop-decision-context-evidence"
+          data-evidence-status={decisionContextEvidence.status}
+        >
+          <div>
+            <span>源证据决策上下文</span>
+            <strong>
+              {decisionContextEvidence.status === "READY" ? "可继续" : "已阻断"}
+            </strong>
+          </div>
+          <div>
+            <span>证据版本</span>
+            <strong>{decisionContextEvidence.evidence_version}</strong>
+          </div>
+          <div>
+            <span>连续 scope</span>
+            <strong>
+              {decisionContextEvidence.scope.round_id} · {decisionContextEvidence.scope.team_id}
+            </strong>
+          </div>
+          {decisionContextEvidence.source_context ? (
+            <div>
+              <span>来源资格</span>
+              <strong>
+                {decisionContextEvidence.source_context.target_region} · {decisionContextEvidence.source_context.qualification_status}
+              </strong>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <ol className="board sdd-spine" aria-label="Decision Spine">
         {spineSteps.map(([key, label, description], index) => {
