@@ -350,6 +350,70 @@ describe("ProjectProfile / ProjectAssignment authority", () => {
     ).rejects.toMatchObject({ code: "PROJECT_ASSIGNMENT_RETIRED" });
   });
 
+  it("fails closed when an existing student assignment points to a retired profile", async () => {
+    const store = seedRunAndSecondTeam();
+    const service = new ProjectLibraryService(store);
+    const source = await service.createDraft(actor, {
+      course_id: "course_demo",
+      project_profile: draftInput("retired-assigned-project", "2026-08-21.1")
+    });
+    const validated = await service.validate(actor, {
+      course_id: "course_demo",
+      project_profile_ref: ref(source)
+    });
+    const assignment = await service.assign(actor, {
+      course_id: "course_demo",
+      project_profile_ref: ref(validated),
+      run_id: "run_project_library",
+      team_id: "team_alpha"
+    });
+    await service.retire(actor, {
+      course_id: "course_demo",
+      project_profile_ref: ref(validated)
+    });
+
+    await expect(
+      service.getStudentDecisionContextAssignmentBinding({
+        assignment_id: assignment.assignment.assignment_id,
+        course_id: "course_demo",
+        run_id: "run_project_library",
+        team_id: "team_alpha",
+        tenant_id: "tenant_demo",
+        user_id: "usr_student"
+      })
+    ).rejects.toMatchObject({ code: "PROJECT_ASSIGNMENT_RETIRED" });
+  });
+
+  it("binds the student evidence admission to the exact assigned profile reference", async () => {
+    const service = new ProjectLibraryService(seedRunAndSecondTeam());
+    const profile = await service.createDraft(actor, {
+      course_id: "course_demo",
+      project_profile: draftInput("binding-project", "2026-08-21.1")
+    });
+    const validated = await service.validate(actor, {
+      course_id: "course_demo",
+      project_profile_ref: ref(profile)
+    });
+    const assignment = await service.assign(actor, {
+      course_id: "course_demo",
+      project_profile_ref: ref(validated),
+      run_id: "run_project_library",
+      team_id: "team_alpha"
+    });
+
+    const binding = await service.getStudentDecisionContextAssignmentBinding({
+      assignment_id: assignment.assignment.assignment_id,
+      course_id: "course_demo",
+      run_id: "run_project_library",
+      team_id: "team_alpha",
+      tenant_id: "tenant_demo",
+      user_id: "usr_student"
+    });
+    expect(binding.assignment_id).toBe(assignment.assignment.assignment_id);
+    expect(binding.project_profile_binding_id).toMatch(/^[a-f0-9]{24}$/);
+    expect(binding.project_profile_reference).toEqual(ref(validated));
+  });
+
   it("requires a valid future-effective timestamp for successors", async () => {
     const service = new ProjectLibraryService(seedRunAndSecondTeam());
     const source = await service.createDraft(actor, {

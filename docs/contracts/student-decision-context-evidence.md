@@ -16,10 +16,13 @@ may remain `LIMITED` and calibration may remain `NOT_PROVEN`.
 ## Exact scope and lifecycle
 
 The resolver accepts an exact scope containing tenant, course, run, team,
-round, round number, activity, and assigned role. The returned identity is
-also bound to the selected CourseFactory package/source references and their
-immutable digest. A client may continue only with the exact `evidence_id`
-returned for that scope.
+round, round number, activity, and assigned role. It also re-reads the one
+exact student assignment and requires its immutable profile reference to be
+`VALIDATED` and compatible with the course market-world reference. The
+returned opaque identity is bound to the selected CourseFactory
+package/source references, the assignment identity, and an opaque binding
+fingerprint derived from the exact profile reference. A client may continue
+only with the exact `evidence_id` returned for that scope.
 
 Only a server-confirmed `READY` receipt is admissible to the project-aware
 student action path. The receipt must still match all of the following:
@@ -30,11 +33,12 @@ student action path. The receipt must still match all of the following:
 - the current published CourseFactory package/source identity and digest;
 - the source rights, expiry, geography, unit, and qualification fields.
 
-Missing, ambiguous, stale, expired, withdrawn, mismatched, or unauthorized
-evidence fails closed. A project-aware request cannot silently fall back to an
-implicit latest package, raw source, private locator, hidden model state, or
-another team's context. The student projection exposes only the allowlisted
-safe context and lifecycle state.
+Missing, ambiguous, stale, expired, withdrawn, retired, dependency-mismatched,
+or unauthorized evidence fails closed. A project-aware request cannot
+silently fall back to an implicit latest package, raw source, private locator,
+hidden model state, or another team's context. The student projection exposes
+only the allowlisted safe context and lifecycle state; the assignment identity
+is opaque and does not expose the profile reference or source digest.
 
 ## Where the gate applies
 

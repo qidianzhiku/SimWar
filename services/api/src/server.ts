@@ -1307,9 +1307,12 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
         tenant_id: context.tenant_id
       })
   });
+  const projectLibrary = new ProjectLibraryService(store);
   const resolveStudentDecisionContextEvidence = async ({
+    actor,
     context
   }: {
+    actor: M2P5DecisionLearningActor;
     context: M2P5DecisionLearningContext;
   }) => {
     const run = await repositoryProvider.facade.runs.getRun(context.tenant_id, context.run_id);
@@ -1327,6 +1330,19 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     ) {
       return undefined;
     }
+    let assignmentBinding;
+    try {
+      assignmentBinding = await projectLibrary.getStudentDecisionContextAssignmentBinding({
+        course_id: context.course_id,
+        run_id: context.run_id,
+        team_id: context.team_id,
+        tenant_id: context.tenant_id,
+        user_id: actor.user_id
+      });
+    } catch (error) {
+      if (error instanceof ProjectLibraryError) return undefined;
+      throw error;
+    }
     const sourceEvidenceBinding = await courseFactory.getStudentSourceEvidenceWithBinding(
       context.tenant_id,
       {
@@ -1337,7 +1353,13 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     return createStudentDecisionContextEvidence(
       context,
       sourceEvidenceBinding?.source_evidence,
-      sourceEvidenceBinding?.source_binding_id
+      [
+        sourceEvidenceBinding?.source_binding_id,
+        `assignment-${assignmentBinding.assignment_id}`,
+        `profile-${assignmentBinding.project_profile_binding_id}`
+      ]
+        .filter((value): value is string => Boolean(value))
+        .join(".")
     );
   };
   const o4CrossRoundDynamics = new O4CrossRoundDynamicsService({
@@ -1347,7 +1369,6 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
         .then((run) => (run ? { course_id: run.course_id } : null)),
     readW4State: () => w4EnterpriseStateRepository.snapshot()
   });
-  const projectLibrary = new ProjectLibraryService(store);
   const ensureFormalRunOpen = async (
     _actor: {
       actor_id: string;
@@ -8794,6 +8815,7 @@ async function routeRequest(
   }
 
   if (request.method === "GET" && url.pathname === "/api/v1/bff/student/project-aware-context") {
+    const authenticatedActor = requireActor(context);
     const actor = roleWorkflowActor(context, "student");
     const courseId = url.searchParams.get("course_id")?.trim() ?? "";
     const runId = url.searchParams.get("run_id")?.trim() ?? "";
@@ -8850,8 +8872,7 @@ async function routeRequest(
             })
           : undefined;
       const courseFactorySourceEvidence = courseFactorySourceEvidenceBinding?.source_evidence;
-      const decisionContextEvidence = createStudentDecisionContextEvidence(
-        {
+      const decisionContext = {
           activity_id: "activity_consequence",
           course_id: courseId,
           role_key: workspace.context.role_key,
@@ -8860,10 +8881,16 @@ async function routeRequest(
           run_id: runId,
           team_id: teamId,
           tenant_id: actor.tenant_id
+        } as const;
+      const decisionContextEvidence = await runtime.resolveStudentDecisionContextEvidence({
+        actor: {
+          roles: authenticatedActor.roles,
+          tenant_id: authenticatedActor.tenant_id,
+          user_id: authenticatedActor.user_id,
+          ...(authenticatedActor.team_id ? { team_id: authenticatedActor.team_id } : {})
         },
-        courseFactorySourceEvidence,
-        courseFactorySourceEvidenceBinding?.source_binding_id
-      );
+        context: decisionContext
+      });
       sendJson(
         response,
         200,
