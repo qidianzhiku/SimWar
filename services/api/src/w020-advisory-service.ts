@@ -5,10 +5,14 @@ import {
   type CurrentUser,
   type W020AdvisoryAuditDto,
   type W020AdvisoryContext,
+  type W020AdvisoryEvaluation,
+  type W020AdvisoryPolicy,
   type W020AdvisoryProjection,
   type W020AdvisoryReceipt,
   type W020AdvisoryRecord,
   type W020AdvisoryRequest,
+  type W020AdvisorySurface,
+  type W020EvidenceCitation,
   type W020RoleKey
 } from "@simwar/shared-contracts";
 import type {
@@ -20,8 +24,18 @@ const KNOWN_LIMITS = [
   "JSON_INTERNAL_ONLY is the active runtime authority.",
   "The deterministic mock is advisory-only and does not prove AI effectiveness.",
   "Human Validation, Pilot and Production are not performed or authorized.",
-  "Durable recovery and external provider integration are not proven."
+  "Durable recovery and external provider integration are not proven.",
+  "Human review remains the final authority for every recommendation."
 ] as const;
+
+const STUDENT_SURFACES = new Set<W020AdvisorySurface>(["student_role", "student_coach"]);
+const TEACHER_SURFACES = new Set<W020AdvisorySurface>([
+  "teacher_copilot",
+  "teacher_debrief",
+  "rubric_assistant",
+  "competitive_challenge",
+  "stakeholder_challenge"
+]);
 
 export class W020AdvisoryError extends Error {
   constructor(
@@ -88,15 +102,140 @@ function assertId(value: string | undefined): string {
   return value;
 }
 
+function titleForSurface(surface: W020AdvisorySurface): string {
+  const titles: Record<W020AdvisorySurface, string> = {
+    competitive_challenge: "Competitive Challenge",
+    rubric_assistant: "Debrief Rubric Assistant",
+    stakeholder_challenge: "Stakeholder Challenge",
+    student_coach: "Student Coach",
+    student_role: "Student Role Advisor",
+    teacher_copilot: "Teacher Copilot",
+    teacher_debrief: "Teacher Debrief Advisor"
+  };
+  return titles[surface];
+}
+
+interface DerivedEvidence {
+  citations: W020EvidenceCitation[];
+  qualified_event_count: number;
+  refs: string[];
+}
+
+function citationsForContext(
+  context: W020AdvisoryContext,
+  candidateRefs: readonly string[]
+): DerivedEvidence {
+  const fallbackRef = `context:${context.context_digest}`;
+  if (
+    context.source_event_ids.length === 0 &&
+    (candidateRefs.length === 0 || (candidateRefs.length === 1 && candidateRefs[0] === fallbackRef))
+  ) {
+    return {
+      citations: [
+        {
+          citation_id: fallbackRef,
+          label: "No source event evidence available",
+          source_id: context.context_digest,
+          source_type: "governed_context"
+        }
+      ],
+      qualified_event_count: 0,
+      refs: [fallbackRef]
+    };
+  }
+
+  const seen = new Set<string>();
+  const citations: W020EvidenceCitation[] = [];
+  for (const candidateRef of candidateRefs) {
+    const sourceId = candidateRef.startsWith("event:")
+      ? candidateRef.slice("event:".length)
+      : candidateRef;
+    const sourceIndex = context.source_event_ids.indexOf(sourceId);
+    if (sourceIndex < 0) {
+      return { citations: [], qualified_event_count: 0, refs: [] };
+    }
+    const citationId = `event:${sourceId}`;
+    if (seen.has(citationId)) continue;
+    seen.add(citationId);
+    citations.push({
+      citation_id: citationId,
+      label: context.source_event_types[sourceIndex] ?? "workflow_event",
+      source_id: sourceId,
+      source_type: "workflow_event"
+    });
+  }
+  return {
+    citations,
+    qualified_event_count: citations.length,
+    refs: citations.map((citation) => citation.citation_id)
+  };
+}
+
+function policy(): W020AdvisoryPolicy {
+  return {
+    formal_truth_write: false,
+    human_final_authority: true,
+    pre_publish_student_exposure: false,
+    provider: "OFF"
+  };
+}
+
+function evaluation(qualifiedEventCount: number): W020AdvisoryEvaluation {
+  const hasSourceEvidence = qualifiedEventCount > 0;
+  return {
+    checks: [
+      "exact_course_run_round_team_binding",
+      "role_scope_allowlist",
+      "evidence_citation_present",
+      "provider_off",
+      "formal_truth_write_false",
+      "human_final_authority"
+    ],
+    fallback: hasSourceEvidence ? "deterministic_rule" : "abstain_no_source_evidence",
+    status: hasSourceEvidence ? "passed" : "abstained"
+  };
+}
+
 function projection(record: W020AdvisoryRecord): W020AdvisoryProjection {
+  const evidence = citationsForContext(record.context, record.coach_output.evidence_refs);
+  const evaluated = evaluation(evidence.qualified_event_count);
   return {
     advisory_only: true,
-    evidence_refs: [...record.context.source_event_ids],
-    known_limits: [...KNOWN_LIMITS],
+    evidence_citations: evidence.citations,
+    evaluation: evaluated,
+    evidence_refs: evidence.refs,
+    known_limits: [
+      ...KNOWN_LIMITS,
+      ...(evaluated.status === "abstained"
+        ? ["No source events were available; the assistant abstained."]
+        : [])
+    ],
+    policy: policy(),
     recommendations: [record.coach_output.advisory_text],
     surface: record.surface,
-    title: record.surface === "student_role" ? "Student Role Advisor" : "Teacher Debrief Advisor"
+    title: titleForSurface(record.surface)
   };
+}
+
+function scopesForSurface(
+  roleKey: W020RoleKey | undefined,
+  surface: W020AdvisorySurface
+): string[] {
+  if (roleKey)
+    return [...(DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[roleKey]?.advisory_scopes ?? [])];
+  return surface === "teacher_copilot"
+    ? ["strategy", "cross_functional_alignment"]
+    : surface === "rubric_assistant"
+      ? ["learning_objectives", "rubric"]
+      : surface.endsWith("challenge")
+        ? ["bounded_challenge", "evidence_review"]
+        : ["debrief"];
+}
+
+function supportedRoleKey(value: string | undefined): W020RoleKey | undefined {
+  return value && ["CEO", "CFO", "CMO", "COO", "CHRO"].includes(value)
+    ? (value as W020RoleKey)
+    : undefined;
 }
 
 export interface W020AdvisoryServiceDependencies {
@@ -114,6 +253,22 @@ export class GovernedAdvisoryService {
   constructor(private readonly dependencies: W020AdvisoryServiceDependencies) {
     this.gateway = dependencies.gateway ?? createDeterministicMockGateway();
     this.now = dependencies.now ?? (() => new Date().toISOString());
+  }
+
+  async createAdvisory(
+    actor: W020Actor,
+    request: W020AdvisoryRequest,
+    requestId: string
+  ): Promise<W020AdvisoryReceipt> {
+    const actorRole = roleForActor(actor);
+    if (STUDENT_SURFACES.has(request.surface)) {
+      if (actorRole !== "student" || !actor.team_id || request.team_id !== actor.team_id)
+        throw new W020AdvisoryError("W020_FORBIDDEN");
+      return this.create(actor, request, requestId, actorRole);
+    }
+    if (!TEACHER_SURFACES.has(request.surface) || actorRole === "student")
+      throw new W020AdvisoryError("W020_FORBIDDEN");
+    return this.create(actor, request, requestId, actorRole);
   }
 
   async createStudentRoleAdvisory(
@@ -201,9 +356,8 @@ export class GovernedAdvisoryService {
     if (actorRole === "student" && (!assignment || assignment.user_id !== actor.user_id))
       throw new W020AdvisoryError("W020_FORBIDDEN");
     const roleKey = assignment?.role_key ?? request.role_key;
-    const scopes = roleKey
-      ? [...(DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[roleKey]?.advisory_scopes ?? [])]
-      : ["debrief"];
+    const advisoryRoleKey = supportedRoleKey(roleKey);
+    const scopes = scopesForSurface(advisoryRoleKey, request.surface);
     if (scopes.length === 0) throw new W020AdvisoryError("W020_FORBIDDEN");
     const safeEvents = snapshot.events
       .filter((event) => !event.round_id || event.round_id === roundId)
@@ -220,7 +374,7 @@ export class GovernedAdvisoryService {
       context_digest: digest({
         actor_role: actorRole,
         course_id: snapshot.course.course_id,
-        role_key: roleKey ?? null,
+        role_key: advisoryRoleKey ?? null,
         round_id: roundId,
         run_id: runId,
         source_events: safeEvents,
@@ -229,7 +383,7 @@ export class GovernedAdvisoryService {
       }),
       course_id: snapshot.course.course_id,
       discriminator: "w020_role_safe_context",
-      ...(roleKey ? { role_key: roleKey as W020RoleKey } : {}),
+      ...(advisoryRoleKey ? { role_key: advisoryRoleKey } : {}),
       round_id: roundId,
       run_id: runId,
       source_event_ids: safeEvents.map((event) => event.event_id),
@@ -244,13 +398,27 @@ export class GovernedAdvisoryService {
       surface: request.surface
     });
     return this.withWriteLock(async () => {
-      const existing = (await this.dependencies.repository.list(actor.tenant_id)).find(
+      const existingRecords = (await this.dependencies.repository.list(actor.tenant_id)).filter(
         (record) => record.idempotency_key === idempotencyKey
       );
-      if (existing) {
-        if (existing.request_digest !== requestDigest)
-          throw new W020AdvisoryError("W020_DUPLICATE_CONFLICT");
-        return this.receipt(existing, requestId, "reused");
+      if (existingRecords.length > 0) {
+        const sameClientScope = existingRecords.filter(
+          (record) =>
+            record.tenant_id === actor.tenant_id &&
+            record.context.actor_id_hash === context.actor_id_hash &&
+            record.context.actor_role === context.actor_role &&
+            record.context.course_id === context.course_id &&
+            record.context.run_id === context.run_id &&
+            record.context.round_id === context.round_id &&
+            record.context.team_id === context.team_id &&
+            record.surface === request.surface &&
+            (record.context.role_key ?? null) === (context.role_key ?? null)
+        );
+        if (sameClientScope.length === 0) throw new W020AdvisoryError("W020_DUPLICATE_CONFLICT");
+        const sameContext = sameClientScope.find(
+          (record) => record.request_digest === requestDigest
+        );
+        if (sameContext) return this.receipt(sameContext, requestId, "reused");
       }
       const gatewayInput: AgentGatewayInput = {
         context,
@@ -259,8 +427,12 @@ export class GovernedAdvisoryService {
       };
       const generated = this.gateway.generate(gatewayInput);
       const createdAt = this.now();
+      const evidence = citationsForContext(context, generated.coach_output.evidence_refs);
       const record: W020AdvisoryRecord = {
-        coach_output: generated.coach_output,
+        coach_output: {
+          ...generated.coach_output,
+          evidence_refs: evidence.refs
+        },
         context,
         created_at: createdAt,
         discriminator: "w020_advisory_record",

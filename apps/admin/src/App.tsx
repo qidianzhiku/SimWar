@@ -62,6 +62,13 @@ import { ProjectAwareLaunchAuditPanel } from "./ProjectAwareLaunchAuditPanel";
 import { OperatingWorldAuditPanel } from "./OperatingWorldAuditPanel";
 import { W5GovernedModelAuditPanel } from "./W5GovernedModelAuditPanel";
 const ModelQualificationAuditPanel = lazy(() => import("./ModelQualificationAuditPanel"));
+const GovernedIntelligenceAuditPanel = lazy(() =>
+  import("./GovernedIntelligenceAuditPanel").then(
+    ({ GovernedIntelligenceAuditPanel: Component }) => ({
+      default: Component
+    })
+  )
+);
 import { GovernedStakeholderIntelligenceAuditPanel } from "./GovernedStakeholderIntelligenceAuditPanel";
 const ExecutiveStrategyLabAuditPanel = lazy(() =>
   import("./ExecutiveStrategyLabAuditPanel").then(
@@ -1183,6 +1190,15 @@ export function App() {
             tenantId={login.tenantId}
             token={session.access_token}
           />
+        ) : null}
+        {session && hasAdminSummaryRole ? (
+          <Suspense fallback={<p className="muted">正在载入 Governed Intelligence audit…</p>}>
+            <GovernedIntelligenceAuditPanel
+              apiBase={API_BASE}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+          </Suspense>
         ) : null}
         {session && hasAdminSummaryRole ? (
           <Suspense fallback={<p className="muted">正在载入 Executive Strategy Lab audit…</p>}>

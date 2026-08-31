@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { CurrentUser } from "@simwar/shared-contracts";
+import type { CurrentUser, W020AdvisorySurface } from "@simwar/shared-contracts";
 import { GovernedAdvisoryService, W020AdvisoryError } from "../w020-advisory-service.js";
 
 export interface W020AdvisoryRouteContext {
@@ -14,6 +14,7 @@ export interface W020AdvisoryRouteHelpers {
   createEnvelope(context: W020AdvisoryRouteContext, payload: unknown): unknown;
   requireStudent(context: W020AdvisoryRouteContext): void;
   requireTeacher(context: W020AdvisoryRouteContext): void;
+  requireTeacherOrAdmin(context: W020AdvisoryRouteContext): void;
 }
 
 function object(value: unknown): Record<string, unknown> {
@@ -22,7 +23,7 @@ function object(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-function parseRequest(value: unknown, surface: "student_role" | "teacher_debrief") {
+function parseRequest(value: unknown, surface: W020AdvisorySurface) {
   const body = object(value);
   const allowed = [
     "discriminator",
@@ -31,7 +32,7 @@ function parseRequest(value: unknown, surface: "student_role" | "teacher_debrief
     "round_id",
     "team_id",
     "idempotency_key",
-    ...(surface === "student_role" ? ["role_key"] : [])
+    ...(surface === "student_role" || surface === "student_coach" ? ["role_key"] : [])
   ];
   if (
     Object.keys(body).some((key) => !allowed.includes(key)) ||
@@ -97,23 +98,30 @@ export async function handleW020AdvisoryRoute(
   helpers: W020AdvisoryRouteHelpers
 ): Promise<boolean> {
   const isStudent = url.pathname.startsWith("/api/v1/bff/student/advisors");
+  const isStudentIntelligence = url.pathname.startsWith("/api/v1/bff/student/intelligence");
   const isTeacher = url.pathname.startsWith("/api/v1/bff/teacher/advisors");
-  if (!isStudent && !isTeacher) return false;
+  const isTeacherIntelligence = url.pathname.startsWith("/api/v1/bff/teacher/intelligence");
+  if (!isStudent && !isStudentIntelligence && !isTeacher && !isTeacherIntelligence) return false;
   try {
-    if (isStudent) {
+    if (isStudent || isStudentIntelligence) {
       helpers.requireStudent(context);
-      if (request.method !== "POST" || url.pathname !== "/api/v1/bff/student/advisors/role")
-        throw new W020AdvisoryError("W020_FORBIDDEN");
-      const receipt = await service.createStudentRoleAdvisory(
+      const surface =
+        url.pathname === "/api/v1/bff/student/advisors/role"
+          ? "student_role"
+          : url.pathname === "/api/v1/bff/student/intelligence/coach"
+            ? "student_coach"
+            : null;
+      if (request.method !== "POST" || !surface) throw new W020AdvisoryError("W020_FORBIDDEN");
+      const receipt = await service.createAdvisory(
         context.actor,
-        parseRequest(await helpers.readJson(request), "student_role"),
+        parseRequest(await helpers.readJson(request), surface),
         context.requestId
       );
       helpers.sendJson(response, 201, helpers.createEnvelope(context, receipt));
       return true;
     }
-    helpers.requireTeacher(context);
     if (request.method === "GET" && url.pathname === "/api/v1/bff/teacher/advisors/audit") {
+      helpers.requireTeacherOrAdmin(context);
       helpers.sendJson(
         response,
         200,
@@ -124,10 +132,19 @@ export async function handleW020AdvisoryRoute(
       );
       return true;
     }
-    if (request.method === "POST" && url.pathname === "/api/v1/bff/teacher/advisors/debrief") {
-      const receipt = await service.createTeacherDebriefAdvisory(
+    helpers.requireTeacher(context);
+    const surfaceByPath: Record<string, W020AdvisorySurface> = {
+      "/api/v1/bff/teacher/advisors/debrief": "teacher_debrief",
+      "/api/v1/bff/teacher/intelligence/challenge/competitive": "competitive_challenge",
+      "/api/v1/bff/teacher/intelligence/challenge/stakeholder": "stakeholder_challenge",
+      "/api/v1/bff/teacher/intelligence/copilot": "teacher_copilot",
+      "/api/v1/bff/teacher/intelligence/rubric": "rubric_assistant"
+    };
+    const surface = surfaceByPath[url.pathname];
+    if (request.method === "POST" && surface) {
+      const receipt = await service.createAdvisory(
         context.actor,
-        parseRequest(await helpers.readJson(request), "teacher_debrief"),
+        parseRequest(await helpers.readJson(request), surface),
         context.requestId
       );
       helpers.sendJson(response, 201, helpers.createEnvelope(context, receipt));

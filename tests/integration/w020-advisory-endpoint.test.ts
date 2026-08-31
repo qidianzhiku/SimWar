@@ -4,9 +4,9 @@ import { handleW020AdvisoryRoute } from "../../services/api/src/routes/w020-advi
 import { GovernedAdvisoryService } from "../../services/api/src/w020-advisory-service.js";
 
 const actor: CurrentUser = {
-  display_name: "Teacher",
+  display_name: "Tenant Admin",
   permissions: ["course:read"],
-  roles: ["teacher"],
+  roles: ["tenant_admin"],
   tenant_id: "tenant_demo",
   user_id: "usr_teacher"
 };
@@ -25,7 +25,7 @@ function response() {
 }
 
 describe("W020 advisory BFF routes", () => {
-  it("keeps student surface separate from teacher audit and returns safe projection", async () => {
+  it("keeps student surface separate from tenant-admin audit and returns safe projection", async () => {
     const records: never[] = [];
     const service = new GovernedAdvisoryService({
       repository: {
@@ -64,7 +64,8 @@ describe("W020 advisory BFF routes", () => {
       },
       createEnvelope: (_context: unknown, payload: unknown) => ({ code: "OK", data: payload }),
       requireStudent: () => undefined,
-      requireTeacher: () => undefined
+      requireTeacher: () => undefined,
+      requireTeacherOrAdmin: () => undefined
     };
     const handled = await handleW020AdvisoryRoute(
       service,

@@ -102,6 +102,7 @@ import { ValidationSessionWorkbench } from "./ValidationSessionWorkbench";
 const W5GovernedModelStudio = lazy(() => import("./W5GovernedModelStudio"));
 const ModelQualificationWorkbench = lazy(() => import("./ModelQualificationWorkbench"));
 const ShanghaiFullVerticalTeacherPanel = lazy(() => import("./ShanghaiFullVerticalPanel"));
+const GovernedIntelligenceWorkspace = lazy(() => import("./GovernedIntelligenceWorkspace"));
 import { MarketWorldBindingPanel } from "./MarketWorldBindingPanel";
 import { ProjectLibraryPanel } from "./ProjectLibraryPanel";
 import { ProjectAwareCourseLaunchPanel } from "./ProjectAwareCourseLaunchPanel";
@@ -3719,6 +3720,24 @@ export function App() {
             tenantId={login.tenantId}
             token={session.access_token}
           />
+        ) : null}
+        {isTeacher && session ? (
+          <Suspense fallback={<p className="muted">正在载入 W6 受治理智能辅助…</p>}>
+            <GovernedIntelligenceWorkspace
+              apiBase={API_BASE}
+              roundId={selectedRound?.round_id}
+              runId={selectedRun?.run_id}
+              teamId={
+                state?.teams.find((candidate) => candidate.course_id === selectedRun?.course_id)
+                  ?.team_id
+              }
+              teamIds={state?.teams
+                .filter((candidate) => candidate.course_id === selectedRun?.course_id)
+                .map((candidate) => candidate.team_id)}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+          </Suspense>
         ) : null}
       </TeacherLocation>
 
