@@ -918,11 +918,10 @@ export function App() {
     latestRun &&
       latestRound &&
       team &&
-      projectAwareEvidenceAvailability !== "disabled" &&
-      projectAwareEvidenceAvailability !== "checking"
+      projectAwareEvidenceAvailability !== "disabled"
   );
   const decisionContextEvidenceReady = Boolean(
-    projectAwareEvidenceAvailability === "disabled" ||
+    !projectAwareEvidenceGateRequired ||
       (projectAwareEvidenceAvailability === "required" &&
         decisionContextEvidence?.status === "READY" &&
         decisionContextEvidence.scope.tenant_id === login.tenantId &&
