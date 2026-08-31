@@ -4728,6 +4728,107 @@ paths:
               schema: { $ref: "#/components/schemas/W020AdvisoryAuditEnvelope" }
         "403": { description: Teacher or admin scope required }
 
+  /api/v1/bff/student/intelligence/coach:
+    post:
+      operationId: W6_STUDENT_COACH_POST_V1
+      summary: Generate a deterministic, evidence-cited student coach projection.
+      description: Exact Course/Run/Team/Round context only. The provider is OFF, output is advisory-only, and no formal truth is written.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/W020AdvisoryRequest" }
+      responses:
+        "201":
+          description: Generated or reused student coach advisory
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/W020AdvisoryEnvelope" }
+        "403": { description: Student own-team scope required }
+        "409": { description: Deterministic idempotency conflict }
+
+  /api/v1/bff/teacher/intelligence/copilot:
+    post:
+      operationId: W6_TEACHER_COPILOT_POST_V1
+      summary: Generate an evidence-cited teacher copilot projection.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/W020AdvisoryRequest" }
+      responses:
+        "201":
+          description: Generated or reused teacher copilot advisory
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/W020AdvisoryEnvelope" }
+        "403": { description: Teacher scope required }
+        "409": { description: Deterministic idempotency conflict }
+
+  /api/v1/bff/teacher/intelligence/rubric:
+    post:
+      operationId: W6_RUBRIC_ASSISTANT_POST_V1
+      summary: Generate a bounded evidence-cited rubric assistant projection.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/W020AdvisoryRequest" }
+      responses:
+        "201":
+          description: Generated or reused rubric assistant advisory
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/W020AdvisoryEnvelope" }
+        "403": { description: Teacher scope required }
+        "409": { description: Deterministic idempotency conflict }
+
+  /api/v1/bff/teacher/intelligence/challenge/competitive:
+    post:
+      operationId: W6_COMPETITIVE_CHALLENGE_POST_V1
+      summary: Generate a bounded competitive challenge projection.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/W020AdvisoryRequest" }
+      responses:
+        "201":
+          description: Generated or reused competitive challenge advisory
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/W020AdvisoryEnvelope" }
+        "403": { description: Teacher scope required }
+        "409": { description: Deterministic idempotency conflict }
+
+  /api/v1/bff/teacher/intelligence/challenge/stakeholder:
+    post:
+      operationId: W6_STAKEHOLDER_CHALLENGE_POST_V1
+      summary: Generate a bounded stakeholder challenge projection.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/W020AdvisoryRequest" }
+      responses:
+        "201":
+          description: Generated or reused stakeholder challenge advisory
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/W020AdvisoryEnvelope" }
+        "403": { description: Teacher scope required }
+        "409": { description: Deterministic idempotency conflict }
+
   /api/v1/bff/teacher/validation-sessions:
     get:
       operationId: listValidationSessions
@@ -6962,7 +7063,19 @@ components:
       required: [discriminator, surface, run_id, round_id, team_id, idempotency_key]
       properties:
         discriminator: { const: w020_advisory_request }
-        surface: { enum: [student_role, teacher_debrief] }
+        surface:
+          {
+            enum:
+              [
+                student_role,
+                student_coach,
+                teacher_copilot,
+                teacher_debrief,
+                rubric_assistant,
+                competitive_challenge,
+                stakeholder_challenge
+              ]
+          }
         run_id: { type: string, minLength: 1 }
         round_id: { type: string, minLength: 1 }
         team_id: { type: string, minLength: 1 }

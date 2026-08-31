@@ -60,6 +60,9 @@ const ExecutiveStrategyLabProjection = lazy(() =>
     })
   )
 );
+const StudentCoachPanel = lazy(() =>
+  import("./StudentCoachPanel").then(({ StudentCoachPanel: Component }) => ({ default: Component }))
+);
 import { isW3ContextAvailable } from "./p2b-w3-context";
 import {
   AppShell,
@@ -1403,6 +1406,17 @@ export function App() {
                   token={activeSession?.access_token ?? ""}
                 />
               </details>
+              <Suspense fallback={<p className="muted">正在载入 Student Coach…</p>}>
+                <StudentCoachPanel
+                  apiBase={API_BASE}
+                  roleKey={w3RoleKey === "risk" ? "COO" : w3RoleKey}
+                  roundId={latestRound?.round_id}
+                  runId={latestRun?.run_id}
+                  teamId={team?.team_id}
+                  tenantId={login.tenantId}
+                  token={activeSession?.access_token ?? ""}
+                />
+              </Suspense>
             </WorkbenchFrame>
           </section>
         ) : null}

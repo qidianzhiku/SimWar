@@ -7783,7 +7783,9 @@ async function routeRequest(
 
   if (
     url.pathname.startsWith("/api/v1/bff/student/advisors") ||
-    url.pathname.startsWith("/api/v1/bff/teacher/advisors")
+    url.pathname.startsWith("/api/v1/bff/student/intelligence") ||
+    url.pathname.startsWith("/api/v1/bff/teacher/advisors") ||
+    url.pathname.startsWith("/api/v1/bff/teacher/intelligence")
   ) {
     if (
       await handleW020AdvisoryRoute(
@@ -7798,7 +7800,20 @@ async function routeRequest(
           createEnvelope: (routeContext, payload) =>
             createEnvelope(routeContext as RequestContext, payload),
           requireStudent: () => requireD4Student(context),
-          requireTeacher: () => requireD4Teacher(context)
+          requireTeacher: () => requireD4Teacher(context),
+          requireTeacherOrAdmin: () => {
+            const actor = requirePermission(context, "course:read");
+            if (
+              !actorHasAnyRole(actor, ["teacher", "tenant_admin", "admin", "platform_admin"]) ||
+              (actor.tenant_id !== context.tenantId && !actorHasAnyRole(actor, ["platform_admin"]))
+            ) {
+              throw new HttpError(
+                403,
+                "D4_REPORT_SCOPE_VIOLATION",
+                "teacher or admin scope required"
+              );
+            }
+          }
         }
       )
     )
