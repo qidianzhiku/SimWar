@@ -6,6 +6,13 @@ import type {
   W020AdvisorySurface,
   W020RoleKey
 } from "@simwar/shared-contracts";
+import {
+  qualifyWorkflowEvidence,
+  type WorkflowEvidenceResult
+} from "./workflow-evidence-policy.js";
+import { buildStudentDecisionChallenge } from "./student-decision-challenge.js";
+import { buildTeacherDebriefIntelligence } from "./teacher-debrief-intelligence.js";
+import { hasRoleDecisionLens } from "./role-decision-lens.js";
 
 export interface AgentGatewayInput {
   context: W020AdvisoryContext;
@@ -49,6 +56,39 @@ function digest(value: unknown): string {
 }
 
 function assertPolicy(input: AgentGatewayInput): void {
+  const candidate = input as unknown as {
+    context?: Record<string, unknown>;
+    surface?: unknown;
+  };
+  if (
+    !candidate.context ||
+    typeof candidate.context !== "object" ||
+    Array.isArray(candidate.context)
+  ) {
+    throw new AgentGatewayError("AGENT_CONTEXT_INVALID");
+  }
+  const knownSurfaces = new Set([
+    "student_role",
+    "student_coach",
+    "teacher_copilot",
+    "teacher_debrief",
+    "rubric_assistant",
+    "competitive_challenge",
+    "stakeholder_challenge"
+  ]);
+  if (!knownSurfaces.has(String(candidate.surface))) {
+    throw new AgentGatewayError("AGENT_CONTEXT_INVALID");
+  }
+  if (
+    !["student", "teacher", "admin"].includes(String(candidate.context.actor_role)) ||
+    typeof candidate.context.context_digest !== "string" ||
+    !/^[a-f0-9]{64}$/i.test(candidate.context.context_digest) ||
+    !Array.isArray(candidate.context.source_event_ids) ||
+    !Array.isArray(candidate.context.source_event_types) ||
+    !Array.isArray(candidate.context.advisory_scopes)
+  ) {
+    throw new AgentGatewayError("AGENT_CONTEXT_INVALID");
+  }
   const studentSurfaces = new Set(["student_role", "student_coach"]);
   const teacherSurfaces = new Set([
     "teacher_copilot",
@@ -61,14 +101,23 @@ function assertPolicy(input: AgentGatewayInput): void {
     throw new AgentGatewayError("AGENT_POLICY_DENIED");
   if (input.context.actor_role !== "student" && !teacherSurfaces.has(input.surface))
     throw new AgentGatewayError("AGENT_POLICY_DENIED");
-  if (input.context.context_digest.length !== 64 || input.context.source_event_ids.length > 50)
+  if (input.context.source_event_ids.length > 50)
     throw new AgentGatewayError("AGENT_CONTEXT_INVALID");
   if (input.context.advisory_scopes.length === 0)
     throw new AgentGatewayError("AGENT_POLICY_DENIED");
   if (
+    input.context.advisory_scopes.some(
+      (scope) => typeof scope !== "string" || scope.trim().length === 0
+    )
+  ) {
+    throw new AgentGatewayError("AGENT_CONTEXT_INVALID");
+  }
+  if (
     input.surface === "student_role" &&
     (!input.role_key || input.context.role_key !== input.role_key)
   )
+    throw new AgentGatewayError("AGENT_POLICY_DENIED");
+  if (input.surface === "student_role" && !hasRoleDecisionLens(input.context))
     throw new AgentGatewayError("AGENT_POLICY_DENIED");
 }
 
@@ -78,16 +127,29 @@ export function createDeterministicMockGateway(): {
   return {
     generate(input) {
       assertPolicy(input);
+      let evidence: WorkflowEvidenceResult;
+      try {
+        evidence = qualifyWorkflowEvidence(input.context);
+      } catch {
+        throw new AgentGatewayError("AGENT_CONTEXT_INVALID");
+      }
       const safeInput = {
         context: input.context,
         role_key: input.role_key ?? null,
         surface: input.surface
       };
       const inputHash = digest(safeInput);
+      const generatedAdvice =
+        input.surface === "student_role"
+          ? buildStudentDecisionChallenge(input.context, evidence)
+          : input.surface === "teacher_debrief"
+            ? buildTeacherDebriefIntelligence(input.context, evidence)
+            : undefined;
       const outputText =
-        input.context.source_event_ids.length === 0
+        generatedAdvice?.advisory_text ??
+        (evidence.status === "abstained"
           ? "No source evidence is available; the assistant abstains and asks the human reviewer to inspect the exact context."
-          : input.surface === "student_role" || input.surface === "student_coach"
+          : input.surface === "student_coach"
             ? `Role ${input.role_key ?? "member"} coach: review the cited role evidence and prepare a reversible next decision for human review.`
             : input.surface === "teacher_copilot"
               ? "Teacher Copilot: compare the cited workflow evidence with the course objective and document a reversible follow-up question."
@@ -97,7 +159,7 @@ export function createDeterministicMockGateway(): {
                   ? "Competitive Challenge: inspect the cited evidence, test one bounded hypothesis, and keep the conclusion advisory-only."
                   : input.surface === "stakeholder_challenge"
                     ? "Stakeholder Challenge: inspect the cited evidence, name one stakeholder trade-off, and keep the conclusion advisory-only."
-                    : "Teacher debrief advisory: compare the visible workflow evidence with the course objective and document a follow-up question.";
+                    : "Teacher debrief advisory: compare the visible workflow evidence with the course objective and document a follow-up question.");
       const outputHash = digest({ inputHash, outputText });
       const modelCallLogId = `model_call_${inputHash.slice(0, 24)}`;
       const coachOutputId = `coach_output_${outputHash.slice(0, 24)}`;
@@ -108,9 +170,9 @@ export function createDeterministicMockGateway(): {
           advisory_text: outputText,
           coach_output_id: coachOutputId,
           created_at: now,
-          evidence_refs: input.context.source_event_ids,
+          evidence_refs: evidence.qualified_event_ids,
           model_call_log_id: modelCallLogId,
-          output_type: "advisory",
+          output_type: generatedAdvice?.output_type ?? "advisory",
           round_id: input.context.round_id,
           run_id: input.context.run_id,
           ...(input.context.role_key ? { role_key: input.context.role_key } : {}),

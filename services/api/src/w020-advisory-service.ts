@@ -115,23 +115,60 @@ function titleForSurface(surface: W020AdvisorySurface): string {
   return titles[surface];
 }
 
-function citationsForContext(context: W020AdvisoryContext): W020EvidenceCitation[] {
-  if (context.source_event_ids.length > 0) {
-    return context.source_event_ids.map((sourceId, index) => ({
-      citation_id: `event:${sourceId}`,
-      label: context.source_event_types[index] ?? "workflow_event",
+interface DerivedEvidence {
+  citations: W020EvidenceCitation[];
+  qualified_event_count: number;
+  refs: string[];
+}
+
+function citationsForContext(
+  context: W020AdvisoryContext,
+  candidateRefs: readonly string[]
+): DerivedEvidence {
+  const fallbackRef = `context:${context.context_digest}`;
+  if (
+    context.source_event_ids.length === 0 &&
+    (candidateRefs.length === 0 || (candidateRefs.length === 1 && candidateRefs[0] === fallbackRef))
+  ) {
+    return {
+      citations: [
+        {
+          citation_id: fallbackRef,
+          label: "No source event evidence available",
+          source_id: context.context_digest,
+          source_type: "governed_context"
+        }
+      ],
+      qualified_event_count: 0,
+      refs: [fallbackRef]
+    };
+  }
+
+  const seen = new Set<string>();
+  const citations: W020EvidenceCitation[] = [];
+  for (const candidateRef of candidateRefs) {
+    const sourceId = candidateRef.startsWith("event:")
+      ? candidateRef.slice("event:".length)
+      : candidateRef;
+    const sourceIndex = context.source_event_ids.indexOf(sourceId);
+    if (sourceIndex < 0) {
+      return { citations: [], qualified_event_count: 0, refs: [] };
+    }
+    const citationId = `event:${sourceId}`;
+    if (seen.has(citationId)) continue;
+    seen.add(citationId);
+    citations.push({
+      citation_id: citationId,
+      label: context.source_event_types[sourceIndex] ?? "workflow_event",
       source_id: sourceId,
       source_type: "workflow_event"
-    }));
+    });
   }
-  return [
-    {
-      citation_id: `context:${context.context_digest}`,
-      label: "No source event evidence available",
-      source_id: context.context_digest,
-      source_type: "governed_context"
-    }
-  ];
+  return {
+    citations,
+    qualified_event_count: citations.length,
+    refs: citations.map((citation) => citation.citation_id)
+  };
 }
 
 function policy(): W020AdvisoryPolicy {
@@ -143,8 +180,8 @@ function policy(): W020AdvisoryPolicy {
   };
 }
 
-function evaluation(context: W020AdvisoryContext): W020AdvisoryEvaluation {
-  const hasSourceEvidence = context.source_event_ids.length > 0;
+function evaluation(qualifiedEventCount: number): W020AdvisoryEvaluation {
+  const hasSourceEvidence = qualifiedEventCount > 0;
   return {
     checks: [
       "exact_course_run_round_team_binding",
@@ -160,12 +197,13 @@ function evaluation(context: W020AdvisoryContext): W020AdvisoryEvaluation {
 }
 
 function projection(record: W020AdvisoryRecord): W020AdvisoryProjection {
-  const evaluated = evaluation(record.context);
+  const evidence = citationsForContext(record.context, record.coach_output.evidence_refs);
+  const evaluated = evaluation(evidence.qualified_event_count);
   return {
     advisory_only: true,
-    evidence_citations: citationsForContext(record.context),
+    evidence_citations: evidence.citations,
     evaluation: evaluated,
-    evidence_refs: [...record.coach_output.evidence_refs],
+    evidence_refs: evidence.refs,
     known_limits: [
       ...KNOWN_LIMITS,
       ...(evaluated.status === "abstained"
@@ -358,23 +396,27 @@ export class GovernedAdvisoryService {
       surface: request.surface
     });
     return this.withWriteLock(async () => {
-      const existing = (await this.dependencies.repository.list(actor.tenant_id)).find(
+      const existingRecords = (await this.dependencies.repository.list(actor.tenant_id)).filter(
         (record) => record.idempotency_key === idempotencyKey
       );
-      if (existing) {
-        const existingRoleKey = existing.context.role_key ?? null;
-        const requestRoleKey = context.role_key ?? null;
-        const sameExactScope =
-          existing.tenant_id === actor.tenant_id &&
-          existing.context.course_id === context.course_id &&
-          existing.context.run_id === context.run_id &&
-          existing.context.round_id === context.round_id &&
-          existing.context.team_id === context.team_id &&
-          existing.surface === request.surface &&
-          existingRoleKey === requestRoleKey;
-        if (!sameExactScope || existing.request_digest !== requestDigest)
-          throw new W020AdvisoryError("W020_DUPLICATE_CONFLICT");
-        return this.receipt(existing, requestId, "reused");
+      if (existingRecords.length > 0) {
+        const sameClientScope = existingRecords.filter(
+          (record) =>
+            record.tenant_id === actor.tenant_id &&
+            record.context.actor_id_hash === context.actor_id_hash &&
+            record.context.actor_role === context.actor_role &&
+            record.context.course_id === context.course_id &&
+            record.context.run_id === context.run_id &&
+            record.context.round_id === context.round_id &&
+            record.context.team_id === context.team_id &&
+            record.surface === request.surface &&
+            (record.context.role_key ?? null) === (context.role_key ?? null)
+        );
+        if (sameClientScope.length === 0) throw new W020AdvisoryError("W020_DUPLICATE_CONFLICT");
+        const sameContext = sameClientScope.find(
+          (record) => record.request_digest === requestDigest
+        );
+        if (sameContext) return this.receipt(sameContext, requestId, "reused");
       }
       const gatewayInput: AgentGatewayInput = {
         context,
@@ -383,11 +425,11 @@ export class GovernedAdvisoryService {
       };
       const generated = this.gateway.generate(gatewayInput);
       const createdAt = this.now();
-      const citations = citationsForContext(context);
+      const evidence = citationsForContext(context, generated.coach_output.evidence_refs);
       const record: W020AdvisoryRecord = {
         coach_output: {
           ...generated.coach_output,
-          evidence_refs: citations.map((citation) => citation.citation_id)
+          evidence_refs: evidence.refs
         },
         context,
         created_at: createdAt,

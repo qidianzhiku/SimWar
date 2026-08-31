@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { createDeterministicMockGateway, AgentGatewayError } from "../../services/agent-gateway/src/index.js";
+import {
+  createDeterministicMockGateway,
+  AgentGatewayError
+} from "../../services/agent-gateway/src/index.js";
 import type { W020AdvisoryContext } from "@simwar/shared-contracts";
 
 const context: W020AdvisoryContext = {
@@ -34,8 +37,15 @@ describe("W020 deterministic Agent Gateway", () => {
 
   it("fails closed when a student asks for teacher debrief", () => {
     const gateway = createDeterministicMockGateway();
-    expect(() => gateway.generate({ context, role_key: "CEO", surface: "teacher_debrief" })).toThrow(
-      AgentGatewayError
-    );
+    expect(() =>
+      gateway.generate({ context, role_key: "CEO", surface: "teacher_debrief" })
+    ).toThrow(AgentGatewayError);
+  });
+
+  it("returns a governed context error instead of leaking a type error for malformed input", () => {
+    const gateway = createDeterministicMockGateway();
+    expect(() =>
+      gateway.generate({ context: undefined as never, surface: "student_coach" })
+    ).toThrowError(new AgentGatewayError("AGENT_CONTEXT_INVALID"));
   });
 });
