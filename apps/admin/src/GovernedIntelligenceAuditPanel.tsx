@@ -45,11 +45,12 @@ export function GovernedIntelligenceAuditPanel(props: {
         remains outside this audit projection。
       </p>
       <p role="status">{message}</p>
-      <div className="candidate-list" aria-label="governed intelligence audit entries">
+      <div className="candidate-list" role="list" aria-label="governed intelligence audit entries">
         {entries.map((entry) => (
           <article
             className="candidate-card"
             key={`${entry.model_call_log_id}:${entry.context_digest}`}
+            role="listitem"
           >
             <strong>
               {entry.surface} · {entry.provider}
