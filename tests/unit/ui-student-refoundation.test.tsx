@@ -520,6 +520,7 @@ describe("Student executive workspace refoundation", () => {
         return demoStateRequests === 1 ? response(true, state) : response(false, null);
       }
       if (url.includes("/api/v1/bff/student/runs/")) return response(true, cockpit);
+      if (url.includes("/api/v1/bff/student/project-brief")) return response(true, null);
       if (url.includes("/api/v1/bff/student/role-workspace")) {
         return {
           ok: false,
