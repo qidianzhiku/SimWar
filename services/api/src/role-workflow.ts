@@ -986,6 +986,39 @@ export class RoleWorkflowCommandService {
     return toSafeAcknowledgement(acknowledgement);
   }
 
+  /**
+   * Returns an exact acknowledgement already persisted for this actor's role.
+   * The lookup intentionally does not require current decision-context
+   * evidence: a lost-response retry must be able to recover the same safe
+   * process receipt after short-lived evidence changes.
+   */
+  async getExistingResolutionAcknowledgement(
+    actor: RoleWorkflowActor,
+    input: ResolutionAcknowledgementInput
+  ): Promise<ResolutionAcknowledgementSafeDTO | undefined> {
+    this.requireStudent(actor);
+    const snapshot = await this.read(actor, input);
+    this.assertRoundScope(snapshot);
+    const assignment = this.findActorAssignment(actor, snapshot);
+    const resolution = snapshot.resolutions.find(
+      (candidate) =>
+        candidate.resolution_id === input.resolution_id &&
+        candidate.round_id === input.round_id &&
+        candidate.run_id === input.run_id &&
+        candidate.team_id === input.team_id &&
+        candidate.tenant_id === actor.tenant_id
+    );
+    if (!resolution) return undefined;
+    const existing = snapshot.acknowledgements.find(
+      (candidate) =>
+        candidate.resolution_id === resolution.resolution_id &&
+        candidate.role_key === assignment.role_key &&
+        candidate.status === input.status &&
+        candidate.dissent_note === input.dissent_note
+    );
+    return existing ? toSafeAcknowledgement(existing) : undefined;
+  }
+
   async createMergeCommit(
     actor: RoleWorkflowActor,
     input: RoundWorkflowScope

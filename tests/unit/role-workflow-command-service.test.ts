@@ -828,6 +828,15 @@ describe("RoleWorkflowCommandService", () => {
       })
     ).resolves.toMatchObject({ role_key: "CEO", status: "ACKNOWLEDGED" });
     await expect(
+      service.getExistingResolutionAcknowledgement(studentCeo, {
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3",
+        resolution_id: resolution.resolution_id,
+        status: "ACKNOWLEDGED"
+      })
+    ).resolves.toMatchObject({ role_key: "CEO", status: "ACKNOWLEDGED" });
+    await expect(
       service.createMergeCommit(studentCeo, {
         round_id: "round_c3_1",
         run_id: "run_c3",

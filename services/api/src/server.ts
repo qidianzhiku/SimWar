@@ -9421,11 +9421,22 @@ async function routeRequest(
     if (body.dissent_note !== undefined && typeof body.dissent_note !== "string") {
       throw new HttpError(422, "ROLE_WORKFLOW-422-001", "role workflow request invalid");
     }
+    const acknowledgementInput = {
+      ...scope,
+      resolution_id: roleWorkflowString(body.resolution_id, "resolution_id"),
+      status: body.status as "ACKNOWLEDGED" | "DISSENT_PRESERVED",
+      ...(body.dissent_note !== undefined ? { dissent_note: body.dissent_note as string } : {})
+    };
     const data = await executeLockedRoleWorkflow(
       runtime,
       context.tenantId,
       scope.run_id,
       async () => {
+        const existing = await runtime.roleWorkflow.getExistingResolutionAcknowledgement(
+          actor,
+          acknowledgementInput
+        );
+        if (existing) return existing;
         await requireStudentDecisionContextEvidenceForRoleAction(
           runtime,
           context,
@@ -9433,12 +9444,7 @@ async function routeRequest(
           scope,
           decisionContextEvidenceId
         );
-        return runtime.roleWorkflow.acknowledgeResolution(actor, {
-          ...scope,
-          resolution_id: roleWorkflowString(body.resolution_id, "resolution_id"),
-          status: body.status as "ACKNOWLEDGED" | "DISSENT_PRESERVED",
-          ...(body.dissent_note !== undefined ? { dissent_note: body.dissent_note as string } : {})
-        });
+        return runtime.roleWorkflow.acknowledgeResolution(actor, acknowledgementInput);
       }
     );
     sendJson(response, 201, createEnvelope(context, data));
