@@ -9075,6 +9075,8 @@ async function routeRequest(
       context.tenantId,
       scope.run_id,
       async () => {
+        const existing = await runtime.roleWorkflow.getExistingMergeCommit(actor, scope);
+        if (existing) return existing;
         await requireStudentDecisionContextEvidenceForRoleAction(
           runtime,
           context,
@@ -9438,6 +9440,8 @@ async function routeRequest(
       context.tenantId,
       scope.run_id,
       async () => {
+        const existing = await runtime.roleWorkflow.getExistingMergeCommit(actor, scope);
+        if (existing) return existing;
         await requireStudentDecisionContextEvidenceForRoleAction(
           runtime,
           context,

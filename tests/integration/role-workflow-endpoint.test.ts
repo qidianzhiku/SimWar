@@ -647,6 +647,35 @@ describe("Role Workflow HTTP boundary", () => {
         expect(assigned.body.data.role_key).toBe(role_key);
       }
 
+      const blockedProjectAssignment: ProjectAssignment = {
+        assigned_at: "2026-08-30T08:00:00.000Z",
+        assigned_by: "usr_teacher",
+        assignment_id: "project-w027-alias-gate",
+        course_id: "course_demo",
+        project_profile_reference: {
+          content_digest: "project-w027-alias-gate-digest".padEnd(64, "0"),
+          project_profile_id: "project-w027-alias-gate",
+          tenant_id: "tenant_demo",
+          version: "1.0.0"
+        },
+        run_id: scope.run_id,
+        schema_version: "project-assignment.v1",
+        team_id: scope.team_id,
+        tenant_id: "tenant_demo"
+      };
+      store.projectAssignments.push(blockedProjectAssignment);
+      const blockedW027MergeBeforeSections = await request<unknown>(
+        baseUrl,
+        "/api/v1/bff/student/w027/merge",
+        { body: scope, method: "POST", token: tokens.get("role_ceo") }
+      );
+      expect(blockedW027MergeBeforeSections.status).toBe(409);
+      expect(blockedW027MergeBeforeSections.body.code).toBe(
+        "STUDENT_DECISION_CONTEXT_EVIDENCE_REQUIRED"
+      );
+      expect(store.decisionMergeCommits).toEqual([]);
+      store.projectAssignments = [];
+
       const cfoWorkspace = await request<StudentRoleWorkflowWorkspaceDTO>(
         baseUrl,
         `/api/v1/bff/student/role-workspace?run_id=${scope.run_id}&round_id=${scope.round_id}&team_id=${scope.team_id}`,
@@ -735,31 +764,7 @@ describe("Role Workflow HTTP boundary", () => {
       });
       expect(JSON.stringify(captainWorkspace.body.data)).not.toContain("merged_payload");
 
-      const blockedProjectAssignment: ProjectAssignment = {
-        assigned_at: "2026-08-30T08:00:00.000Z",
-        assigned_by: "usr_teacher",
-        assignment_id: "project-w027-alias-gate",
-        course_id: "course_demo",
-        project_profile_reference: {
-          content_digest: "project-w027-alias-gate-digest".padEnd(64, "0"),
-          project_profile_id: "project-w027-alias-gate",
-          tenant_id: "tenant_demo",
-          version: "1.0.0"
-        },
-        run_id: scope.run_id,
-        schema_version: "project-assignment.v1",
-        team_id: scope.team_id,
-        tenant_id: "tenant_demo"
-      };
       store.projectAssignments.push(blockedProjectAssignment);
-      const blockedW027Merge = await request<unknown>(baseUrl, "/api/v1/bff/student/w027/merge", {
-        body: scope,
-        method: "POST",
-        token: tokens.get("role_ceo")
-      });
-      expect(blockedW027Merge.status).toBe(409);
-      expect(blockedW027Merge.body.code).toBe("STUDENT_DECISION_CONTEXT_EVIDENCE_REQUIRED");
-      expect(store.decisionMergeCommits).toHaveLength(1);
 
       const blockedW027Confirm = await request<unknown>(
         baseUrl,
@@ -774,6 +779,14 @@ describe("Role Workflow HTTP boundary", () => {
       expect(blockedW027Confirm.body.code).toBe("STUDENT_DECISION_CONTEXT_EVIDENCE_REQUIRED");
       expect(store.teamConfirmations).toEqual([]);
       store.projectAssignments = [];
+
+      const idempotentW027Merge = await request<StudentRoleWorkflowMergeDTO>(
+        baseUrl,
+        "/api/v1/bff/student/w027/merge",
+        { body: scope, method: "POST", token: tokens.get("role_ceo") }
+      );
+      expect(idempotentW027Merge.status).toBe(201);
+      expect(idempotentW027Merge.body.data.merge_commit_id).toBe(merge.body.data.merge_commit_id);
 
       const [confirmation, repeatedConfirmation] = await Promise.all([
         request<TeamConfirmation>(baseUrl, "/api/v1/bff/student/role-workspace/confirm", {
@@ -797,6 +810,22 @@ describe("Role Workflow HTTP boundary", () => {
         status: "submitted",
         team_confirmation_id: confirmation.body.data.team_confirmation_id
       });
+
+      store.projectAssignments.push(blockedProjectAssignment);
+      const retriedW027Confirmation = await request<TeamConfirmation>(
+        baseUrl,
+        "/api/v1/bff/student/w027/confirm",
+        {
+          body: { ...scope, merge_commit_id: merge.body.data.merge_commit_id },
+          method: "POST",
+          token: tokens.get("role_ceo")
+        }
+      );
+      expect(retriedW027Confirmation.status).toBe(200);
+      expect(retriedW027Confirmation.body.data.team_confirmation_id).toBe(
+        confirmation.body.data.team_confirmation_id
+      );
+      store.projectAssignments = [];
 
       const w4BeforeFormalMismatch = structuredClone(store.w4);
       const mismatchedW4Decision = await request<unknown>(

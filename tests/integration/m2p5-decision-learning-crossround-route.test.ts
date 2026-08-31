@@ -12,6 +12,7 @@ import { createStudentDecisionContextEvidence } from "../../packages/shared-cont
 
 const actor: M2P5DecisionLearningActor = {
   roles: ["teacher"],
+  team_id: "team_alpha",
   tenant_id: "tenant_demo",
   user_id: "usr_teacher"
 };
@@ -90,6 +91,43 @@ describe("M2-P5 decision learning BFF route", () => {
         tenant_id: "tenant_demo"
       }
     });
+  });
+
+  it("checks student team scope before project evidence admission", async () => {
+    const url = new URL(
+      "http://localhost/api/v1/bff/student/m2p5/runs/run_m2p5/rounds/1/decision-learning?" +
+        query.replace("team_id=team_alpha", "team_id=team_other")
+    );
+    let status = 0;
+    let evidenceAdmissionCalled = false;
+    const service = {
+      getJourney: async () => {
+        throw new Error("student scope must be rejected before composition");
+      }
+    } as unknown as M2P5DecisionLearningCrossRoundService;
+
+    await handleM2P5DecisionLearningRoute(
+      service,
+      { method: "GET" } as never,
+      {} as never,
+      url,
+      { requestId: "request_m2p5", tenantId: "tenant_demo" },
+      {
+        createEnvelope: (_context, value) => value,
+        requireStudent: () => ({ ...actor, roles: ["student"] }),
+        requireTeacher: () => actor,
+        requiresStudentDecisionContextEvidence: async () => {
+          evidenceAdmissionCalled = true;
+          return true;
+        },
+        sendJson: (_response, nextStatus) => {
+          status = nextStatus;
+        }
+      }
+    );
+
+    expect(status).toBe(403);
+    expect(evidenceAdmissionCalled).toBe(false);
   });
 
   it("requires the exact ready evidence identity and advances the same scope", async () => {

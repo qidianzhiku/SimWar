@@ -980,25 +980,102 @@ export class RoleWorkflowCommandService {
     input: RoundWorkflowScope
   ): Promise<StudentRoleWorkflowMergeDTO> {
     const key = `${actor.tenant_id}:${input.run_id}:${input.team_id}:${input.round_id}`;
-    const previous = this.mergeLocks.get(key) ?? Promise.resolve();
-    let release!: () => void;
-    const current = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    this.mergeLocks.set(key, current);
-    await previous;
-    try {
-      return await this.createMergeCommitUnsafe(actor, input);
-    } finally {
-      release();
-      if (this.mergeLocks.get(key) === current) this.mergeLocks.delete(key);
+    return this.withWorkflowLock(key, () => this.createMergeCommitUnsafe(actor, input));
+  }
+
+  async getExistingMergeCommit(
+    actor: RoleWorkflowActor,
+    input: RoundWorkflowScope
+  ): Promise<StudentRoleWorkflowMergeDTO | undefined> {
+    const key = `${actor.tenant_id}:${input.run_id}:${input.team_id}:${input.round_id}`;
+    return this.withWorkflowLock(key, () => this.getExistingMergeCommitUnsafe(actor, input));
+  }
+
+  private async getExistingMergeCommitUnsafe(
+    actor: RoleWorkflowActor,
+    input: RoundWorkflowScope
+  ): Promise<StudentRoleWorkflowMergeDTO | undefined> {
+    this.requireStudent(actor);
+    const snapshot = await this.read(actor, input);
+    this.assertRoundScope(snapshot);
+    this.assertPostConfirmationMutable(snapshot);
+    const assignment = this.findActorAssignment(actor, snapshot);
+    const configuredPolicy = await this.dependencies.resolveW027DecisionPolicy?.(
+      { ...input, course_id: snapshot.run?.course_id ?? "", tenant_id: actor.tenant_id },
+      assignment.role_key
+    );
+    if (
+      !(
+        configuredPolicy?.can_merge_team_decision ??
+        DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key].can_create_merge_commit
+      )
+    ) {
+      throw new RoleWorkflowError("ROLE_WORKFLOW_MERGE_DENIED");
     }
+    if (!configuredPolicy && snapshot.team!.captain_user_id !== actor.actor_id) {
+      throw new RoleWorkflowError("ROLE_WORKFLOW_CAPTAIN_REQUIRED");
+    }
+    const activeAssignments = snapshot.assignments.filter(
+      (candidate) => candidate.status === "active"
+    );
+    const mergeOrder = roleMergeOrderForSnapshot(snapshot);
+    const currentSections = activeAssignments
+      .map((candidate) => this.latestSection(snapshot, candidate))
+      .sort(
+        (left, right) =>
+          mergeOrder.indexOf(left?.role_key as RoleId) -
+          mergeOrder.indexOf(right?.role_key as RoleId)
+      );
+    if (currentSections.length === 0 || currentSections.some((section) => !section))
+      return undefined;
+    const sourceSectionIds = currentSections.map((section) => section!.section_id);
+    const existing = snapshot.merge_commits.find((candidate) =>
+      sameStrings(candidate.source_section_ids, sourceSectionIds)
+    );
+    return existing ? toStudentMergeDto(existing) : undefined;
   }
 
   private async createMergeCommitUnsafe(
     actor: RoleWorkflowActor,
     input: RoundWorkflowScope
   ): Promise<StudentRoleWorkflowMergeDTO> {
+    const { snapshot, readySections, resolution, sourceSectionIds, existing } =
+      await this.loadMergeCandidate(actor, input);
+    if (existing) return toStudentMergeDto(existing);
+
+    const mergeCommit: DecisionMergeCommit = {
+      created_at: this.now(),
+      created_by: actor.actor_id,
+      merge_commit_id: this.createId("merge_commit"),
+      merged_payload: buildMergedPayload(
+        readySections as RoleDecisionSection[],
+        resolution?.selected_values
+      ),
+      round_id: input.round_id,
+      run_id: input.run_id,
+      source_section_ids: sourceSectionIds,
+      status: "validated",
+      team_id: input.team_id,
+      tenant_id: actor.tenant_id
+    };
+    await this.repository.commitRoleWorkflow({
+      event: this.createEvent(actor, input, "merge_created", mergeCommit.merge_commit_id),
+      kind: "append_merge",
+      merge_commit: mergeCommit
+    });
+    return toStudentMergeDto(mergeCommit);
+  }
+
+  private async loadMergeCandidate(
+    actor: RoleWorkflowActor,
+    input: RoundWorkflowScope
+  ): Promise<{
+    snapshot: RoleWorkflowRepositorySnapshot;
+    readySections: Array<RoleDecisionSection | undefined>;
+    resolution?: TeamResolution;
+    sourceSectionIds: string[];
+    existing?: DecisionMergeCommit;
+  }> {
     this.requireStudent(actor);
     const snapshot = await this.read(actor, input);
     this.assertRoundScope(snapshot);
@@ -1049,29 +1126,7 @@ export class RoleWorkflowCommandService {
     const existing = snapshot.merge_commits.find((candidate) =>
       sameStrings(candidate.source_section_ids, sourceSectionIds)
     );
-    if (existing) return toStudentMergeDto(existing);
-
-    const mergeCommit: DecisionMergeCommit = {
-      created_at: this.now(),
-      created_by: actor.actor_id,
-      merge_commit_id: this.createId("merge_commit"),
-      merged_payload: buildMergedPayload(
-        readySections as RoleDecisionSection[],
-        resolution?.selected_values
-      ),
-      round_id: input.round_id,
-      run_id: input.run_id,
-      source_section_ids: sourceSectionIds,
-      status: "validated",
-      team_id: input.team_id,
-      tenant_id: actor.tenant_id
-    };
-    await this.repository.commitRoleWorkflow({
-      event: this.createEvent(actor, input, "merge_created", mergeCommit.merge_commit_id),
-      kind: "append_merge",
-      merge_commit: mergeCommit
-    });
-    return toStudentMergeDto(mergeCommit);
+    return { existing, readySections, resolution, snapshot, sourceSectionIds };
   }
 
   async confirmTeamDecision(

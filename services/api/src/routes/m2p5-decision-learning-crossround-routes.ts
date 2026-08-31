@@ -135,6 +135,9 @@ export async function handleM2P5DecisionLearningRoute(
     if (requestedEvidence && surface !== "student") {
       throw new M2P5DecisionLearningError("M2P5_CONTEXT_EVIDENCE_INVALID");
     }
+    if (surface === "student" && actor.team_id !== context.team_id) {
+      throw new M2P5DecisionLearningError("M2P5_SCOPE_VIOLATION");
+    }
     const evidenceRequired =
       surface === "student"
         ? (await helpers.requiresStudentDecisionContextEvidence?.({ actor, context })) === true
