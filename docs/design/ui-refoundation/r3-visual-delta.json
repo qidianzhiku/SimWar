@@ -3,7 +3,7 @@
   "mission_id": "R3-MAIN-UXR-O1",
   "change_id": "r3-cross-role-accessibility-recovery",
   "change_type": "cross-role-accessibility-recovery-convergence",
-  "base_sha": "4d1f6c409ddb8c9b670428254f725f10d39ad412",
+  "base_sha": "6bfb20ac12bb6ba8dd44307ace37762a61fda40f",
   "affected_surfaces": [
     "admin-admin-tenants-entitlements-ready",
     "enterprise-admin-enterprise-course-factory-ready",

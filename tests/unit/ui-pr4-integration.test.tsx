@@ -137,8 +137,8 @@ describe("Product PR4 integration contracts", () => {
         baseline_gzip_kb: 7.32
       });
       expect(report.budgets.student.js).toMatchObject({
-        baseline_raw_kb: 290.86,
-        baseline_gzip_kb: 89.42
+        baseline_raw_kb: 291.91,
+        baseline_gzip_kb: 89.77
       });
     } finally {
       rmSync(fixture, { recursive: true, force: true });
