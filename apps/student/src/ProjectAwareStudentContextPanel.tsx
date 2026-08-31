@@ -11,6 +11,7 @@ export interface ProjectAwareStudentContextPanelProps {
   baseUrl: string;
   courseId?: string | undefined;
   runId?: string | undefined;
+  roundId?: string | undefined;
   teamId?: string | undefined;
   tenantId: string;
   token: string;
@@ -66,6 +67,7 @@ export function ProjectAwareStudentContextPanel(props: ProjectAwareStudentContex
       baseUrl: props.baseUrl,
       courseId: props.courseId,
       runId: props.runId,
+      roundId: props.roundId,
       signal: controller.signal,
       teamId: props.teamId,
       tenantId: props.tenantId,
@@ -90,6 +92,7 @@ export function ProjectAwareStudentContextPanel(props: ProjectAwareStudentContex
     props.baseUrl,
     props.courseId,
     props.runId,
+    props.roundId,
     props.teamId,
     props.tenantId,
     props.token,

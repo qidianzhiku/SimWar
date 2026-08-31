@@ -1272,6 +1272,7 @@ export function App() {
                   baseUrl={API_BASE}
                   courseId={latestRun.course_id}
                   runId={latestRun.run_id}
+                  roundId={latestRound?.round_id}
                   teamId={team?.team_id}
                   tenantId={login.tenantId}
                   token={activeSession?.access_token ?? ""}

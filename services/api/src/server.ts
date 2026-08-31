@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { fileURLToPath } from "node:url";
 import type {
@@ -618,17 +617,6 @@ function createRuntimeRepositoryProvider(
     throw new Error("postgres_runtime_provider_required");
   }
   return createJsonRepositoryProvider({ store });
-}
-
-function studentDecisionContextSourceBindingId(binding: {
-  parameter_set_reference: ParameterSetReference;
-  scenario_package_reference: ScenarioPackageReference;
-}): string {
-  const bindingMaterial = JSON.stringify({
-    parameter_set_reference: binding.parameter_set_reference,
-    scenario_package_reference: binding.scenario_package_reference
-  });
-  return `source-${createHash("sha256").update(bindingMaterial).digest("hex").slice(0, 24)}`;
 }
 
 function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = {}): ApiRuntime {
@@ -1340,14 +1328,17 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     ) {
       return undefined;
     }
-    const sourceEvidence = await courseFactory.getStudentSourceEvidence(context.tenant_id, {
+    const sourceEvidenceBinding = await courseFactory.getStudentSourceEvidenceWithBinding(
+      context.tenant_id,
+      {
       parameter_set_reference: binding.parameter_set_reference,
       scenario_package_reference: binding.scenario_package_reference
-    });
+      }
+    );
     return createStudentDecisionContextEvidence(
       context,
-      sourceEvidence,
-      studentDecisionContextSourceBindingId(binding)
+      sourceEvidenceBinding?.source_evidence,
+      sourceEvidenceBinding?.source_binding_id
     );
   };
   const o4CrossRoundDynamics = new O4CrossRoundDynamicsService({
@@ -8663,16 +8654,17 @@ async function routeRequest(
         context.tenantId,
         runId
       );
-      const courseFactorySourceEvidence =
+      const courseFactorySourceEvidenceBinding =
         course &&
         formalRuntimeBinding &&
         formalRuntimeBinding.tenant_id === context.tenantId &&
         formalRuntimeBinding.run_id === runId
-          ? await runtime.courseFactory.getStudentSourceEvidence(context.tenantId, {
+          ? await runtime.courseFactory.getStudentSourceEvidenceWithBinding(context.tenantId, {
               parameter_set_reference: formalRuntimeBinding.parameter_set_reference,
               scenario_package_reference: formalRuntimeBinding.scenario_package_reference
             })
           : undefined;
+      const courseFactorySourceEvidence = courseFactorySourceEvidenceBinding?.source_evidence;
       const decisionContextEvidence = createStudentDecisionContextEvidence(
         {
           activity_id: "activity_consequence",
@@ -8685,9 +8677,7 @@ async function routeRequest(
           tenant_id: actor.tenant_id
         },
         courseFactorySourceEvidence,
-        formalRuntimeBinding
-          ? studentDecisionContextSourceBindingId(formalRuntimeBinding)
-          : undefined
+        courseFactorySourceEvidenceBinding?.source_binding_id
       );
       sendJson(
         response,
