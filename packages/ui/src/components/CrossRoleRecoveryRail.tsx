@@ -208,20 +208,19 @@ export function CrossRoleRecoveryRail({
 
   return (
     <section
-      className="sw-ui sw-recovery-rail"
+      className="sw-ui sw-state-panel sw-recovery-rail"
+      data-state={status}
       data-recovery-status={status}
       data-recovery-role={role}
       aria-labelledby={headingId}
     >
       <div className="sw-recovery-rail__header">
         <div>
-          <p className="sw-recovery-rail__eyebrow">{roleLabels[role]} · Digital Thread</p>
+          <p className="sw-technical-label">{roleLabels[role]} · Digital Thread</p>
           <h2 id={headingId}>上下文与恢复</h2>
         </div>
         <div className="sw-recovery-rail__status" data-status={status}>
-          <span className="sw-recovery-rail__cue" aria-hidden="true">
-            {copy.cue}
-          </span>
+          <span className="sw-technical-label">提示：{copy.cue}</span>
           <strong>{copy.primary}</strong>
           <span className="sw-technical-label">状态：{visibleStatusLabels[status]}</span>
         </div>
@@ -230,9 +229,9 @@ export function CrossRoleRecoveryRail({
         {copy.detail}
       </p>
       {contextEntries.length > 0 ? (
-        <dl className="sw-recovery-rail__context" aria-label="当前 exact context">
+        <dl className="sw-context-bar sw-recovery-rail__context" aria-label="当前 exact context">
           {contextEntries.map((entry) => (
-            <div key={entry.label}>
+            <div className="sw-context-bar__item" key={entry.label}>
               <dt>{entry.label}</dt>
               <dd>{entry.value}</dd>
             </div>
@@ -244,7 +243,7 @@ export function CrossRoleRecoveryRail({
       {action ? (
         <button
           type="button"
-          className="sw-recovery-rail__action"
+          className="sw-state-panel__recovery"
           data-action={action.dataAction}
           onClick={action.onClick}
           disabled={!action.onClick}

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "mission_id": "R3-MAIN-UXR-O1",
+  "change_id": "r3-cross-role-accessibility-recovery",
+  "change_type": "cross-role-accessibility-recovery-convergence",
+  "base_sha": "4d1f6c409ddb8c9b670428254f725f10d39ad412",
+  "affected_surfaces": [
+    "admin-admin-tenants-entitlements-ready",
+    "enterprise-admin-enterprise-course-factory-ready",
+    "student-student-cockpit-ready",
+    "teacher-teacher-blockers-ready"
+  ],
+  "accepted_roles": {
+    "admin": { "max_diff_pixel_ratio": 0.25 },
+    "enterprise": { "max_diff_pixel_ratio": 0.25 },
+    "student": { "max_diff_pixel_ratio": 0.38 },
+    "teacher": { "max_diff_pixel_ratio": 0.24 }
+  },
+  "rationale": "R3 intentionally adds a visible shared recovery rail to the four governed role journeys so loading, stale, re-authentication, conflict, rollback, and error states are keyboard-operable, role-safe, exact-context aware, and not conveyed by color alone. The receipt is limited to the four named R3 surfaces, the exact current master base, the R3 mission branch, and the role-specific observed diff ceilings; lab and unrelated surfaces remain under the ordinary frozen threshold. This is a visual evidence baseline disposition, not an accessibility or Human Validation waiver."
+}

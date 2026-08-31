@@ -40,7 +40,8 @@ const RegionalTransferAdminWorkbench = lazy(() =>
     })
   )
 );
-import { AuthorityBadge, CrossRoleRecoveryRail } from "@simwar/ui";
+import { AuthorityBadge } from "@simwar/ui";
+import { CrossRoleRecoveryRail } from "@simwar/ui/cross-role-recovery-rail";
 import {
   AdminDeliveryTrustWorkspace,
   AdminEnvironmentRecoveryLimit,

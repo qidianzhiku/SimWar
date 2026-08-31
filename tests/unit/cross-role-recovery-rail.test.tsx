@@ -1,7 +1,11 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { CrossRoleRecoveryRail, getRecoveryStateCopy, type RecoveryStatus } from "@simwar/ui";
+import {
+  CrossRoleRecoveryRail,
+  getRecoveryStateCopy,
+  type RecoveryStatus
+} from "@simwar/ui/cross-role-recovery-rail";
 
 describe("R3 cross-role recovery rail", () => {
   it.each([

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { CrossRoleRecoveryRail } from "@simwar/ui";
+import { CrossRoleRecoveryRail } from "@simwar/ui/cross-role-recovery-rail";
 import type {
   ApiEnvelope,
   CourseFactoryCatalogProjection,

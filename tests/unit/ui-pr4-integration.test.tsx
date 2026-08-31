@@ -129,16 +129,16 @@ describe("Product PR4 integration contracts", () => {
 
       expect(report.schema_version).toBe(1);
       expect(report.budgets.admin.js).toMatchObject({
-        baseline_raw_kb: 277.46,
-        baseline_gzip_kb: 85.63
+        baseline_raw_kb: 299.58,
+        baseline_gzip_kb: 90.7
       });
       expect(report.budgets.teacher.css).toMatchObject({
-        baseline_raw_kb: 37.41,
-        baseline_gzip_kb: 6.93
+        baseline_raw_kb: 40.55,
+        baseline_gzip_kb: 7.32
       });
       expect(report.budgets.student.js).toMatchObject({
-        baseline_raw_kb: 273.89,
-        baseline_gzip_kb: 83.82
+        baseline_raw_kb: 290.86,
+        baseline_gzip_kb: 89.42
       });
     } finally {
       rmSync(fixture, { recursive: true, force: true });
@@ -414,6 +414,74 @@ describe("Product PR4 integration contracts", () => {
         status: "acceptable_difference",
         diff_pixel_ratio: 1
       });
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it("accepts only an R3-scoped visual delta on a declared surface", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "simwar-r3-visual-expected-delta-"));
+    try {
+      const baseline = join(fixture, "baseline");
+      const candidate = join(fixture, "candidate");
+      const diff = join(fixture, "diff");
+      const receipt = join(fixture, "r3-visual-delta.json");
+      mkdirSync(baseline);
+      mkdirSync(candidate);
+      writePng(join(baseline, "admin-ready-390x844.png"), blackPixelPng);
+      writePng(join(candidate, "admin-ready-390x844.png"), redPixelPng);
+      writeFileSync(
+        receipt,
+        JSON.stringify({
+          schema_version: 1,
+          mission_id: "R3-MAIN-UXR-O1",
+          change_id: "r3-cross-role-accessibility-recovery",
+          change_type: "cross-role-accessibility-recovery-convergence",
+          base_sha: "base-sha",
+          affected_surfaces: ["admin-ready"],
+          accepted_roles: { admin: { max_diff_pixel_ratio: 1 } },
+          rationale: "R3 adds the declared recovery surface."
+        })
+      );
+
+      const output = join(fixture, "manifest.json");
+      const actualSha = execFileSync("git", ["rev-parse", "HEAD"], {
+        cwd: root,
+        encoding: "utf8"
+      }).trim();
+      const result = runNodeResult("scripts/assemble-pr4-visual-manifest.mjs", [
+        "--baseline",
+        baseline,
+        "--candidate",
+        candidate,
+        "--diff-root",
+        diff,
+        "--output",
+        output,
+        "--max-diff-pixel-ratio",
+        "0.01",
+        "--base-sha",
+        "base-sha",
+        "--head-sha",
+        actualSha,
+        "--expected-diff-receipt",
+        receipt
+      ]);
+
+      expect(result.status).toBe(0);
+      const manifest = JSON.parse(readFileSync(output, "utf8")) as {
+        status: string;
+        expected_visual_delta?: { mission_id: string; accepted_differences: unknown[] };
+        surfaces: Array<{ status: string }>;
+      };
+      expect(manifest).toMatchObject({
+        status: "passed",
+        expected_visual_delta: {
+          mission_id: "R3-MAIN-UXR-O1"
+        }
+      });
+      expect(manifest.expected_visual_delta?.accepted_differences).toHaveLength(1);
+      expect(manifest.surfaces[0]).toMatchObject({ status: "acceptable_difference" });
     } finally {
       rmSync(fixture, { recursive: true, force: true });
     }

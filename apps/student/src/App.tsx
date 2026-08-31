@@ -68,12 +68,12 @@ import {
   AppShell,
   AuthorityBadge,
   ContextBar,
-  CrossRoleRecoveryRail,
   KnownLimitBanner,
   RoleNavigation,
   StatePanel,
   WorkbenchFrame
 } from "@simwar/ui";
+import { CrossRoleRecoveryRail } from "@simwar/ui/cross-role-recovery-rail";
 
 const O4CrossRoundDynamicsFeature = lazy(() => import("./O4"));
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
