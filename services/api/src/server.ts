@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { fileURLToPath } from "node:url";
 import type {
@@ -617,6 +618,17 @@ function createRuntimeRepositoryProvider(
     throw new Error("postgres_runtime_provider_required");
   }
   return createJsonRepositoryProvider({ store });
+}
+
+function studentDecisionContextSourceBindingId(binding: {
+  parameter_set_reference: ParameterSetReference;
+  scenario_package_reference: ScenarioPackageReference;
+}): string {
+  const bindingMaterial = JSON.stringify({
+    parameter_set_reference: binding.parameter_set_reference,
+    scenario_package_reference: binding.scenario_package_reference
+  });
+  return `source-${createHash("sha256").update(bindingMaterial).digest("hex").slice(0, 24)}`;
 }
 
 function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = {}): ApiRuntime {
@@ -1332,7 +1344,11 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
       parameter_set_reference: binding.parameter_set_reference,
       scenario_package_reference: binding.scenario_package_reference
     });
-    return createStudentDecisionContextEvidence(context, sourceEvidence);
+    return createStudentDecisionContextEvidence(
+      context,
+      sourceEvidence,
+      studentDecisionContextSourceBindingId(binding)
+    );
   };
   const o4CrossRoundDynamics = new O4CrossRoundDynamicsService({
     getRun: (tenantId, runId) =>
@@ -8668,7 +8684,10 @@ async function routeRequest(
           team_id: teamId,
           tenant_id: actor.tenant_id
         },
-        courseFactorySourceEvidence
+        courseFactorySourceEvidence,
+        formalRuntimeBinding
+          ? studentDecisionContextSourceBindingId(formalRuntimeBinding)
+          : undefined
       );
       sendJson(
         response,

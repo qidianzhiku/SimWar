@@ -57,8 +57,11 @@ function exactScopeKey(scope: StudentDecisionContextScope): string {
   ].join("|");
 }
 
-function evidenceId(scope: StudentDecisionContextScope): string {
-  return `sdcx.v1.${exactScopeKey(scope).replace(/[^A-Za-z0-9._:-]/g, "_")}`;
+function evidenceId(scope: StudentDecisionContextScope, sourceBindingId?: string): string {
+  const sourceSuffix = sourceBindingId
+    ? `.${sourceBindingId.replace(/[^A-Za-z0-9._:-]/g, "_")}`
+    : "";
+  return `sdcx.v1.${exactScopeKey(scope).replace(/[^A-Za-z0-9._:-]/g, "_")}${sourceSuffix}`;
 }
 
 export function isStudentDecisionContextEvidenceScope(
@@ -70,7 +73,8 @@ export function isStudentDecisionContextEvidenceScope(
 
 export function createStudentDecisionContextEvidence(
   scope: StudentDecisionContextScope,
-  sourceContext: CourseFactoryStudentEvidenceProjection | undefined
+  sourceContext: CourseFactoryStudentEvidenceProjection | undefined,
+  sourceBindingId?: string
 ): StudentDecisionContextEvidence {
   if (!sourceContext) {
     return {
@@ -93,7 +97,7 @@ export function createStudentDecisionContextEvidence(
 
   return {
     schema_version: STUDENT_DECISION_CONTEXT_EVIDENCE_SCHEMA_VERSION,
-    evidence_id: evidenceId(scope),
+    evidence_id: evidenceId(scope, sourceBindingId ?? sourceContext.epoch_version),
     evidence_version: "student-decision-context.v1",
     status: "READY",
     scope: { ...scope },

@@ -46,6 +46,19 @@ describe("M31 student decision context evidence", () => {
     expect(isStudentDecisionContextEvidenceScope(evidence, scope)).toBe(true);
   });
 
+  it("changes the opaque evidence identity when the immutable source binding changes", () => {
+    const first = createStudentDecisionContextEvidence(scope, source, "source-package-a");
+    const replacement = createStudentDecisionContextEvidence(
+      scope,
+      { ...source, epoch_version: "epoch-b.2026-09-01" },
+      "source-package-b"
+    );
+
+    expect(first.evidence_id).not.toBe(replacement.evidence_id);
+    expect(first.evidence_id).toContain("source-package-a");
+    expect(replacement.evidence_id).toContain("source-package-b");
+  });
+
   it("fails closed when source evidence is missing", () => {
     const evidence = createStudentDecisionContextEvidence(scope, undefined);
 

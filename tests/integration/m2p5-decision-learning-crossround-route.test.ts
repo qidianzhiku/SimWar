@@ -188,6 +188,64 @@ describe("M2-P5 decision learning BFF route", () => {
     expect(status).toBe(409);
   });
 
+  it("rejects an old source-bound identity after the package binding changes", async () => {
+    const exactContext = {
+      activity_id: "activity_consequence",
+      course_id: "course_demo",
+      role_key: "CEO",
+      round_id: "round_m2p5_1",
+      round_no: 1,
+      run_id: "run_m2p5",
+      team_id: "team_alpha",
+      tenant_id: "tenant_demo"
+    } as const;
+    const sourceContext = {
+      target_region: "Hangzhou" as const,
+      epoch_version: "epoch-b.2026-08-30",
+      qualification_status: "LIMITED" as const,
+      consumption_status: "LOOKAHEAD_READY" as const,
+      exact_binding_required: true as const
+    };
+    const oldEvidence = createStudentDecisionContextEvidence(
+      exactContext,
+      { ...sourceContext, epoch_version: "epoch-b.2026-08-30" },
+      "source-package-a"
+    );
+    const currentEvidence = createStudentDecisionContextEvidence(
+      exactContext,
+      { ...sourceContext, epoch_version: "epoch-b.2026-09-01" },
+      "source-package-b"
+    );
+    const url = new URL(
+      "http://localhost/api/v1/bff/student/m2p5/runs/run_m2p5/rounds/1/decision-learning?" +
+        query +
+        `&decision_context_evidence_id=${encodeURIComponent(oldEvidence.evidence_id)}`
+    );
+    let status = 0;
+    const service = {
+      getJourney: async () => ({ schema_version: "m2p5-decision-learning-crossround.v1" })
+    } as unknown as M2P5DecisionLearningCrossRoundService;
+
+    await handleM2P5DecisionLearningRoute(
+      service,
+      { method: "GET" } as never,
+      {} as never,
+      url,
+      { requestId: "request_m2p5", tenantId: "tenant_demo" },
+      {
+        createEnvelope: (_context, value) => value,
+        requireStudent: () => ({ ...actor, roles: ["student"] }),
+        requireTeacher: () => actor,
+        resolveStudentDecisionContextEvidence: async () => currentEvidence,
+        sendJson: (_response, nextStatus) => {
+          status = nextStatus;
+        }
+      }
+    );
+
+    expect(status).toBe(409);
+  });
+
   it("emits the derived learning loop through the existing real composition route", async () => {
     const exactContext = {
       activity_id: "activity_consequence",
