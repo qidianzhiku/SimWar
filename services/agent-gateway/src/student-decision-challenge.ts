@@ -57,7 +57,7 @@ export function buildStudentDecisionChallenge(
       };
     case "TEAM_CONFIRMED":
       return {
-        advisory_text: `Explain [TEAM_CONFIRMED]: team confirmation is not a round lock. Re-check the visible rationale and preserve dissent before the canonical decision proceeds. ${lensNotice} ${DECISION_LAYER_NOTICE}`,
+        advisory_text: `Explain [TEAM_CONFIRMED]: team confirmation is not a round lock. The canonical decision is already confirmed and is no longer editable in this workflow; review the visible rationale and preserve dissent for human review. ${lensNotice} ${DECISION_LAYER_NOTICE}`,
         output_type: "explanation"
       };
     case "RESOLUTION_PROPOSED":

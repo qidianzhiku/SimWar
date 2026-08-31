@@ -46,16 +46,6 @@ export class WorkflowEvidenceError extends Error {
   }
 }
 
-const STAGE_ORDER: Record<Exclude<WorkflowEvidenceStage, "NOT_STARTED">, number> = {
-  ROLE_ASSIGNED: 0,
-  ROLE_CONTRIBUTION_DRAFTED: 1,
-  ROLE_CONTRIBUTION_READY: 2,
-  TEAM_MERGE_MILESTONE: 3,
-  TEAM_CONFIRMED: 4,
-  RESOLUTION_PROPOSED: 5,
-  RESOLUTION_ACKNOWLEDGED: 6
-};
-
 const EVENT_STAGE: Record<
   Exclude<QualifiedWorkflowEventType, "workflow_reset">,
   Exclude<WorkflowEvidenceStage, "NOT_STARTED">
@@ -81,18 +71,6 @@ function validateIds(ids: string[]): void {
     new Set(ids).size !== ids.length
   ) {
     throw new WorkflowEvidenceError("EVENT_ID_INVALID");
-  }
-}
-
-function validateSequence(types: QualifiedWorkflowEventType[]): void {
-  let previousOrder = -1;
-  for (const type of types) {
-    if (type === "workflow_reset") continue;
-    const currentOrder = STAGE_ORDER[EVENT_STAGE[type]];
-    if (currentOrder < previousOrder) {
-      throw new WorkflowEvidenceError("EVENT_SEQUENCE_INVALID");
-    }
-    previousOrder = currentOrder;
   }
 }
 
@@ -136,7 +114,6 @@ export function qualifyWorkflowEvidence(context: WorkflowEvidenceContext): Workf
       status: "abstained"
     };
   }
-  validateSequence(qualifiedTypes);
   const lastType = qualifiedTypes.at(-1);
   if (!lastType || lastType === "workflow_reset") {
     return {

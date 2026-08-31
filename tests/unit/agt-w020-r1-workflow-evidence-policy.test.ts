@@ -116,19 +116,17 @@ describe("W020 R1 workflow evidence policy", () => {
     ).toThrowError(new AgentGatewayError("AGENT_CONTEXT_INVALID"));
   });
 
-  it("fails closed for contradictory workflow ordering", () => {
-    const gateway = createDeterministicMockGateway();
-
-    expect(() =>
-      gateway.generate({
-        context: gatewayContext({
-          source_event_ids: ["event_001", "event_002"],
-          source_event_types: ["section_ready", "section_saved"]
-        }),
-        role_key: "CEO",
-        surface: "student_role"
+  it("accepts interleaved multi-role events without imposing a global stage order", () => {
+    const result = qualifyWorkflowEvidence(
+      gatewayContext({
+        source_event_ids: ["event_001", "event_002"],
+        source_event_types: ["section_ready", "section_saved"]
       })
-    ).toThrowError(new AgentGatewayError("AGENT_CONTEXT_INVALID"));
+    );
+
+    expect(result.status).toBe("eligible");
+    expect(result.current_stage).toBe("ROLE_CONTRIBUTION_DRAFTED");
+    expect(result.qualified_event_ids).toEqual(["event_001", "event_002"]);
   });
 
   it("does not honor injected scope instructions or authority escalation", () => {
