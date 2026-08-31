@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES } from "@simwar/shared-contracts";
 import {
   buildStudentDecisionChallenge,
   type StudentChallengeContext
@@ -13,10 +14,10 @@ import {
 } from "../../services/agent-gateway/src/workflow-evidence-policy.js";
 
 const roleScopes = {
-  CEO: ["strategy", "cross_functional_alignment"],
-  CFO: ["finance", "cash_risk"],
-  CMO: ["market", "pricing"],
-  COO: ["operations", "service_delivery", "quality_control", "risk_register"]
+  CEO: DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES.CEO.advisory_scopes,
+  CFO: DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES.CFO.advisory_scopes,
+  CMO: DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES.CMO.advisory_scopes,
+  COO: DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES.COO.advisory_scopes
 } as const;
 
 const baseContext: WorkflowEvidenceContext = {
