@@ -20,6 +20,22 @@ const STAGE_FOCUS: Record<string, string> = {
   RESOLUTION_ACKNOWLEDGED: "what was acknowledged and what dissent remains"
 };
 
+const STAGE_BOUNDARY: Record<string, string> = {
+  ROLE_ASSIGNED:
+    "Role contribution is still being established; do not infer a decision or outcome.",
+  ROLE_CONTRIBUTION_DRAFTED:
+    "A saved contribution is process information, not an accepted team position.",
+  ROLE_CONTRIBUTION_READY: "Ready status is process information, not a canonical decision.",
+  TEAM_MERGE_MILESTONE:
+    "A merge candidate is not a canonical decision; keep visible divergence available for review.",
+  TEAM_CONFIRMED:
+    "Team Confirm is not Round Lock; confirmation does not establish an official result.",
+  RESOLUTION_PROPOSED:
+    "Resolution Proposal is not a Canonical Decision; keep the unresolved disagreement and dissent visible.",
+  RESOLUTION_ACKNOWLEDGED:
+    "Acknowledgement is not Acceptance or Truth; record what remains unresolved without re-entering a historical Decision."
+};
+
 export function buildTeacherDebriefIntelligence(
   _context: TeacherDebriefContext,
   evidence: WorkflowEvidenceResult
@@ -33,9 +49,17 @@ export function buildTeacherDebriefIntelligence(
   }
   const focus =
     STAGE_FOCUS[evidence.current_stage] ?? "which process question should be examined next";
+  const boundary =
+    STAGE_BOUNDARY[evidence.current_stage] ??
+    "The visible process step does not establish an official result.";
+  const recovery = evidence.reset_applied
+    ? "Workflow reset recovery: only post-reset selected-team process evidence is in scope; historical Decision data is not re-entered."
+    : "Scope: selected-team process evidence only; no multi-team synthesis is performed.";
   return {
     advisory_text: [
       `Debrief [${evidence.current_stage}]: Process Evidence is not Outcome/Causality.`,
+      boundary,
+      recovery,
       `Mechanism question: examine ${focus}.`,
       "Assumption: identify the learner or team assumption that the visible process step leaves untested.",
       "Risk: a process milestone may be over-read as proof of a business result.",
