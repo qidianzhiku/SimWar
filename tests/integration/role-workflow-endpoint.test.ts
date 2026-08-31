@@ -6,6 +6,7 @@ import type {
   AuthSession,
   AuditLog,
   FormalRunRuntimeBinding,
+  ProjectAssignment,
   Round,
   RoleDecisionSection,
   RoleId,
@@ -268,6 +269,228 @@ describe("Role Workflow HTTP boundary", () => {
     }
   });
 
+  it("does not apply the M31 evidence gate to a formal run without a project assignment", async () => {
+    const { baseUrl, server, store } = await startServer();
+    store.formalRunRuntimeBindings.push(
+      createPolicyBinding(scope.run_id, "ROLE_WORKFLOW_REQUIRED")
+    );
+    try {
+      const teacherToken = await login(baseUrl, "teacher");
+      const studentToken = await login(baseUrl, "role_ceo");
+      const assigned = await request<StudentRoleAssignment>(
+        baseUrl,
+        "/api/v1/bff/teacher/role-workflows/assignments",
+        {
+          body: {
+            course_id: "course_demo",
+            role_key: "CEO",
+            run_id: scope.run_id,
+            team_id: scope.team_id,
+            user_id: "role_ceo"
+          },
+          method: "PUT",
+          token: teacherToken
+        }
+      );
+      expect(assigned.status).toBe(201);
+
+      const saved = await request<RoleDecisionSection>(
+        baseUrl,
+        "/api/v1/bff/student/role-workspace/section",
+        {
+          body: {
+            ...scope,
+            expected_version: 0,
+            payload: { strategy_statement: "Ordinary formal workflow remains supported." }
+          },
+          method: "PUT",
+          token: studentToken
+        }
+      );
+      expect(saved.status).toBe(200);
+      expect(saved.body.data.status).toBe("draft");
+      expect(store.roleDecisionSections).toHaveLength(1);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("rejects role writes while project assignment identity is ambiguous", async () => {
+    const { baseUrl, server, store } = await startServer();
+    store.formalRunRuntimeBindings.push(
+      createPolicyBinding(scope.run_id, "ROLE_WORKFLOW_REQUIRED")
+    );
+    store.projectAssignments.push(
+      ...["project-a", "project-b"].map(
+        (assignmentId): ProjectAssignment => ({
+          assigned_at: "2026-08-30T08:00:00.000Z",
+          assigned_by: "usr_teacher",
+          assignment_id: assignmentId,
+          course_id: "course_demo",
+          project_profile_reference: {
+            content_digest: `${assignmentId}-digest`.padEnd(64, "0"),
+            project_profile_id: assignmentId,
+            tenant_id: "tenant_demo",
+            version: "1.0.0"
+          },
+          run_id: scope.run_id,
+          schema_version: "project-assignment.v1",
+          team_id: scope.team_id,
+          tenant_id: "tenant_demo"
+        })
+      )
+    );
+    try {
+      const teacherToken = await login(baseUrl, "teacher");
+      const studentToken = await login(baseUrl, "role_ceo");
+      const assigned = await request<StudentRoleAssignment>(
+        baseUrl,
+        "/api/v1/bff/teacher/role-workflows/assignments",
+        {
+          body: {
+            course_id: "course_demo",
+            role_key: "CEO",
+            run_id: scope.run_id,
+            team_id: scope.team_id,
+            user_id: "role_ceo"
+          },
+          method: "PUT",
+          token: teacherToken
+        }
+      );
+      expect(assigned.status).toBe(201);
+
+      const saved = await request<unknown>(baseUrl, "/api/v1/bff/student/role-workspace/section", {
+        body: {
+          ...scope,
+          decision_context_evidence_id: "stale-evidence-id",
+          expected_version: 0,
+          payload: { strategy_statement: "Ambiguous project identity must fail closed." }
+        },
+        method: "PUT",
+        token: studentToken
+      });
+      expect(saved.status).toBe(409);
+      expect(saved.body.code).toBe("PROJECT_ASSIGNMENT_CONFLICT");
+      expect(store.roleDecisionSections).toEqual([]);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("returns an existing confirmation before rechecking expired project evidence", async () => {
+    const { baseUrl, server, store } = await startServer();
+    store.formalRunRuntimeBindings.push(
+      createPolicyBinding(scope.run_id, "ROLE_WORKFLOW_REQUIRED")
+    );
+    try {
+      const teacherToken = await login(baseUrl, "teacher");
+      const tokens = new Map<string, string>();
+      for (const username of ["role_ceo", "role_cfo", "role_cmo", "role_coo"]) {
+        tokens.set(username, await login(baseUrl, username));
+        const roleKey =
+          username === "role_coo" ? "COO" : username.replace("role_", "").toUpperCase();
+        const assigned = await request<StudentRoleAssignment>(
+          baseUrl,
+          "/api/v1/bff/teacher/role-workflows/assignments",
+          {
+            body: {
+              course_id: "course_demo",
+              role_key: roleKey,
+              run_id: scope.run_id,
+              team_id: scope.team_id,
+              user_id: username
+            },
+            method: "PUT",
+            token: teacherToken
+          }
+        );
+        expect(assigned.status).toBe(201);
+      }
+
+      const payloads = new Map<string, object>([
+        ["role_ceo", { strategy_statement: "Existing confirmation must be retryable." }],
+        ["role_cfo", { cash_buffer_target: 0.2, service_quality_budget: 125000 }],
+        ["role_cmo", { marketing_budget: 150000, pricing: { base_price: 12800 } }],
+        ["role_coo", { capacity_plan: "expand" }]
+      ]);
+      for (const username of ["role_ceo", "role_cfo", "role_cmo", "role_coo"]) {
+        const saved = await request<RoleDecisionSection>(
+          baseUrl,
+          "/api/v1/bff/student/role-workspace/section",
+          {
+            body: { ...scope, expected_version: 0, payload: payloads.get(username) },
+            method: "PUT",
+            token: tokens.get(username)
+          }
+        );
+        expect(saved.status).toBe(200);
+        const ready = await request<RoleDecisionSection>(
+          baseUrl,
+          "/api/v1/bff/student/role-workspace/ready",
+          {
+            body: { ...scope, expected_version: saved.body.data.version },
+            method: "POST",
+            token: tokens.get(username)
+          }
+        );
+        expect(ready.status).toBe(200);
+      }
+
+      const merge = await request<StudentRoleWorkflowMergeDTO>(
+        baseUrl,
+        "/api/v1/bff/student/role-workspace/merge",
+        { body: scope, method: "POST", token: tokens.get("role_ceo") }
+      );
+      expect(merge.status).toBe(201);
+      const firstConfirmation = await request<TeamConfirmation>(
+        baseUrl,
+        "/api/v1/bff/student/role-workspace/confirm",
+        {
+          body: { ...scope, merge_commit_id: merge.body.data.merge_commit_id },
+          method: "POST",
+          token: tokens.get("role_ceo")
+        }
+      );
+      expect(firstConfirmation.status).toBe(201);
+
+      store.projectAssignments.push({
+        assigned_at: "2026-08-30T08:00:00.000Z",
+        assigned_by: "usr_teacher",
+        assignment_id: "project-confirm-retry",
+        course_id: "course_demo",
+        project_profile_reference: {
+          content_digest: "project-confirm-retry-digest".padEnd(64, "0"),
+          project_profile_id: "project-confirm-retry",
+          tenant_id: "tenant_demo",
+          version: "1.0.0"
+        },
+        run_id: scope.run_id,
+        schema_version: "project-assignment.v1",
+        team_id: scope.team_id,
+        tenant_id: "tenant_demo"
+      });
+
+      const retriedConfirmation = await request<TeamConfirmation>(
+        baseUrl,
+        "/api/v1/bff/student/role-workspace/confirm",
+        {
+          body: { ...scope, merge_commit_id: merge.body.data.merge_commit_id },
+          method: "POST",
+          token: tokens.get("role_ceo")
+        }
+      );
+      expect(retriedConfirmation.status).toBe(200);
+      expect(retriedConfirmation.body.data.team_confirmation_id).toBe(
+        firstConfirmation.body.data.team_confirmation_id
+      );
+      expect(store.teamConfirmations).toHaveLength(1);
+      expect(store.decisions).toHaveLength(1);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
   it("fails closed when a run has neither a formal policy nor an explicit compatibility marker", async () => {
     const { baseUrl, server, store } = await startServer();
     store.auditLogs = [];
@@ -389,6 +612,9 @@ describe("Role Workflow HTTP boundary", () => {
 
   it("runs Teacher assignment through Student safe drafts to one confirmed canonical Decision", async () => {
     const { baseUrl, server, store } = await startServer();
+    store.formalRunRuntimeBindings.push(
+      createPolicyBinding(scope.run_id, "ROLE_WORKFLOW_REQUIRED")
+    );
     try {
       const teacherToken = await login(baseUrl, "teacher");
       const tokens = new Map<string, string>();
@@ -420,6 +646,35 @@ describe("Role Workflow HTTP boundary", () => {
         expect(assigned.status).toBe(201);
         expect(assigned.body.data.role_key).toBe(role_key);
       }
+
+      const blockedProjectAssignment: ProjectAssignment = {
+        assigned_at: "2026-08-30T08:00:00.000Z",
+        assigned_by: "usr_teacher",
+        assignment_id: "project-w027-alias-gate",
+        course_id: "course_demo",
+        project_profile_reference: {
+          content_digest: "project-w027-alias-gate-digest".padEnd(64, "0"),
+          project_profile_id: "project-w027-alias-gate",
+          tenant_id: "tenant_demo",
+          version: "1.0.0"
+        },
+        run_id: scope.run_id,
+        schema_version: "project-assignment.v1",
+        team_id: scope.team_id,
+        tenant_id: "tenant_demo"
+      };
+      store.projectAssignments.push(blockedProjectAssignment);
+      const blockedW027MergeBeforeSections = await request<unknown>(
+        baseUrl,
+        "/api/v1/bff/student/w027/merge",
+        { body: scope, method: "POST", token: tokens.get("role_ceo") }
+      );
+      expect(blockedW027MergeBeforeSections.status).toBe(409);
+      expect(blockedW027MergeBeforeSections.body.code).toBe(
+        "STUDENT_DECISION_CONTEXT_EVIDENCE_REQUIRED"
+      );
+      expect(store.decisionMergeCommits).toEqual([]);
+      store.projectAssignments = [];
 
       const cfoWorkspace = await request<StudentRoleWorkflowWorkspaceDTO>(
         baseUrl,
@@ -509,6 +764,30 @@ describe("Role Workflow HTTP boundary", () => {
       });
       expect(JSON.stringify(captainWorkspace.body.data)).not.toContain("merged_payload");
 
+      store.projectAssignments.push(blockedProjectAssignment);
+
+      const blockedW027Confirm = await request<unknown>(
+        baseUrl,
+        "/api/v1/bff/student/w027/confirm",
+        {
+          body: { ...scope, merge_commit_id: merge.body.data.merge_commit_id },
+          method: "POST",
+          token: tokens.get("role_ceo")
+        }
+      );
+      expect(blockedW027Confirm.status).toBe(409);
+      expect(blockedW027Confirm.body.code).toBe("STUDENT_DECISION_CONTEXT_EVIDENCE_REQUIRED");
+      expect(store.teamConfirmations).toEqual([]);
+      store.projectAssignments = [];
+
+      const idempotentW027Merge = await request<StudentRoleWorkflowMergeDTO>(
+        baseUrl,
+        "/api/v1/bff/student/w027/merge",
+        { body: scope, method: "POST", token: tokens.get("role_ceo") }
+      );
+      expect(idempotentW027Merge.status).toBe(201);
+      expect(idempotentW027Merge.body.data.merge_commit_id).toBe(merge.body.data.merge_commit_id);
+
       const [confirmation, repeatedConfirmation] = await Promise.all([
         request<TeamConfirmation>(baseUrl, "/api/v1/bff/student/role-workspace/confirm", {
           body: { ...scope, merge_commit_id: merge.body.data.merge_commit_id },
@@ -532,9 +811,22 @@ describe("Role Workflow HTTP boundary", () => {
         team_confirmation_id: confirmation.body.data.team_confirmation_id
       });
 
-      store.formalRunRuntimeBindings.push(
-        createPolicyBinding(scope.run_id, "ROLE_WORKFLOW_REQUIRED")
+      store.projectAssignments.push(blockedProjectAssignment);
+      const retriedW027Confirmation = await request<TeamConfirmation>(
+        baseUrl,
+        "/api/v1/bff/student/w027/confirm",
+        {
+          body: { ...scope, merge_commit_id: merge.body.data.merge_commit_id },
+          method: "POST",
+          token: tokens.get("role_ceo")
+        }
       );
+      expect(retriedW027Confirmation.status).toBe(200);
+      expect(retriedW027Confirmation.body.data.team_confirmation_id).toBe(
+        confirmation.body.data.team_confirmation_id
+      );
+      store.projectAssignments = [];
+
       const w4BeforeFormalMismatch = structuredClone(store.w4);
       const mismatchedW4Decision = await request<unknown>(
         baseUrl,

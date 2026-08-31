@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import type {
   M2P5DecisionLearningResponse,
+  StudentDecisionContextEvidence,
   W3OfficialConsequenceContext,
   W3OfficialConsequenceRecord,
   W3OfficialConsequenceResponse
 } from "@simwar/shared-contracts";
+import { isStudentDecisionContextEvidenceScope } from "@simwar/shared-contracts";
 import M4MultipathCounterfactualTransferPanel from "@simwar/ui/m4-multipath-counterfactual-transfer-panel";
 import "./p2b-decision-learning.css";
 
@@ -30,6 +32,8 @@ type Props = {
   context?: W3OfficialConsequenceContext | undefined;
   published: boolean;
   crossRoundEnabled?: boolean;
+  decisionContextEvidence?: StudentDecisionContextEvidence | null;
+  decisionContextEvidenceRequired?: boolean;
   m4?: readonly [courseId: string, runId: string, roundNo: number] | undefined;
 };
 
@@ -45,10 +49,17 @@ type CrossRoundState =
   | { phase: "ready" | "stale"; data: M2P5DecisionLearningResponse }
   | { phase: "error"; message: string };
 
-function contextQuery(context: W3OfficialConsequenceContext): string {
-  return new URLSearchParams(
+function contextQuery(
+  context: W3OfficialConsequenceContext,
+  decisionContextEvidenceId?: string
+): string {
+  const params = new URLSearchParams(
     Object.entries(context).map(([key, value]) => [key, String(value)])
-  ).toString();
+  );
+  if (decisionContextEvidenceId) {
+    params.set("decision_context_evidence_id", decisionContextEvidenceId);
+  }
+  return params.toString();
 }
 
 function safeMessage(value: unknown): string {
@@ -63,6 +74,8 @@ export function StudentDecisionLearningJourney({
   context,
   published,
   crossRoundEnabled = false,
+  decisionContextEvidence,
+  decisionContextEvidenceRequired = false,
   m4
 }: Props) {
   const [state, setState] = useState<JourneyState>({
@@ -78,7 +91,7 @@ export function StudentDecisionLearningJourney({
   const crossRoundRef = useRef<M2P5DecisionLearningResponse | undefined>(undefined);
   const requestEpochRef = useRef(0);
   const crossRoundRequestEpochRef = useRef(0);
-  const identityKey = `${tenantId}:${token}:${published}:${context ? contextQuery(context) : ""}`;
+  const identityKey = `${tenantId}:${token}:${published}:${context ? contextQuery(context) : ""}:${decisionContextEvidence?.evidence_id ?? ""}:${decisionContextEvidence?.status ?? "missing"}:${decisionContextEvidenceRequired}`;
   const previousIdentityKey = useRef<string | null>(null);
 
   useEffect(() => {
@@ -144,11 +157,26 @@ export function StudentDecisionLearningJourney({
       setCrossRound({ phase: "idle" });
       return () => controller.abort();
     }
+    if (decisionContextEvidenceRequired && !decisionContextEvidence) {
+      setCrossRound({
+        phase: "error",
+        message: "决策上下文证据尚未就绪，请刷新后重试。"
+      });
+      return () => controller.abort();
+    }
+    if (decisionContextEvidence && decisionContextEvidence.status !== "READY") {
+      setCrossRound({
+        phase: "error",
+        message: "决策上下文证据被服务端阻断，当前回合不会读取连续学习投影。"
+      });
+      return () => controller.abort();
+    }
+    const evidenceId = decisionContextEvidence?.evidence_id;
     setCrossRound(
       crossRoundRef.current ? { phase: "stale", data: crossRoundRef.current } : { phase: "loading" }
     );
     fetch(
-      `${apiBase}/api/v1/bff/student/m2p5/runs/${encodeURIComponent(context.run_id)}/rounds/${context.round_no}/decision-learning?${contextQuery(context)}`,
+      `${apiBase}/api/v1/bff/student/m2p5/runs/${encodeURIComponent(context.run_id)}/rounds/${context.round_no}/decision-learning?${contextQuery(context, evidenceId)}`,
       {
         headers: { authorization: `Bearer ${token}`, "x-tenant-id": tenantId },
         signal: controller.signal
@@ -168,6 +196,17 @@ export function StudentDecisionLearningJourney({
         ) {
           throw new Error(envelope.message ?? "跨回合学习投影读取失败");
         }
+        if (evidenceId) {
+          const responseEvidence = envelope.data.decision_context_evidence;
+          if (
+            !responseEvidence ||
+            responseEvidence.status !== "READY" ||
+            responseEvidence.evidence_id !== evidenceId ||
+            !isStudentDecisionContextEvidenceScope(responseEvidence, context)
+          ) {
+            throw new Error("决策上下文连续证据校验失败，请刷新后重试。");
+          }
+        }
         crossRoundRef.current = envelope.data;
         setCrossRound({ phase: "ready", data: envelope.data });
       })
@@ -180,9 +219,23 @@ export function StudentDecisionLearningJourney({
         });
       });
     return () => controller.abort();
-  }, [apiBase, context, crossRoundEnabled, crossRoundRetryNonce, published, tenantId, token]);
+  }, [
+    apiBase,
+    context,
+    crossRoundEnabled,
+    crossRoundRetryNonce,
+    decisionContextEvidence,
+    decisionContextEvidenceRequired,
+    published,
+    tenantId,
+    token
+  ]);
 
   const record = state.phase === "ready" || state.phase === "stale" ? state.record : undefined;
+  const displayedDecisionContextEvidence =
+    (crossRound.phase === "ready" || crossRound.phase === "stale"
+      ? crossRound.data.decision_context_evidence
+      : undefined) ?? decisionContextEvidence;
 
   function scrollToStage(stage: string): void {
     const target = document.getElementById(`student-p2b-${stage}`);
@@ -262,6 +315,61 @@ export function StudentDecisionLearningJourney({
                     : "学习旅程"}
         </span>
       </div>
+
+      {displayedDecisionContextEvidence ? (
+        <section
+          className="p2b-context-evidence"
+          data-testid="student-decision-context-continuity"
+          data-evidence-status={displayedDecisionContextEvidence.status}
+          data-evidence-version={displayedDecisionContextEvidence.evidence_version}
+          aria-label="学员决策上下文连续证据"
+        >
+          <div>
+            <span className="p2b-stage-kicker">M31 · DECISION CONTEXT THREAD</span>
+            <strong>
+              {displayedDecisionContextEvidence.status === "READY"
+                ? "当前决策已绑定同一份安全证据上下文"
+                : "当前决策上下文被安全阻断"}
+            </strong>
+          </div>
+          <p>
+            回合 {displayedDecisionContextEvidence.scope.round_no} · 团队{" "}
+            {displayedDecisionContextEvidence.scope.team_id} · 证据版本{" "}
+            {displayedDecisionContextEvidence.evidence_version}
+          </p>
+          {displayedDecisionContextEvidence.source_context ? (
+            <p>
+              目标区域：{displayedDecisionContextEvidence.source_context.target_region} · 证据周期：
+              {displayedDecisionContextEvidence.source_context.epoch_version} · 资格：
+              {displayedDecisionContextEvidence.source_context.qualification_status}
+            </p>
+          ) : null}
+          <div className="p2b-learning-loop-grid" data-testid="student-decision-context-stages">
+            {Object.entries(displayedDecisionContextEvidence.continuity).map(([stage, status]) => (
+              <div key={stage}>
+                <span>{stage}</span>
+                <strong>{status}</strong>
+              </div>
+            ))}
+          </div>
+          {displayedDecisionContextEvidence.blocker_codes?.length ? (
+            <p className="p2b-known-limit">
+              阻断：{displayedDecisionContextEvidence.blocker_codes.join(" / ")}
+            </p>
+          ) : null}
+        </section>
+      ) : decisionContextEvidenceRequired ? (
+        <section
+          className="p2b-context-evidence p2b-context-evidence--blocked"
+          data-testid="student-decision-context-continuity"
+          data-evidence-status="BLOCKED"
+          aria-label="学员决策上下文连续证据"
+        >
+          <span className="p2b-stage-kicker">M31 · DECISION CONTEXT THREAD</span>
+          <strong>决策上下文证据尚未就绪</strong>
+          <p>服务端尚未返回当前 exact scope 的安全证据；页面不会读取连续学习投影。</p>
+        </section>
+      ) : null}
 
       {state.phase === "blocked" ? (
         <div className="p2b-state-card p2b-state-card--blocked" data-testid="student-p2b-blocked">

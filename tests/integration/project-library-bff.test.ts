@@ -136,6 +136,7 @@ describe("Project Library BFF", () => {
       );
       expect(brief.status).toBe(200);
       expect(brief.body.data.project_profile_reference).toEqual(profileRef);
+      expect(brief.body.data.decision_context_evidence_required).toBe(false);
       expect(JSON.stringify(brief.body.data)).not.toMatch(
         /raw_source|private|state_true|score|rank|settlement_result|other_team_data/i
       );

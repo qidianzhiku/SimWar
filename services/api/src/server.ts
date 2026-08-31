@@ -16,6 +16,8 @@ import type {
   CoursePackageVersionReference,
   D2EvidenceCaptureInput,
   D2EvidenceQuery,
+  M2P5DecisionLearningContext,
+  StudentDecisionContextEvidence,
   DecisionAdmissionPolicy,
   LearningGoalDraftInput,
   LearningGoalVersionReference,
@@ -95,6 +97,8 @@ import {
   createParameterSetReference,
   createPluginReleaseReference,
   createScenarioPackageReference,
+  createStudentDecisionContextEvidence,
+  isStudentDecisionContextEvidenceScope,
   isTruthProtectedField
 } from "@simwar/shared-contracts";
 import {
@@ -190,7 +194,11 @@ import {
   projectOperatingWorldConsequenceTrace,
   resolveOperatingWorldBindingDigest
 } from "./operating-world-consequence-trace.js";
-import { M2P5DecisionLearningCrossRoundService } from "./m2p5-decision-learning-crossround.js";
+import {
+  M2P5DecisionLearningError,
+  M2P5DecisionLearningCrossRoundService,
+  type M2P5DecisionLearningActor
+} from "./m2p5-decision-learning-crossround.js";
 import { O4CrossRoundDynamicsService } from "./o4-cross-round-dynamics.js";
 import {
   W027DecisionExperienceError,
@@ -460,6 +468,10 @@ interface ApiRuntime {
   w027DecisionExperience: W027DecisionExperienceService;
   w3OfficialConsequence: W3OfficialConsequenceLearningService;
   m2p5DecisionLearning: M2P5DecisionLearningCrossRoundService;
+  resolveStudentDecisionContextEvidence: (input: {
+    actor: M2P5DecisionLearningActor;
+    context: M2P5DecisionLearningContext;
+  }) => Promise<StudentDecisionContextEvidence | undefined>;
   o4CrossRoundDynamics: O4CrossRoundDynamicsService;
   w4EnterpriseStateRepository: W4Repository;
   w4EnterpriseStateService: ReturnType<typeof createEnterpriseStateStrategicEvolutionService>;
@@ -1295,6 +1307,61 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
         tenant_id: context.tenant_id
       })
   });
+  const projectLibrary = new ProjectLibraryService(store);
+  const resolveStudentDecisionContextEvidence = async ({
+    actor,
+    context
+  }: {
+    actor: M2P5DecisionLearningActor;
+    context: M2P5DecisionLearningContext;
+  }) => {
+    const run = await repositoryProvider.facade.runs.getRun(context.tenant_id, context.run_id);
+    if (!run || run.course_id !== context.course_id) return undefined;
+    const course = await repositoryProvider.facade.courses.getCourse(
+      context.tenant_id,
+      context.course_id
+    );
+    const binding = await formalRunRuntimeBindingStore.getForRun(context.tenant_id, context.run_id);
+    if (
+      !course ||
+      !binding ||
+      binding.tenant_id !== context.tenant_id ||
+      binding.run_id !== context.run_id
+    ) {
+      return undefined;
+    }
+    let assignmentBinding;
+    try {
+      assignmentBinding = await projectLibrary.getStudentDecisionContextAssignmentBinding({
+        course_id: context.course_id,
+        run_id: context.run_id,
+        team_id: context.team_id,
+        tenant_id: context.tenant_id,
+        user_id: actor.user_id
+      });
+    } catch (error) {
+      if (error instanceof ProjectLibraryError) return undefined;
+      throw error;
+    }
+    const sourceEvidenceBinding = await courseFactory.getStudentSourceEvidenceWithBinding(
+      context.tenant_id,
+      {
+        parameter_set_reference: binding.parameter_set_reference,
+        scenario_package_reference: binding.scenario_package_reference
+      }
+    );
+    return createStudentDecisionContextEvidence(
+      context,
+      sourceEvidenceBinding?.source_evidence,
+      [
+        sourceEvidenceBinding?.source_binding_id,
+        `assignment-${assignmentBinding.assignment_id}`,
+        `profile-${assignmentBinding.project_profile_binding_id}`
+      ]
+        .filter((value): value is string => Boolean(value))
+        .join(".")
+    );
+  };
   const o4CrossRoundDynamics = new O4CrossRoundDynamicsService({
     getRun: (tenantId, runId) =>
       repositoryProvider.facade.runs
@@ -1302,7 +1369,6 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
         .then((run) => (run ? { course_id: run.course_id } : null)),
     readW4State: () => w4EnterpriseStateRepository.snapshot()
   });
-  const projectLibrary = new ProjectLibraryService(store);
   const ensureFormalRunOpen = async (
     _actor: {
       actor_id: string;
@@ -1367,6 +1433,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     w027DecisionExperience,
     w3OfficialConsequence,
     m2p5DecisionLearning,
+    resolveStudentDecisionContextEvidence,
     o4CrossRoundDynamics,
     w4EnterpriseStateRepository,
     w4EnterpriseStateService,
@@ -5028,6 +5095,141 @@ function roleWorkflowScopeFromBody(body: Record<string, unknown>) {
   };
 }
 
+function roleWorkflowEvidenceIdFromBody(body: Record<string, unknown>): string | undefined {
+  return body.decision_context_evidence_id === undefined
+    ? undefined
+    : roleWorkflowString(body.decision_context_evidence_id, "decision_context_evidence_id");
+}
+
+async function requireStudentDecisionContextEvidenceForRoleAction(
+  runtime: ApiRuntime,
+  context: RequestContext,
+  actor: RoleWorkflowActor,
+  scope: ReturnType<typeof roleWorkflowScopeFromBody>,
+  requestedEvidenceId: string | undefined
+): Promise<void> {
+  const currentActor = requireActor(context);
+  const binding = await runtime.formalRunRuntimeBindingStore.getForRun(
+    context.tenantId,
+    scope.run_id
+  );
+  if (!binding || binding.decision_admission_policy !== "ROLE_WORKFLOW_REQUIRED") return;
+
+  const run = await runtime.repositoryProvider.facade.runs.getRun(context.tenantId, scope.run_id);
+  const round = run
+    ? (
+        await runtime.repositoryProvider.facade.rounds.listRoundsForRun(
+          context.tenantId,
+          scope.run_id
+        )
+      ).find((candidate) => candidate.round_id === scope.round_id)
+    : undefined;
+  if (!run || !round || round.run_id !== run.run_id) return;
+
+  // Authorize the requested team scope before consulting project assignments.
+  // This prevents assignment-count differences from becoming a cross-team
+  // enumeration oracle for role-action requests.
+  await runtime.roleWorkflow.getStudentWorkspace(actor, scope);
+
+  const admission = await resolveProjectAwareStudentDecisionContextAdmission(runtime, {
+    actorUserId: currentActor.user_id,
+    courseId: run.course_id,
+    roundId: round.round_id,
+    roundNo: round.round_no,
+    runId: run.run_id,
+    teamId: scope.team_id,
+    tenantId: context.tenantId
+  });
+  if (admission === "NOT_REQUIRED") return;
+  if (admission === "CONFLICT") {
+    throw new HttpError(
+      409,
+      "PROJECT_ASSIGNMENT_CONFLICT",
+      "exactly one project assignment is required for student decision admission"
+    );
+  }
+
+  const workspace = await runtime.roleWorkflow.getStudentWorkspace(actor, scope);
+  const evidence = await runtime.resolveStudentDecisionContextEvidence({
+    actor: {
+      roles: currentActor.roles,
+      tenant_id: currentActor.tenant_id,
+      user_id: currentActor.user_id
+    },
+    context: {
+      activity_id: "activity_consequence",
+      course_id: run.course_id,
+      role_key: workspace.context.role_key,
+      round_id: round.round_id,
+      round_no: round.round_no,
+      run_id: run.run_id,
+      team_id: scope.team_id,
+      tenant_id: context.tenantId
+    }
+  });
+  if (
+    !requestedEvidenceId ||
+    !evidence ||
+    evidence.status !== "READY" ||
+    evidence.evidence_id !== requestedEvidenceId ||
+    !isStudentDecisionContextEvidenceScope(evidence, {
+      activity_id: "activity_consequence",
+      course_id: run.course_id,
+      role_key: workspace.context.role_key,
+      round_id: round.round_id,
+      round_no: round.round_no,
+      run_id: run.run_id,
+      team_id: scope.team_id,
+      tenant_id: context.tenantId
+    })
+  ) {
+    throw new HttpError(
+      409,
+      "STUDENT_DECISION_CONTEXT_EVIDENCE_REQUIRED",
+      "exact READY student decision context evidence is required"
+    );
+  }
+}
+
+type ProjectAwareStudentDecisionContextAdmission = "NOT_REQUIRED" | "REQUIRED" | "CONFLICT";
+
+async function resolveProjectAwareStudentDecisionContextAdmission(
+  runtime: ApiRuntime,
+  input: {
+    actorUserId: string;
+    courseId: string;
+    roundId: string;
+    roundNo: number;
+    runId: string;
+    teamId: string;
+    tenantId: string;
+  }
+): Promise<ProjectAwareStudentDecisionContextAdmission> {
+  const binding = await runtime.formalRunRuntimeBindingStore.getForRun(input.tenantId, input.runId);
+  if (!binding || binding.decision_admission_policy !== "ROLE_WORKFLOW_REQUIRED") {
+    return "NOT_REQUIRED";
+  }
+
+  const run = await runtime.repositoryProvider.facade.runs.getRun(input.tenantId, input.runId);
+  if (!run || run.course_id !== input.courseId) return "NOT_REQUIRED";
+  const round = (
+    await runtime.repositoryProvider.facade.rounds.listRoundsForRun(input.tenantId, input.runId)
+  ).find(
+    (candidate) =>
+      candidate.round_id === input.roundId &&
+      candidate.run_id === input.runId &&
+      candidate.round_no === input.roundNo
+  );
+  if (!round) return "NOT_REQUIRED";
+
+  const projectAssignments = await runtime.projectLibrary.getAssignmentsForScope(
+    { actor_id: input.actorUserId, tenant_id: input.tenantId },
+    { course_id: input.courseId, run_id: input.runId, team_ids: [input.teamId] }
+  );
+  if (projectAssignments.length === 0) return "NOT_REQUIRED";
+  return projectAssignments.length === 1 ? "REQUIRED" : "CONFLICT";
+}
+
 function assertOnlyRoleWorkflowFields(
   body: Record<string, unknown>,
   allowedFields: readonly string[]
@@ -7602,6 +7804,22 @@ async function routeRequest(
           createEnvelope(routeContext as RequestContext, payload),
         requireStudent: () => requireD4Student(context),
         requireTeacher: () => requireD4Teacher(context),
+        requiresStudentDecisionContextEvidence: async ({ actor, context: journeyContext }) => {
+          const admission = await resolveProjectAwareStudentDecisionContextAdmission(runtime, {
+            actorUserId: actor.user_id,
+            courseId: journeyContext.course_id,
+            roundId: journeyContext.round_id,
+            roundNo: journeyContext.round_no,
+            runId: journeyContext.run_id,
+            teamId: journeyContext.team_id,
+            tenantId: journeyContext.tenant_id
+          });
+          if (admission === "CONFLICT") {
+            throw new M2P5DecisionLearningError("M2P5_CONTEXT_EVIDENCE_INVALID");
+          }
+          return admission === "REQUIRED";
+        },
+        resolveStudentDecisionContextEvidence: runtime.resolveStudentDecisionContextEvidence,
         sendJson
       }
     )
@@ -8544,6 +8762,7 @@ async function routeRequest(
     const actor = roleWorkflowActor(context, "student");
     const courseId = url.searchParams.get("course_id") ?? "";
     const runId = url.searchParams.get("run_id") ?? "";
+    const roundId = url.searchParams.get("round_id")?.trim();
     const teamId = url.searchParams.get("team_id") ?? "";
     const assignmentId = url.searchParams.get("assignment_id")?.trim();
     if (!courseId || !runId || !teamId) {
@@ -8571,11 +8790,32 @@ async function routeRequest(
         throw error;
       }
     }
-    sendJson(response, 200, createEnvelope(context, data));
+    const run = await runtime.repositoryProvider.facade.runs.getRun(context.tenantId, runId);
+    const runRounds = run
+      ? await runtime.repositoryProvider.facade.rounds.listRoundsForRun(context.tenantId, runId)
+      : [];
+    const binding = await runtime.formalRunRuntimeBindingStore.getForRun(context.tenantId, runId);
+    const decisionContextEvidenceRequired = Boolean(
+      data &&
+      run &&
+      binding?.decision_admission_policy === "ROLE_WORKFLOW_REQUIRED" &&
+      (roundId ? runRounds.some((round) => round.round_id === roundId) : runRounds.length > 0)
+    );
+    sendJson(
+      response,
+      200,
+      createEnvelope(
+        context,
+        data
+          ? { ...data, decision_context_evidence_required: decisionContextEvidenceRequired }
+          : null
+      )
+    );
     return;
   }
 
   if (request.method === "GET" && url.pathname === "/api/v1/bff/student/project-aware-context") {
+    const authenticatedActor = requireActor(context);
     const actor = roleWorkflowActor(context, "student");
     const courseId = url.searchParams.get("course_id")?.trim() ?? "";
     const runId = url.searchParams.get("run_id")?.trim() ?? "";
@@ -8621,16 +8861,36 @@ async function routeRequest(
         context.tenantId,
         runId
       );
-      const courseFactorySourceEvidence =
+      const courseFactorySourceEvidenceBinding =
         course &&
         formalRuntimeBinding &&
         formalRuntimeBinding.tenant_id === context.tenantId &&
         formalRuntimeBinding.run_id === runId
-          ? await runtime.courseFactory.getStudentSourceEvidence(context.tenantId, {
+          ? await runtime.courseFactory.getStudentSourceEvidenceWithBinding(context.tenantId, {
               parameter_set_reference: formalRuntimeBinding.parameter_set_reference,
               scenario_package_reference: formalRuntimeBinding.scenario_package_reference
             })
           : undefined;
+      const courseFactorySourceEvidence = courseFactorySourceEvidenceBinding?.source_evidence;
+      const decisionContext = {
+          activity_id: "activity_consequence",
+          course_id: courseId,
+          role_key: workspace.context.role_key,
+          round_id: round.round_id,
+          round_no: round.round_no,
+          run_id: runId,
+          team_id: teamId,
+          tenant_id: actor.tenant_id
+        } as const;
+      const decisionContextEvidence = await runtime.resolveStudentDecisionContextEvidence({
+        actor: {
+          roles: authenticatedActor.roles,
+          tenant_id: authenticatedActor.tenant_id,
+          user_id: authenticatedActor.user_id,
+          ...(authenticatedActor.team_id ? { team_id: authenticatedActor.team_id } : {})
+        },
+        context: decisionContext
+      });
       sendJson(
         response,
         200,
@@ -8646,7 +8906,8 @@ async function routeRequest(
           project_brief: projectBrief,
           ...(courseFactorySourceEvidence
             ? { course_factory_source_evidence: courseFactorySourceEvidence }
-            : {})
+            : {}),
+          decision_context_evidence: decisionContextEvidence
         })
       );
     } catch (error) {
@@ -8848,10 +9109,30 @@ async function routeRequest(
   if (request.method === "POST" && url.pathname === "/api/v1/bff/student/w027/merge") {
     const actor = w027Actor(context, "student");
     const body = await readJson<Record<string, unknown>>(request);
-    assertOnlyRoleWorkflowFields(body, ["round_id", "run_id", "team_id"]);
-    const input = roleWorkflowScopeFromBody(body);
-    const data = await executeRoleWorkflow(() =>
-      runtime.roleWorkflow.createMergeCommit(actor, input)
+    assertOnlyRoleWorkflowFields(body, [
+      "decision_context_evidence_id",
+      "round_id",
+      "run_id",
+      "team_id"
+    ]);
+    const scope = roleWorkflowScopeFromBody(body);
+    const decisionContextEvidenceId = roleWorkflowEvidenceIdFromBody(body);
+    const data = await executeLockedRoleWorkflow(
+      runtime,
+      context.tenantId,
+      scope.run_id,
+      async () => {
+        const existing = await runtime.roleWorkflow.getExistingMergeCommit(actor, scope);
+        if (existing) return existing;
+        await requireStudentDecisionContextEvidenceForRoleAction(
+          runtime,
+          context,
+          actor,
+          scope,
+          decisionContextEvidenceId
+        );
+        return runtime.roleWorkflow.createMergeCommit(actor, scope);
+      }
     );
     sendJson(response, 201, createEnvelope(context, data));
     return;
@@ -8860,11 +9141,38 @@ async function routeRequest(
   if (request.method === "POST" && url.pathname === "/api/v1/bff/student/w027/confirm") {
     const actor = w027Actor(context, "student");
     const body = await readJson<Record<string, unknown>>(request);
-    assertOnlyRoleWorkflowFields(body, ["merge_commit_id", "round_id", "run_id", "team_id"]);
-    const input = roleWorkflowScopeFromBody(body);
+    assertOnlyRoleWorkflowFields(body, [
+      "decision_context_evidence_id",
+      "merge_commit_id",
+      "round_id",
+      "run_id",
+      "team_id"
+    ]);
+    const scope = roleWorkflowScopeFromBody(body);
+    const decisionContextEvidenceId = roleWorkflowEvidenceIdFromBody(body);
     const mergeCommitId = roleWorkflowString(body.merge_commit_id, "merge_commit_id");
-    const data = await executeRoleWorkflow(() =>
-      runtime.roleWorkflow.confirmTeamDecision(actor, { ...input, merge_commit_id: mergeCommitId })
+    const data = await executeLockedRoleWorkflow(
+      runtime,
+      context.tenantId,
+      scope.run_id,
+      async () => {
+        const existing = await runtime.roleWorkflow.getExistingTeamConfirmation(actor, {
+          ...scope,
+          merge_commit_id: mergeCommitId
+        });
+        if (existing) return existing;
+        await requireStudentDecisionContextEvidenceForRoleAction(
+          runtime,
+          context,
+          actor,
+          scope,
+          decisionContextEvidenceId
+        );
+        return runtime.roleWorkflow.confirmTeamDecision(actor, {
+          ...scope,
+          merge_commit_id: mergeCommitId
+        });
+      }
     );
     sendJson(response, 200, createEnvelope(context, data));
     return;
@@ -8991,6 +9299,7 @@ async function routeRequest(
     const actor = roleWorkflowActor(context, "student");
     const body = await readJson<Record<string, unknown>>(request);
     assertOnlyRoleWorkflowFields(body, [
+      "decision_context_evidence_id",
       "expected_version",
       "payload",
       "round_id",
@@ -8998,6 +9307,7 @@ async function routeRequest(
       "team_id"
     ]);
     const scope = roleWorkflowScopeFromBody(body);
+    const decisionContextEvidenceId = roleWorkflowEvidenceIdFromBody(body);
     if (
       typeof body.expected_version !== "number" ||
       !Number.isSafeInteger(body.expected_version) ||
@@ -9006,12 +9316,24 @@ async function routeRequest(
       throw new HttpError(422, "ROLE_WORKFLOW-422-001", "role workflow request invalid");
     }
     const payload = parseRoleWorkflowPayload(body.payload);
-    const data = await executeLockedRoleWorkflow(runtime, context.tenantId, scope.run_id, () =>
-      runtime.roleWorkflow.saveSection(actor, {
-        ...scope,
-        expected_version: body.expected_version as number,
-        payload
-      })
+    const data = await executeLockedRoleWorkflow(
+      runtime,
+      context.tenantId,
+      scope.run_id,
+      async () => {
+        await requireStudentDecisionContextEvidenceForRoleAction(
+          runtime,
+          context,
+          actor,
+          scope,
+          decisionContextEvidenceId
+        );
+        return runtime.roleWorkflow.saveSection(actor, {
+          ...scope,
+          expected_version: body.expected_version as number,
+          payload
+        });
+      }
     );
     sendJson(response, 200, createEnvelope(context, data));
     return;
@@ -9020,16 +9342,35 @@ async function routeRequest(
   if (request.method === "POST" && url.pathname === "/api/v1/bff/student/role-workspace/ready") {
     const actor = roleWorkflowActor(context, "student");
     const body = await readJson<Record<string, unknown>>(request);
-    assertOnlyRoleWorkflowFields(body, ["expected_version", "round_id", "run_id", "team_id"]);
+    assertOnlyRoleWorkflowFields(body, [
+      "decision_context_evidence_id",
+      "expected_version",
+      "round_id",
+      "run_id",
+      "team_id"
+    ]);
     const scope = roleWorkflowScopeFromBody(body);
+    const decisionContextEvidenceId = roleWorkflowEvidenceIdFromBody(body);
     if (typeof body.expected_version !== "number" || !Number.isSafeInteger(body.expected_version)) {
       throw new HttpError(422, "ROLE_WORKFLOW-422-001", "role workflow request invalid");
     }
-    const data = await executeLockedRoleWorkflow(runtime, context.tenantId, scope.run_id, () =>
-      runtime.roleWorkflow.markSectionReady(actor, {
-        ...scope,
-        expected_version: body.expected_version as number
-      })
+    const data = await executeLockedRoleWorkflow(
+      runtime,
+      context.tenantId,
+      scope.run_id,
+      async () => {
+        await requireStudentDecisionContextEvidenceForRoleAction(
+          runtime,
+          context,
+          actor,
+          scope,
+          decisionContextEvidenceId
+        );
+        return runtime.roleWorkflow.markSectionReady(actor, {
+          ...scope,
+          expected_version: body.expected_version as number
+        });
+      }
     );
     sendJson(response, 200, createEnvelope(context, data));
     return;
@@ -9045,11 +9386,13 @@ async function routeRequest(
       "round_id",
       "run_id",
       "team_id",
+      "decision_context_evidence_id",
       "source_section_ids",
       "source_digest",
       "selected_values"
     ]);
     const scope = roleWorkflowScopeFromBody(body);
+    const decisionContextEvidenceId = roleWorkflowEvidenceIdFromBody(body);
     if (
       !Array.isArray(body.source_section_ids) ||
       body.source_section_ids.length === 0 ||
@@ -9057,13 +9400,31 @@ async function routeRequest(
     ) {
       throw new HttpError(422, "ROLE_WORKFLOW-422-001", "role workflow request invalid");
     }
-    const data = await executeLockedRoleWorkflow(runtime, context.tenantId, scope.run_id, () =>
-      runtime.roleWorkflow.proposeTeamResolution(actor, {
-        ...scope,
-        selected_values: parseTeamResolutionValues(body.selected_values),
-        source_digest: roleWorkflowString(body.source_digest, "source_digest"),
-        source_section_ids: body.source_section_ids as string[]
-      })
+    const resolutionInput = {
+      ...scope,
+      selected_values: parseTeamResolutionValues(body.selected_values),
+      source_digest: roleWorkflowString(body.source_digest, "source_digest"),
+      source_section_ids: body.source_section_ids as string[]
+    };
+    const data = await executeLockedRoleWorkflow(
+      runtime,
+      context.tenantId,
+      scope.run_id,
+      async () => {
+        const existing = await runtime.roleWorkflow.getExistingTeamResolution(
+          actor,
+          resolutionInput
+        );
+        if (existing) return existing;
+        await requireStudentDecisionContextEvidenceForRoleAction(
+          runtime,
+          context,
+          actor,
+          scope,
+          decisionContextEvidenceId
+        );
+        return runtime.roleWorkflow.proposeTeamResolution(actor, resolutionInput);
+      }
     );
     sendJson(response, 201, createEnvelope(context, data));
     return;
@@ -9079,24 +9440,44 @@ async function routeRequest(
       "round_id",
       "run_id",
       "team_id",
+      "decision_context_evidence_id",
       "resolution_id",
       "status",
       "dissent_note"
     ]);
     const scope = roleWorkflowScopeFromBody(body);
+    const decisionContextEvidenceId = roleWorkflowEvidenceIdFromBody(body);
     if (body.status !== "ACKNOWLEDGED" && body.status !== "DISSENT_PRESERVED") {
       throw new HttpError(422, "ROLE_WORKFLOW-422-001", "role workflow request invalid");
     }
     if (body.dissent_note !== undefined && typeof body.dissent_note !== "string") {
       throw new HttpError(422, "ROLE_WORKFLOW-422-001", "role workflow request invalid");
     }
-    const data = await executeLockedRoleWorkflow(runtime, context.tenantId, scope.run_id, () =>
-      runtime.roleWorkflow.acknowledgeResolution(actor, {
-        ...scope,
-        resolution_id: roleWorkflowString(body.resolution_id, "resolution_id"),
-        status: body.status as "ACKNOWLEDGED" | "DISSENT_PRESERVED",
-        ...(body.dissent_note !== undefined ? { dissent_note: body.dissent_note as string } : {})
-      })
+    const acknowledgementInput = {
+      ...scope,
+      resolution_id: roleWorkflowString(body.resolution_id, "resolution_id"),
+      status: body.status as "ACKNOWLEDGED" | "DISSENT_PRESERVED",
+      ...(body.dissent_note !== undefined ? { dissent_note: body.dissent_note as string } : {})
+    };
+    const data = await executeLockedRoleWorkflow(
+      runtime,
+      context.tenantId,
+      scope.run_id,
+      async () => {
+        const existing = await runtime.roleWorkflow.getExistingResolutionAcknowledgement(
+          actor,
+          acknowledgementInput
+        );
+        if (existing) return existing;
+        await requireStudentDecisionContextEvidenceForRoleAction(
+          runtime,
+          context,
+          actor,
+          scope,
+          decisionContextEvidenceId
+        );
+        return runtime.roleWorkflow.acknowledgeResolution(actor, acknowledgementInput);
+      }
     );
     sendJson(response, 201, createEnvelope(context, data));
     return;
@@ -9105,10 +9486,30 @@ async function routeRequest(
   if (request.method === "POST" && url.pathname === "/api/v1/bff/student/role-workspace/merge") {
     const actor = roleWorkflowActor(context, "student");
     const body = await readJson<Record<string, unknown>>(request);
-    assertOnlyRoleWorkflowFields(body, ["round_id", "run_id", "team_id"]);
+    assertOnlyRoleWorkflowFields(body, [
+      "decision_context_evidence_id",
+      "round_id",
+      "run_id",
+      "team_id"
+    ]);
     const scope = roleWorkflowScopeFromBody(body);
-    const data = await executeLockedRoleWorkflow(runtime, context.tenantId, scope.run_id, () =>
-      runtime.roleWorkflow.createMergeCommit(actor, scope)
+    const decisionContextEvidenceId = roleWorkflowEvidenceIdFromBody(body);
+    const data = await executeLockedRoleWorkflow(
+      runtime,
+      context.tenantId,
+      scope.run_id,
+      async () => {
+        const existing = await runtime.roleWorkflow.getExistingMergeCommit(actor, scope);
+        if (existing) return existing;
+        await requireStudentDecisionContextEvidenceForRoleAction(
+          runtime,
+          context,
+          actor,
+          scope,
+          decisionContextEvidenceId
+        );
+        return runtime.roleWorkflow.createMergeCommit(actor, scope);
+      }
     );
     sendJson(response, 201, createEnvelope(context, data));
     return;
@@ -9117,26 +9518,41 @@ async function routeRequest(
   if (request.method === "POST" && url.pathname === "/api/v1/bff/student/role-workspace/confirm") {
     const actor = roleWorkflowActor(context, "student");
     const body = await readJson<Record<string, unknown>>(request);
-    assertOnlyRoleWorkflowFields(body, ["merge_commit_id", "round_id", "run_id", "team_id"]);
+    assertOnlyRoleWorkflowFields(body, [
+      "decision_context_evidence_id",
+      "merge_commit_id",
+      "round_id",
+      "run_id",
+      "team_id"
+    ]);
     const scope = roleWorkflowScopeFromBody(body);
+    const decisionContextEvidenceId = roleWorkflowEvidenceIdFromBody(body);
     const mergeCommitId = roleWorkflowString(body.merge_commit_id, "merge_commit_id");
     const result = await executeLockedRoleWorkflow(
       runtime,
       context.tenantId,
       scope.run_id,
       async () => {
-        const before = await runtime.repositoryProvider.ports.roleWorkflow.readRoleWorkflow({
+        const existing = await runtime.roleWorkflow.getExistingTeamConfirmation(actor, {
           ...scope,
-          tenant_id: context.tenantId
+          merge_commit_id: mergeCommitId
         });
+        if (existing) {
+          return { data: existing, wasExisting: true };
+        }
+        await requireStudentDecisionContextEvidenceForRoleAction(
+          runtime,
+          context,
+          actor,
+          scope,
+          decisionContextEvidenceId
+        );
         return {
           data: await runtime.roleWorkflow.confirmTeamDecision(actor, {
             ...scope,
             merge_commit_id: mergeCommitId
           }),
-          wasExisting: before.confirmations.some(
-            (candidate) => candidate.merge_commit_id === mergeCommitId
-          )
+          wasExisting: false
         };
       }
     );

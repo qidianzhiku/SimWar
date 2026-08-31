@@ -7,6 +7,7 @@ import type {
   M2P5DecisionLearningResponse,
   W3OfficialConsequenceResponse
 } from "@simwar/shared-contracts";
+import { createStudentDecisionContextEvidence } from "@simwar/shared-contracts";
 import {
   P2B_STUDENT_STAGES,
   StudentDecisionLearningJourney,
@@ -183,6 +184,14 @@ const crossRoundResponse = {
   known_limits: ["Human Validation is not performed."]
 } as unknown as M2P5DecisionLearningResponse;
 
+const decisionContextEvidence = createStudentDecisionContextEvidence(context, {
+  target_region: "Hangzhou",
+  epoch_version: "epoch-b.2026-08-30",
+  qualification_status: "LIMITED",
+  consumption_status: "LOOKAHEAD_READY",
+  exact_binding_required: true
+});
+
 function renderJourney(
   props: Partial<React.ComponentProps<typeof StudentDecisionLearningJourney>>
 ) {
@@ -295,6 +304,75 @@ describe("P2-B FE-19 student decision learning", () => {
     ]) {
       expect(region?.textContent).not.toContain(forbidden);
     }
+    root.unmount();
+    host.remove();
+    fetchSpy.mockRestore();
+  });
+
+  it("binds the M2P6 request and continuity surface to the exact M31 evidence identity", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const requestUrl = new URL(String(input), "http://api.test");
+      if (requestUrl.pathname.includes("/m2p5/")) {
+        expect(requestUrl.searchParams.get("decision_context_evidence_id")).toBe(
+          decisionContextEvidence.evidence_id
+        );
+        return new Response(
+          JSON.stringify({
+            data: {
+              ...crossRoundResponse,
+              decision_context_evidence: {
+                ...decisionContextEvidence,
+                continuity: {
+                  context: "PROVEN",
+                  decision: "PROVEN",
+                  consequence: "PROVEN",
+                  debrief: "PROVEN",
+                  regional_transfer: "PROVEN"
+                }
+              }
+            }
+          }),
+          { status: 200 }
+        );
+      }
+      return new Response(JSON.stringify({ data: response }), { status: 200 });
+    });
+    const { host, root } = renderJourney({
+      crossRoundEnabled: true,
+      decisionContextEvidence,
+      decisionContextEvidenceRequired: true
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const continuity = host.querySelector('[data-testid="student-decision-context-continuity"]');
+    expect(continuity?.getAttribute("data-evidence-status")).toBe("READY");
+    expect(continuity?.getAttribute("data-evidence-version")).toBe("student-decision-context.v1");
+    expect(host.querySelector('[data-testid="student-m2p6-learning-loop"]')).not.toBeNull();
+    expect(continuity?.textContent).toContain("目标区域：Hangzhou");
+    expect(continuity?.textContent).toContain("regional_transfer");
+    expect(continuity?.textContent).not.toContain("PENDING_PUBLISH");
+    expect(continuity?.textContent).toContain("PROVEN");
+    root.unmount();
+    host.remove();
+    fetchSpy.mockRestore();
+  });
+
+  it("does not read M2P6 while required decision context evidence is missing", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const { host, root } = renderJourney({
+      crossRoundEnabled: true,
+      decisionContextEvidenceRequired: true
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(String(fetchSpy.mock.calls[0]?.[0])).not.toContain("/m2p5/");
+    expect(host.textContent).toContain("决策上下文证据尚未就绪");
     root.unmount();
     host.remove();
     fetchSpy.mockRestore();

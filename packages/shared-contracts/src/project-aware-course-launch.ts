@@ -10,6 +10,7 @@ import type {
   Team
 } from "./index.js";
 import type { CourseFactoryStudentEvidenceProjection } from "./course-factory.js";
+import type { StudentDecisionContextEvidence } from "./student-decision-context-evidence.js";
 
 export const PROJECT_AWARE_LAUNCH_SCHEMA_VERSION = "project-aware-launch.v1" as const;
 
@@ -166,6 +167,7 @@ export interface ProjectAwareStudentContext {
   scope: ProjectAwareScope & { team_id: string };
   role_context: RoleContext;
   course_factory_source_evidence?: CourseFactoryStudentEvidenceProjection;
+  decision_context_evidence: StudentDecisionContextEvidence;
   project_brief: {
     brief_kind: "PROJECT_BRIEF";
     customer_segment: string;

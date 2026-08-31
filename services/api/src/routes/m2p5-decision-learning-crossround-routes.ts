@@ -1,5 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { M2P5DecisionLearningContext } from "@simwar/shared-contracts";
+import {
+  advanceStudentDecisionContextEvidence,
+  type M2P5DecisionLearningContext,
+  type StudentDecisionContextEvidence,
+  type StudentDecisionContextEvidenceContinuity
+} from "@simwar/shared-contracts";
 import {
   M2P5DecisionLearningError,
   type M2P5DecisionLearningActor,
@@ -15,6 +20,14 @@ export interface M2P5RouteHelpers {
   readonly createEnvelope: (context: M2P5RouteContext, payload: unknown) => unknown;
   readonly requireStudent: () => M2P5DecisionLearningActor;
   readonly requireTeacher: () => M2P5DecisionLearningActor;
+  readonly requiresStudentDecisionContextEvidence?: (input: {
+    actor: M2P5DecisionLearningActor;
+    context: M2P5DecisionLearningContext;
+  }) => Promise<boolean>;
+  readonly resolveStudentDecisionContextEvidence?: (input: {
+    actor: M2P5DecisionLearningActor;
+    context: M2P5DecisionLearningContext;
+  }) => Promise<StudentDecisionContextEvidence | undefined>;
   readonly sendJson: (response: ServerResponse, status: number, payload: unknown) => void;
 }
 
@@ -55,8 +68,29 @@ function contextFromUrl(url: URL, tenantId: string, runId: string, roundNo: numb
 function errorStatus(code: string): number {
   if (code === "M2P5_SCOPE_VIOLATION") return 403;
   if (code === "M2P5_ROUND_NOT_FOUND") return 404;
-  if (code === "M2P5_OFFICIAL_RESULT_NOT_PUBLISHED") return 409;
+  if (code === "M2P5_OFFICIAL_RESULT_NOT_PUBLISHED" || code === "M2P5_CONTEXT_EVIDENCE_INVALID") {
+    return 409;
+  }
   return 422;
+}
+
+function continuityFromJourney(
+  result: Awaited<ReturnType<M2P5DecisionLearningCrossRoundService["getJourney"]>>
+): StudentDecisionContextEvidenceContinuity {
+  return {
+    context: "PROVEN",
+    decision: "PROVEN",
+    consequence:
+      result.official_consequence.record.publication.status === "PUBLISHED" ? "PROVEN" : "BLOCKED",
+    debrief:
+      result.learning_loop.teacher_debrief_availability === "AVAILABLE" ? "PROVEN" : "BLOCKED",
+    regional_transfer:
+      result.learning_loop.transfer_status === "READY" &&
+      result.cross_round.status !== "BLOCKED" &&
+      result.learning_loop.next_opening_state_readiness !== "BLOCKED"
+        ? "PROVEN"
+        : "BLOCKED"
+  };
 }
 
 export function isM2P5DecisionLearningRoute(method: string | undefined, url: URL): boolean {
@@ -73,7 +107,7 @@ export async function handleM2P5DecisionLearningRoute(
   request: IncomingMessage,
   response: ServerResponse,
   url: URL,
-  context: M2P5RouteContext,
+  routeContext: M2P5RouteContext,
   helpers: M2P5RouteHelpers
 ): Promise<boolean> {
   if (!isM2P5DecisionLearningRoute(request.method, url)) return false;
@@ -89,16 +123,68 @@ export async function handleM2P5DecisionLearningRoute(
   // error mapper instead of being flattened into a projection validation error.
   const actor = surface === "student" ? helpers.requireStudent() : helpers.requireTeacher();
   try {
+    const context = contextFromUrl(
+      url,
+      routeContext.tenantId,
+      identity(match[2]),
+      Number(match[3])
+    );
+    const requestedEvidence = url.searchParams.has("decision_context_evidence_id")
+      ? identity(url.searchParams.get("decision_context_evidence_id"))
+      : undefined;
+    if (requestedEvidence && surface !== "student") {
+      throw new M2P5DecisionLearningError("M2P5_CONTEXT_EVIDENCE_INVALID");
+    }
+    if (surface === "student" && actor.team_id !== context.team_id) {
+      throw new M2P5DecisionLearningError("M2P5_SCOPE_VIOLATION");
+    }
+    const evidenceRequired =
+      surface === "student"
+        ? (await helpers.requiresStudentDecisionContextEvidence?.({ actor, context })) === true
+        : false;
+    if (evidenceRequired && !requestedEvidence) {
+      throw new M2P5DecisionLearningError("M2P5_CONTEXT_EVIDENCE_INVALID");
+    }
     const result = await service.getJourney({
       actor,
-      context: contextFromUrl(url, context.tenantId, identity(match[2]), Number(match[3])),
+      context,
       surface
     });
-    helpers.sendJson(response, 200, helpers.createEnvelope(context, result));
+    const evidence =
+      requestedEvidence || evidenceRequired
+        ? await helpers.resolveStudentDecisionContextEvidence?.({ actor, context })
+        : undefined;
+    if (
+      (requestedEvidence || evidenceRequired) &&
+      (!evidence ||
+        evidence.status !== "READY" ||
+        evidence.evidence_id !== requestedEvidence ||
+        evidence.scope.tenant_id !== context.tenant_id ||
+        evidence.scope.course_id !== context.course_id ||
+        evidence.scope.run_id !== context.run_id ||
+        evidence.scope.round_id !== context.round_id ||
+        evidence.scope.round_no !== context.round_no ||
+        evidence.scope.team_id !== context.team_id ||
+        evidence.scope.activity_id !== context.activity_id ||
+        evidence.scope.role_key !== context.role_key)
+    ) {
+      throw new M2P5DecisionLearningError("M2P5_CONTEXT_EVIDENCE_INVALID");
+    }
+    const responseData = evidence
+      ? {
+          ...result,
+          decision_context_evidence: advanceStudentDecisionContextEvidence(
+            evidence,
+            context,
+            continuityFromJourney(result)
+          )
+        }
+      : result;
+    helpers.sendJson(response, 200, helpers.createEnvelope(routeContext, responseData));
   } catch (error) {
     const code = error instanceof M2P5DecisionLearningError ? error.code : "M2P5_OUTPUT_INVALID";
     helpers.sendJson(response, errorStatus(code), {
-      request_id: context.requestId,
+      request_id: routeContext.requestId,
       code,
       message: "M2-P5 decision learning projection rejected",
       details: []

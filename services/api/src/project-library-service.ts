@@ -39,6 +39,12 @@ export interface StudentProjectBriefContext {
   assignment_id?: string;
 }
 
+export interface StudentDecisionContextAssignmentBinding {
+  assignment_id: string;
+  project_profile_binding_id: string;
+  project_profile_reference: ProjectProfileRef;
+}
+
 export class ProjectLibraryError extends Error {
   constructor(readonly code: ProjectLibraryErrorCode) {
     super(code);
@@ -578,7 +584,33 @@ export class ProjectLibraryService {
     );
   }
 
+  async getStudentDecisionContextAssignmentBinding(
+    context: StudentProjectBriefContext
+  ): Promise<StudentDecisionContextAssignmentBinding> {
+    const { assignment, course, profile } = await this.resolveStudentAssignment(context);
+    if (profile.status === "RETIRED") {
+      throw new ProjectLibraryError("PROJECT_ASSIGNMENT_RETIRED");
+    }
+    if (
+      profile.status !== "VALIDATED" ||
+      !course.market_world_reference ||
+      !sameMarketWorldReference(course.market_world_reference, profile.market_world_reference)
+    ) {
+      throw new ProjectLibraryError("PROJECT_ASSIGNMENT_DEPENDENCY_MISSING");
+    }
+    return {
+      assignment_id: assignment.assignment_id,
+      project_profile_binding_id: digest(assignment.project_profile_reference).slice(0, 24),
+      project_profile_reference: clone(assignment.project_profile_reference)
+    };
+  }
+
   async getStudentBrief(context: StudentProjectBriefContext): Promise<ProjectProfileStudentBrief> {
+    const { profile } = await this.resolveStudentAssignment(context);
+    return studentBrief(profile);
+  }
+
+  private async resolveStudentAssignment(context: StudentProjectBriefContext) {
     const course = this.store.courses.find(
       (candidate) => candidate.course_id === context.course_id
     );
@@ -623,7 +655,7 @@ export class ProjectLibraryService {
       assignment.project_profile_reference
     );
     if (!profile) throw new ProjectLibraryError("PROJECT_PROFILE_NOT_FOUND");
-    return studentBrief(profile);
+    return { assignment: clone(assignment), course, profile };
   }
 
   async getAdminAudit(actor: ProjectLibraryActor): Promise<ProjectLibraryAdminAuditProjection> {

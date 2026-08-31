@@ -267,4 +267,19 @@ describe("Role Workflow executable contracts", () => {
     });
     expect(openapi.components.schemas.W4StrategicActionEnvelope.oneOf).toHaveLength(5);
   });
+
+  it("keeps student evidence binding out of teacher reset while exposing it on student merge", () => {
+    const openapi = openApiDocument();
+    const reset = openapi.components.schemas.RoleWorkflowResetInput;
+    const merge = openapi.components.schemas.RoleWorkflowMergeInput;
+
+    expect(reset.properties).not.toHaveProperty("decision_context_evidence_id");
+    expect(merge.properties).toHaveProperty("decision_context_evidence_id");
+    expect(openapi.paths["/api/v1/bff/teacher/role-workflows/reset"].post.requestBody?.content?.[
+      "application/json"
+    ]?.schema?.$ref).toBe("#/components/schemas/RoleWorkflowResetInput");
+    expect(openapi.paths["/api/v1/bff/student/role-workspace/merge"].post.requestBody?.content?.[
+      "application/json"
+    ]?.schema?.$ref).toBe("#/components/schemas/RoleWorkflowMergeInput");
+  });
 });

@@ -9,6 +9,30 @@ function source(path: string): string {
 }
 
 describe("Project-aware commercial visual contract", () => {
+  it("derives Student evidence enablement from the runtime assignment projection", () => {
+    const app = source("apps/student/src/App.tsx");
+    const brief = source("apps/student/src/ProjectBriefPanel.tsx");
+    expect(app).not.toContain("VITE_SIMWAR_PROJECT_AWARE_COURSE_ID");
+    expect(app).not.toContain("VITE_SIMWAR_PROJECT_AWARE_RUN_ID");
+    expect(app).toContain("onAvailabilityChange={setProjectAwareEvidenceAvailability}");
+    expect(app).toContain("roundId={latestRound?.round_id}");
+    expect(brief).toContain("decision_context_evidence_required");
+    expect(brief).toContain('onAvailabilityChange?.("error")');
+  });
+
+  it("keeps the role workspace read continuity independent from evidence readiness", () => {
+    const panel = source("apps/student/src/StudentRoleWorkflowPanel.tsx");
+    const contextKey = panel.slice(
+      panel.indexOf("const contextKey"),
+      panel.indexOf("const decisionContextGateReady")
+    );
+    expect(contextKey).not.toContain("decisionContextEvidenceId");
+    expect(contextKey).not.toContain("decisionContextEvidenceRequired");
+    expect(contextKey).not.toContain("decisionContextEvidenceReady");
+    expect(panel).toContain("props.token\n    ]");
+    expect(panel).not.toContain("decisionContextGateReady\n    ]");
+  });
+
   it("loads one shared Figma-aligned visual layer in all three apps", () => {
     for (const app of ["admin", "teacher", "student"]) {
       expect(

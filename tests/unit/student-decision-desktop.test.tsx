@@ -3,7 +3,12 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import React from "react";
 import { describe, expect, it } from "vitest";
-import type { DecisionPayload, P0DemoState, StudentBffCockpitDTO } from "@simwar/shared-contracts";
+import {
+  createStudentDecisionContextEvidence,
+  type DecisionPayload,
+  type P0DemoState,
+  type StudentBffCockpitDTO
+} from "@simwar/shared-contracts";
 import {
   getStudentDecisionDesktopState,
   StudentDecisionDesktop,
@@ -46,6 +51,26 @@ const publishedResult = {
     recommended_focus: "下一轮优先检查现金缓冲。"
   }
 };
+
+const decisionContextEvidence = createStudentDecisionContextEvidence(
+  {
+    activity_id: "activity_consequence",
+    course_id: exactContext.course_id,
+    role_key: "CEO",
+    round_id: exactContext.round_id,
+    round_no: exactContext.round_no,
+    run_id: exactContext.run_id,
+    team_id: exactContext.team_id,
+    tenant_id: exactContext.tenant_id
+  },
+  {
+    target_region: "Hangzhou",
+    epoch_version: "epoch-b.2026-08-30",
+    qualification_status: "LIMITED",
+    consumption_status: "LOOKAHEAD_READY",
+    exact_binding_required: true
+  }
+);
 
 function stateInput(
   overrides: Partial<StudentDecisionDesktopStateInput> = {}
@@ -174,6 +199,42 @@ describe("StudentDecisionDesktop", () => {
     expect(markup).toContain("cash");
     expect(markup).toContain("下一轮优先检查现金缓冲。");
     expect(markup).toContain("STUDENT_SAFE_ONLY");
+  });
+
+  it("shows M31 evidence continuity without exposing source or internal outcome fields", () => {
+    const markup = renderToStaticMarkup(
+      <StudentDecisionDesktop
+        desktopState="ready"
+        context={exactContext}
+        decisionContextEvidence={decisionContextEvidence}
+        cockpit={null}
+        decision={decision}
+        busy={false}
+        canSubmit={false}
+        roleWorkflowActive={false}
+        roleWorkflowAvailability="inactive"
+        notice="等待服务端状态"
+        onDecisionChange={() => undefined}
+        onSubmit={() => undefined}
+      />
+    );
+
+    expect(markup).toContain('data-testid="desktop-decision-context-evidence"');
+    expect(markup).toContain('data-evidence-status="READY"');
+    expect(markup).toContain("student-decision-context.v1");
+    expect(markup).toContain("Hangzhou");
+    const evidenceStart = markup.indexOf(
+      'data-testid="desktop-decision-context-evidence"'
+    );
+    const evidenceEnd = markup.indexOf(
+      '<ol class="board sdd-spine"',
+      evidenceStart
+    );
+    expect(evidenceStart).toBeGreaterThanOrEqual(0);
+    expect(evidenceEnd).toBeGreaterThan(evidenceStart);
+    expect(markup.slice(evidenceStart, evidenceEnd)).not.toMatch(
+      /raw_source|locator|digest|private|hidden_calibration|model_truth|state_true|score|rank|settlement/i
+    );
   });
 
   it("renders a recovery surface without exposing the decision form while stale", () => {
