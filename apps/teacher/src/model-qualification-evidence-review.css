@@ -20,12 +20,20 @@
 .model-qualification-select {
   display: grid;
   gap: 0.35rem;
+  min-width: 0;
   font-weight: 600;
 }
 
 .model-qualification-select select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 2.5rem;
   padding: 0.45rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .model-qualification-select select:disabled {
