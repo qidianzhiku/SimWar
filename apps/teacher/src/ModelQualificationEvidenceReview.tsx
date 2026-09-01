@@ -182,17 +182,24 @@ export function ModelQualificationEvidenceReview({
   onSelectionChange
 }: ModelQualificationEvidenceReviewProps): ReactElement {
   const [selection, setSelection] = useState<ModelQualificationEvidenceSelection | null>(null);
+  const contextKey = `${context.tenantId}::${context.courseId}::${context.activityId}`;
+  const [selectionContextKey, setSelectionContextKey] = useState(contextKey);
+  const activeSelection = selectionContextKey === contextKey ? selection : null;
   const safeSelection = useMemo(
-    () => selection ?? createEmptyModelQualificationSelection(),
-    [selection]
+    () => activeSelection ?? createEmptyModelQualificationSelection(),
+    [activeSelection]
   );
 
   const resolution = useMemo(
     () =>
       projection && (fetchState === "ready" || fetchState === "recovered")
-        ? resolveModelQualificationEvidenceSelection({ context, projection, selection })
+        ? resolveModelQualificationEvidenceSelection({
+            context,
+            projection,
+            selection: activeSelection
+          })
         : null,
-    [context, fetchState, projection, selection]
+    [activeSelection, context, fetchState, projection]
   );
 
   const effectiveState =
@@ -206,6 +213,13 @@ export function ModelQualificationEvidenceReview({
   const sources = projection?.source_packages ?? [];
   const datasets = projection?.calibration_datasets ?? [];
   const qualifications = projection?.qualifications ?? [];
+
+  useEffect(() => {
+    if (selectionContextKey !== contextKey) {
+      setSelectionContextKey(contextKey);
+      setSelection(null);
+    }
+  }, [contextKey, selectionContextKey]);
 
   useEffect(() => {
     if (onSelectionChange) onSelectionChange(safeSelection, resolution);

@@ -104,12 +104,7 @@ function qualification(
 ): ModelQualification {
   const contentDigest = digest(digestSeed);
   return {
-    artifact: {
-      artifact_id: `qualification-artifact-${qualificationId}`,
-      content_digest: contentDigest,
-      format: "application/json",
-      source_ref: `qualification-registry://${qualificationId}`
-    },
+    artifact: modelVersion.artifact,
     authority_flags: { official_truth_write: false, provider_calls: 0 },
     binding: {
       bound_at: "2026-08-30T12:00:00.000Z",
@@ -445,5 +440,26 @@ describe("model qualification exact evidence selection", () => {
     expect(result.selected?.qualification.decision).toBe("NOT_ELIGIBLE");
     expect(result.selected?.qualification.binding.status).toBe("UNBOUND");
     expect(JSON.stringify(candidateProjection)).toBe(before);
+  });
+
+  it("rejects a qualification whose artifact does not match the exact catalog artifact", () => {
+    const artifactMismatch = {
+      ...QUALIFICATION_TARGET,
+      artifact: {
+        ...QUALIFICATION_TARGET.artifact,
+        artifact_id: "artifact-not-in-catalog",
+        content_digest: digest("artifact-not-in-catalog")
+      }
+    };
+
+    const result = resolveModelQualificationEvidenceSelection({
+      context: CONTEXT,
+      projection: projection({ qualifications: [QUALIFICATION_OLD, artifactMismatch, QUALIFICATION_NEWEST] }),
+      selection: TARGET_SELECTION
+    });
+
+    expect(result.state).toBe("mismatch");
+    expect(result.status).toBe("MISMATCH");
+    expect(result.selected).toBeNull();
   });
 });

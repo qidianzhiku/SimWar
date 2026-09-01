@@ -454,6 +454,8 @@ export function resolveModelQualificationEvidenceSelection(
   if (linkedModel.kind !== "selected") return result("missing-linked-item");
 
   if (
+    qualification.value.artifact.artifact_id !== linkedModel.value.artifact.artifact_id ||
+    qualification.value.artifact.content_digest !== linkedModel.value.artifact.content_digest ||
     sourcePackageKey(linkedSource.value) !== selection.source_package_key ||
     calibrationDatasetKey(linkedDataset.value) !== selection.calibration_dataset_key ||
     modelCatalogEntryKey(linkedModel.value) !== selection.model_version_key ||

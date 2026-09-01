@@ -80,12 +80,7 @@ function qualification(
   calibrationDataset: ModelQualificationCalibrationDataset
 ): ModelQualification {
   return {
-    artifact: {
-      artifact_id: `qualification-artifact-${id}`,
-      content_digest: DIGEST(id),
-      format: "json",
-      source_ref: `qualification://${id}`
-    },
+    artifact: modelVersion.artifact,
     authority_flags: { official_truth_write: false, provider_calls: 0 },
     binding: { status: "UNBOUND" },
     calibration_dataset_id: calibrationDataset.calibration_dataset_id,
@@ -161,12 +156,15 @@ async function renderReview(value: {
   projection: ModelQualificationTeacherProjection | null;
   fetchState: "ready" | "conflict" | "error";
   onSelectionChange?: ModelQualificationEvidenceReviewProps["onSelectionChange"];
+  contextOverride?: typeof context;
 }): Promise<{ host: HTMLDivElement; root: ReturnType<typeof createRoot> }> {
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
   await act(async () => {
-    root.render(<ModelQualificationEvidenceReview context={context} {...value} />);
+    root.render(
+      <ModelQualificationEvidenceReview context={value.contextOverride ?? context} {...value} />
+    );
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
   return { host, root };
@@ -263,5 +261,49 @@ describe("Teacher exact model qualification evidence review", () => {
     expect(emptyView.host.querySelectorAll("button")).toHaveLength(0);
     emptyView.root.unmount();
     emptyView.host.remove();
+  });
+
+  it("clears a selected tuple when the tenant, course or activity context changes", async () => {
+    const exact = buildExactModelQualificationSelection(
+      targetModel,
+      targetSource,
+      targetDataset,
+      targetQualification
+    );
+    const contextChanged = { ...context, activityId: "model-qualification-other-activity" };
+    const changedProjection = projection({
+      security: { ...projection().security, activity: contextChanged.activityId }
+    });
+    const { host, root } = await renderReview({ fetchState: "ready", projection: projection() });
+
+    await act(async () => {
+      for (const [index, key] of [
+        exact.model_version_key,
+        exact.source_package_key,
+        exact.calibration_dataset_key,
+        exact.qualification_key
+      ].entries()) {
+        const select = host.querySelectorAll("select")[index] as HTMLSelectElement;
+        select.value = key;
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    });
+    expect(host.querySelector("[data-testid='exact-evidence-inspector']")).not.toBeNull();
+
+    await act(async () => {
+      root.render(
+        <ModelQualificationEvidenceReview
+          context={contextChanged}
+          fetchState="ready"
+          projection={changedProjection}
+        />
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(host.querySelector("[data-evidence-state='NO_SELECTION']")).not.toBeNull();
+    expect(host.querySelector("[data-testid='exact-evidence-inspector']")).toBeNull();
+    root.unmount();
+    host.remove();
   });
 });
