@@ -471,6 +471,10 @@ export function App() {
     }
   }, [session]);
 
+  const recoverAdminContext = session
+    ? () => void (session.user.roles.includes("platform_admin") ? refreshCoursePackages() : refresh())
+    : undefined;
+
   function updateLogin(field: keyof LoginForm, value: string): void {
     const nextLogin = { ...login, [field]: value };
     const epoch = adminRequestEpoch.current + 1;
@@ -1026,7 +1030,7 @@ export function App() {
           },
           { label: "身份", value: session?.user.display_name ?? "未登录" }
         ]}
-        onRecover={session ? () => void refresh() : undefined}
+        onRecover={recoverAdminContext}
         onReauthenticate={() =>
           document.querySelector<HTMLInputElement>('[aria-label="tenant"]')?.focus()
         }

@@ -886,6 +886,8 @@ export function App() {
     ? contextRecoveryState === "REAUTH_REQUIRED"
       ? ("reauth-required" as const)
       : ("signed-out" as const)
+    : !isStudentSession
+      ? ("reauth-required" as const)
     : contextRecoveryState === "CONTEXT_STALE"
       ? ("stale" as const)
       : contextRecoveryState === "CONTEXT_UNAUTHORIZED"
