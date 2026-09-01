@@ -33,11 +33,13 @@ const clean = (() => {
   }
 })();
 const baseline = {
-  // Exact production assets measured from the PR base SHA. Keep these values
-  // tied to the base commit so the 10% budget compares like-for-like builds.
-  admin: { js: [277.46, 85.63], css: [29.6, 5.6] },
-  teacher: { js: [385.3, 111.25], css: [37.41, 6.93] },
-  student: { js: [273.89, 83.82], css: [26, 5] }
+  // Exact production assets measured from the current protected master source
+  // epoch 31c76abbc32b9b02cce51b8647e941ccca6a35e5 in a clean base worktree.
+  // Keeping the baseline at the actual PR base avoids charging current master
+  // history against a stale PR4-only budget while retaining the same 10% cap.
+  admin: { js: [299.58, 90.7], css: [32.54, 5.99] },
+  teacher: { js: [423.79, 121.49], css: [40.55, 7.32] },
+  student: { js: [291.91, 89.77], css: [28.6, 5.28] }
 };
 
 const allFiles = (directory) => {

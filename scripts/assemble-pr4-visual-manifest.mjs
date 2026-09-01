@@ -77,19 +77,31 @@ if (expectedDiffReceiptArg) {
       `Expected visual-diff receipt is not valid JSON: ${error instanceof Error ? error.message : String(error)}`
     );
   }
-  if (
-    receipt?.schema_version !== 1 ||
-    receipt?.change_type !== "design-system-token-typography-surface-migration"
-  ) {
+  if (receipt?.schema_version !== 1 || typeof receipt?.change_type !== "string") {
     throw new Error("Expected visual-diff receipt has an unsupported schema or change type.");
-  }
-  if (receipt?.figma_file_key !== "6ezOykmrZbMbFEYPfIkZ07") {
-    throw new Error("Expected visual-diff receipt must reference the approved SimWar Figma file.");
   }
   if (!baseSha || receipt?.base_sha !== baseSha) {
     throw new Error(
       "Expected visual-diff receipt BASE SHA does not match the comparison BASE SHA."
     );
+  }
+  const isFigmaDelta = receipt.change_type === "design-system-token-typography-surface-migration";
+  const isR3Delta =
+    receipt.change_type === "cross-role-accessibility-recovery-convergence" &&
+    receipt.mission_id === "R3-MAIN-UXR-O1";
+  if (!isFigmaDelta && !isR3Delta) {
+    throw new Error("Expected visual-diff receipt has an unsupported change type or mission.");
+  }
+  if (isFigmaDelta && receipt?.figma_file_key !== "6ezOykmrZbMbFEYPfIkZ07") {
+    throw new Error("Expected visual-diff receipt must reference the approved SimWar Figma file.");
+  }
+  if (isR3Delta) {
+    if (!receipt.change_id || !Array.isArray(receipt.affected_surfaces)) {
+      throw new Error("R3 visual-diff receipt must declare change_id and affected_surfaces.");
+    }
+    if (receipt.affected_surfaces.length === 0) {
+      throw new Error("R3 visual-diff receipt must declare at least one affected surface.");
+    }
   }
   if (!receipt?.rationale || typeof receipt.rationale !== "string") {
     throw new Error("Expected visual-diff receipt must include a human-readable rationale.");
@@ -106,11 +118,13 @@ if (expectedDiffReceiptArg) {
   }
   expectedVisualDelta = {
     change_id: receipt.change_id ?? null,
-    figma_file_key: receipt.figma_file_key,
+    mission_id: receipt.mission_id ?? null,
+    figma_file_key: receipt.figma_file_key ?? null,
     base_sha: receipt.base_sha,
     change_type: receipt.change_type,
     rationale: receipt.rationale,
     accepted_roles: acceptedRoles,
+    affected_surfaces: receipt.affected_surfaces ?? null,
     receipt_path: resolve(expectedDiffReceiptArg)
   };
 }
@@ -263,7 +277,15 @@ const surfaces = paths.map((path) => {
       if (comparison.ratio > appliedThreshold) {
         const expectedRole = role && expectedVisualDelta?.accepted_roles?.[role];
         const expectedLimit = expectedRole?.max_diff_pixel_ratio;
-        if (Number.isFinite(expectedLimit) && comparison.ratio <= expectedLimit) {
+        const surfaceKey = path.replace(/-\d+x\d+\.png$/i, "");
+        const surfaceIsAuthorized =
+          !expectedVisualDelta?.affected_surfaces ||
+          expectedVisualDelta.affected_surfaces.includes(surfaceKey);
+        if (
+          surfaceIsAuthorized &&
+          Number.isFinite(expectedLimit) &&
+          comparison.ratio <= expectedLimit
+        ) {
           surface.status = "acceptable_difference";
           surface.expected_difference = true;
           surface.expected_difference_reason = expectedVisualDelta.rationale;

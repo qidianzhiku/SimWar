@@ -41,6 +41,7 @@ const RegionalTransferAdminWorkbench = lazy(() =>
   )
 );
 import { AuthorityBadge } from "@simwar/ui";
+import { CrossRoleRecoveryRail } from "@simwar/ui/cross-role-recovery-rail";
 import {
   AdminDeliveryTrustWorkspace,
   AdminEnvironmentRecoveryLimit,
@@ -469,6 +470,10 @@ export function App() {
       });
     }
   }, [session]);
+
+  const recoverAdminContext = session
+    ? () => void (session.user.roles.includes("platform_admin") ? refreshCoursePackages() : refresh())
+    : undefined;
 
   function updateLogin(field: keyof LoginForm, value: string): void {
     const nextLogin = { ...login, [field]: value };
@@ -1014,6 +1019,22 @@ export function App() {
         session && hasAdminSummaryRole ? <AdminEnvironmentRecoveryLimit /> : null
       }
     >
+      <CrossRoleRecoveryRail
+        role="admin"
+        status={session ? "ready" : "signed-out"}
+        contextEntries={[
+          { label: "租户", value: session?.user.tenant_id ?? "未登录" },
+          {
+            label: "范围",
+            value: session?.user.roles.includes("platform_admin") ? "平台" : "租户"
+          },
+          { label: "身份", value: session?.user.display_name ?? "未登录" }
+        ]}
+        onRecover={recoverAdminContext}
+        onReauthenticate={() =>
+          document.querySelector<HTMLInputElement>('[aria-label="tenant"]')?.focus()
+        }
+      />
       {loginPanel}
 
       {(!session || hasAdminSummaryRole) && (

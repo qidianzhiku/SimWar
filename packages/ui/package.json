@@ -21,6 +21,10 @@
       "types": "./dist/components/O4CrossRoundDynamicsPanel.d.ts",
       "default": "./dist/components/O4CrossRoundDynamicsPanel.js"
     },
+    "./cross-role-recovery-rail": {
+      "types": "./dist/components/CrossRoleRecoveryRail.d.ts",
+      "default": "./dist/components/CrossRoleRecoveryRail.js"
+    },
     "./m4-multipath-counterfactual-transfer-panel": {
       "types": "./dist/components/M4MultipathCounterfactualTransferPanel.d.ts",
       "default": "./dist/components/M4MultipathCounterfactualTransferPanel.js"

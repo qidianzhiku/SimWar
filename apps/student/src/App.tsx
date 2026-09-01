@@ -75,6 +75,7 @@ import {
   StatePanel,
   WorkbenchFrame
 } from "@simwar/ui";
+import { CrossRoleRecoveryRail } from "@simwar/ui/cross-role-recovery-rail";
 
 const O4CrossRoundDynamicsFeature = lazy(() => import("./O4"));
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
@@ -881,6 +882,21 @@ export function App() {
     mode: "JSON_INTERNAL_ONLY"
   };
   const noticeCopy = getStudentNoticeCopy(notice);
+  const recoveryStatus = !session
+    ? contextRecoveryState === "REAUTH_REQUIRED"
+      ? ("reauth-required" as const)
+      : ("signed-out" as const)
+    : !isStudentSession
+      ? ("reauth-required" as const)
+    : contextRecoveryState === "CONTEXT_STALE"
+      ? ("stale" as const)
+      : contextRecoveryState === "CONTEXT_UNAUTHORIZED"
+        ? ("reauth-required" as const)
+        : workspacePhase === "loading"
+          ? ("loading" as const)
+          : workspacePhase === "error"
+            ? ("error" as const)
+            : ("ready" as const);
   const w5Convergence = w5Projection?.convergence;
   const w5Demand = w5Convergence?.demand_realization;
   const course = state?.courses.find((candidate) => candidate.course_id === latestRun?.course_id);
@@ -983,6 +999,21 @@ export function App() {
         </>
       }
     >
+      <CrossRoleRecoveryRail
+        role="student"
+        status={recoveryStatus}
+        contextEntries={[
+          { label: "租户", value: studentContext.tenant ?? "未登录" },
+          { label: "课程", value: studentContext.course ?? "未选择" },
+          { label: "运行", value: studentContext.run ?? "未选择" },
+          { label: "回合", value: studentContext.round ?? "未选择" },
+          { label: "队伍", value: studentContext.team ?? "未选择" }
+        ]}
+        onRecover={session ? () => void refresh() : undefined}
+        onReauthenticate={() =>
+          document.querySelector<HTMLInputElement>('[aria-label="tenant"]')?.focus()
+        }
+      />
       <div className="student-shell-content">
         <section id="student-role-mission" className="student-location" aria-label="角色任务">
           <WorkbenchFrame

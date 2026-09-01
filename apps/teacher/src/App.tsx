@@ -70,6 +70,11 @@ const RoleWorkflowPanel = lazy(() =>
     default: Component
   }))
 );
+const TeacherRecoveryRail = lazy(() =>
+  import("./TeacherRecoveryRail").then(({ TeacherRecoveryRail: Component }) => ({
+    default: Component
+  }))
+);
 const O4CrossRoundDynamicsPanel = lazy(() => import("@simwar/ui/o4-cross-round-dynamics-panel"));
 import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { InstructorIntelligencePanel } from "./InstructorIntelligencePanel";
@@ -2230,6 +2235,20 @@ export function App() {
       stateMessage={teacherShellState.message}
       primaryAction={primaryCommand}
     >
+      <Suspense fallback={<p className="muted">正在载入上下文恢复…</p>}>
+        <TeacherRecoveryRail
+          session={session}
+          contextRecoveryState={contextRecoveryState}
+          workspaceLoadState={workspaceLoadState}
+          courseTitle={courseWorkspace?.visible_state.course_title}
+          runId={selectedRun?.run_id}
+          roundNo={selectedRound?.round_no}
+          onRecover={session ? () => void refresh(selectedRun?.run_id) : undefined}
+          onReauthenticate={() =>
+            document.querySelector<HTMLInputElement>('[aria-label="tenant"]')?.focus()
+          }
+        />
+      </Suspense>
       <TeacherLocation id="teacher-today">
         <header className="topbar">
           <div>

@@ -350,6 +350,77 @@ describe("Student executive workspace refoundation", () => {
     fetchMock.mockRestore();
   });
 
+  it("keeps a foreign-role session in reauthentication-required state without reading Student data", async () => {
+    const session = {
+      access_token: "teacher-token",
+      session_id: "session-teacher",
+      user: {
+        display_name: "Teacher A",
+        roles: ["teacher"],
+        tenant_id: "tenant-a",
+        user_id: "teacher-a"
+      }
+    };
+    const response = (ok: boolean, data: unknown): Response =>
+      ({
+        ok,
+        status: ok ? 200 : 403,
+        json: async () => (ok ? { data } : { code: "STUDENT_SESSION_FORBIDDEN", message: "failed" })
+      }) as Response;
+    let studentBootstrapRequests = 0;
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/api/v1/auth/login")) return response(true, session);
+      if (url.includes("/api/v1/demo-state")) {
+        studentBootstrapRequests += 1;
+        return response(false, null);
+      }
+      return response(false, null);
+    });
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    act(() => root.render(<App />));
+
+    const setInputValue = (label: string, value: string) => {
+      const input = [...container.querySelectorAll("input")].find(
+        (candidate) => candidate.getAttribute("aria-label") === label
+      );
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      valueSetter?.call(input, value);
+      input?.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    await act(async () => {
+      setInputValue("tenant", "tenant-a");
+      setInputValue("username", "teacher-a");
+      setInputValue("password", "password-a");
+    });
+    const loginButton = [...container.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("学员登录")
+    );
+    expect(loginButton).toBeDefined();
+    await act(async () => {
+      loginButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await vi.waitFor(() =>
+        expect(container.querySelector('[data-recovery-role="student"]')).not.toBeNull()
+      );
+    });
+
+    expect(container.querySelector('[data-recovery-role="student"]')?.getAttribute("data-recovery-status")).toBe(
+      "reauth-required"
+    );
+    expect(container.querySelector('[data-action="recovery:reauthenticate"]')).not.toBeNull();
+    expect(container.querySelector("#student-cockpit")).toBeNull();
+    expect(studentBootstrapRequests).toBe(0);
+
+    act(() => root.unmount());
+    container.remove();
+    fetchMock.mockRestore();
+  });
+
   it("preserves an edited legacy draft when a committed decision refresh fails in the same context", async () => {
     const session = {
       access_token: "student-token",

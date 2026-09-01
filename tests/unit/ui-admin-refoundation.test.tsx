@@ -1,6 +1,14 @@
-import React from "react";
+/** @vitest-environment jsdom */
+
+import React, { act } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { App } from "../../apps/admin/src/App";
+
+(
+  globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 import {
   AdminDeliveryTrustWorkspace,
   AdminEnvironmentRecoveryLimit,
@@ -107,6 +115,90 @@ describe("Admin Delivery & Trust workspace", () => {
     expect(markup).not.toContain("启动环境");
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
+  });
+
+  it("keeps platform-admin recovery actionable through the existing CoursePackageVersion path", async () => {
+    const session = {
+      access_token: "platform-token",
+      session_id: "session-platform",
+      user: {
+        display_name: "Platform Admin",
+        roles: ["platform_admin"],
+        tenant_id: "platform",
+        user_id: "platform-admin"
+      }
+    };
+    const platformAuthority = {
+      actor_role: "platform_admin",
+      platform_authority: true,
+      required_scope: "platform",
+      visible_state: { tenant_count: 0, tenant_ids: [] }
+    };
+    const response = (ok: boolean, data: unknown): Response =>
+      ({
+        ok,
+        status: ok ? 200 : 403,
+        json: async () => (ok ? { data } : { code: "ADMIN_REQUEST_FORBIDDEN", message: "failed" })
+      }) as Response;
+    let coursePackageRequests = 0;
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/api/v1/auth/login")) return response(true, session);
+      if (url.includes("/api/v1/bff/admin/platform-authority")) {
+        return response(true, platformAuthority);
+      }
+      if (url.includes("/api/v1/admin/course-package-versions")) {
+        coursePackageRequests += 1;
+        return response(true, { course_package_versions: [] });
+      }
+      return response(false, null);
+    });
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    act(() => root.render(<App />));
+
+    const setInputValue = (label: string, value: string) => {
+      const input = [...container.querySelectorAll("input")].find(
+        (candidate) => candidate.getAttribute("aria-label") === label
+      );
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      valueSetter?.call(input, value);
+      input?.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    await act(async () => {
+      setInputValue("tenant", "platform");
+      setInputValue("username", "platform-admin");
+      setInputValue("password", "password-a");
+    });
+    const loginButton = [...container.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("管理员登录")
+    );
+    expect(loginButton).toBeDefined();
+    await act(async () => {
+      loginButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await vi.waitFor(() => expect(coursePackageRequests).toBeGreaterThan(0));
+    });
+
+    const initialCoursePackageRequests = coursePackageRequests;
+    const recoveryButton = container.querySelector<HTMLButtonElement>(
+      '[data-recovery-role="admin"] [data-action="recovery:refresh"]'
+    );
+    expect(recoveryButton).not.toBeNull();
+    await act(async () => {
+      recoveryButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await vi.waitFor(() => expect(coursePackageRequests).toBeGreaterThan(initialCoursePackageRequests));
+    });
+
+    act(() => root.unmount());
+    container.remove();
+    fetchMock.mockRestore();
   });
 
   it("maps every current lifecycle block code to a deterministic Chinese explanation", () => {
