@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ApiEnvelope, ModelQualificationTeacherProjection } from "@simwar/shared-contracts";
 import {
   calibrationDatasetIdentity,
+  hasExactModelQualificationEvidence,
   modelVersionIdentity,
   qualificationIdentity,
   sourcePackageIdentity,
@@ -132,7 +133,23 @@ export function ModelQualificationWorkbench({ apiBase, courseId, tenantId, token
     selection?.qualification_key,
     qualificationIdentity
   );
-  const exactEvidence = resolution?.selected;
+  const exactEvidence = hasExactModelQualificationEvidence(resolution) ? resolution.selected : null;
+  const partialSelectionSafe =
+    resolution?.state !== "invalid-context" &&
+    resolution?.state !== "duplicate" &&
+    resolution?.state !== "conflict" &&
+    resolution?.state !== "stale";
+  const exactSourceSelected =
+    Boolean(selectedSource) &&
+    selection?.source_package_key === sourcePackageIdentity(selectedSource!);
+  const exactDatasetSelected =
+    Boolean(selectedDataset) &&
+    selection?.calibration_dataset_key === calibrationDatasetIdentity(selectedDataset!) &&
+    exactSourceSelected &&
+    selectedDataset?.source_package_id === selectedSource?.source_package_id;
+  const exactModelSelected =
+    Boolean(selectedModel) &&
+    selection?.model_version_key === modelVersionIdentity(selectedModel!.model_version_reference);
   const hasSourcePackages = (projection?.source_packages.length ?? 0) > 0;
   const hasCalibrationDatasets = (projection?.calibration_datasets.length ?? 0) > 0;
   const hasQualifications = (projection?.qualifications.length ?? 0) > 0;
@@ -228,7 +245,11 @@ export function ModelQualificationWorkbench({ apiBase, courseId, tenantId, token
             <button
               type="button"
               disabled={
-                busy || !selectedSource || hasCalibrationDatasets || Boolean(selectedDataset)
+                busy ||
+                !partialSelectionSafe ||
+                !exactSourceSelected ||
+                hasCalibrationDatasets ||
+                Boolean(selectedDataset)
               }
               onClick={() =>
                 void mutate("/api/v1/bff/teacher/model-qualification/datasets", {
@@ -246,9 +267,10 @@ export function ModelQualificationWorkbench({ apiBase, courseId, tenantId, token
               type="button"
               disabled={
                 busy ||
-                !selectedModel ||
-                !selectedSource ||
-                !selectedDataset ||
+                !partialSelectionSafe ||
+                !exactModelSelected ||
+                !exactSourceSelected ||
+                !exactDatasetSelected ||
                 hasQualifications ||
                 Boolean(selectedQualification)
               }
@@ -268,13 +290,13 @@ export function ModelQualificationWorkbench({ apiBase, courseId, tenantId, token
               type="button"
               disabled={
                 busy ||
-                !selectedQualification ||
-                selectedQualification.decision !== "APPROVED" ||
-                selectedQualification.review.status !== "PENDING"
+                !exactEvidence ||
+                exactEvidence.qualification.decision !== "APPROVED" ||
+                exactEvidence.qualification.review.status !== "PENDING"
               }
               onClick={() =>
                 void mutate(
-                  `/api/v1/bff/teacher/model-qualification/qualifications/${selectedQualification?.qualification_id}/review?courseId=${encodeURIComponent(courseId ?? "")}`,
+                  `/api/v1/bff/teacher/model-qualification/qualifications/${exactEvidence?.qualification.qualification_id}/review?courseId=${encodeURIComponent(courseId ?? "")}`,
                   { decision: "APPROVED", note: "Reviewed against the exact offline fixture." }
                 )
               }

@@ -86,20 +86,34 @@ test("Teacher selects one exact qualification chain and keeps the governance sur
     await workbench.getByRole("button", { name: "登记来源与证据" }).click();
     await expect(workbench.getByRole("button", { name: /来源已登记/ })).toBeVisible();
   }
-  await review.getByLabel("ModelVersion").selectOption({ index: 1 });
-  await review.getByLabel("SourcePackage").selectOption({ index: 1 });
+  const selectNonEdgeEvidence = async (label: string): Promise<string> => {
+    const select = review.getByLabel(label);
+    const values = await select
+      .locator("option")
+      .evaluateAll((options) =>
+        options.map((option) => option.value).filter((value) => value.length > 0)
+      );
+    expect(values.length).toBeGreaterThan(0);
+    const target = values.length >= 3 ? values[Math.floor(values.length / 2)] : values[0];
+    await select.selectOption(target);
+    return target;
+  };
+
+  await selectNonEdgeEvidence("ModelVersion");
+  await selectNonEdgeEvidence("SourcePackage");
 
   if (existingProjection.data.calibration_datasets.length === 0) {
     await workbench.getByRole("button", { name: "创建 Calibration / Holdout" }).click();
     await expect(workbench.getByRole("button", { name: /数据集已登记/ })).toBeVisible();
   }
-  await review.getByLabel("Calibration/Holdout Dataset").selectOption({ index: 1 });
+  await selectNonEdgeEvidence("Calibration/Holdout Dataset");
 
   if (existingProjection.data.qualifications.length === 0) {
     await workbench.getByRole("button", { name: "运行确定性资格检查" }).click();
     await expect(workbench.getByRole("button", { name: /资格已登记/ })).toBeVisible();
   }
-  await review.getByLabel("Qualification").selectOption({ index: 1 });
+  const selectedQualificationKey = await selectNonEdgeEvidence("Qualification");
+  const selectedQualificationId = selectedQualificationKey.split("#", 1)[0];
   await expect(review).toHaveAttribute("data-evidence-state", "SELECTED");
   await expect(review.getByTestId("exact-evidence-inspector")).toContainText("qualification_id");
   await expect(review.getByTestId("exact-evidence-inspector")).toContainText("model_version_id");
@@ -129,5 +143,9 @@ test("Teacher selects one exact qualification chain and keeps the governance sur
     qualifications: Array<{ binding: { status: string }; qualification_id: string }>;
   }>;
   expect(projection.ok()).toBe(true);
-  expect(body.data.qualifications.at(-1)?.binding.status).toBe("BOUND");
+  expect(
+    body.data.qualifications.find(
+      ({ qualification_id }) => qualification_id === selectedQualificationId
+    )?.binding.status
+  ).toBe("BOUND");
 });

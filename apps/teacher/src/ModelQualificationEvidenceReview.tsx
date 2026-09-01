@@ -182,7 +182,10 @@ export function ModelQualificationEvidenceReview({
   onSelectionChange
 }: ModelQualificationEvidenceReviewProps): ReactElement {
   const [selection, setSelection] = useState<ModelQualificationEvidenceSelection | null>(null);
-  const safeSelection = selection ?? createEmptyModelQualificationSelection();
+  const safeSelection = useMemo(
+    () => selection ?? createEmptyModelQualificationSelection(),
+    [selection]
+  );
 
   const resolution = useMemo(
     () =>

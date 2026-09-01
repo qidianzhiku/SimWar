@@ -62,6 +62,15 @@ export interface ModelQualificationEvidenceSelectionResult {
   } | null;
 }
 
+export function hasExactModelQualificationEvidence(
+  resolution: ModelQualificationEvidenceSelectionResult | null
+): resolution is ModelQualificationEvidenceSelectionResult & {
+  readonly state: "selected";
+  readonly selected: NonNullable<ModelQualificationEvidenceSelectionResult["selected"]>;
+} {
+  return resolution?.state === "selected" && resolution.selected !== null;
+}
+
 export interface ResolveModelQualificationEvidenceSelectionInput {
   readonly context: ModelQualificationEvidenceSelectionContext;
   readonly projection: ModelQualificationTeacherProjection;
@@ -384,10 +393,10 @@ export function resolveModelQualificationEvidenceSelection(
     return result(isEmpty ? "empty" : "no-selection");
   }
 
-  if (!isCompleteSelection(selection)) return result("unknown");
-
   const issue = projectionCollectionIssue(projection);
   if (issue) return result(issue);
+
+  if (!isCompleteSelection(selection)) return result("unknown");
 
   const model = resolveExactEntry(
     projection.model_catalog,

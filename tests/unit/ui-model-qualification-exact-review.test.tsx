@@ -11,7 +11,10 @@ import type {
   ModelQualificationTeacherProjection
 } from "@simwar/shared-contracts";
 import { buildExactModelQualificationSelection } from "../../apps/teacher/src/model-qualification-evidence-selection";
-import { ModelQualificationEvidenceReview } from "../../apps/teacher/src/ModelQualificationEvidenceReview";
+import {
+  ModelQualificationEvidenceReview,
+  type ModelQualificationEvidenceReviewProps
+} from "../../apps/teacher/src/ModelQualificationEvidenceReview";
 
 const DIGEST = (seed: string): string => `${seed}${"0".repeat(64)}`.slice(0, 64);
 const context = {
@@ -157,6 +160,7 @@ function projection(
 async function renderReview(value: {
   projection: ModelQualificationTeacherProjection | null;
   fetchState: "ready" | "conflict" | "error";
+  onSelectionChange?: ModelQualificationEvidenceReviewProps["onSelectionChange"];
 }): Promise<{ host: HTMLDivElement; root: ReturnType<typeof createRoot> }> {
   const host = document.createElement("div");
   document.body.appendChild(host);
@@ -224,6 +228,25 @@ describe("Teacher exact model qualification evidence review", () => {
     expect(errorView.host.textContent).toContain("不会根据客户端状态推断资格");
     errorView.root.unmount();
     errorView.host.remove();
+  });
+
+  it("does not emit a new empty selection on a parent re-render", async () => {
+    let callbackCount = 0;
+    const onSelectionChange: ModelQualificationEvidenceReviewProps["onSelectionChange"] = () => {
+      callbackCount += 1;
+    };
+    const value = { fetchState: "ready" as const, onSelectionChange, projection: projection() };
+    const { host, root } = await renderReview(value);
+    expect(callbackCount).toBe(1);
+
+    await act(async () => {
+      root.render(<ModelQualificationEvidenceReview context={context} {...value} />);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(callbackCount).toBe(1);
+    root.unmount();
+    host.remove();
   });
 
   it("shows empty evidence explicitly and preserves read-only source data", async () => {

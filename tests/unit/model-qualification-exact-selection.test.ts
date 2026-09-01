@@ -9,6 +9,7 @@ import type {
 import {
   buildExactModelQualificationSelection,
   createEmptyModelQualificationSelection,
+  hasExactModelQualificationEvidence,
   resolveModelQualificationEvidenceSelection,
   type ModelQualificationEvidenceSelection,
   type ModelQualificationEvidenceSelectionContext
@@ -231,6 +232,7 @@ describe("model qualification exact evidence selection", () => {
       calibration_dataset_key: `${DATASET_TARGET.calibration_dataset_id}#${DATASET_TARGET.content_digest}`,
       qualification_key: `${QUALIFICATION_TARGET.qualification_id}#${QUALIFICATION_TARGET.content_digest}`
     });
+    expect(hasExactModelQualificationEvidence(result)).toBe(true);
   });
 
   it("exposes empty and no-selection as distinct fail-closed states", () => {
@@ -396,6 +398,28 @@ describe("model qualification exact evidence selection", () => {
     expect(result.state).toBe("conflict");
     expect(result.status).toBe("CONFLICT");
     expect(result.selected).toBeNull();
+  });
+
+  it("surfaces collection conflicts before allowing a partial action selection", () => {
+    const conflictingSource = {
+      ...SOURCE_TARGET,
+      content_digest: digest("source-target-conflict")
+    };
+    const result = resolveModelQualificationEvidenceSelection({
+      context: CONTEXT,
+      projection: projection({
+        source_packages: [SOURCE_OLD, SOURCE_TARGET, conflictingSource, SOURCE_NEWEST]
+      }),
+      selection: {
+        calibration_dataset_key: null,
+        model_version_key: TARGET_SELECTION.model_version_key,
+        qualification_key: null,
+        source_package_key: TARGET_SELECTION.source_package_key
+      }
+    });
+
+    expect(result.state).toBe("conflict");
+    expect(hasExactModelQualificationEvidence(result)).toBe(false);
   });
 
   it("returns existing candidate status without promoting or mutating qualification truth", () => {
