@@ -1,10 +1,23 @@
 .model-qualification-evidence-review {
   display: grid;
   gap: 1rem;
+  min-width: 0;
   padding: 1.25rem;
   border: 1px solid var(--border-subtle, #cbd5e1);
   border-radius: 0.75rem;
   background: var(--surface-raised, #ffffff);
+}
+
+.model-qualification-evidence-review > *,
+.model-qualification-evidence-review header {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.model-qualification-evidence-review h2,
+.model-qualification-context,
+.model-qualification-select span {
+  overflow-wrap: anywhere;
 }
 
 .model-qualification-choice-grid,
@@ -14,7 +27,8 @@
 }
 
 .model-qualification-choice-grid {
-  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
+  min-width: 0;
 }
 
 .model-qualification-select {
