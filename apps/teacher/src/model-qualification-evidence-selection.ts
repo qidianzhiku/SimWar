@@ -94,6 +94,22 @@ function modelVersionIdentityKey(reference: ModelVersionReference): string {
   return `${reference.model_version_id}@${reference.version}`;
 }
 
+export function modelVersionIdentity(reference: ModelVersionReference): string {
+  return modelVersionKey(reference);
+}
+
+export function sourcePackageIdentity(sourcePackage: ModelQualificationSourcePackage): string {
+  return sourcePackageKey(sourcePackage);
+}
+
+export function calibrationDatasetIdentity(dataset: ModelQualificationCalibrationDataset): string {
+  return calibrationDatasetKey(dataset);
+}
+
+export function qualificationIdentity(qualification: ModelQualification): string {
+  return qualificationKey(qualification);
+}
+
 function modelCatalogEntryKey(model: ModelQualificationModelCatalogEntry): string {
   return modelVersionKey(model.model_version_reference);
 }

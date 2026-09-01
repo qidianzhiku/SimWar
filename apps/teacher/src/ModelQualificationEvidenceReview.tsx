@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactElement } from "react";
 import type {
   ModelQualification,
   ModelQualificationCalibrationDataset,
@@ -7,11 +7,11 @@ import type {
   ModelQualificationTeacherProjection
 } from "@simwar/shared-contracts";
 import {
-  buildExactModelQualificationSelection,
   createEmptyModelQualificationSelection,
   resolveModelQualificationEvidenceSelection,
   type ModelQualificationEvidenceSelection,
-  type ModelQualificationEvidenceSelectionContext
+  type ModelQualificationEvidenceSelectionContext,
+  type ModelQualificationEvidenceSelectionResult
 } from "./model-qualification-evidence-selection";
 import "./model-qualification-evidence-review.css";
 
@@ -30,7 +30,11 @@ export interface ModelQualificationEvidenceReviewProps {
   context: ModelQualificationEvidenceSelectionContext;
   fetchState: ModelQualificationFetchState;
   projection: ModelQualificationTeacherProjection | null;
-  errorMessage?: string;
+  errorMessage?: string | undefined;
+  onSelectionChange?: (
+    selection: ModelQualificationEvidenceSelection,
+    resolution: ModelQualificationEvidenceSelectionResult | null
+  ) => void;
 }
 
 const FETCH_STATE_LABELS: Record<ModelQualificationFetchState, string> = {
@@ -123,7 +127,7 @@ function setQualificationSelection(
   };
 }
 
-function ReferenceValue({ label, value }: { label: string; value: string }): JSX.Element {
+function ReferenceValue({ label, value }: { label: string; value: string }): ReactElement {
   return (
     <div className="model-qualification-reference-value">
       <dt>{label}</dt>
@@ -144,7 +148,7 @@ function EvidenceSelect({
   options: readonly { key: string; label: string; detail?: string }[];
   disabled?: boolean;
   onChange: (value: string) => void;
-}): JSX.Element {
+}): ReactElement {
   return (
     <label className="model-qualification-select">
       <span>{label}</span>
@@ -174,8 +178,9 @@ export function ModelQualificationEvidenceReview({
   context,
   errorMessage,
   fetchState,
-  projection
-}: ModelQualificationEvidenceReviewProps): JSX.Element {
+  projection,
+  onSelectionChange
+}: ModelQualificationEvidenceReviewProps): ReactElement {
   const [selection, setSelection] = useState<ModelQualificationEvidenceSelection | null>(null);
   const safeSelection = selection ?? createEmptyModelQualificationSelection();
 
@@ -198,6 +203,10 @@ export function ModelQualificationEvidenceReview({
   const sources = projection?.source_packages ?? [];
   const datasets = projection?.calibration_datasets ?? [];
   const qualifications = projection?.qualifications ?? [];
+
+  useEffect(() => {
+    if (onSelectionChange) onSelectionChange(safeSelection, resolution);
+  }, [onSelectionChange, resolution, safeSelection]);
 
   return (
     <section

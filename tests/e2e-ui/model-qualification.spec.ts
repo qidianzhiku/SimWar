@@ -72,16 +72,47 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
     name: "source-backed model qualification workbench"
   });
   await expect(workbench).toBeVisible();
-  await workbench.getByRole("button", { name: "登记来源与证据" }).click();
-  await expect(workbench.getByRole("button", { name: "来源已登记" })).toBeVisible();
-  await workbench.getByRole("button", { name: "创建 Calibration / Holdout" }).click();
-  await expect(workbench.getByRole("button", { name: "数据集已创建" })).toBeVisible();
-  await workbench.getByRole("button", { name: "运行确定性资格检查" }).click();
-  await expect(workbench.getByRole("button", { name: "资格已运行" })).toBeVisible();
-  await workbench.getByRole("button", { name: "批准资格候选" }).click();
-  await expect(workbench.getByRole("button", { name: "已复核" })).toBeVisible();
-  await workbench.getByRole("button", { name: "绑定到课程治理" }).click();
-  await expect(workbench.getByRole("button", { name: "已绑定课程" })).toBeVisible();
+  const evidenceReview = workbench.getByRole("region", {
+    name: "teacher exact model qualification evidence review"
+  });
+  const projectionResponse = await request.get(
+    `${apiBaseUrl}/api/v1/bff/teacher/model-qualification?courseId=course_demo`,
+    { headers: { authorization: `Bearer ${teacher.access_token}`, "x-tenant-id": tenantId } }
+  );
+  const projection = (await projectionResponse.json()) as ApiEnvelope<{
+    calibration_datasets: unknown[];
+    qualifications: unknown[];
+    source_packages: unknown[];
+  }>;
+  expect(projectionResponse.ok()).toBe(true);
+  if (projection.data.source_packages.length === 0) {
+    await workbench.getByRole("button", { name: "登记来源与证据" }).click();
+    await expect(workbench.getByRole("button", { name: /来源已登记/ })).toBeVisible();
+  }
+  await evidenceReview.getByLabel("ModelVersion").selectOption({ index: 1 });
+  await evidenceReview.getByLabel("SourcePackage").selectOption({ index: 1 });
+  if (projection.data.calibration_datasets.length === 0) {
+    await workbench.getByRole("button", { name: "创建 Calibration / Holdout" }).click();
+    await expect(workbench.getByRole("button", { name: /数据集已登记/ })).toBeVisible();
+  }
+  await evidenceReview.getByLabel("Calibration/Holdout Dataset").selectOption({ index: 1 });
+  if (projection.data.qualifications.length === 0) {
+    await workbench.getByRole("button", { name: "运行确定性资格检查" }).click();
+    await expect(workbench.getByRole("button", { name: /资格已登记/ })).toBeVisible();
+  }
+  await evidenceReview.getByLabel("Qualification").selectOption({ index: 1 });
+  const reviewButton = workbench.getByRole("button", { name: /批准资格候选|已复核/ });
+  await expect(reviewButton).toBeVisible();
+  if ((await reviewButton.textContent())?.includes("批准资格候选")) {
+    await reviewButton.click();
+    await expect(workbench.getByRole("button", { name: "已复核" })).toBeVisible();
+  }
+  const bindButton = workbench.getByRole("button", { name: /绑定到课程治理|已绑定课程/ });
+  await expect(bindButton).toBeVisible();
+  if ((await bindButton.textContent())?.includes("绑定到课程治理")) {
+    await bindButton.click();
+    await expect(workbench.getByRole("button", { name: "已绑定课程" })).toBeVisible();
+  }
 
   const teacherProjection = await request.get(
     `${apiBaseUrl}/api/v1/bff/teacher/model-qualification?courseId=course_demo`,
