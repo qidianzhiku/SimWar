@@ -308,7 +308,7 @@ describe("ProjectProfile / ProjectAssignment authority", () => {
     const successor = await service.createSuccessor(actor, {
       course_id: "course_demo",
       description: "Future-effective successor",
-      future_effective_at: "2026-09-01T00:00:00.000Z",
+      future_effective_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       project_profile_id: "shanghai-project-alpha-successor",
       source_project_profile_ref: ref(validated),
       title: "Shanghai Care Successor",
@@ -433,6 +433,30 @@ describe("ProjectProfile / ProjectAssignment authority", () => {
         project_profile_id: "shanghai-project-invalid-successor",
         source_project_profile_ref: ref(validated),
         title: "Invalid successor",
+        version: "2026-09-01.1"
+      })
+    ).rejects.toMatchObject({ code: "PROJECT_PROFILE_INPUT_INVALID" });
+  });
+
+  it("rejects non-future effective timestamps for successors", async () => {
+    const service = new ProjectLibraryService(seedRunAndSecondTeam());
+    const source = await service.createDraft(actor, {
+      course_id: "course_demo",
+      project_profile: draftInput()
+    });
+    const validated = await service.validate(actor, {
+      course_id: "course_demo",
+      project_profile_ref: ref(source)
+    });
+
+    await expect(
+      service.createSuccessor(actor, {
+        course_id: "course_demo",
+        description: "Non-future successor",
+        future_effective_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        project_profile_id: "shanghai-project-past-successor",
+        source_project_profile_ref: ref(validated),
+        title: "Past successor",
         version: "2026-09-01.1"
       })
     ).rejects.toMatchObject({ code: "PROJECT_PROFILE_INPUT_INVALID" });
