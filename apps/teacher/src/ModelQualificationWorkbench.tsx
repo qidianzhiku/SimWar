@@ -1,5 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ApiEnvelope, ModelQualificationTeacherProjection } from "@simwar/shared-contracts";
+import {
+  calibrationDatasetIdentity,
+  hasExactModelQualificationEvidence,
+  modelVersionIdentity,
+  qualificationIdentity,
+  sourcePackageIdentity,
+  type ModelQualificationEvidenceSelection,
+  type ModelQualificationEvidenceSelectionResult
+} from "./model-qualification-evidence-selection";
+import {
+  ModelQualificationEvidenceReview,
+  type ModelQualificationFetchState
+} from "./ModelQualificationEvidenceReview";
 
 interface Props {
   apiBase: string;
@@ -30,17 +43,41 @@ async function request<T>(
   return envelope.data;
 }
 
+function findByKey<T>(
+  entries: readonly T[],
+  key: string | null | undefined,
+  identity: (entry: T) => string
+): T | undefined {
+  return key ? entries.find((entry) => identity(entry) === key) : undefined;
+}
+
 export function ModelQualificationWorkbench({ apiBase, courseId, tenantId, token }: Props) {
   const [projection, setProjection] = useState<ModelQualificationTeacherProjection | null>(null);
+  const [fetchState, setFetchState] = useState<ModelQualificationFetchState>("idle");
+  const [selection, setSelection] = useState<ModelQualificationEvidenceSelection | null>(null);
+  const [resolution, setResolution] = useState<ModelQualificationEvidenceSelectionResult | null>(
+    null
+  );
   const [notice, setNotice] = useState("等待模型资格治理上下文");
   const [busy, setBusy] = useState(false);
+
+  const context = useMemo(
+    () => ({
+      activityId: "model-qualification-studio",
+      courseId: courseId ?? "",
+      tenantId
+    }),
+    [courseId, tenantId]
+  );
 
   const refresh = useCallback(async () => {
     if (!courseId || !token) {
       setProjection(null);
+      setFetchState("idle");
       setNotice("选择课程并登录后加载来源资格治理");
       return;
     }
+    setFetchState("loading");
     try {
       const next = await request<ModelQualificationTeacherProjection>(
         apiBase,
@@ -49,21 +86,73 @@ export function ModelQualificationWorkbench({ apiBase, courseId, tenantId, token
         `/api/v1/bff/teacher/model-qualification?courseId=${encodeURIComponent(courseId)}`
       );
       setProjection(next);
+      setFetchState("ready");
       setNotice("来源资格治理工作台已加载");
     } catch (error) {
       setProjection(null);
+      setResolution(null);
+      setFetchState("error");
       setNotice(error instanceof Error ? error.message : "来源资格治理加载失败");
     }
   }, [apiBase, courseId, tenantId, token]);
 
   useEffect(() => {
+    setSelection(null);
+    setResolution(null);
     void refresh();
-  }, [refresh]);
+  }, [courseId, refresh, tenantId, token]);
 
-  const source = projection?.source_packages.at(-1);
-  const dataset = projection?.calibration_datasets.at(-1);
-  const qualification = projection?.qualifications.at(-1);
-  const model = useMemo(() => projection?.model_catalog[0], [projection]);
+  const handleSelectionChange = useCallback(
+    (
+      nextSelection: ModelQualificationEvidenceSelection,
+      nextResolution: ModelQualificationEvidenceSelectionResult | null
+    ) => {
+      setSelection(nextSelection);
+      setResolution(nextResolution);
+    },
+    []
+  );
+
+  const selectedModel = findByKey(
+    projection?.model_catalog ?? [],
+    selection?.model_version_key,
+    (entry) => modelVersionIdentity(entry.model_version_reference)
+  );
+  const selectedSource = findByKey(
+    projection?.source_packages ?? [],
+    selection?.source_package_key,
+    sourcePackageIdentity
+  );
+  const selectedDataset = findByKey(
+    projection?.calibration_datasets ?? [],
+    selection?.calibration_dataset_key,
+    calibrationDatasetIdentity
+  );
+  const selectedQualification = findByKey(
+    projection?.qualifications ?? [],
+    selection?.qualification_key,
+    qualificationIdentity
+  );
+  const exactEvidence = hasExactModelQualificationEvidence(resolution) ? resolution.selected : null;
+  const partialSelectionSafe =
+    resolution?.state !== "invalid-context" &&
+    resolution?.state !== "duplicate" &&
+    resolution?.state !== "conflict" &&
+    resolution?.state !== "stale";
+  const exactSourceSelected =
+    Boolean(selectedSource) &&
+    selection?.source_package_key === sourcePackageIdentity(selectedSource!);
+  const exactDatasetSelected =
+    Boolean(selectedDataset) &&
+    selection?.calibration_dataset_key === calibrationDatasetIdentity(selectedDataset!) &&
+    exactSourceSelected &&
+    selectedDataset?.source_package_id === selectedSource?.source_package_id;
+  const exactModelSelected =
+    Boolean(selectedModel) &&
+    selection?.model_version_key === modelVersionIdentity(selectedModel!.model_version_reference);
+  const hasSourcePackages = (projection?.source_packages.length ?? 0) > 0;
+  const hasCalibrationDatasets = (projection?.calibration_datasets.length ?? 0) > 0;
+  const hasQualifications = (projection?.qualifications.length ?? 0) > 0;
 
   async function mutate(path: string, body?: unknown) {
     if (!courseId || busy) return;
@@ -71,7 +160,7 @@ export function ModelQualificationWorkbench({ apiBase, courseId, tenantId, token
     try {
       await request(apiBase, tenantId, token, path, "POST", body);
       await refresh();
-      setNotice("操作已完成，投影已按服务端状态刷新");
+      setNotice("操作已完成；请重新确认 exact 证据链");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "治理操作失败");
     } finally {
@@ -100,33 +189,41 @@ export function ModelQualificationWorkbench({ apiBase, courseId, tenantId, token
       <p className="lifecycle-status" role="status">
         {notice}
       </p>
+      <ModelQualificationEvidenceReview
+        context={context}
+        errorMessage={fetchState === "error" ? notice : undefined}
+        fetchState={fetchState}
+        onSelectionChange={handleSelectionChange}
+        projection={projection}
+      />
       {projection ? (
         <>
           <div className="summary-grid">
             <article>
               <span>ModelVersion</span>
               <strong>
-                {model?.model_version_reference.model_version_id}@
-                {model?.model_version_reference.version}
+                {selectedModel
+                  ? `${selectedModel.model_version_reference.model_version_id}@${selectedModel.model_version_reference.version}`
+                  : "未选择 exact ModelVersion"}
               </strong>
             </article>
             <article>
               <span>来源包</span>
-              <strong>{source?.source_package_id ?? "未登记"}</strong>
+              <strong>{selectedSource?.source_package_id ?? "未选择 exact SourcePackage"}</strong>
             </article>
             <article>
               <span>数据集</span>
-              <strong>{dataset?.status ?? "未创建"}</strong>
+              <strong>{selectedDataset?.status ?? "未选择 exact Dataset"}</strong>
             </article>
             <article>
               <span>资格</span>
-              <strong>{qualification?.decision ?? "未运行"}</strong>
+              <strong>{selectedQualification?.decision ?? "未选择 exact Qualification"}</strong>
             </article>
           </div>
           <div className="workspace-actions">
             <button
               type="button"
-              disabled={busy || Boolean(source)}
+              disabled={busy || hasSourcePackages || Boolean(selectedSource)}
               onClick={() =>
                 void mutate("/api/v1/bff/teacher/model-qualification/source-packages", {
                   content_digest: digestA,
@@ -143,92 +240,88 @@ export function ModelQualificationWorkbench({ apiBase, courseId, tenantId, token
                 })
               }
             >
-              {source ? "来源已登记" : "登记来源与证据"}
+              {hasSourcePackages ? "来源已登记，请选择 exact" : "登记来源与证据"}
             </button>
             <button
               type="button"
-              disabled={busy || !source || Boolean(dataset)}
+              disabled={
+                busy ||
+                !partialSelectionSafe ||
+                !exactSourceSelected ||
+                hasCalibrationDatasets ||
+                Boolean(selectedDataset)
+              }
               onClick={() =>
                 void mutate("/api/v1/bff/teacher/model-qualification/datasets", {
                   calibration_record_ids: ["cal-1", "cal-2"],
                   content_digest: digestC,
                   course_id: courseId,
                   holdout_record_ids: ["holdout-1", "holdout-2"],
-                  source_package_id: source?.source_package_id
+                  source_package_id: selectedSource?.source_package_id
                 })
               }
             >
-              {dataset ? "数据集已创建" : "创建 Calibration / Holdout"}
-            </button>
-            <button
-              type="button"
-              disabled={busy || !dataset || Boolean(qualification)}
-              onClick={() =>
-                void mutate("/api/v1/bff/teacher/model-qualification/qualifications", {
-                  calibration_dataset_id: dataset?.calibration_dataset_id,
-                  course_id: courseId,
-                  deterministic_seed: 42,
-                  model_version_reference: model?.model_version_reference,
-                  source_package_id: source?.source_package_id
-                })
-              }
-            >
-              {qualification ? "资格已运行" : "运行确定性资格检查"}
+              {hasCalibrationDatasets ? "数据集已登记，请选择 exact" : "创建 Calibration / Holdout"}
             </button>
             <button
               type="button"
               disabled={
                 busy ||
-                qualification?.decision !== "APPROVED" ||
-                qualification.review.status !== "PENDING"
+                !partialSelectionSafe ||
+                !exactModelSelected ||
+                !exactSourceSelected ||
+                !exactDatasetSelected ||
+                hasQualifications ||
+                Boolean(selectedQualification)
+              }
+              onClick={() =>
+                void mutate("/api/v1/bff/teacher/model-qualification/qualifications", {
+                  calibration_dataset_id: selectedDataset?.calibration_dataset_id,
+                  course_id: courseId,
+                  deterministic_seed: 42,
+                  model_version_reference: selectedModel?.model_version_reference,
+                  source_package_id: selectedSource?.source_package_id
+                })
+              }
+            >
+              {hasQualifications ? "资格已登记，请选择 exact" : "运行确定性资格检查"}
+            </button>
+            <button
+              type="button"
+              disabled={
+                busy ||
+                !exactEvidence ||
+                exactEvidence.qualification.decision !== "APPROVED" ||
+                exactEvidence.qualification.review.status !== "PENDING"
               }
               onClick={() =>
                 void mutate(
-                  `/api/v1/bff/teacher/model-qualification/qualifications/${qualification?.qualification_id}/review?courseId=${encodeURIComponent(courseId ?? "")}`,
+                  `/api/v1/bff/teacher/model-qualification/qualifications/${exactEvidence?.qualification.qualification_id}/review?courseId=${encodeURIComponent(courseId ?? "")}`,
                   { decision: "APPROVED", note: "Reviewed against the exact offline fixture." }
                 )
               }
             >
-              {qualification?.review.status === "APPROVED" ? "已复核" : "批准资格候选"}
+              {selectedQualification?.review.status === "APPROVED" ? "已复核" : "批准资格候选"}
             </button>
             <button
               type="button"
               disabled={
                 busy ||
-                qualification?.review.status !== "APPROVED" ||
-                qualification.binding.status === "BOUND"
+                !exactEvidence ||
+                exactEvidence.qualification.review.status !== "APPROVED" ||
+                exactEvidence.qualification.binding.status === "BOUND"
               }
               onClick={() =>
                 void mutate(
-                  `/api/v1/bff/teacher/model-qualification/qualifications/${qualification?.qualification_id}/bind?courseId=${encodeURIComponent(courseId ?? "")}`
+                  `/api/v1/bff/teacher/model-qualification/qualifications/${exactEvidence?.qualification.qualification_id}/bind?courseId=${encodeURIComponent(courseId ?? "")}`
                 )
               }
             >
-              {qualification?.binding.status === "BOUND" ? "已绑定课程" : "绑定到课程治理"}
+              {exactEvidence?.qualification.binding.status === "BOUND"
+                ? "已绑定课程"
+                : "绑定到课程治理"}
             </button>
           </div>
-          {qualification ? (
-            <details open>
-              <summary>资格诊断与限制</summary>
-              <p>
-                decision={qualification.decision} · review={qualification.review.status} · binding=
-                {qualification.binding.status}
-              </p>
-              <p>
-                drift={qualification.diagnostics.drift_score} · OOD=
-                {qualification.diagnostics.ood_rate} · sensitivity=
-                {qualification.diagnostics.sensitivity_max_delta}
-              </p>
-              <ul>
-                {qualification.reasons.length ? (
-                  qualification.reasons.map((reason) => <li key={reason}>{reason}</li>)
-                ) : (
-                  <li>所有已配置离线资格阈值通过</li>
-                )}
-              </ul>
-              <p className="evidence-note">{qualification.known_limits.join(" · ")}</p>
-            </details>
-          ) : null}
         </>
       ) : null}
     </section>
