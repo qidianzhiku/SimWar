@@ -13,31 +13,8 @@ describe("M4 teacher team context", () => {
     expect(resolveActiveTeacherTeamId(teams, "team_missing", "team_missing")).toBe("team_alpha");
   });
 
-  it("binds W3 context to the active team instead of the first team or query team", () => {
-    expect(
-      buildTeacherW3Context(
-        {
-          course_id: "course-001",
-          role_key: "CFO",
-          round_id: "round-002",
-          round_no: 2,
-          run_id: "run-001",
-          team_id: "team_beta",
-          tenant_id: "tenant-001"
-        },
-        {
-          activity_id: "activity_consequence",
-          course_id: "course-001",
-          role_key: "CEO",
-          round_id: "round-001",
-          round_no: 1,
-          run_id: "run-001",
-          team_id: "team_alpha",
-          tenant_id: "tenant-001"
-        }
-      )
-    ).toEqual({
-      activity_id: "activity_consequence",
+  it("keeps explicit W3 context stable after selected state hydrates", () => {
+    const selectedContext = {
       course_id: "course-001",
       role_key: "CFO",
       round_id: "round-002",
@@ -45,6 +22,48 @@ describe("M4 teacher team context", () => {
       run_id: "run-001",
       team_id: "team_beta",
       tenant_id: "tenant-001"
+    };
+    const explicitW3Context = {
+      activity_id: "activity_consequence",
+      course_id: "course-001",
+      role_key: "CEO",
+      round_id: "round-001",
+      round_no: 1,
+      run_id: "run-001",
+      team_id: "team_alpha",
+      tenant_id: "tenant-001"
+    };
+
+    const effectiveContext = buildTeacherW3Context(selectedContext, explicitW3Context);
+
+    expect(effectiveContext).toEqual(explicitW3Context);
+    expect({
+      course_id: effectiveContext?.course_id,
+      round_id: effectiveContext?.round_id,
+      run_id: effectiveContext?.run_id,
+      team_id: effectiveContext?.team_id
+    }).toEqual({
+      course_id: "course-001",
+      round_id: "round-001",
+      run_id: "run-001",
+      team_id: "team_alpha"
+    });
+  });
+
+  it("uses the active selected Teacher context when no explicit W3 context exists", () => {
+    const selectedContext = {
+      course_id: "course-001",
+      role_key: "CFO",
+      round_id: "round-002",
+      round_no: 2,
+      run_id: "run-001",
+      team_id: "team_beta",
+      tenant_id: "tenant-001"
+    };
+
+    expect(buildTeacherW3Context(selectedContext)).toEqual({
+      activity_id: "activity_consequence",
+      ...selectedContext
     });
   });
 

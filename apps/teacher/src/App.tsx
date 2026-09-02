@@ -909,19 +909,43 @@ export function App() {
         }
       : undefined;
   const w3RoleKey = w3Team?.members[0]?.role_slot ?? "CEO";
-  const w3Context = buildTeacherW3Context(
-    selectedRun && selectedRound && w3Team
-      ? {
-          course_id: selectedRun.course_id,
-          role_key: w3RoleKey,
-          round_id: selectedRound.round_id,
-          round_no: selectedRound.round_no,
-          run_id: selectedRun.run_id,
-          team_id: w3Team.team_id,
-          tenant_id: login.tenantId
-        }
-      : undefined,
-    readW3QueryContext()
+  const explicitW3Context = useMemo(() => readW3QueryContext(), []);
+  const w3Context = useMemo(
+    () =>
+      buildTeacherW3Context(
+        selectedRun && selectedRound && w3Team
+          ? {
+              course_id: selectedRun.course_id,
+              role_key: w3RoleKey,
+              round_id: selectedRound.round_id,
+              round_no: selectedRound.round_no,
+              run_id: selectedRun.run_id,
+              team_id: w3Team.team_id,
+              tenant_id: login.tenantId
+            }
+          : undefined,
+        explicitW3Context
+      ),
+    [explicitW3Context, login.tenantId, selectedRound, selectedRun, w3RoleKey, w3Team]
+  );
+  const advisoryContext = useMemo(
+    () =>
+      w3Context
+        ? {
+            course_id: w3Context.course_id,
+            run_id: w3Context.run_id,
+            round_id: w3Context.round_id,
+            team_id: w3Context.team_id
+          }
+        : undefined,
+    [w3Context]
+  );
+  const m4Context = useMemo(
+    () =>
+      w3Context
+        ? ([w3Context.course_id, w3Context.run_id, w3Context.team_id, w3Context.round_no] as const)
+        : undefined,
+    [w3Context]
   );
   const teacherConfirmationScope = useMemo(
     () =>
@@ -3687,50 +3711,32 @@ export function App() {
               teamCount={teamMonitor?.visible_state?.team_count ?? teamMonitor?.teams?.length ?? 0}
               tenantId={login.tenantId}
               token={session.access_token}
-              advisoryContext={
-                selectedRun && selectedRound && activeTeacherTeamId
-                  ? {
-                      course_id: selectedRun.course_id,
-                      run_id: selectedRun.run_id,
-                      round_id: selectedRound.round_id,
-                      team_id: activeTeacherTeamId
-                    }
-                  : undefined
-              }
+              advisoryContext={advisoryContext}
               governedAdvisory={
-                selectedRun && selectedRound && activeTeacherTeamId ? (
+                advisoryContext ? (
                   <TeacherDebriefAdvisor
                     apiBase={API_BASE}
-                    roundId={selectedRound.round_id}
-                    runId={selectedRun.run_id}
-                    teamId={activeTeacherTeamId}
+                    roundId={advisoryContext.round_id}
+                    runId={advisoryContext.run_id}
+                    teamId={advisoryContext.team_id}
                     tenantId={login.tenantId}
                     token={session.access_token}
                   />
                 ) : null
               }
               intelligenceWorkspace={
-                selectedRun && selectedRound && activeTeacherTeamId ? (
+                advisoryContext ? (
                   <GovernedIntelligenceWorkspace
                     apiBase={API_BASE}
-                    roundId={selectedRound.round_id}
-                    runId={selectedRun.run_id}
-                    teamId={activeTeacherTeamId}
+                    roundId={advisoryContext.round_id}
+                    runId={advisoryContext.run_id}
+                    teamId={advisoryContext.team_id}
                     tenantId={login.tenantId}
                     token={session.access_token}
                   />
                 ) : null
               }
-              m4Context={
-                selectedRun && selectedRound
-                  ? [
-                      selectedRun.course_id,
-                      selectedRun.run_id,
-                      activeTeacherTeamId,
-                      selectedRound.round_no
-                    ]
-                  : undefined
-              }
+              m4Context={m4Context}
             />
           </Suspense>
         ) : null}

@@ -34,10 +34,11 @@ export function buildTeacherW3Context(
   selection: TeacherW3Selection | undefined,
   queryContext?: W3OfficialConsequenceContext | undefined
 ): W3OfficialConsequenceContext | undefined {
-  if (!selection) return queryContext;
+  if (queryContext) return queryContext;
+  if (!selection) return undefined;
 
   return {
-    activity_id: selection.activity_id ?? queryContext?.activity_id ?? "activity_consequence",
+    activity_id: selection.activity_id ?? "activity_consequence",
     course_id: selection.course_id,
     role_key: selection.role_key,
     round_id: selection.round_id,
