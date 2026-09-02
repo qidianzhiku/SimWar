@@ -145,7 +145,7 @@ import {
   isTeacherRoundWorkspaceForContext,
   selectTeacherRound
 } from "./round-context";
-import { resolveActiveTeacherTeamId } from "./teacher-team-context";
+import { buildTeacherW3Context, resolveActiveTeacherTeamId } from "./teacher-team-context";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const SHANGHAI_C0_MACRO_IDS = new Set(["M13", "M14", "M15", "M16", "M17", "M18"] as const);
@@ -873,9 +873,7 @@ export function App() {
   const liveRoundOps = workspace?.live_round_ops;
   const replaySummary = workspace?.teacher_replay_summary;
   const isTeacher = session?.user.roles.includes("teacher") ?? false;
-  const w3Team = state?.teams.find(
-    (candidate) => candidate.course_id === (selectedRun?.course_id ?? selectedCourseId)
-  );
+  const w3Team = teacherTeamsForRun.find((candidate) => candidate.team_id === activeTeacherTeamId);
   const gsiTeam =
     teacherTeamsForRun.find((candidate) => candidate.team_id === activeTeacherTeamId) ??
     teacherTeamsForRun[0];
@@ -911,11 +909,9 @@ export function App() {
         }
       : undefined;
   const w3RoleKey = w3Team?.members[0]?.role_slot ?? "CEO";
-  const w3Context =
-    readW3QueryContext() ??
-    (selectedRun && selectedRound && w3Team
+  const w3Context = buildTeacherW3Context(
+    selectedRun && selectedRound && w3Team
       ? {
-          activity_id: "activity_consequence",
           course_id: selectedRun.course_id,
           role_key: w3RoleKey,
           round_id: selectedRound.round_id,
@@ -924,7 +920,9 @@ export function App() {
           team_id: w3Team.team_id,
           tenant_id: login.tenantId
         }
-      : undefined);
+      : undefined,
+    readW3QueryContext()
+  );
   const teacherConfirmationScope = useMemo(
     () =>
       selectedRun && selectedRound && w3Team
@@ -3706,7 +3704,6 @@ export function App() {
                     roundId={selectedRound.round_id}
                     runId={selectedRun.run_id}
                     teamId={activeTeacherTeamId}
-                    teamIds={teacherTeamsForRun.map((candidate) => candidate.team_id)}
                     tenantId={login.tenantId}
                     token={session.access_token}
                   />
@@ -3719,7 +3716,6 @@ export function App() {
                     roundId={selectedRound.round_id}
                     runId={selectedRun.run_id}
                     teamId={activeTeacherTeamId}
-                    teamIds={teacherTeamsForRun.map((candidate) => candidate.team_id)}
                     tenantId={login.tenantId}
                     token={session.access_token}
                   />
