@@ -34,7 +34,7 @@ export function buildTeacherW3Context(
   selection: TeacherW3Selection | undefined,
   queryContext?: W3OfficialConsequenceContext | undefined
 ): W3OfficialConsequenceContext | undefined {
-  if (!selection) return undefined;
+  if (!selection) return queryContext;
 
   return {
     activity_id: selection.activity_id ?? queryContext?.activity_id ?? "activity_consequence",

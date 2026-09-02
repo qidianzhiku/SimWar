@@ -47,4 +47,19 @@ describe("M4 teacher team context", () => {
       tenant_id: "tenant-001"
     });
   });
+
+  it("preserves a validated query context until the app has a selected state", () => {
+    const queryContext = {
+      activity_id: "activity_consequence",
+      course_id: "course-001",
+      role_key: "CEO",
+      round_id: "round-001",
+      round_no: 1,
+      run_id: "run-001",
+      team_id: "team_alpha",
+      tenant_id: "tenant-001"
+    };
+
+    expect(buildTeacherW3Context(undefined, queryContext)).toEqual(queryContext);
+  });
 });
