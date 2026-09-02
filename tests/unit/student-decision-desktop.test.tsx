@@ -168,6 +168,59 @@ describe("StudentDecisionDesktop", () => {
     expect(markup).not.toContain("replay_hash");
   });
 
+  it("consumes the governed role advisor inside the exact decision journey", () => {
+    const markup = renderToStaticMarkup(
+      <StudentDecisionDesktop
+        desktopState="ready"
+        context={exactContext}
+        cockpit={null}
+        decision={decision}
+        busy={false}
+        canSubmit={false}
+        roleWorkflowActive={false}
+        roleWorkflowAvailability="inactive"
+        notice="等待服务端状态"
+        roleAdvisor={
+          <section data-testid="student-role-advisor-composed">
+            Evidence Citation · Evaluation · Fallback · Known Limits · Provider OFF · advisory-only
+          </section>
+        }
+        onDecisionChange={() => undefined}
+        onSubmit={() => undefined}
+      />
+    );
+
+    expect(markup).toContain('data-testid="student-role-advisor-composed"');
+    expect(markup).toContain("course-a");
+    expect(markup).toContain("run-a");
+    expect(markup).toContain("round-a");
+    expect(markup).toContain("team-a");
+    expect(markup).toContain("Evidence Citation");
+    expect(markup).toContain("advisory-only");
+  });
+
+  it("does not expose a role advisor when the desktop context is stale", () => {
+    const markup = renderToStaticMarkup(
+      <StudentDecisionDesktop
+        desktopState="stale"
+        context={exactContext}
+        cockpit={null}
+        decision={decision}
+        busy={false}
+        canSubmit={false}
+        roleWorkflowActive={false}
+        roleWorkflowAvailability="inactive"
+        notice="CONTEXT_NOT_FOUND"
+        roleAdvisor={<section data-testid="student-role-advisor-composed">advisory</section>}
+        onDecisionChange={() => undefined}
+        onSubmit={() => undefined}
+        onRecover={() => undefined}
+      />
+    );
+
+    expect(markup).not.toContain('data-testid="student-role-advisor-composed"');
+  });
+
   it("preserves the complete published safe feedback projection", () => {
     const markup = renderToStaticMarkup(
       <StudentDecisionDesktop
@@ -223,13 +276,8 @@ describe("StudentDecisionDesktop", () => {
     expect(markup).toContain('data-evidence-status="READY"');
     expect(markup).toContain("student-decision-context.v1");
     expect(markup).toContain("Hangzhou");
-    const evidenceStart = markup.indexOf(
-      'data-testid="desktop-decision-context-evidence"'
-    );
-    const evidenceEnd = markup.indexOf(
-      '<ol class="board sdd-spine"',
-      evidenceStart
-    );
+    const evidenceStart = markup.indexOf('data-testid="desktop-decision-context-evidence"');
+    const evidenceEnd = markup.indexOf('<ol class="board sdd-spine"', evidenceStart);
     expect(evidenceStart).toBeGreaterThanOrEqual(0);
     expect(evidenceEnd).toBeGreaterThan(evidenceStart);
     expect(markup.slice(evidenceStart, evidenceEnd)).not.toMatch(

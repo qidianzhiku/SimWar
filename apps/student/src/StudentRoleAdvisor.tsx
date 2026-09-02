@@ -1,11 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { W020AdvisoryReceipt } from "@simwar/shared-contracts";
 
 type RoleKey = "CEO" | "CFO" | "CMO" | "COO";
-type Receipt = {
-  projection: { title: string; recommendations: string[]; known_limits: string[] };
-  status: "generated" | "reused";
-  context: { role_key?: RoleKey; context_digest: string; source_event_ids: string[] };
-};
 
 export function StudentRoleAdvisor(props: {
   apiBase: string;
@@ -17,14 +13,33 @@ export function StudentRoleAdvisor(props: {
 }) {
   const [roleKey, setRoleKey] = useState<RoleKey>("CEO");
   const [phase, setPhase] = useState<"IDLE" | "LOADING" | "READY" | "ERROR">("IDLE");
-  const [receipt, setReceipt] = useState<Receipt | null>(null);
+  const [receipt, setReceipt] = useState<W020AdvisoryReceipt | null>(null);
   const [message, setMessage] = useState("");
+  const contextKey = [
+    props.tenantId,
+    props.runId ?? "",
+    props.roundId ?? "",
+    props.teamId ?? ""
+  ].join("\u001f");
+  const previousContextKey = useRef(contextKey);
+  const requestEpoch = useRef(0);
+
+  useEffect(() => {
+    if (previousContextKey.current !== contextKey) {
+      requestEpoch.current += 1;
+      setPhase("IDLE");
+      setReceipt(null);
+      setMessage("");
+    }
+    previousContextKey.current = contextKey;
+  }, [contextKey]);
 
   async function requestAdvisory(): Promise<void> {
     if (!props.runId || !props.roundId || !props.teamId) {
       setMessage("等待受控 Run / Round / Team 上下文");
       return;
     }
+    const currentRequestEpoch = ++requestEpoch.current;
     setPhase("LOADING");
     try {
       const response = await fetch(`${props.apiBase}/api/v1/bff/student/advisors/role`, {
@@ -44,13 +59,15 @@ export function StudentRoleAdvisor(props: {
         },
         method: "POST"
       });
-      const envelope = (await response.json()) as { data?: Receipt; message?: string };
+      const envelope = (await response.json()) as { data?: W020AdvisoryReceipt; message?: string };
+      if (currentRequestEpoch !== requestEpoch.current) return;
       if (!response.ok || !envelope.data)
         throw new Error(envelope.message ?? "advisor request failed");
       setReceipt(envelope.data);
       setPhase("READY");
       setMessage(envelope.data.status === "reused" ? "已复用确定性建议" : "已生成建议");
     } catch (error) {
+      if (currentRequestEpoch !== requestEpoch.current) return;
       setPhase("ERROR");
       setMessage(error instanceof Error ? error.message : "advisor request failed");
     }
@@ -63,7 +80,7 @@ export function StudentRoleAdvisor(props: {
           <p className="eyebrow">W020 Governed AI</p>
           <h2>Student Role Advisor</h2>
         </div>
-        <span>advisory_only</span>
+        <span>Provider OFF · advisory-only</span>
       </div>
       <p className="evidence-note">
         仅使用当前身份的角色范围和可见工作流元数据，不展示原始事件或正式真值。
@@ -92,9 +109,28 @@ export function StudentRoleAdvisor(props: {
         <article className="candidate-preview" aria-label="student advisory receipt">
           <strong>{receipt.projection.title}</strong>
           <p>{receipt.projection.recommendations[0]}</p>
+          <small>
+            Exact Course / Run / Round / Team / Role: {receipt.context.course_id} /{" "}
+            {receipt.context.run_id} / {receipt.context.round_id} / {receipt.context.team_id} /{" "}
+            {receipt.context.role_key ?? roleKey}
+          </small>
+          <small>
+            Evaluation: {receipt.projection.evaluation.status} · Fallback:{" "}
+            {receipt.projection.evaluation.fallback} · Provider OFF
+          </small>
+          <ul aria-label="student advisory evidence citations">
+            {receipt.projection.evidence_citations.map((citation) => (
+              <li key={citation.citation_id}>
+                {citation.label} · {citation.source_id}
+              </li>
+            ))}
+          </ul>
           <small>Context digest: {receipt.context.context_digest}</small>
           <small>Source events: {receipt.context.source_event_ids.length}</small>
           <small>Known Limits: {receipt.projection.known_limits.join("; ")}</small>
+          <small>
+            advisory-only · formal_truth_write: false · Human review remains the final authority
+          </small>
         </article>
       ) : null}
       {phase === "ERROR" ? (

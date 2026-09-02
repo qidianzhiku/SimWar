@@ -196,6 +196,62 @@ describe("P2-B FE-20 teacher debrief", () => {
     expect(markup).not.toContain("Exact Ref JSON 数组");
   });
 
+  it("consumes governed teacher advisory inside the exact debrief journey", () => {
+    const markup = renderToStaticMarkup(
+      <TeacherDebriefWorkspace
+        apiBase="http://api.test"
+        tenantId={context.tenant_id}
+        token="token"
+        context={context}
+        response={response}
+        advisoryContext={{
+          course_id: context.course_id,
+          run_id: context.run_id,
+          round_id: context.round_id,
+          team_id: context.team_id
+        }}
+        governedAdvisory={
+          <section data-testid="teacher-debrief-advisor-composed">
+            Evidence Citation · Evaluation · Fallback · Known Limits · Provider OFF · advisory-only
+          </section>
+        }
+        intelligenceWorkspace={
+          <section data-testid="teacher-intelligence-workspace-composed">
+            exact decision/debrief workspace
+          </section>
+        }
+      />
+    );
+
+    expect(markup).toContain('data-testid="teacher-debrief-advisor-composed"');
+    expect(markup).toContain('data-testid="teacher-intelligence-workspace-composed"');
+    expect(markup).toContain("course-001");
+    expect(markup).toContain("run-001");
+    expect(markup).toContain("round-003");
+    expect(markup).toContain("team-001");
+    expect(markup).toContain("Provider OFF");
+  });
+
+  it("does not expose composed advisory surfaces without exact teacher context", () => {
+    const markup = renderToStaticMarkup(
+      <TeacherDebriefWorkspace
+        apiBase="http://api.test"
+        tenantId={context.tenant_id}
+        token="token"
+        response={response}
+        governedAdvisory={
+          <section data-testid="teacher-debrief-advisor-composed">advisory</section>
+        }
+        intelligenceWorkspace={
+          <section data-testid="teacher-intelligence-workspace-composed">workspace</section>
+        }
+      />
+    );
+
+    expect(markup).not.toContain('data-testid="teacher-debrief-advisor-composed"');
+    expect(markup).not.toContain('data-testid="teacher-intelligence-workspace-composed"');
+  });
+
   it("renders the governed teacher M2P6 chain as read-only server state", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const data = String(input).includes("/m2p5/") ? crossRoundResponse : response;

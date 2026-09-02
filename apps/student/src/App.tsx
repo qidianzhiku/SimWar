@@ -506,9 +506,8 @@ export function App() {
   }, [latestRun, latestRound, team, state]);
 
   const isStudentSession = Boolean(session && isStudentSessionAllowed(session.user.roles));
-  const assignedW3RoleKey = team?.members.find(
-    (member) => member.user_id === session?.user.user_id
-  )?.role_slot as string | undefined;
+  const assignedW3RoleKey = team?.members.find((member) => member.user_id === session?.user.user_id)
+    ?.role_slot as string | undefined;
   const w3RoleKey = normalizeW027RoleKey(
     (assignedW3RoleKey ?? "CEO") as Parameters<typeof normalizeW027RoleKey>[0]
   );
@@ -888,15 +887,15 @@ export function App() {
       : ("signed-out" as const)
     : !isStudentSession
       ? ("reauth-required" as const)
-    : contextRecoveryState === "CONTEXT_STALE"
-      ? ("stale" as const)
-      : contextRecoveryState === "CONTEXT_UNAUTHORIZED"
-        ? ("reauth-required" as const)
-        : workspacePhase === "loading"
-          ? ("loading" as const)
-          : workspacePhase === "error"
-            ? ("error" as const)
-            : ("ready" as const);
+      : contextRecoveryState === "CONTEXT_STALE"
+        ? ("stale" as const)
+        : contextRecoveryState === "CONTEXT_UNAUTHORIZED"
+          ? ("reauth-required" as const)
+          : workspacePhase === "loading"
+            ? ("loading" as const)
+            : workspacePhase === "error"
+              ? ("error" as const)
+              : ("ready" as const);
   const w5Convergence = w5Projection?.convergence;
   const w5Demand = w5Convergence?.demand_realization;
   const course = state?.courses.find((candidate) => candidate.course_id === latestRun?.course_id);
@@ -939,22 +938,19 @@ export function App() {
     latestRun && latestRound && team && projectAwareEvidenceAvailability === "required"
   );
   const projectAwareEvidenceGateRequired = Boolean(
-    latestRun &&
-      latestRound &&
-      team &&
-      projectAwareEvidenceAvailability !== "disabled"
+    latestRun && latestRound && team && projectAwareEvidenceAvailability !== "disabled"
   );
   const decisionContextEvidenceReady = Boolean(
     !projectAwareEvidenceGateRequired ||
-      (projectAwareEvidenceAvailability === "required" &&
-        decisionContextEvidence?.status === "READY" &&
-        decisionContextEvidence.scope.tenant_id === login.tenantId &&
-        decisionContextEvidence.scope.course_id === latestRun?.course_id &&
-        decisionContextEvidence.scope.run_id === latestRun?.run_id &&
-        decisionContextEvidence.scope.round_id === latestRound?.round_id &&
-        decisionContextEvidence.scope.round_no === latestRound?.round_no &&
-        decisionContextEvidence.scope.team_id === team?.team_id &&
-        decisionContextEvidence.scope.role_key === w3RoleKey)
+    (projectAwareEvidenceAvailability === "required" &&
+      decisionContextEvidence?.status === "READY" &&
+      decisionContextEvidence.scope.tenant_id === login.tenantId &&
+      decisionContextEvidence.scope.course_id === latestRun?.course_id &&
+      decisionContextEvidence.scope.run_id === latestRun?.run_id &&
+      decisionContextEvidence.scope.round_id === latestRound?.round_id &&
+      decisionContextEvidence.scope.round_no === latestRound?.round_no &&
+      decisionContextEvidence.scope.team_id === team?.team_id &&
+      decisionContextEvidence.scope.role_key === w3RoleKey)
   );
   const desktopState = getStudentDecisionDesktopState({
     hasSession: Boolean(session),
@@ -1437,6 +1433,18 @@ export function App() {
               roleWorkflowActive={roleWorkflowActive}
               roleWorkflowAvailability={roleWorkflowAvailability}
               notice={noticeCopy.primary}
+              roleAdvisor={
+                desktopContext ? (
+                  <StudentRoleAdvisor
+                    apiBase={API_BASE}
+                    roundId={desktopContext.round_id}
+                    runId={desktopContext.run_id}
+                    teamId={desktopContext.team_id}
+                    tenantId={desktopContext.tenant_id}
+                    token={activeSession?.access_token ?? ""}
+                  />
+                ) : null
+              }
               onDecisionChange={updateDesktopDecision}
               onSubmit={() => void submitDecision()}
               onRecover={() => void refresh().catch(() => undefined)}
@@ -1471,17 +1479,6 @@ export function App() {
                   }
                 />
               </Suspense>
-              <details className="p2b-compatibility-details">
-                <summary>顾问兼容入口（advisory-only）</summary>
-                <StudentRoleAdvisor
-                  apiBase={API_BASE}
-                  roundId={latestRound?.round_id}
-                  runId={latestRun?.run_id}
-                  teamId={team?.team_id}
-                  tenantId={login.tenantId}
-                  token={activeSession?.access_token ?? ""}
-                />
-              </details>
               <Suspense fallback={<p className="muted">正在载入 Student Coach…</p>}>
                 <StudentCoachPanel
                   apiBase={API_BASE}

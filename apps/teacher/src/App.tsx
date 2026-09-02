@@ -3689,6 +3689,42 @@ export function App() {
               teamCount={teamMonitor?.visible_state?.team_count ?? teamMonitor?.teams?.length ?? 0}
               tenantId={login.tenantId}
               token={session.access_token}
+              advisoryContext={
+                selectedRun && selectedRound && activeTeacherTeamId
+                  ? {
+                      course_id: selectedRun.course_id,
+                      run_id: selectedRun.run_id,
+                      round_id: selectedRound.round_id,
+                      team_id: activeTeacherTeamId
+                    }
+                  : undefined
+              }
+              governedAdvisory={
+                selectedRun && selectedRound && activeTeacherTeamId ? (
+                  <TeacherDebriefAdvisor
+                    apiBase={API_BASE}
+                    roundId={selectedRound.round_id}
+                    runId={selectedRun.run_id}
+                    teamId={activeTeacherTeamId}
+                    teamIds={teacherTeamsForRun.map((candidate) => candidate.team_id)}
+                    tenantId={login.tenantId}
+                    token={session.access_token}
+                  />
+                ) : null
+              }
+              intelligenceWorkspace={
+                selectedRun && selectedRound && activeTeacherTeamId ? (
+                  <GovernedIntelligenceWorkspace
+                    apiBase={API_BASE}
+                    roundId={selectedRound.round_id}
+                    runId={selectedRun.run_id}
+                    teamId={activeTeacherTeamId}
+                    teamIds={teacherTeamsForRun.map((candidate) => candidate.team_id)}
+                    tenantId={login.tenantId}
+                    token={session.access_token}
+                  />
+                ) : null
+              }
               m4Context={
                 selectedRun && selectedRound
                   ? [
@@ -3723,40 +3759,6 @@ export function App() {
             tenantId={login.tenantId}
             token={session.access_token}
           />
-        ) : null}
-        {isTeacher && session ? (
-          <TeacherDebriefAdvisor
-            apiBase={API_BASE}
-            roundId={selectedRound?.round_id}
-            runId={selectedRun?.run_id}
-            teamId={
-              state?.teams.find((candidate) => candidate.course_id === selectedRun?.course_id)
-                ?.team_id
-            }
-            teamIds={state?.teams
-              .filter((candidate) => candidate.course_id === selectedRun?.course_id)
-              .map((candidate) => candidate.team_id)}
-            tenantId={login.tenantId}
-            token={session.access_token}
-          />
-        ) : null}
-        {isTeacher && session ? (
-          <Suspense fallback={<p className="muted">正在载入 W6 受治理智能辅助…</p>}>
-            <GovernedIntelligenceWorkspace
-              apiBase={API_BASE}
-              roundId={selectedRound?.round_id}
-              runId={selectedRun?.run_id}
-              teamId={
-                state?.teams.find((candidate) => candidate.course_id === selectedRun?.course_id)
-                  ?.team_id
-              }
-              teamIds={state?.teams
-                .filter((candidate) => candidate.course_id === selectedRun?.course_id)
-                .map((candidate) => candidate.team_id)}
-              tenantId={login.tenantId}
-              token={session.access_token}
-            />
-          </Suspense>
         ) : null}
       </TeacherLocation>
 

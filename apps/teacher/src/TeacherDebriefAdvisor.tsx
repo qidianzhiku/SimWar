@@ -1,9 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { W020AdvisoryReceipt } from "@simwar/shared-contracts";
 
-type Receipt = {
-  projection: { title: string; recommendations: string[]; known_limits: string[] };
-  status: "generated" | "reused";
-};
 type AuditEntry = {
   provider: string;
   model: string;
@@ -25,10 +22,29 @@ export function TeacherDebriefAdvisor(props: {
   teamIds?: string[] | undefined;
 }) {
   const [phase, setPhase] = useState<"IDLE" | "LOADING" | "READY" | "ERROR">("IDLE");
-  const [receipt, setReceipt] = useState<Receipt | null>(null);
+  const [receipt, setReceipt] = useState<W020AdvisoryReceipt | null>(null);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [message, setMessage] = useState("");
   const [selectedTeamId, setSelectedTeamId] = useState(props.teamId ?? "");
+  const contextKey = [
+    props.tenantId,
+    props.runId ?? "",
+    props.roundId ?? "",
+    props.teamId ?? "",
+    selectedTeamId
+  ].join("\u001f");
+  const previousContextKey = useRef(contextKey);
+  const requestEpoch = useRef(0);
+
+  useEffect(() => {
+    if (previousContextKey.current !== contextKey) {
+      requestEpoch.current += 1;
+      setPhase("IDLE");
+      setReceipt(null);
+      setMessage("");
+    }
+    previousContextKey.current = contextKey;
+  }, [contextKey]);
 
   useEffect(() => {
     setSelectedTeamId(props.teamId ?? "");
@@ -39,6 +55,7 @@ export function TeacherDebriefAdvisor(props: {
       setMessage("等待受控 Run / Round / Team 上下文");
       return;
     }
+    const currentRequestEpoch = ++requestEpoch.current;
     setPhase("LOADING");
     try {
       const response = await fetch(`${props.apiBase}/api/v1/bff/teacher/advisors/debrief`, {
@@ -57,7 +74,8 @@ export function TeacherDebriefAdvisor(props: {
         },
         method: "POST"
       });
-      const envelope = (await response.json()) as { data?: Receipt; message?: string };
+      const envelope = (await response.json()) as { data?: W020AdvisoryReceipt; message?: string };
+      if (currentRequestEpoch !== requestEpoch.current) return;
       if (!response.ok || !envelope.data)
         throw new Error(envelope.message ?? "debrief request failed");
       setReceipt(envelope.data);
@@ -65,6 +83,7 @@ export function TeacherDebriefAdvisor(props: {
       setMessage(envelope.data.status === "reused" ? "已复用确定性复盘建议" : "已生成复盘建议");
       await loadAudit();
     } catch (error) {
+      if (currentRequestEpoch !== requestEpoch.current) return;
       setPhase("ERROR");
       setMessage(error instanceof Error ? error.message : "debrief request failed");
     }
@@ -90,7 +109,7 @@ export function TeacherDebriefAdvisor(props: {
           <p className="eyebrow">W020 Governed AI</p>
           <h2>Teacher Debrief Advisor</h2>
         </div>
-        <span>advisory_only</span>
+        <span>Provider OFF · advisory-only</span>
       </div>
       <p className="evidence-note">
         教师只看到安全投影和调用审计元数据，不包含原始 prompt 或原始事件 payload。
@@ -121,7 +140,25 @@ export function TeacherDebriefAdvisor(props: {
         <article className="candidate-preview" aria-label="teacher advisory receipt">
           <strong>{receipt.projection.title}</strong>
           <p>{receipt.projection.recommendations[0]}</p>
+          <small>
+            Exact Course / Run / Round / Team: {receipt.context.course_id} /{" "}
+            {receipt.context.run_id} / {receipt.context.round_id} / {receipt.context.team_id}
+          </small>
+          <small>
+            Evaluation: {receipt.projection.evaluation.status} · Fallback:{" "}
+            {receipt.projection.evaluation.fallback} · Provider OFF
+          </small>
+          <ul aria-label="teacher advisory evidence citations">
+            {receipt.projection.evidence_citations.map((citation) => (
+              <li key={citation.citation_id}>
+                {citation.label} · {citation.source_id}
+              </li>
+            ))}
+          </ul>
           <small>{receipt.projection.known_limits.join("; ")}</small>
+          <small>
+            advisory-only · formal_truth_write: false · Human review remains the final authority
+          </small>
         </article>
       ) : null}
       <div className="candidate-list" aria-label="teacher advisory audit list">

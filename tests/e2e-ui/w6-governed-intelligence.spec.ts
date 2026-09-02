@@ -93,6 +93,19 @@ test("W6 real-BFF journey exposes governed assistance across Teacher, Student an
   expect(sectionResponse.status()).toBe(200);
 
   await signIn(page, teacherBaseUrl, "teacher", "教师登录");
+  const teacherDebrief = page.getByRole("region", { name: "教师复盘工作台" });
+  await expect(teacherDebrief).toBeVisible();
+  const teacherAdvisoryJourney = page.getByRole("region", {
+    name: "精确上下文教师受治理建议"
+  });
+  await expect(teacherAdvisoryJourney).toBeVisible();
+  await expect(teacherAdvisoryJourney).toContainText(runId);
+  await expect(teacherAdvisoryJourney).toContainText("advisory-only");
+  await teacherAdvisoryJourney.getByRole("button", { name: "请求教师复盘建议" }).click();
+  await expect(teacherAdvisoryJourney).toContainText("Evaluation: passed");
+  await expect(teacherAdvisoryJourney).toContainText("Provider OFF");
+  await expect(teacherAdvisoryJourney).toContainText("Exact Course / Run / Round / Team");
+
   const teacherPanel = page.getByRole("region", { name: "Governed Intelligence Workspace" });
   await expect(teacherPanel).toBeVisible();
   await expect(teacherPanel).toContainText(runId);
@@ -103,6 +116,23 @@ test("W6 real-BFF journey exposes governed assistance across Teacher, Student an
   await expect(teacherPanel).toContainText("section_saved");
 
   await signIn(page, studentBaseUrl, "student", "学员登录");
+  const studentDesktop = page.getByRole("region", { name: "受治理的学员决策桌面" });
+  await expect(studentDesktop).toBeVisible();
+  const studentAdvisory = studentDesktop.getByRole("region", { name: "当前角色受治理建议" });
+  await expect(studentAdvisory).toBeVisible();
+  await expect(studentAdvisory).toHaveAttribute("data-advisory-run-id", runId);
+  await expect(studentAdvisory).toHaveAttribute("data-advisory-course-id", "course_demo");
+  await expect(studentAdvisory).toHaveAttribute("data-advisory-round-id", /.+/);
+  await expect(studentAdvisory).toHaveAttribute("data-advisory-team-id", /.+/);
+  await expect(studentAdvisory).toContainText("advisory-only");
+  await studentAdvisory.getByRole("button", { name: "请求角色建议" }).click();
+  await expect(studentAdvisory).toContainText("Evaluation: passed");
+  await expect(studentAdvisory).toContainText("Provider OFF");
+  await expect(studentAdvisory).toContainText("Exact Course / Run / Round / Team / Role");
+  await expect(
+    studentAdvisory.getByRole("list", { name: "student advisory evidence citations" })
+  ).toBeVisible();
+
   const studentPanel = page.getByRole("region", { name: "Student Coach" });
   await expect(studentPanel).toBeVisible();
   await expect(studentPanel).toContainText(runId);
