@@ -145,7 +145,7 @@ import {
   isTeacherRoundWorkspaceForContext,
   selectTeacherRound
 } from "./round-context";
-import { resolveActiveTeacherTeamId } from "./teacher-team-context";
+import { buildTeacherW3Context, resolveActiveTeacherTeamId } from "./teacher-team-context";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const SHANGHAI_C0_MACRO_IDS = new Set(["M13", "M14", "M15", "M16", "M17", "M18"] as const);
@@ -873,9 +873,7 @@ export function App() {
   const liveRoundOps = workspace?.live_round_ops;
   const replaySummary = workspace?.teacher_replay_summary;
   const isTeacher = session?.user.roles.includes("teacher") ?? false;
-  const w3Team = state?.teams.find(
-    (candidate) => candidate.course_id === (selectedRun?.course_id ?? selectedCourseId)
-  );
+  const w3Team = teacherTeamsForRun.find((candidate) => candidate.team_id === activeTeacherTeamId);
   const gsiTeam =
     teacherTeamsForRun.find((candidate) => candidate.team_id === activeTeacherTeamId) ??
     teacherTeamsForRun[0];
@@ -911,20 +909,44 @@ export function App() {
         }
       : undefined;
   const w3RoleKey = w3Team?.members[0]?.role_slot ?? "CEO";
-  const w3Context =
-    readW3QueryContext() ??
-    (selectedRun && selectedRound && w3Team
-      ? {
-          activity_id: "activity_consequence",
-          course_id: selectedRun.course_id,
-          role_key: w3RoleKey,
-          round_id: selectedRound.round_id,
-          round_no: selectedRound.round_no,
-          run_id: selectedRun.run_id,
-          team_id: w3Team.team_id,
-          tenant_id: login.tenantId
-        }
-      : undefined);
+  const explicitW3Context = useMemo(() => readW3QueryContext(), []);
+  const w3Context = useMemo(
+    () =>
+      buildTeacherW3Context(
+        selectedRun && selectedRound && w3Team
+          ? {
+              course_id: selectedRun.course_id,
+              role_key: w3RoleKey,
+              round_id: selectedRound.round_id,
+              round_no: selectedRound.round_no,
+              run_id: selectedRun.run_id,
+              team_id: w3Team.team_id,
+              tenant_id: login.tenantId
+            }
+          : undefined,
+        explicitW3Context
+      ),
+    [explicitW3Context, login.tenantId, selectedRound, selectedRun, w3RoleKey, w3Team]
+  );
+  const advisoryContext = useMemo(
+    () =>
+      w3Context
+        ? {
+            course_id: w3Context.course_id,
+            run_id: w3Context.run_id,
+            round_id: w3Context.round_id,
+            team_id: w3Context.team_id
+          }
+        : undefined,
+    [w3Context]
+  );
+  const m4Context = useMemo(
+    () =>
+      w3Context
+        ? ([w3Context.course_id, w3Context.run_id, w3Context.team_id, w3Context.round_no] as const)
+        : undefined,
+    [w3Context]
+  );
   const teacherConfirmationScope = useMemo(
     () =>
       selectedRun && selectedRound && w3Team
@@ -3689,16 +3711,32 @@ export function App() {
               teamCount={teamMonitor?.visible_state?.team_count ?? teamMonitor?.teams?.length ?? 0}
               tenantId={login.tenantId}
               token={session.access_token}
-              m4Context={
-                selectedRun && selectedRound
-                  ? [
-                      selectedRun.course_id,
-                      selectedRun.run_id,
-                      activeTeacherTeamId,
-                      selectedRound.round_no
-                    ]
-                  : undefined
+              advisoryContext={advisoryContext}
+              governedAdvisory={
+                advisoryContext ? (
+                  <TeacherDebriefAdvisor
+                    apiBase={API_BASE}
+                    roundId={advisoryContext.round_id}
+                    runId={advisoryContext.run_id}
+                    teamId={advisoryContext.team_id}
+                    tenantId={login.tenantId}
+                    token={session.access_token}
+                  />
+                ) : null
               }
+              intelligenceWorkspace={
+                advisoryContext ? (
+                  <GovernedIntelligenceWorkspace
+                    apiBase={API_BASE}
+                    roundId={advisoryContext.round_id}
+                    runId={advisoryContext.run_id}
+                    teamId={advisoryContext.team_id}
+                    tenantId={login.tenantId}
+                    token={session.access_token}
+                  />
+                ) : null
+              }
+              m4Context={m4Context}
             />
           </Suspense>
         ) : null}
@@ -3723,40 +3761,6 @@ export function App() {
             tenantId={login.tenantId}
             token={session.access_token}
           />
-        ) : null}
-        {isTeacher && session ? (
-          <TeacherDebriefAdvisor
-            apiBase={API_BASE}
-            roundId={selectedRound?.round_id}
-            runId={selectedRun?.run_id}
-            teamId={
-              state?.teams.find((candidate) => candidate.course_id === selectedRun?.course_id)
-                ?.team_id
-            }
-            teamIds={state?.teams
-              .filter((candidate) => candidate.course_id === selectedRun?.course_id)
-              .map((candidate) => candidate.team_id)}
-            tenantId={login.tenantId}
-            token={session.access_token}
-          />
-        ) : null}
-        {isTeacher && session ? (
-          <Suspense fallback={<p className="muted">正在载入 W6 受治理智能辅助…</p>}>
-            <GovernedIntelligenceWorkspace
-              apiBase={API_BASE}
-              roundId={selectedRound?.round_id}
-              runId={selectedRun?.run_id}
-              teamId={
-                state?.teams.find((candidate) => candidate.course_id === selectedRun?.course_id)
-                  ?.team_id
-              }
-              teamIds={state?.teams
-                .filter((candidate) => candidate.course_id === selectedRun?.course_id)
-                .map((candidate) => candidate.team_id)}
-              tenantId={login.tenantId}
-              token={session.access_token}
-            />
-          </Suspense>
         ) : null}
       </TeacherLocation>
 

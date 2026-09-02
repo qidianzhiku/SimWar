@@ -42,6 +42,7 @@ export interface StudentDecisionDesktopProps {
   roleWorkflowActive: boolean;
   roleWorkflowAvailability: StudentDecisionDesktopRoleWorkflowAvailability;
   notice: string;
+  roleAdvisor?: ReactNode | null;
   onDecisionChange: (
     field: DecisionPayloadFieldPath,
     value: string | number | DecisionPayload["capacity_plan"]
@@ -183,6 +184,7 @@ export function StudentDecisionDesktop({
   roleWorkflowActive,
   roleWorkflowAvailability,
   notice,
+  roleAdvisor,
   onDecisionChange,
   onSubmit,
   onRecover
@@ -255,9 +257,7 @@ export function StudentDecisionDesktop({
         >
           <div>
             <span>源证据决策上下文</span>
-            <strong>
-              {decisionContextEvidence.status === "READY" ? "可继续" : "已阻断"}
-            </strong>
+            <strong>{decisionContextEvidence.status === "READY" ? "可继续" : "已阻断"}</strong>
           </div>
           <div>
             <span>证据版本</span>
@@ -273,7 +273,8 @@ export function StudentDecisionDesktop({
             <div>
               <span>来源资格</span>
               <strong>
-                {decisionContextEvidence.source_context.target_region} · {decisionContextEvidence.source_context.qualification_status}
+                {decisionContextEvidence.source_context.target_region} ·{" "}
+                {decisionContextEvidence.source_context.qualification_status}
               </strong>
             </div>
           ) : null}
@@ -488,6 +489,25 @@ export function StudentDecisionDesktop({
         <aside className="panel sdd-support" aria-label="Support Rail">
           <p className="eyebrow">Support Rail</p>
           <h3>支持与恢复</h3>
+          {roleAdvisor && context && (desktopState === "ready" || desktopState === "published") ? (
+            <section
+              className="panel sdd-advisory"
+              data-testid="student-decision-advisory"
+              data-advisory-course-id={context.course_id}
+              data-advisory-run-id={context.run_id}
+              data-advisory-round-id={context.round_id}
+              data-advisory-team-id={context.team_id}
+              aria-label="当前角色受治理建议"
+            >
+              <p className="eyebrow">Decision Support · Governed Advisory</p>
+              <h3>当前角色建议</h3>
+              <p className="sdd-note">
+                建议嵌入当前 Course / Run / Round / Team
+                决策线程；它不能确认、锁定、结算、发布或改写正式真值。
+              </p>
+              {roleAdvisor}
+            </section>
+          ) : null}
           <ul>
             <li>
               <a href="#student-private-draft" style={supportLinkStyle}>

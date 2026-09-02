@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type {
   M2P5DecisionLearningResponse,
   W3OfficialConsequenceContext,
@@ -25,7 +25,20 @@ type Props = {
   blockerSummary?: string;
   teamCount?: number;
   crossRoundEnabled?: boolean;
-  m4Context?: readonly [courseId: string, runId: string, teamId: string, roundNo: number] | undefined;
+  m4Context?:
+    | readonly [courseId: string, runId: string, teamId: string, roundNo: number]
+    | undefined;
+  advisoryContext?:
+    | {
+        course_id: string;
+        run_id: string;
+        round_id: string;
+        team_id: string;
+      }
+    | null
+    | undefined;
+  governedAdvisory?: ReactNode | null;
+  intelligenceWorkspace?: ReactNode | null;
 };
 
 type WorkspaceState =
@@ -55,7 +68,10 @@ export function TeacherDebriefWorkspace({
   blockerSummary = "当前没有可用的回合阻断",
   teamCount = 0,
   crossRoundEnabled = false,
-  m4Context
+  m4Context,
+  advisoryContext,
+  governedAdvisory,
+  intelligenceWorkspace
 }: Props) {
   const [state, setState] = useState<WorkspaceState>(
     response ? { phase: "ready", record: response.record } : { phase: "idle" }
@@ -512,6 +528,35 @@ export function TeacherDebriefWorkspace({
           ) : null}
         </article>
       </div>
+      {advisoryContext &&
+      advisoryContext.course_id &&
+      advisoryContext.run_id &&
+      advisoryContext.round_id &&
+      advisoryContext.team_id &&
+      (governedAdvisory || intelligenceWorkspace) ? (
+        <section
+          className="panel p2b-governed-advisory"
+          data-testid="teacher-debrief-advisory-journey"
+          data-advisory-course-id={advisoryContext.course_id}
+          data-advisory-run-id={advisoryContext.run_id}
+          data-advisory-round-id={advisoryContext.round_id}
+          data-advisory-team-id={advisoryContext.team_id}
+          aria-label="精确上下文教师受治理建议"
+        >
+          <p className="eyebrow">W6 · GOVERNED DEBRIEF CONSUMPTION</p>
+          <h3>当前课堂决策 / 复盘建议</h3>
+          <p className="p2b-safe-copy">
+            Course {advisoryContext.course_id} · Run {advisoryContext.run_id} · Round{" "}
+            {advisoryContext.round_id} · Team {advisoryContext.team_id}
+          </p>
+          <p className="p2b-safe-copy">
+            advisory-only；证据、评估、fallback
+            和已知限制必须可见；不确认、锁轮、结算、发布或写入正式结果。
+          </p>
+          {governedAdvisory}
+          {intelligenceWorkspace}
+        </section>
+      ) : null}
       {m4Context ? (
         <M4MultipathCounterfactualTransferPanel
           apiBase={apiBase}

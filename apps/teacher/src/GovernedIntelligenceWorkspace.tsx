@@ -82,20 +82,40 @@ export function GovernedIntelligenceWorkspace({
   const [busy, setBusy] = useState<W020AdvisorySurface | null>(null);
   const [receipt, setReceipt] = useState<W020AdvisoryReceipt | null>(null);
   const [message, setMessage] = useState("等待精确 Course / Run / Round / Team 上下文");
+  const requestEpoch = useRef(0);
 
   useEffect(() => {
     const contextChanged = previousContextKey.current !== contextKey;
     previousContextKey.current = contextKey;
+    if (contextChanged) {
+      requestEpoch.current += 1;
+      setBusy(null);
+      setReceipt(null);
+      setMessage("等待精确 Course / Run / Round / Team 上下文");
+    }
     setSelectedTeamId((current) =>
       resolveGovernedIntelligenceTeamId(teamId, teamIds, current, contextChanged)
     );
   }, [contextKey, runId, roundId, teamId, teamIds]);
+
+  const advisoryContextKey = [tenantId, runId ?? "", roundId ?? "", selectedTeamId].join("\u001f");
+  const previousAdvisoryContextKey = useRef(advisoryContextKey);
+  useEffect(() => {
+    if (previousAdvisoryContextKey.current !== advisoryContextKey) {
+      requestEpoch.current += 1;
+      setBusy(null);
+      setReceipt(null);
+      setMessage("等待精确 Course / Run / Round / Team 上下文");
+    }
+    previousAdvisoryContextKey.current = advisoryContextKey;
+  }, [advisoryContextKey]);
 
   async function request(surface: (typeof actions)[number]): Promise<void> {
     if (!runId || !roundId || !selectedTeamId) {
       setMessage("等待精确 Course / Run / Round / Team 上下文");
       return;
     }
+    const currentRequestEpoch = ++requestEpoch.current;
     setBusy(surface.surface);
     setMessage("正在运行受治理辅助…");
     try {
@@ -116,14 +136,16 @@ export function GovernedIntelligenceWorkspace({
         })
       });
       const next = envelope(await response.json());
+      if (currentRequestEpoch !== requestEpoch.current) return;
       if (!response.ok) throw new Error("governed intelligence request rejected");
       setReceipt(next);
       setMessage(next.status === "reused" ? "已复用有界辅助结果" : "已生成有界辅助结果");
     } catch (error) {
+      if (currentRequestEpoch !== requestEpoch.current) return;
       setReceipt(null);
       setMessage(error instanceof Error ? error.message : "governed intelligence request failed");
     } finally {
-      setBusy(null);
+      if (currentRequestEpoch === requestEpoch.current) setBusy(null);
     }
   }
 
