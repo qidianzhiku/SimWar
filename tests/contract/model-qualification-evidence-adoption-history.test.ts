@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type {
   EvidenceAdoptionEpoch,
   EvidenceAdoptionRecord,
+  EvidenceAdoptionReview,
   EvidenceAdoptionState,
   ModelQualificationRecord
 } from "@simwar/shared-contracts";
@@ -62,6 +63,9 @@ describe("model qualification evidence adoption history contract", () => {
       adoption_digest: history.adoptionB.adoption_digest,
       adoption_id: history.adoptionB.adoption_id
     });
+    expect(history.adoptionB.predecessor).toEqual(adoptionReference(history.adoptionA));
+    expectReviewBoundToAdoption(history.adoptionA, history.reviewA);
+    expectReviewBoundToAdoption(history.adoptionB, history.reviewB);
 
     const historyDeleted = !history.stateB.records.some(
       (record) => record.adoption_id === history.adoptionA.adoption_id
@@ -537,12 +541,14 @@ describe("model qualification evidence adoption history contract", () => {
     );
   });
 
-  it("leaves an existing v1 qualified-run admission receipt and record unchanged", () => {
+  it("preserves an isolated O4/v1 admission compatibility baseline unchanged", () => {
     const fixture = createQualifiedRunAdmissionFixture();
     const originalRecord = cloneJson(fixture.qualification_record as ModelQualificationRecord);
     const originalReceipt = resolveQualifiedRunAdmission(fixture);
 
-    // Exercise the vNext history reducer separately, then re-read the v1
+    // This is an isolated O4/v1 compatibility fixture, not integrated v1
+    // persistence proof; R1 owns the real carrier, Run, and HTTP evidence.
+    // Exercise the vNext history reducer separately, then re-read this v1
     // fixture to guard against accidental receipt or record rewriting.
     createAdoptedHistory();
 
@@ -563,6 +569,8 @@ interface AdoptedHistory {
   readonly epochB: EvidenceAdoptionEpoch;
   readonly adoptionA: EvidenceAdoptionRecord;
   readonly adoptionB: EvidenceAdoptionRecord;
+  readonly reviewA: EvidenceAdoptionReview;
+  readonly reviewB: EvidenceAdoptionReview;
   readonly stateA: EvidenceAdoptionState;
   readonly stateB: EvidenceAdoptionState;
 }
@@ -634,6 +642,8 @@ function createAdoptedHistory(): AdoptedHistory {
     chain,
     epochA,
     epochB,
+    reviewA: reviewedA.receipt,
+    reviewB: reviewedB.receipt,
     stateA: disposedA.state,
     stateB: disposedB.state
   };
@@ -674,6 +684,30 @@ function cloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+function expectReviewBoundToAdoption(
+  adoption: EvidenceAdoptionRecord,
+  review: EvidenceAdoptionReview
+): void {
+  expect(review).toMatchObject({
+    proposal_id: adoption.proposal_id,
+    proposal_digest: adoption.proposal_digest
+  });
+  expect(review).toHaveProperty("review_digest", expect.stringMatching(/^[a-f0-9]{64}$/));
+  expect(adoption).toMatchObject({
+    proposal_id: review.proposal_id,
+    proposal_digest: review.proposal_digest,
+    review_id: review.review_id
+  });
+  expect(adoption).toHaveProperty("review_digest", expect.stringMatching(/^[a-f0-9]{64}$/));
+  expect(ownPropertyValue(adoption, "review_digest")).toBe(
+    ownPropertyValue(review, "review_digest")
+  );
+}
+
+function ownPropertyValue(value: object, key: string): unknown {
+  return Object.prototype.hasOwnProperty.call(value, key) ? Reflect.get(value, key) : undefined;
+}
+
 function expectNamedEvidenceAdoptionError(action: () => unknown, codePattern: RegExp): void {
   let thrown: unknown;
   try {
@@ -682,5 +716,5 @@ function expectNamedEvidenceAdoptionError(action: () => unknown, codePattern: Re
     thrown = error;
   }
   expect(thrown).toBeInstanceOf(EvidenceAdoptionError);
-  expect((thrown as EvidenceAdoptionError).code).toMatch(codePattern);
+  expect(thrown instanceof EvidenceAdoptionError ? thrown.code : undefined).toMatch(codePattern);
 }

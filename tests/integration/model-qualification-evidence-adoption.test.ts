@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type {
   EvidenceAdoptionState,
   ModelArtifactReference,
@@ -87,6 +87,24 @@ describe("model qualification evidence adoption service integration", () => {
       epoch: { qualification_id: primary.qualificationA.qualification_id },
       predecessor: null
     });
+    expect(reviewA.review).toMatchObject({
+      proposal_id: requestA.proposal.proposal_id,
+      proposal_digest: requestA.proposal.proposal_digest
+    });
+    expect(reviewA.review).toHaveProperty("review_digest", expect.stringMatching(/^[a-f0-9]{64}$/));
+    expect(disposedA.adoption).toMatchObject({
+      proposal_id: requestA.proposal.proposal_id,
+      proposal_digest: requestA.proposal.proposal_digest,
+      review_id: reviewA.review.review_id,
+      predecessor: null
+    });
+    expect(disposedA.adoption).toHaveProperty(
+      "review_digest",
+      expect.stringMatching(/^[a-f0-9]{64}$/)
+    );
+    expect(ownPropertyValue(disposedA.adoption, "review_digest")).toBe(
+      ownPropertyValue(reviewA.review, "review_digest")
+    );
 
     const requestB = adoption.requestEvidenceAdoption(EVIDENCE_ADOPTION_TEACHER, primary.scope, {
       command_id: "adoption-request-b",
@@ -101,6 +119,11 @@ describe("model qualification evidence adoption service integration", () => {
       proposal_id: requestB.proposal.proposal_id
     });
     expect(reviewB.review.proposal_id).toBe(requestB.proposal.proposal_id);
+    expect(reviewB.review).toMatchObject({
+      proposal_id: requestB.proposal.proposal_id,
+      proposal_digest: requestB.proposal.proposal_digest
+    });
+    expect(reviewB.review).toHaveProperty("review_digest", expect.stringMatching(/^[a-f0-9]{64}$/));
     const disposedB = adoption.disposeEvidenceAdoption(EVIDENCE_ADOPTION_ADMIN, primary.scope, {
       command_id: "adoption-dispose-b",
       disposition: "ADOPTED_FOR_FUTURE_ADMISSION",
@@ -109,6 +132,19 @@ describe("model qualification evidence adoption service integration", () => {
       proposal_digest: requestB.proposal.proposal_digest,
       proposal_id: requestB.proposal.proposal_id
     });
+    expect(disposedB.adoption).toMatchObject({
+      proposal_id: requestB.proposal.proposal_id,
+      proposal_digest: requestB.proposal.proposal_digest,
+      review_id: reviewB.review.review_id
+    });
+    expect(disposedB.adoption.predecessor).toEqual(adoptionReference(disposedA.adoption));
+    expect(disposedB.adoption).toHaveProperty(
+      "review_digest",
+      expect.stringMatching(/^[a-f0-9]{64}$/)
+    );
+    expect(ownPropertyValue(disposedB.adoption, "review_digest")).toBe(
+      ownPropertyValue(reviewB.review, "review_digest")
+    );
 
     const stateB = adoption.getEvidenceAdoptionState(EVIDENCE_ADOPTION_TEACHER, primary.scope);
     expect(stateB.proposals).toHaveLength(2);
@@ -230,14 +266,13 @@ describe("model qualification evidence adoption service integration", () => {
     }
   });
 
-  it("rejects a student actor before state reads or command idempotency lookup", () => {
+  it("denies a student read and write, with write denial before state lookup", () => {
     const fixture = createEvidenceAdoptionServiceFixture();
     const adoption = asEvidenceAdoptionService(fixture.service);
+    const persistedBefore = recordForScope(fixture.persistence, EVIDENCE_ADOPTION_SCOPE);
+    const auditsBefore = JSON.stringify(fixture.persistence.audits);
+    const getStateSpy = vi.spyOn(adoption, "getEvidenceAdoptionState");
 
-    expectNamedServiceError(
-      () => adoption.getEvidenceAdoptionState(EVIDENCE_ADOPTION_STUDENT, EVIDENCE_ADOPTION_SCOPE),
-      /^EVIDENCE_ADOPTION_ROLE_DENIED$/
-    );
     expectNamedServiceError(
       () =>
         adoption.requestEvidenceAdoption(EVIDENCE_ADOPTION_STUDENT, EVIDENCE_ADOPTION_SCOPE, {
@@ -247,12 +282,20 @@ describe("model qualification evidence adoption service integration", () => {
         }),
       /^EVIDENCE_ADOPTION_ROLE_DENIED$/
     );
-    expect(
-      fixture.persistence.audits.some((audit) => audit.action.includes("evidence_adoption"))
-    ).toBe(false);
+    expect(getStateSpy).not.toHaveBeenCalled();
+    expect(recordForScope(fixture.persistence, EVIDENCE_ADOPTION_SCOPE)).toEqual(persistedBefore);
+    expect(JSON.stringify(fixture.persistence.audits)).toBe(auditsBefore);
+    getStateSpy.mockRestore();
+
+    expectNamedServiceError(
+      () => adoption.getEvidenceAdoptionState(EVIDENCE_ADOPTION_STUDENT, EVIDENCE_ADOPTION_SCOPE),
+      /^EVIDENCE_ADOPTION_ROLE_DENIED$/
+    );
+    expect(recordForScope(fixture.persistence, EVIDENCE_ADOPTION_SCOPE)).toEqual(persistedBefore);
+    expect(JSON.stringify(fixture.persistence.audits)).toBe(auditsBefore);
   });
 
-  it("scopes exact idempotency by tenant and course and rejects same-scope payload conflicts", () => {
+  it("scopes exact idempotency by tenant and course and rejects actor or payload conflicts", () => {
     const fixture = createEvidenceAdoptionServiceFixture();
     const adoption = asEvidenceAdoptionService(fixture.service);
     const command_id = "same-command-across-scopes";
@@ -277,6 +320,22 @@ describe("model qualification evidence adoption service integration", () => {
     );
     expect(retry.reused).toBe(true);
     expect(retry.proposal).toEqual(first.proposal);
+
+    const beforeActorConflict = recordForScope(fixture.persistence, EVIDENCE_ADOPTION_SCOPE);
+    const auditsBeforeActorConflict = JSON.stringify(fixture.persistence.audits);
+    expectNamedServiceError(
+      () =>
+        adoption.requestEvidenceAdoption(EVIDENCE_ADOPTION_ADMIN, EVIDENCE_ADOPTION_SCOPE, {
+          command_id,
+          expected_adoption: null,
+          qualification_id: fixture.primary.qualificationA.qualification_id
+        }),
+      /^EVIDENCE_ADOPTION_IDEMPOTENCY_CONFLICT$/
+    );
+    expect(recordForScope(fixture.persistence, EVIDENCE_ADOPTION_SCOPE)).toEqual(
+      beforeActorConflict
+    );
+    expect(JSON.stringify(fixture.persistence.audits)).toBe(auditsBeforeActorConflict);
 
     const otherCourse = adoption.requestEvidenceAdoption(
       EVIDENCE_ADOPTION_OTHER_TEACHER,
@@ -326,6 +385,106 @@ describe("model qualification evidence adoption service integration", () => {
         EVIDENCE_ADOPTION_FOREIGN_SCOPE
       ).commands
     ).toHaveLength(1);
+  });
+
+  it("rejects a mismatched actor tenant for scoped get and write without persistence changes", () => {
+    const fixture = createEvidenceAdoptionServiceFixture();
+    const adoption = asEvidenceAdoptionService(fixture.service);
+    const persistedBefore = recordForScope(fixture.persistence, EVIDENCE_ADOPTION_SCOPE);
+    const auditsBefore = JSON.stringify(fixture.persistence.audits);
+
+    expectNamedServiceError(
+      () =>
+        adoption.getEvidenceAdoptionState(
+          EVIDENCE_ADOPTION_FOREIGN_TEACHER,
+          EVIDENCE_ADOPTION_SCOPE
+        ),
+      /^MODEL_QUALIFICATION_SCOPE_CONFLICT$/
+    );
+    expect(recordForScope(fixture.persistence, EVIDENCE_ADOPTION_SCOPE)).toEqual(persistedBefore);
+    expect(JSON.stringify(fixture.persistence.audits)).toBe(auditsBefore);
+
+    expectNamedServiceError(
+      () =>
+        adoption.requestEvidenceAdoption(
+          EVIDENCE_ADOPTION_FOREIGN_TEACHER,
+          EVIDENCE_ADOPTION_SCOPE,
+          {
+            command_id: "foreign-tenant-write",
+            expected_adoption: null,
+            qualification_id: fixture.primary.qualificationA.qualification_id
+          }
+        ),
+      /^MODEL_QUALIFICATION_SCOPE_CONFLICT$/
+    );
+    expect(recordForScope(fixture.persistence, EVIDENCE_ADOPTION_SCOPE)).toEqual(persistedBefore);
+    expect(JSON.stringify(fixture.persistence.audits)).toBe(auditsBefore);
+  });
+
+  it("rejects A proposal and qualification references in B course without membership RBAC", () => {
+    const fixture = createEvidenceAdoptionServiceFixture();
+    const adoption = asEvidenceAdoptionService(fixture.service);
+    const requestA = adoption.requestEvidenceAdoption(
+      EVIDENCE_ADOPTION_TEACHER,
+      EVIDENCE_ADOPTION_SCOPE,
+      {
+        command_id: "course-a-request",
+        expected_adoption: null,
+        qualification_id: fixture.primary.qualificationA.qualification_id
+      }
+    );
+    const primaryBefore = recordForScope(fixture.persistence, EVIDENCE_ADOPTION_SCOPE);
+    const secondaryBefore = recordForScope(fixture.persistence, EVIDENCE_ADOPTION_OTHER_SCOPE);
+    const auditsBefore = JSON.stringify(fixture.persistence.audits);
+
+    expect(
+      adoption.getEvidenceAdoptionState(
+        EVIDENCE_ADOPTION_OTHER_TEACHER,
+        EVIDENCE_ADOPTION_OTHER_SCOPE
+      )
+    ).toMatchObject({
+      commands: [],
+      course_id: EVIDENCE_ADOPTION_OTHER_SCOPE.course_id,
+      proposals: [],
+      records: [],
+      reviews: [],
+      selections: [],
+      tenant_id: EVIDENCE_ADOPTION_OTHER_SCOPE.tenant_id
+    });
+
+    expectNamedServiceError(
+      () =>
+        adoption.requestEvidenceAdoption(
+          EVIDENCE_ADOPTION_OTHER_TEACHER,
+          EVIDENCE_ADOPTION_OTHER_SCOPE,
+          {
+            command_id: "course-a-qualification-reference",
+            expected_adoption: null,
+            qualification_id: fixture.primary.qualificationA.qualification_id
+          }
+        ),
+      /^EVIDENCE_ADOPTION_EXACT_SOURCE_REQUIRED$/
+    );
+    expectNamedServiceError(
+      () =>
+        adoption.reviewEvidenceAdoption(
+          EVIDENCE_ADOPTION_OTHER_TEACHER,
+          EVIDENCE_ADOPTION_OTHER_SCOPE,
+          {
+            command_id: "course-a-request",
+            decision: "APPROVED",
+            note: "A proposal must not be reviewable in B course.",
+            proposal_digest: requestA.proposal.proposal_digest,
+            proposal_id: requestA.proposal.proposal_id
+          }
+        ),
+      /^EVIDENCE_ADOPTION_NOT_FOUND$/
+    );
+    expect(recordForScope(fixture.persistence, EVIDENCE_ADOPTION_SCOPE)).toEqual(primaryBefore);
+    expect(recordForScope(fixture.persistence, EVIDENCE_ADOPTION_OTHER_SCOPE)).toEqual(
+      secondaryBefore
+    );
+    expect(JSON.stringify(fixture.persistence.audits)).toBe(auditsBefore);
   });
 
   it("reuses service request, review, and disposition commands without creating duplicates", () => {
@@ -600,6 +759,10 @@ function historicalQualificationSlice(
   return { dataset, qualification, source };
 }
 
+function ownPropertyValue(value: object, key: string): unknown {
+  return Object.prototype.hasOwnProperty.call(value, key) ? Reflect.get(value, key) : undefined;
+}
+
 function expectNamedServiceError(action: () => unknown, codePattern: RegExp): void {
   let thrown: unknown;
   try {
@@ -608,5 +771,5 @@ function expectNamedServiceError(action: () => unknown, codePattern: RegExp): vo
     thrown = error;
   }
   expect(thrown).toBeInstanceOf(Error);
-  expect((thrown as Error).message).toMatch(codePattern);
+  expect(thrown instanceof Error ? thrown.message : undefined).toMatch(codePattern);
 }
