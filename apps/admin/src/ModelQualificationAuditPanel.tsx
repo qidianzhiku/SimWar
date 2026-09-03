@@ -79,6 +79,24 @@ export function ModelQualificationAuditPanel({ apiBase, courseId, tenantId, toke
               </li>
             ))}
           </ul>
+          <section aria-label="requalification preview audit">
+            <h3>证据重新资格队列</h3>
+            {(projection.requalification_previews ?? []).length > 0 ? (
+              <ul>
+                {(projection.requalification_previews ?? []).map((preview) => (
+                  <li key={preview.preview_id}>
+                    {preview.preview_id} · {preview.status} · review={preview.review.status} ·
+                    resolution={preview.resolution} · baseline=
+                    {preview.change_set.baseline.source_package_id} · candidate=
+                    {preview.change_set.candidate.source_package_id} · historical_non_overwrite=
+                    {String(preview.historical_non_overwrite)}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="lifecycle-status">当前没有重新资格预览。</p>
+            )}
+          </section>
         </>
       ) : (
         <p className="lifecycle-status" role="status">

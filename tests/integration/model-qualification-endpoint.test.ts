@@ -248,6 +248,230 @@ describe("source-backed model qualification BFF", () => {
     }
   });
 
+  it("keeps requalification preview review and student exposure bounded to one exact course", async () => {
+    const { baseUrl, server } = await startServer();
+    try {
+      const teacher = await login(baseUrl, "teacher");
+      const student = await login(baseUrl, "student");
+      const baseline = await api<ApiEnvelope<{ source_package: { source_package_id: string } }>>(
+        baseUrl,
+        "/api/v1/bff/teacher/model-qualification/source-packages",
+        teacher.access_token,
+        "POST",
+        sourceBody
+      );
+      const baselineSourceId = baseline.body.data.source_package.source_package_id;
+      const baselineDataset = await api<
+        ApiEnvelope<{ calibration_dataset: { calibration_dataset_id: string } }>
+      >(baseUrl, "/api/v1/bff/teacher/model-qualification/datasets", teacher.access_token, "POST", {
+        calibration_record_ids: ["baseline-calibration"],
+        content_digest: "c".repeat(64),
+        course_id: "course_demo",
+        holdout_record_ids: ["baseline-holdout"],
+        source_package_id: baselineSourceId
+      });
+      const baselineQualification = await api<
+        ApiEnvelope<{ qualification: { qualification_id: string } }>
+      >(
+        baseUrl,
+        "/api/v1/bff/teacher/model-qualification/qualifications",
+        teacher.access_token,
+        "POST",
+        {
+          calibration_dataset_id:
+            baselineDataset.body.data.calibration_dataset.calibration_dataset_id,
+          course_id: "course_demo",
+          deterministic_seed: 42,
+          model_version_reference: MODEL_QUALIFICATION_MODEL_VERSION.model_version_reference,
+          source_package_id: baselineSourceId
+        }
+      );
+
+      const candidate = await api<ApiEnvelope<{ source_package: { source_package_id: string } }>>(
+        baseUrl,
+        "/api/v1/bff/teacher/model-qualification/source-packages",
+        teacher.access_token,
+        "POST",
+        {
+          ...sourceBody,
+          content_digest: "d".repeat(64),
+          evidence_refs: ["fixture:generic-source:1", "fixture:replacement:1"],
+          source_ref: "fixture://generic-source-replacement",
+          source_version: "2.0.0",
+          title: "Generic source-backed replacement fixture"
+        }
+      );
+      expect(candidate.status).toBe(201);
+      const candidateSourceId = candidate.body.data.source_package.source_package_id;
+      const preview = await api<
+        ApiEnvelope<{
+          preview: {
+            preview_id: string;
+            status: string;
+            change_set: { affected_qualification_ids: string[] };
+          };
+        }>
+      >(
+        baseUrl,
+        "/api/v1/bff/teacher/model-qualification/requalification-previews",
+        teacher.access_token,
+        "POST",
+        {
+          baseline_source_package_id: baselineSourceId,
+          candidate_source_package_id: candidateSourceId,
+          course_id: "course_demo"
+        }
+      );
+      expect(preview.status).toBe(201);
+      expect(preview.body.data.preview).toMatchObject({
+        status: "REQUALIFICATION_REQUIRED",
+        change_set: {
+          affected_qualification_ids: [
+            baselineQualification.body.data.qualification.qualification_id
+          ]
+        }
+      });
+
+      const candidateDataset = await api<
+        ApiEnvelope<{ calibration_dataset: { calibration_dataset_id: string } }>
+      >(baseUrl, "/api/v1/bff/teacher/model-qualification/datasets", teacher.access_token, "POST", {
+        calibration_record_ids: ["candidate-calibration"],
+        content_digest: "e".repeat(64),
+        course_id: "course_demo",
+        holdout_record_ids: ["candidate-holdout"],
+        source_package_id: candidateSourceId
+      });
+      const candidateQualification = await api<
+        ApiEnvelope<{ qualification: { qualification_id: string } }>
+      >(
+        baseUrl,
+        "/api/v1/bff/teacher/model-qualification/qualifications",
+        teacher.access_token,
+        "POST",
+        {
+          calibration_dataset_id:
+            candidateDataset.body.data.calibration_dataset.calibration_dataset_id,
+          course_id: "course_demo",
+          deterministic_seed: 42,
+          model_version_reference: MODEL_QUALIFICATION_MODEL_VERSION.model_version_reference,
+          source_package_id: candidateSourceId
+        }
+      );
+      const candidateQualificationId =
+        candidateQualification.body.data.qualification.qualification_id;
+      const reviewedCandidate = await api(
+        baseUrl,
+        `/api/v1/bff/teacher/model-qualification/qualifications/${candidateQualificationId}/review?courseId=course_demo`,
+        teacher.access_token,
+        "POST",
+        { decision: "APPROVED", note: "Candidate qualification reviewed." }
+      );
+      expect(reviewedCandidate.status).toBe(200);
+
+      const bindBeforePreviewReview = await api(
+        baseUrl,
+        `/api/v1/bff/teacher/model-qualification/qualifications/${candidateQualificationId}/bind?courseId=course_demo`,
+        teacher.access_token,
+        "POST"
+      );
+      expect(bindBeforePreviewReview.status).toBe(409);
+
+      const foreignPreview = await api(
+        baseUrl,
+        "/api/v1/bff/teacher/model-qualification/requalification-previews",
+        teacher.access_token,
+        "POST",
+        {
+          baseline_source_package_id: baselineSourceId,
+          candidate_source_package_id: candidateSourceId,
+          course_id: "course_demo"
+        },
+        OTHER_TENANT_ID
+      );
+      expect([401, 403]).toContain(foreignPreview.status);
+
+      const review = await api(
+        baseUrl,
+        `/api/v1/bff/teacher/model-qualification/requalification-previews/${preview.body.data.preview.preview_id}/review?courseId=course_demo`,
+        teacher.access_token,
+        "POST",
+        { decision: "APPROVED", note: "Exact baseline and replacement evidence reviewed." }
+      );
+      expect(review.status).toBe(200);
+      const bound = await api(
+        baseUrl,
+        `/api/v1/bff/teacher/model-qualification/qualifications/${candidateQualificationId}/bind?courseId=course_demo`,
+        teacher.access_token,
+        "POST"
+      );
+      expect(bound.status).toBe(200);
+
+      const studentProjection = await api<ApiEnvelope<ModelQualificationStudentProjection>>(
+        baseUrl,
+        `/api/v1/bff/student/model-qualification?courseId=course_demo&qualificationId=${candidateQualificationId}`,
+        student.access_token
+      );
+      expect(studentProjection.status).toBe(200);
+      expect(studentProjection.body.data.requalification).toMatchObject({
+        historical_non_overwrite: true,
+        resolution: "ACCEPTED",
+        review_status: "APPROVED",
+        status: "REQUALIFICATION_REQUIRED"
+      });
+      const studentJson = JSON.stringify(studentProjection.body.data);
+      expect(studentJson).not.toContain("source_package_id");
+      expect(studentJson).not.toContain("content_digest");
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve()))
+      );
+    }
+  });
+
+  it("maps missing and conflicting requalification source identities to documented statuses", async () => {
+    const { baseUrl, server } = await startServer();
+    try {
+      const teacher = await login(baseUrl, "teacher");
+      const missing = await api(
+        baseUrl,
+        "/api/v1/bff/teacher/model-qualification/requalification-previews",
+        teacher.access_token,
+        "POST",
+        {
+          baseline_source_package_id: "mq_source_missing_baseline",
+          candidate_source_package_id: "mq_source_missing_candidate",
+          course_id: "course_demo"
+        }
+      );
+      expect(missing.status).toBe(404);
+
+      const source = await api<ApiEnvelope<{ source_package: { source_package_id: string } }>>(
+        baseUrl,
+        "/api/v1/bff/teacher/model-qualification/source-packages",
+        teacher.access_token,
+        "POST",
+        sourceBody
+      );
+      const sourceId = source.body.data.source_package.source_package_id;
+      const conflicting = await api(
+        baseUrl,
+        "/api/v1/bff/teacher/model-qualification/requalification-previews",
+        teacher.access_token,
+        "POST",
+        {
+          baseline_source_package_id: sourceId,
+          candidate_source_package_id: sourceId,
+          course_id: "course_demo"
+        }
+      );
+      expect(conflicting.status).toBe(409);
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve()))
+      );
+    }
+  });
+
   it("fails closed for tenant scope and holdout leakage", async () => {
     const { baseUrl, server, store } = await startServer();
     try {

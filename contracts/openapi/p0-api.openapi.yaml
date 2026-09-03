@@ -5889,6 +5889,56 @@ paths:
         "409": { description: Qualification is not an approved pending candidate }
         "422": { description: Review decision or note is invalid }
 
+  /api/v1/bff/teacher/model-qualification/requalification-previews:
+    post:
+      operationId: MODEL_QUALIFICATION_REQUALIFICATION_PREVIEW_CREATE_V1
+      summary: Create a deterministic evidence-change and requalification preview.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            {
+              schema:
+                { $ref: "#/components/schemas/ModelQualificationRequalificationPreviewRequest" }
+            }
+      responses:
+        "201":
+          description: Candidate-only preview queued without overwriting historical evidence.
+          content:
+            application/json:
+              { schema: { $ref: "#/components/schemas/ModelQualificationMutationEnvelope" } }
+        "401": { description: Authentication required }
+        "403": { description: Teacher or course scope denied }
+        "404": { description: Baseline or candidate source package not found }
+        "409": { description: Evidence scope or identity conflict }
+        "422": { description: Requalification preview input is invalid }
+
+  /api/v1/bff/teacher/model-qualification/requalification-previews/{previewId}/review:
+    post:
+      operationId: MODEL_QUALIFICATION_REQUALIFICATION_REVIEW_V1
+      summary: Record an explicit review decision for a requalification preview.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: previewId, in: path, required: true, schema: { type: string, minLength: 1 } }
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            { schema: { $ref: "#/components/schemas/ModelQualificationReviewRequest" } }
+      responses:
+        "200":
+          description: Requalification preview reviewed without activating formal truth.
+          content:
+            application/json:
+              { schema: { $ref: "#/components/schemas/ModelQualificationMutationEnvelope" } }
+        "401": { description: Authentication required }
+        "403": { description: Teacher or course scope denied }
+        "404": { description: Preview not found }
+        "409": { description: Preview is not awaiting review }
+        "422": { description: Review decision or note is invalid }
+
   /api/v1/bff/teacher/model-qualification/qualifications/{qualificationId}/bind:
     post:
       operationId: MODEL_QUALIFICATION_BIND_V1
@@ -10372,6 +10422,8 @@ components:
             source_package: { $ref: "../schemas/model-qualification.v1.json#/$defs/sourcePackage" }
             calibration_dataset: { $ref: "../schemas/model-qualification.v1.json#/$defs/dataset" }
             qualification: { $ref: "../schemas/model-qualification.v1.json#/$defs/qualification" }
+            preview:
+              { $ref: "../schemas/model-qualification.v1.json#/$defs/requalificationPreview" }
         message: { type: string }
         request_id: { type: string, minLength: 1 }
     ModelQualificationSourcePackageRequest:
@@ -10447,6 +10499,14 @@ components:
       properties:
         decision: { enum: [APPROVED, REJECTED] }
         note: { type: string, minLength: 1 }
+    ModelQualificationRequalificationPreviewRequest:
+      type: object
+      additionalProperties: false
+      required: [baseline_source_package_id, candidate_source_package_id, course_id]
+      properties:
+        baseline_source_package_id: { type: string, minLength: 1 }
+        candidate_source_package_id: { type: string, minLength: 1 }
+        course_id: { type: string, minLength: 1 }
     W5MutationEnvelope:
       type: object
       additionalProperties: false

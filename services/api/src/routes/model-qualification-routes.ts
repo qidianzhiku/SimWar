@@ -107,6 +107,12 @@ function qualificationId(pathname: string, suffix: "review" | "bind"): string | 
   return pathname.match(new RegExp(`^${TEACHER_PREFIX}/qualifications/([^/]+)/${suffix}$`))?.[1];
 }
 
+function requalificationPreviewId(pathname: string, suffix: "review"): string | undefined {
+  return pathname.match(
+    new RegExp(`^${TEACHER_PREFIX}/requalification-previews/([^/]+)/${suffix}$`)
+  )?.[1];
+}
+
 export function isModelQualificationRoute(method: string | undefined, url: URL): boolean {
   if (method === "GET") {
     return (
@@ -120,8 +126,10 @@ export function isModelQualificationRoute(method: string | undefined, url: URL):
     url.pathname === `${TEACHER_PREFIX}/source-packages` ||
     url.pathname === `${TEACHER_PREFIX}/datasets` ||
     url.pathname === `${TEACHER_PREFIX}/qualifications` ||
+    url.pathname === `${TEACHER_PREFIX}/requalification-previews` ||
     qualificationId(url.pathname, "review") !== undefined ||
-    qualificationId(url.pathname, "bind") !== undefined
+    qualificationId(url.pathname, "bind") !== undefined ||
+    requalificationPreviewId(url.pathname, "review") !== undefined
   );
 }
 
@@ -289,6 +297,22 @@ export async function handleModelQualificationRoute(
     return true;
   }
 
+  if (url.pathname === `${TEACHER_PREFIX}/requalification-previews`) {
+    const baselineSourcePackageId = stringValue(bodyRecord.baseline_source_package_id);
+    const candidateSourcePackageId = stringValue(bodyRecord.candidate_source_package_id);
+    send(
+      deps,
+      context,
+      response,
+      201,
+      service.createRequalificationPreview(serviceActor(actor), serviceScope, {
+        baseline_source_package_id: baselineSourcePackageId,
+        candidate_source_package_id: candidateSourcePackageId
+      })
+    );
+    return true;
+  }
+
   const reviewId = qualificationId(url.pathname, "review");
   if (reviewId) {
     if (bodyRecord.decision !== "APPROVED" && bodyRecord.decision !== "REJECTED") {
@@ -316,6 +340,24 @@ export async function handleModelQualificationRoute(
       response,
       200,
       service.bindQualification(serviceActor(actor), serviceScope, bindId)
+    );
+    return true;
+  }
+
+  const previewId = requalificationPreviewId(url.pathname, "review");
+  if (previewId) {
+    if (bodyRecord.decision !== "APPROVED" && bodyRecord.decision !== "REJECTED") {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_REVIEW_INVALID");
+    }
+    send(
+      deps,
+      context,
+      response,
+      200,
+      service.reviewRequalificationPreview(serviceActor(actor), serviceScope, previewId, {
+        decision: bodyRecord.decision,
+        note: stringValue(bodyRecord.note)
+      })
     );
     return true;
   }
