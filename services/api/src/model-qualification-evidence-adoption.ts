@@ -60,7 +60,7 @@ const PROPOSAL_KEYS = [
   "requested_by",
   "requested_at"
 ] as const;
-const REVIEW_KEYS = [
+const REVIEW_BODY_KEYS = [
   "review_id",
   "proposal_id",
   "proposal_digest",
@@ -69,12 +69,14 @@ const REVIEW_KEYS = [
   "reviewed_by",
   "reviewed_at"
 ] as const;
+const REVIEW_KEYS = [...REVIEW_BODY_KEYS, "review_digest"] as const;
 const RECORD_KEYS = [
   "adoption_id",
   "adoption_digest",
   "proposal_id",
   "proposal_digest",
   "review_id",
+  "review_digest",
   "epoch",
   "predecessor",
   "disposition",
@@ -323,6 +325,22 @@ function epochDigest(
   return sha256(payload);
 }
 
+function reviewPayload(
+  value: EvidenceAdoptionReview
+): Omit<EvidenceAdoptionReview, "review_digest"> {
+  return without(value as unknown as Record<string, unknown>, "review_digest") as Omit<
+    EvidenceAdoptionReview,
+    "review_digest"
+  >;
+}
+
+function reviewDigest(
+  value: EvidenceAdoptionReview | Omit<EvidenceAdoptionReview, "review_digest">
+): string {
+  const payload = "review_digest" in value ? reviewPayload(value as EvidenceAdoptionReview) : value;
+  return sha256(payload);
+}
+
 function validateInputEpoch(value: unknown): EvidenceAdoptionEpoch {
   validateEpoch(value, "EVIDENCE_ADOPTION_INPUT_INVALID", true);
   const epoch = value as EvidenceAdoptionEpoch;
@@ -439,11 +457,14 @@ function validateStoredReview(value: unknown): EvidenceAdoptionReview {
     (value.decision !== "APPROVED" && value.decision !== "REJECTED") ||
     !isNonBlankText(value.note) ||
     !isExactIdentifier(value.reviewed_by) ||
-    !isIsoTimestamp(value.reviewed_at)
+    !isIsoTimestamp(value.reviewed_at) ||
+    !isDigest(value.review_digest)
   ) {
     fail("EVIDENCE_ADOPTION_STATE_INVALID");
   }
-  return value as unknown as EvidenceAdoptionReview;
+  const review = value as unknown as EvidenceAdoptionReview;
+  if (review.review_digest !== reviewDigest(review)) fail("EVIDENCE_ADOPTION_STATE_INVALID");
+  return review;
 }
 
 function validateStoredRecord(value: unknown): EvidenceAdoptionRecord {
@@ -454,6 +475,7 @@ function validateStoredRecord(value: unknown): EvidenceAdoptionRecord {
     !isExactIdentifier(value.proposal_id) ||
     !isDigest(value.proposal_digest) ||
     !isExactIdentifier(value.review_id) ||
+    !isDigest(value.review_digest) ||
     !isNonBlankText(value.note) ||
     !isExactIdentifier(value.decided_by) ||
     !isIsoTimestamp(value.decided_at) ||
@@ -573,7 +595,9 @@ function validateState(value: unknown): StateIndex {
         proposal.proposal_digest !== record.proposal_digest ||
         review.proposal_id !== record.proposal_id ||
         review.proposal_digest !== record.proposal_digest ||
+        review.review_digest !== record.review_digest ||
         !sameEpoch(proposal.epoch, record.epoch) ||
+        (record.disposition === "ADOPTED_FOR_FUTURE_ADMISSION" && review.decision !== "APPROVED") ||
         (record.predecessor === null) !== (proposal.expected_adoption === null) ||
         (record.predecessor !== null &&
           proposal.expected_adoption !== null &&
@@ -657,6 +681,50 @@ function validateState(value: unknown): StateIndex {
         fail("EVIDENCE_ADOPTION_STATE_INVALID");
       }
       selectionsByScope.set(scopeKey, selection);
+    }
+
+    const adoptedRecordsByScope = new Map<string, EvidenceAdoptionRecord[]>();
+    for (const record of recordsByAdoptionId.values()) {
+      if (record.disposition !== "ADOPTED_FOR_FUTURE_ADMISSION") continue;
+      const scopeKey = selectionScopeKey(record.epoch);
+      const records = adoptedRecordsByScope.get(scopeKey) ?? [];
+      records.push(record);
+      adoptedRecordsByScope.set(scopeKey, records);
+    }
+    for (const [scopeKey, adoptedRecords] of adoptedRecordsByScope) {
+      const childrenByAdoptionId = new Map<string, EvidenceAdoptionRecord[]>();
+      const roots: EvidenceAdoptionRecord[] = [];
+      for (const record of adoptedRecords) {
+        if (record.predecessor === null) {
+          roots.push(record);
+          continue;
+        }
+        const children = childrenByAdoptionId.get(record.predecessor.adoption_id) ?? [];
+        if (children.length > 0) fail("EVIDENCE_ADOPTION_STATE_INVALID");
+        children.push(record);
+        childrenByAdoptionId.set(record.predecessor.adoption_id, children);
+      }
+      if (roots.length !== 1) fail("EVIDENCE_ADOPTION_STATE_INVALID");
+      const root = roots[0];
+      if (!root) fail("EVIDENCE_ADOPTION_STATE_INVALID");
+
+      const visited = new Set<string>();
+      let current: EvidenceAdoptionRecord | undefined = root;
+      let tip: EvidenceAdoptionRecord = root;
+      while (current) {
+        if (visited.has(current.adoption_id)) fail("EVIDENCE_ADOPTION_STATE_INVALID");
+        visited.add(current.adoption_id);
+        tip = current;
+        const children: EvidenceAdoptionRecord[] =
+          childrenByAdoptionId.get(current.adoption_id) ?? [];
+        if (children.length > 1) fail("EVIDENCE_ADOPTION_STATE_INVALID");
+        current = children[0];
+      }
+      if (visited.size !== adoptedRecords.length) fail("EVIDENCE_ADOPTION_STATE_INVALID");
+      const selection = selectionsByScope.get(scopeKey);
+      if (!selection || !sameReference(selection, tip)) {
+        fail("EVIDENCE_ADOPTION_STATE_INVALID");
+      }
     }
 
     const commands = new Set<string>();
@@ -978,6 +1046,10 @@ export function emptyEvidenceAdoptionState(
   }
 }
 
+export function assertEvidenceAdoptionState(stateInput: EvidenceAdoptionState): void {
+  validateState(stateInput);
+}
+
 export function requestEvidenceAdoption(
   stateInput: EvidenceAdoptionState,
   contextInput: EvidenceAdoptionCommandContext,
@@ -1036,6 +1108,7 @@ export function requestEvidenceAdoption(
       },
       command
     );
+    validateState(nextState);
     return reduction(nextState, proposal, false);
   } catch (error) {
     if (error instanceof EvidenceAdoptionError) throw error;
@@ -1070,7 +1143,7 @@ export function reviewEvidenceAdoption(
       fail("EVIDENCE_ADOPTION_IMMUTABLE_CONFLICT");
     }
     const reviewId = `review_${fingerprint}`;
-    const review = immutableClone({
+    const reviewWithoutDigest = {
       review_id: reviewId,
       proposal_id: proposal.proposal_id,
       proposal_digest: proposal.proposal_digest,
@@ -1078,6 +1151,10 @@ export function reviewEvidenceAdoption(
       note: input.note,
       reviewed_by: context.actor_id,
       reviewed_at: context.now
+    };
+    const review = immutableClone({
+      ...reviewWithoutDigest,
+      review_digest: reviewDigest(reviewWithoutDigest)
     }) as EvidenceAdoptionReview;
     const command = immutableClone({
       command_id: context.command_id,
@@ -1093,6 +1170,7 @@ export function reviewEvidenceAdoption(
       },
       command
     );
+    validateState(nextState);
     return reduction(nextState, review, false);
   } catch (error) {
     if (error instanceof EvidenceAdoptionError) throw error;
@@ -1157,6 +1235,7 @@ export function disposeEvidenceAdoption(
       proposal_id: proposal.proposal_id,
       proposal_digest: proposal.proposal_digest,
       review_id: review.review_id,
+      review_digest: review.review_digest,
       epoch: immutableClone(proposal.epoch),
       predecessor,
       disposition: input.disposition,
@@ -1205,6 +1284,7 @@ export function disposeEvidenceAdoption(
       },
       command
     );
+    validateState(nextState);
     return reduction(nextState, record, false);
   } catch (error) {
     if (error instanceof EvidenceAdoptionError) throw error;

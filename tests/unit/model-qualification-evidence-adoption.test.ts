@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import type {
   EvidenceAdoptionCommandContext,
@@ -11,6 +12,7 @@ import type {
 } from "@simwar/shared-contracts";
 import {
   EvidenceAdoptionError,
+  assertEvidenceAdoptionState,
   createEvidenceEpoch,
   disposeEvidenceAdoption,
   emptyEvidenceAdoptionState,
@@ -85,6 +87,104 @@ function expectEvidenceError(operation: () => unknown, code: string): void {
     expect((error as EvidenceAdoptionError).code).toBe(code);
     expect((error as Error).message).toBe(code);
   }
+}
+
+function canonicalForTest(value: unknown): string {
+  if (value === null) return "null";
+  if (typeof value === "string" || typeof value === "boolean") return JSON.stringify(value);
+  if (typeof value === "number") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map((item) => canonicalForTest(item)).join(",")}]`;
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record).sort();
+  return `{${keys
+    .map((key) => `${JSON.stringify(key)}:${canonicalForTest(record[key])}`)
+    .join(",")}}`;
+}
+
+function digestForTest(value: unknown): string {
+  return createHash("sha256").update(canonicalForTest(value), "utf8").digest("hex");
+}
+
+function withoutKeyForTest(value: Record<string, unknown>, key: string): Record<string, unknown> {
+  const copy = { ...value };
+  delete copy[key];
+  return copy;
+}
+
+function commandFingerprintForTest(
+  commandId: string,
+  actorId: string,
+  action: "REVIEW" | "DISPOSE",
+  payload: unknown
+): string {
+  return digestForTest({ action, actor_id: actorId, command_id: commandId, payload });
+}
+
+function combineBranchStates(
+  primary: EvidenceAdoptionState,
+  secondary: EvidenceAdoptionState
+): EvidenceAdoptionState {
+  const proposalIds = new Set(primary.proposals.map((proposal) => proposal.proposal_id));
+  const reviewIds = new Set(primary.reviews.map((review) => review.review_id));
+  const recordIds = new Set(primary.records.map((record) => record.adoption_id));
+  const commandIds = new Set(primary.commands.map((command) => command.command_id));
+  return {
+    ...primary,
+    proposals: [
+      ...primary.proposals,
+      ...secondary.proposals.filter((proposal) => !proposalIds.has(proposal.proposal_id))
+    ],
+    reviews: [
+      ...primary.reviews,
+      ...secondary.reviews.filter((review) => !reviewIds.has(review.review_id))
+    ],
+    records: [
+      ...primary.records,
+      ...secondary.records.filter((record) => !recordIds.has(record.adoption_id))
+    ],
+    selections: [...primary.selections],
+    commands: [
+      ...primary.commands,
+      ...secondary.commands.filter((command) => !commandIds.has(command.command_id))
+    ]
+  };
+}
+
+function rewriteRecordForTest(
+  state: EvidenceAdoptionState,
+  record: EvidenceAdoptionRecord,
+  changes: Partial<EvidenceAdoptionRecord>
+): EvidenceAdoptionState {
+  const rewrittenBody = { ...record, ...changes };
+  const rewritten = {
+    ...rewrittenBody,
+    adoption_digest: digestForTest(withoutKeyForTest(rewrittenBody, "adoption_digest"))
+  } as EvidenceAdoptionRecord;
+  return {
+    ...state,
+    records: state.records.map((candidate) =>
+      candidate.adoption_id === record.adoption_id ? rewritten : candidate
+    ),
+    commands: state.commands.map((command) =>
+      command.action === "DISPOSE" && command.entity_id === record.adoption_id
+        ? {
+            ...command,
+            command_fingerprint: commandFingerprintForTest(
+              command.command_id,
+              command.actor_id,
+              "DISPOSE",
+              {
+                disposition: rewritten.disposition,
+                expires_at: rewritten.expires_at,
+                note: rewritten.note,
+                proposal_digest: rewritten.proposal_digest,
+                proposal_id: rewritten.proposal_id
+              }
+            )
+          }
+        : command
+    )
+  };
 }
 
 function request(
@@ -764,6 +864,511 @@ describe("model qualification evidence adoption pure domain", () => {
         }),
       "EVIDENCE_ADOPTION_SCOPE_MISMATCH"
     );
+  });
+
+  it("validates read projections through the pure state assertion without mutation", () => {
+    const adopted = adopt(emptyEvidenceAdoptionState(TENANT_ID, COURSE_ID), epoch(), "read-state");
+    const stateSnapshot = JSON.stringify(adopted.state);
+
+    expect(() => assertEvidenceAdoptionState(adopted.state)).not.toThrow();
+    expect(() =>
+      assertEvidenceAdoptionState({ ...adopted.state, selections: [] } as EvidenceAdoptionState)
+    ).toThrowError(EvidenceAdoptionError);
+    expectEvidenceError(
+      () =>
+        assertEvidenceAdoptionState({ ...adopted.state, selections: [] } as EvidenceAdoptionState),
+      "EVIDENCE_ADOPTION_STATE_INVALID"
+    );
+    expect(JSON.stringify(adopted.state)).toBe(stateSnapshot);
+  });
+
+  it("rejects command ids colliding with prior proposal, review, and adoption ids in each reducer", () => {
+    const root = adopt(emptyEvidenceAdoptionState(TENANT_ID, COURSE_ID), epoch(), "collision-root");
+    const nextEpoch = epoch({
+      qualification_id: "qualification-collision-b",
+      source_package_id: "source-collision-b"
+    });
+    const expectedRoot = {
+      adoption_digest: root.record.adoption_digest,
+      adoption_id: root.record.adoption_id
+    };
+
+    for (const collisionId of [root.proposal.proposal_id, root.record.adoption_id]) {
+      expectEvidenceError(
+        () => request(root.state, collisionId, nextEpoch, expectedRoot),
+        "EVIDENCE_ADOPTION_STATE_INVALID"
+      );
+    }
+
+    const requested = request(root.state, "collision-b-request", nextEpoch, expectedRoot);
+    expectEvidenceError(
+      () =>
+        reviewEvidenceAdoption(
+          requested.state,
+          context(root.record.adoption_id, "2029-01-02T00:01:00Z"),
+          {
+            decision: "APPROVED",
+            note: "collision review",
+            proposal_digest: requested.receipt.proposal_digest,
+            proposal_id: requested.receipt.proposal_id
+          }
+        ),
+      "EVIDENCE_ADOPTION_STATE_INVALID"
+    );
+
+    const reviewed = reviewEvidenceAdoption(
+      requested.state,
+      context("collision-b-review", "2029-01-02T00:01:00Z"),
+      {
+        decision: "APPROVED",
+        note: "collision review",
+        proposal_digest: requested.receipt.proposal_digest,
+        proposal_id: requested.receipt.proposal_id
+      }
+    );
+    expectEvidenceError(
+      () =>
+        disposeEvidenceAdoption(
+          reviewed.state,
+          context(root.record.review_id, "2029-01-02T00:02:00Z", { role: "tenant_admin" }),
+          {
+            disposition: "ADOPTED_FOR_FUTURE_ADMISSION",
+            expires_at: null,
+            note: "collision adoption",
+            proposal_digest: requested.receipt.proposal_digest,
+            proposal_id: requested.receipt.proposal_id
+          }
+        ),
+      "EVIDENCE_ADOPTION_STATE_INVALID"
+    );
+  });
+
+  it("binds reviewed_at and review fields to an immutable review digest", () => {
+    const requested = request(
+      emptyEvidenceAdoptionState(TENANT_ID, COURSE_ID),
+      "review-digest-request",
+      epoch()
+    );
+    const reviewed = reviewEvidenceAdoption(
+      requested.state,
+      context("review-digest-review", "2029-01-01T00:01:00Z"),
+      {
+        decision: "APPROVED",
+        note: "signed review",
+        proposal_digest: requested.receipt.proposal_digest,
+        proposal_id: requested.receipt.proposal_id
+      }
+    );
+
+    expect(reviewed.receipt.review_digest).toMatch(/^[a-f0-9]{64}$/);
+    const tampered = {
+      ...reviewed.state,
+      reviews: [{ ...reviewed.receipt, reviewed_at: "2029-01-01T00:02:00Z" }]
+    } as EvidenceAdoptionState;
+    expectEvidenceError(
+      () =>
+        requestEvidenceAdoption(tampered, context("review-digest-state-check"), {
+          epoch: requested.receipt.epoch,
+          expected_adoption: null
+        }),
+      "EVIDENCE_ADOPTION_STATE_INVALID"
+    );
+  });
+
+  it("rejects a validly re-signed adopted record linked to a rejected review", () => {
+    const requested = request(
+      emptyEvidenceAdoptionState(TENANT_ID, COURSE_ID),
+      "approval-link-request",
+      epoch()
+    );
+    const reviewed = reviewEvidenceAdoption(
+      requested.state,
+      context("approval-link-review", "2029-01-01T00:01:00Z"),
+      {
+        decision: "REJECTED",
+        note: "not approved",
+        proposal_digest: requested.receipt.proposal_digest,
+        proposal_id: requested.receipt.proposal_id
+      }
+    );
+    const disposed = disposeEvidenceAdoption(
+      reviewed.state,
+      context("approval-link-dispose", "2029-01-01T00:02:00Z", { role: "tenant_admin" }),
+      {
+        disposition: "REJECTED_CANDIDATE",
+        expires_at: null,
+        note: "candidate rejected",
+        proposal_digest: requested.receipt.proposal_digest,
+        proposal_id: requested.receipt.proposal_id
+      }
+    );
+    const invalid = rewriteRecordForTest(disposed.state, disposed.receipt, {
+      disposition: "ADOPTED_FOR_FUTURE_ADMISSION"
+    });
+
+    expectEvidenceError(
+      () =>
+        resolveHistoricalEvidenceAdoption(invalid, {
+          adoption_digest: invalid.records[0]!.adoption_digest,
+          adoption_id: invalid.records[0]!.adoption_id,
+          course_id: COURSE_ID,
+          epoch: invalid.records[0]!.epoch,
+          tenant_id: TENANT_ID
+        }),
+      "EVIDENCE_ADOPTION_STATE_INVALID"
+    );
+  });
+
+  it("requires one acyclic non-forking chain and an explicit selection of its unique tip", () => {
+    const root = adopt(emptyEvidenceAdoptionState(TENANT_ID, COURSE_ID), epoch(), "graph-root");
+    const branchB = adopt(
+      root.state,
+      epoch({
+        qualification_id: "qualification-graph-b",
+        source_package_id: "source-graph-b"
+      }),
+      "graph-b",
+      { adoption_id: root.record.adoption_id, adoption_digest: root.record.adoption_digest }
+    );
+    const branchC = adopt(
+      root.state,
+      epoch({
+        qualification_id: "qualification-graph-c",
+        source_package_id: "source-graph-c"
+      }),
+      "graph-c",
+      { adoption_id: root.record.adoption_id, adoption_digest: root.record.adoption_digest }
+    );
+
+    const reordered = {
+      ...branchB.state,
+      proposals: [...branchB.state.proposals].reverse(),
+      reviews: [...branchB.state.reviews].reverse(),
+      records: [...branchB.state.records].reverse(),
+      commands: [...branchB.state.commands].reverse()
+    };
+    expect(
+      resolveFutureEvidenceAdoption(reordered, {
+        adoption_digest: branchB.record.adoption_digest,
+        adoption_id: branchB.record.adoption_id,
+        course_id: COURSE_ID,
+        epoch: branchB.record.epoch,
+        now: "2029-01-03T00:00:00Z",
+        tenant_id: TENANT_ID
+      })
+    ).toEqual(branchB.record);
+
+    const forked = combineBranchStates(branchB.state, branchC.state);
+    expectEvidenceError(
+      () =>
+        resolveHistoricalEvidenceAdoption(forked, {
+          adoption_digest: branchB.record.adoption_digest,
+          adoption_id: branchB.record.adoption_id,
+          course_id: COURSE_ID,
+          epoch: branchB.record.epoch,
+          tenant_id: TENANT_ID
+        }),
+      "EVIDENCE_ADOPTION_STATE_INVALID"
+    );
+
+    const stalePointer = {
+      ...branchB.state,
+      selections: [root.state.selections[0]!]
+    } as EvidenceAdoptionState;
+    expectEvidenceError(
+      () =>
+        resolveHistoricalEvidenceAdoption(stalePointer, {
+          adoption_digest: branchB.record.adoption_digest,
+          adoption_id: branchB.record.adoption_id,
+          course_id: COURSE_ID,
+          epoch: branchB.record.epoch,
+          tenant_id: TENANT_ID
+        }),
+      "EVIDENCE_ADOPTION_STATE_INVALID"
+    );
+
+    const missingPointer = { ...branchB.state, selections: [] } as EvidenceAdoptionState;
+    expectEvidenceError(
+      () =>
+        resolveHistoricalEvidenceAdoption(missingPointer, {
+          adoption_digest: branchB.record.adoption_digest,
+          adoption_id: branchB.record.adoption_id,
+          course_id: COURSE_ID,
+          epoch: branchB.record.epoch,
+          tenant_id: TENANT_ID
+        }),
+      "EVIDENCE_ADOPTION_STATE_INVALID"
+    );
+
+    const cyclic = {
+      ...root.state,
+      records: [
+        {
+          ...root.record,
+          predecessor: {
+            adoption_digest: root.record.adoption_digest,
+            adoption_id: root.record.adoption_id
+          }
+        }
+      ]
+    } as EvidenceAdoptionState;
+    expectEvidenceError(
+      () =>
+        resolveHistoricalEvidenceAdoption(cyclic, {
+          adoption_digest: root.record.adoption_digest,
+          adoption_id: root.record.adoption_id,
+          course_id: COURSE_ID,
+          epoch: root.record.epoch,
+          tenant_id: TENANT_ID
+        }),
+      "EVIDENCE_ADOPTION_STATE_INVALID"
+    );
+  });
+
+  it("keeps independent model and artifact scopes separately selected", () => {
+    const first = adopt(emptyEvidenceAdoptionState(TENANT_ID, COURSE_ID), epoch(), "scope-a");
+    const second = adopt(
+      first.state,
+      epoch({
+        model_version_reference: {
+          ...MODEL_VERSION,
+          content_digest: DIGEST_C,
+          model_version_id: "model-v2",
+          version: "2.0.0"
+        },
+        model_artifact_reference: {
+          ...MODEL_ARTIFACT,
+          artifact_id: "artifact-v2",
+          content_digest: DIGEST_D,
+          source_ref: "artifact://model-v2"
+        },
+        qualification_id: "qualification-scope-b",
+        source_package_id: "source-scope-b"
+      }),
+      "scope-b"
+    );
+
+    expect(second.state.selections).toHaveLength(2);
+    expect(
+      resolveFutureEvidenceAdoption(second.state, {
+        adoption_digest: first.record.adoption_digest,
+        adoption_id: first.record.adoption_id,
+        course_id: COURSE_ID,
+        epoch: first.record.epoch,
+        now: "2029-01-03T00:00:00Z",
+        tenant_id: TENANT_ID
+      })
+    ).toEqual(first.record);
+    expect(
+      resolveFutureEvidenceAdoption(second.state, {
+        adoption_digest: second.record.adoption_digest,
+        adoption_id: second.record.adoption_id,
+        course_id: COURSE_ID,
+        epoch: second.record.epoch,
+        now: "2029-01-03T00:00:00Z",
+        tenant_id: TENANT_ID
+      })
+    ).toEqual(second.record);
+  });
+
+  it("reuses review and disposition across changed-now retries and rejects all intent conflicts", () => {
+    const requested = request(
+      emptyEvidenceAdoptionState(TENANT_ID, COURSE_ID),
+      "retry-review-dispose-request",
+      epoch()
+    );
+    const reviewInput = {
+      decision: "APPROVED" as const,
+      note: "retry-safe review",
+      proposal_digest: requested.receipt.proposal_digest,
+      proposal_id: requested.receipt.proposal_id
+    };
+    const reviewed = reviewEvidenceAdoption(
+      requested.state,
+      context("retry-review", "2029-01-01T00:01:00Z"),
+      reviewInput
+    );
+    const reviewRetry = reviewEvidenceAdoption(
+      reviewed.state,
+      context("retry-review", "2029-01-02T00:01:00Z"),
+      reviewInput
+    );
+    expect(reviewRetry.reused).toBe(true);
+    expect(reviewRetry.receipt).toEqual(reviewed.receipt);
+    expect(reviewRetry.receipt.reviewed_at).toBe("2029-01-01T00:01:00Z");
+
+    expectEvidenceError(
+      () =>
+        reviewEvidenceAdoption(
+          reviewed.state,
+          context("retry-review", "2029-01-02T00:02:00Z", { actor_id: "other-teacher" }),
+          reviewInput
+        ),
+      "EVIDENCE_ADOPTION_IDEMPOTENCY_CONFLICT"
+    );
+    expectEvidenceError(
+      () =>
+        reviewEvidenceAdoption(reviewed.state, context("retry-review", "2029-01-02T00:02:00Z"), {
+          ...reviewInput,
+          note: "changed payload"
+        }),
+      "EVIDENCE_ADOPTION_IDEMPOTENCY_CONFLICT"
+    );
+    expectEvidenceError(
+      () =>
+        requestEvidenceAdoption(reviewed.state, context("retry-review", "2029-01-02T00:02:00Z"), {
+          epoch: requested.receipt.epoch,
+          expected_adoption: null
+        }),
+      "EVIDENCE_ADOPTION_IDEMPOTENCY_CONFLICT"
+    );
+
+    const disposeInput = {
+      disposition: "ADOPTED_FOR_FUTURE_ADMISSION" as const,
+      expires_at: null,
+      note: "retry-safe adoption",
+      proposal_digest: requested.receipt.proposal_digest,
+      proposal_id: requested.receipt.proposal_id
+    };
+    const disposed = disposeEvidenceAdoption(
+      reviewed.state,
+      context("retry-dispose", "2029-01-01T00:02:00Z", { role: "tenant_admin" }),
+      disposeInput
+    );
+    const disposeRetry = disposeEvidenceAdoption(
+      disposed.state,
+      context("retry-dispose", "2029-01-02T00:02:00Z", { role: "tenant_admin" }),
+      disposeInput
+    );
+    expect(disposeRetry.reused).toBe(true);
+    expect(disposeRetry.receipt).toEqual(disposed.receipt);
+    expect(disposeRetry.receipt.decided_at).toBe("2029-01-01T00:02:00Z");
+
+    expectEvidenceError(
+      () =>
+        disposeEvidenceAdoption(
+          disposed.state,
+          context("retry-dispose", "2029-01-02T00:03:00Z", {
+            actor_id: "other-admin",
+            role: "tenant_admin"
+          }),
+          disposeInput
+        ),
+      "EVIDENCE_ADOPTION_IDEMPOTENCY_CONFLICT"
+    );
+    expectEvidenceError(
+      () =>
+        disposeEvidenceAdoption(disposed.state, context("retry-dispose", "2029-01-02T00:03:00Z"), {
+          ...disposeInput,
+          note: "changed payload"
+        }),
+      "EVIDENCE_ADOPTION_IDEMPOTENCY_CONFLICT"
+    );
+    expectEvidenceError(
+      () =>
+        reviewEvidenceAdoption(disposed.state, context("retry-dispose", "2029-01-02T00:03:00Z"), {
+          ...reviewInput
+        }),
+      "EVIDENCE_ADOPTION_IDEMPOTENCY_CONFLICT"
+    );
+  });
+
+  it("does not mutate caller state, context, epoch, review, or disposition inputs", () => {
+    const initial = emptyEvidenceAdoptionState(TENANT_ID, COURSE_ID);
+    const requestedEpoch = epoch();
+    const requestContext = context("immutability-request");
+    const requestInput = { epoch: requestedEpoch, expected_adoption: null };
+    const initialSnapshot = JSON.stringify(initial);
+    const requestContextSnapshot = JSON.stringify(requestContext);
+    const requestInputSnapshot = JSON.stringify(requestInput);
+    const requested = requestEvidenceAdoption(initial, requestContext, requestInput);
+
+    expect(JSON.stringify(initial)).toBe(initialSnapshot);
+    expect(JSON.stringify(requestContext)).toBe(requestContextSnapshot);
+    expect(JSON.stringify(requestInput)).toBe(requestInputSnapshot);
+
+    const reviewContext = context("immutability-review", "2029-01-01T00:01:00Z");
+    const reviewInput = {
+      decision: "APPROVED" as const,
+      note: "immutable review",
+      proposal_digest: requested.receipt.proposal_digest,
+      proposal_id: requested.receipt.proposal_id
+    };
+    const reviewContextSnapshot = JSON.stringify(reviewContext);
+    const reviewInputSnapshot = JSON.stringify(reviewInput);
+    const reviewed = reviewEvidenceAdoption(requested.state, reviewContext, reviewInput);
+
+    expect(JSON.stringify(reviewContext)).toBe(reviewContextSnapshot);
+    expect(JSON.stringify(reviewInput)).toBe(reviewInputSnapshot);
+
+    const disposeContext = context("immutability-dispose", "2029-01-01T00:02:00Z", {
+      role: "tenant_admin"
+    });
+    const disposeInput = {
+      disposition: "ADOPTED_FOR_FUTURE_ADMISSION" as const,
+      expires_at: null,
+      note: "immutable disposition",
+      proposal_digest: requested.receipt.proposal_digest,
+      proposal_id: requested.receipt.proposal_id
+    };
+    const disposeContextSnapshot = JSON.stringify(disposeContext);
+    const disposeInputSnapshot = JSON.stringify(disposeInput);
+    disposeEvidenceAdoption(reviewed.state, disposeContext, disposeInput);
+
+    expect(JSON.stringify(disposeContext)).toBe(disposeContextSnapshot);
+    expect(JSON.stringify(disposeInput)).toBe(disposeInputSnapshot);
+  });
+
+  it("resolves expired historical A after B while current resolution follows B", () => {
+    const first = adopt(
+      emptyEvidenceAdoptionState(TENANT_ID, COURSE_ID),
+      epoch({ source_expires_at: "2029-01-02T00:00:00Z" }),
+      "historical-a",
+      null,
+      { adoptedAt: "2029-01-01T00:00:00Z", expires_at: "2029-01-02T00:00:00Z" }
+    );
+    const second = adopt(
+      first.state,
+      epoch({
+        qualification_id: "qualification-historical-b",
+        source_package_id: "source-historical-b"
+      }),
+      "historical-b",
+      { adoption_id: first.record.adoption_id, adoption_digest: first.record.adoption_digest },
+      { adoptedAt: "2029-01-03T00:00:00Z" }
+    );
+
+    expectEvidenceError(
+      () =>
+        resolveFutureEvidenceAdoption(second.state, {
+          adoption_digest: first.record.adoption_digest,
+          adoption_id: first.record.adoption_id,
+          course_id: COURSE_ID,
+          epoch: first.record.epoch,
+          now: "2029-02-01T00:00:00Z",
+          tenant_id: TENANT_ID
+        }),
+      "EVIDENCE_ADOPTION_NOT_CURRENT"
+    );
+    expect(
+      resolveHistoricalEvidenceAdoption(second.state, {
+        adoption_digest: first.record.adoption_digest,
+        adoption_id: first.record.adoption_id,
+        course_id: COURSE_ID,
+        epoch: first.record.epoch,
+        tenant_id: TENANT_ID
+      })
+    ).toEqual(first.record);
+    expect(
+      resolveFutureEvidenceAdoption(second.state, {
+        adoption_digest: second.record.adoption_digest,
+        adoption_id: second.record.adoption_id,
+        course_id: COURSE_ID,
+        epoch: second.record.epoch,
+        now: "2029-02-01T00:00:00Z",
+        tenant_id: TENANT_ID
+      })
+    ).toEqual(second.record);
   });
 });
 
