@@ -38,6 +38,8 @@ export interface EvidenceAdoptionProposal {
 
 export interface EvidenceAdoptionReview {
   readonly review_id: string;
+  /** Immutable receipt digest includes reviewed_at; retry fingerprints do not. */
+  readonly review_digest: string;
   readonly proposal_id: string;
   readonly proposal_digest: string;
   readonly decision: "APPROVED" | "REJECTED";
@@ -50,6 +52,7 @@ export interface EvidenceAdoptionRecord extends EvidenceAdoptionReference {
   readonly proposal_id: string;
   readonly proposal_digest: string;
   readonly review_id: string;
+  readonly review_digest: string;
   readonly epoch: EvidenceAdoptionEpoch;
   readonly predecessor: EvidenceAdoptionReference | null;
   readonly disposition: EvidenceAdoptionDisposition;
