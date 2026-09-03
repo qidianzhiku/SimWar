@@ -8,7 +8,7 @@ const teacherBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_TEACHER
 const studentBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_STUDENT_PORT ?? 3102}`;
 const tenantId = "tenant_demo";
 
-test.afterAll(() => cleanupPlaywrightStore());
+test.afterEach(() => cleanupPlaywrightStore());
 
 async function apiPost<TData>(
   request: APIRequestContext,
