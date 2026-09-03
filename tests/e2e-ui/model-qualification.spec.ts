@@ -144,7 +144,7 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
   });
   await expect(adminSurface).toBeVisible();
   await expect(adminSurface.getByText("MAIN_MODEL_GOVERNANCE", { exact: false })).toBeVisible();
-  await expect(adminSurface.getByText("正式真值写入", { exact: false })).toBeVisible();
+  await expect(adminSurface.getByText("正式真值写入", { exact: true })).toBeVisible();
 
   await page.goto(`${teacherBaseUrl}?courseId=course_demo`);
   await signIn(page, "teacher");
