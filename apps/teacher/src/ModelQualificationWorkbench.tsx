@@ -155,7 +155,6 @@ export function ModelQualificationWorkbench({ apiBase, courseId, tenantId, token
     Boolean(selectedModel) &&
     selection?.model_version_key === modelVersionIdentity(selectedModel!.model_version_reference);
   const hasSourcePackages = (projection?.source_packages.length ?? 0) > 0;
-  const hasCalibrationDatasets = (projection?.calibration_datasets.length ?? 0) > 0;
   const hasQualificationForEvidence = Boolean(
     selectedSource &&
     selectedDataset &&
@@ -163,6 +162,12 @@ export function ModelQualificationWorkbench({ apiBase, courseId, tenantId, token
       (qualification) =>
         qualification.source_package_id === selectedSource.source_package_id &&
         qualification.calibration_dataset_id === selectedDataset.calibration_dataset_id
+    )
+  );
+  const hasDatasetForEvidence = Boolean(
+    selectedSource &&
+    projection?.calibration_datasets.some(
+      (dataset) => dataset.source_package_id === selectedSource.source_package_id
     )
   );
   const requalificationPreviews = projection?.requalification_previews ?? [];
@@ -259,11 +264,7 @@ export function ModelQualificationWorkbench({ apiBase, courseId, tenantId, token
             <button
               type="button"
               disabled={
-                busy ||
-                !partialSelectionSafe ||
-                !exactSourceSelected ||
-                hasCalibrationDatasets ||
-                Boolean(selectedDataset)
+                busy || !partialSelectionSafe || !exactSourceSelected || hasDatasetForEvidence
               }
               onClick={() =>
                 void mutate("/api/v1/bff/teacher/model-qualification/datasets", {
@@ -275,7 +276,7 @@ export function ModelQualificationWorkbench({ apiBase, courseId, tenantId, token
                 })
               }
             >
-              {hasCalibrationDatasets ? "数据集已登记，请选择 exact" : "创建 Calibration / Holdout"}
+              {hasDatasetForEvidence ? "当前 exact 数据集已登记" : "创建 Calibration / Holdout"}
             </button>
             <button
               type="button"

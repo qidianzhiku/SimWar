@@ -145,4 +145,67 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
   await expect(adminSurface).toBeVisible();
   await expect(adminSurface.getByText("MAIN_MODEL_GOVERNANCE", { exact: false })).toBeVisible();
   await expect(adminSurface.getByText("正式真值写入", { exact: false })).toBeVisible();
+
+  await page.goto(`${teacherBaseUrl}?courseId=course_demo`);
+  await signIn(page, "teacher");
+  const requalificationWorkbench = page.getByRole("region", {
+    name: "source-backed model qualification workbench"
+  });
+  const requalificationEvidenceReview = requalificationWorkbench.getByRole("region", {
+    name: "teacher exact model qualification evidence review"
+  });
+  await requalificationWorkbench.getByRole("button", { name: "登记候选替代来源" }).click();
+  const requalification = requalificationWorkbench.getByRole("region", {
+    name: "model qualification requalification preview"
+  });
+  await requalification.getByLabel("历史基线 SourcePackage").selectOption({ index: 1 });
+  await requalification.getByLabel("候选替代 SourcePackage").selectOption({ index: 2 });
+  await requalification.getByRole("button", { name: "生成差异与影响预览" }).click();
+  await expect(requalification.getByTestId("requalification-preview")).toBeVisible();
+
+  await requalificationEvidenceReview.getByLabel("ModelVersion").selectOption({ index: 1 });
+  await requalificationEvidenceReview.getByLabel("SourcePackage").selectOption({ index: 2 });
+  await requalificationWorkbench
+    .getByRole("button", { name: "创建 Calibration / Holdout" })
+    .click();
+  await expect(
+    requalificationWorkbench.getByRole("button", { name: /数据集已登记/ })
+  ).toBeVisible();
+  await requalificationEvidenceReview
+    .getByLabel("Calibration/Holdout Dataset")
+    .selectOption({ index: 2 });
+  await requalificationWorkbench.getByRole("button", { name: "运行确定性资格检查" }).click();
+  await expect(
+    requalificationWorkbench.getByRole("button", { name: /当前 exact 资格已登记/ })
+  ).toBeVisible();
+  await requalificationEvidenceReview.getByLabel("Qualification").selectOption({ index: 2 });
+  await requalificationWorkbench.getByRole("button", { name: "批准资格候选" }).click();
+  await expect(requalificationWorkbench.getByRole("button", { name: "已复核" })).toBeVisible();
+  await requalification.getByRole("button", { name: "批准替代证据预览" }).click();
+  await expect(requalification.getByText(/review=APPROVED/)).toBeVisible();
+  await requalificationWorkbench.getByRole("button", { name: "绑定到课程治理" }).click();
+  await expect(requalificationWorkbench.getByRole("button", { name: "已绑定课程" })).toBeVisible();
+
+  const finalTeacherProjection = await request.get(
+    `${apiBaseUrl}/api/v1/bff/teacher/model-qualification?courseId=course_demo`,
+    { headers: { authorization: `Bearer ${teacher.access_token}`, "x-tenant-id": tenantId } }
+  );
+  const finalTeacherBody = (await finalTeacherProjection.json()) as ApiEnvelope<{
+    qualifications: Array<{ binding: { status: string }; qualification_id: string }>;
+  }>;
+  const replacementQualificationId = finalTeacherBody.data.qualifications.at(-1)?.qualification_id;
+  expect(finalTeacherBody.data.qualifications.at(-1)?.binding.status).toBe("BOUND");
+  expect(replacementQualificationId).toBeTruthy();
+
+  await page.goto(
+    `${studentBaseUrl}?modelQualificationId=${encodeURIComponent(replacementQualificationId ?? "")}`
+  );
+  await signIn(page, "student");
+  const replacementStudentSurface = page.getByRole("region", {
+    name: "student role-safe model qualification explanation"
+  });
+  await expect(replacementStudentSurface).toBeVisible();
+  await expect(
+    replacementStudentSurface.getByTestId("student-requalification-status")
+  ).toContainText("ACCEPTED");
 });
