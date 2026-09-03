@@ -885,7 +885,14 @@ class PostgresCourseBlueprintBindingStore implements CourseBlueprintBindingPort 
 }
 
 class PostgresFormalCourseAuthorityBindingStore implements FormalCourseAuthorityBindingPort {
-  private readonly pending = new Map<symbol, PendingFormalCourseAuthorityBinding>();
+  private readonly pending = new Map<
+    symbol,
+    {
+      pending: PendingFormalCourseAuthorityBinding;
+      retain_for_compensation: boolean;
+      status: "pending" | "committed";
+    }
+  >();
   constructor(private readonly options: PostgresFormalPersistenceOptions) {}
 
   async append(binding: FormalCourseAuthorityBinding): Promise<void> {
@@ -902,7 +909,8 @@ class PostgresFormalCourseAuthorityBindingStore implements FormalCourseAuthority
     );
   }
   async appendPending(
-    binding: FormalCourseAuthorityBinding
+    binding: FormalCourseAuthorityBinding,
+    options: { readonly retain_for_compensation?: boolean } = {}
   ): Promise<PendingFormalCourseAuthorityBinding> {
     await this.append(binding);
     const token = Symbol("postgres-formal-course-binding-pending");
@@ -911,22 +919,48 @@ class PostgresFormalCourseAuthorityBindingStore implements FormalCourseAuthority
       tenant_id: binding.tenant_id,
       token
     });
-    this.pending.set(token, pending);
+    this.pending.set(token, {
+      pending,
+      retain_for_compensation: options.retain_for_compensation === true,
+      status: "pending"
+    });
     return pending;
   }
   commitPending(pending: PendingFormalCourseAuthorityBinding): void {
-    if (!this.pending.delete(pending.token))
-      throw new Error("formal_course_authority_binding_pending_invalid");
+    const current = this.requirePending(pending, "pending");
+    if (current.retain_for_compensation) {
+      current.status = "committed";
+      return;
+    }
+    this.pending.delete(pending.token);
   }
-  async removeUncommitted(pending: PendingFormalCourseAuthorityBinding): Promise<void> {
-    if (!this.pending.delete(pending.token))
-      throw new Error("formal_course_authority_binding_pending_invalid");
+  finalizePending(pending: PendingFormalCourseAuthorityBinding): void {
+    const current = this.requirePending(pending, "committed");
+    if (!current.retain_for_compensation)
+      throw new Error("formal_course_authority_binding_pending_finalize_invalid");
+    this.pending.delete(pending.token);
+  }
+  async rollbackPending(pending: PendingFormalCourseAuthorityBinding): Promise<void> {
+    const current = this.requirePending(pending);
+    if (!current.retain_for_compensation)
+      throw new Error("formal_course_authority_binding_pending_rollback_invalid");
     await deleteRecord(this.options.queryExecutor, {
       tenantId: pending.tenant_id,
       authorityType: "formal_course_binding",
       recordKind: "binding",
       recordId: pending.course_id
     });
+    this.pending.delete(pending.token);
+  }
+  async removeUncommitted(pending: PendingFormalCourseAuthorityBinding): Promise<void> {
+    this.requirePending(pending, "pending");
+    await deleteRecord(this.options.queryExecutor, {
+      tenantId: pending.tenant_id,
+      authorityType: "formal_course_binding",
+      recordKind: "binding",
+      recordId: pending.course_id
+    });
+    this.pending.delete(pending.token);
   }
   async getForCourse(
     tenantId: string,
@@ -939,6 +973,26 @@ class PostgresFormalCourseAuthorityBindingStore implements FormalCourseAuthority
       recordId: courseId
     });
     return rows.at(-1) ?? null;
+  }
+
+  private requirePending(
+    pending: PendingFormalCourseAuthorityBinding,
+    expectedStatus?: "pending" | "committed"
+  ): {
+    pending: PendingFormalCourseAuthorityBinding;
+    retain_for_compensation: boolean;
+    status: "pending" | "committed";
+  } {
+    const current = this.pending.get(pending.token);
+    if (
+      !current ||
+      current.pending.course_id !== pending.course_id ||
+      current.pending.tenant_id !== pending.tenant_id ||
+      (expectedStatus !== undefined && current.status !== expectedStatus)
+    ) {
+      throw new Error("formal_course_authority_binding_pending_invalid");
+    }
+    return current;
   }
 }
 
@@ -956,6 +1010,17 @@ class PostgresFormalRunRuntimeBindingStore implements FormalRunRuntimeBindingPor
       },
       new Error("FORMAL_RUN_BINDING_ALREADY_EXISTS")
     );
+  }
+  async removeAfterFailedCreation(binding: FormalRunRuntimeBinding): Promise<void> {
+    const current = await this.getForRun(binding.tenant_id, binding.run_id);
+    if (!current || current.binding_digest !== binding.binding_digest)
+      throw new Error("formal_run_binding_failed_creation_missing");
+    await deleteRecord(this.options.queryExecutor, {
+      tenantId: binding.tenant_id,
+      authorityType: "formal_run_binding",
+      recordKind: "binding",
+      recordId: binding.run_id
+    });
   }
   async getForRun(tenantId: string, runId: string): Promise<FormalRunRuntimeBinding | null> {
     const rows = await readPayloads<FormalRunRuntimeBinding>(this.options.queryExecutor, {

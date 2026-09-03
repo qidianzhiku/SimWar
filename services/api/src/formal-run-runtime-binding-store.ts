@@ -30,6 +30,11 @@ function deepFreeze<T>(value: T): T {
 
 export interface FormalRunRuntimeBindingPort {
   append(binding: FormalRunRuntimeBinding): void | Promise<void>;
+  /**
+   * Private compensation for a binding appended by the current failed
+   * creation command. It must never be used to rewrite historical bindings.
+   */
+  removeAfterFailedCreation?(binding: FormalRunRuntimeBinding): void | Promise<void>;
   getForRun(
     tenantId: string,
     runId: string
@@ -55,6 +60,17 @@ export class FormalRunRuntimeBindingStore implements FormalRunRuntimeBindingPort
     }
 
     this.store.formalRunRuntimeBindings.push(deepFreeze(clone(binding)));
+  }
+
+  removeAfterFailedCreation(binding: FormalRunRuntimeBinding): void {
+    const index = this.store.formalRunRuntimeBindings.findIndex(
+      (candidate) =>
+        candidate.tenant_id === binding.tenant_id &&
+        candidate.run_id === binding.run_id &&
+        candidate.binding_digest === binding.binding_digest
+    );
+    if (index < 0) throw new Error("formal_run_binding_failed_creation_missing");
+    this.store.formalRunRuntimeBindings.splice(index, 1);
   }
 
   getForRun(tenantId: string, runId: string): FormalRunRuntimeBinding | null {

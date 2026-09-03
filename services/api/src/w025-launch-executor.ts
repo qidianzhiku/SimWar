@@ -338,7 +338,9 @@ export function createW025LaunchExecutor(
                 tenant_id: input.target_tenant_id
               });
               pendingCourseBinding =
-                await dependencies.formalCourseAuthorityBindingStore.appendPending(binding);
+                await dependencies.formalCourseAuthorityBindingStore.appendPending(binding, {
+                  retain_for_compensation: true
+                });
             }
 
             let run = await dependencies.repositoryProvider.facade.runs.getRun(
@@ -380,12 +382,20 @@ export function createW025LaunchExecutor(
                 },
                 round,
                 run,
-                admission: qualifiedAdmission
+                admission: qualifiedAdmission,
+                ...(pendingCourseBinding
+                  ? {
+                      afterFormalBindingAppend: () =>
+                        dependencies.formalCourseAuthorityBindingStore.commitPending(
+                          pendingCourseBinding!
+                        )
+                    }
+                  : {})
               });
               admissionReceipt = snapshot.admission;
             }
             if (pendingCourseBinding) {
-              await dependencies.formalCourseAuthorityBindingStore.commitPending(
+              await dependencies.formalCourseAuthorityBindingStore.finalizePending(
                 pendingCourseBinding
               );
               pendingCourseBinding = undefined;
@@ -406,7 +416,7 @@ export function createW025LaunchExecutor(
           } catch (error) {
             const hadPendingBinding = pendingCourseBinding !== undefined;
             if (pendingCourseBinding)
-              await dependencies.formalCourseAuthorityBindingStore.removeUncommitted(
+              await dependencies.formalCourseAuthorityBindingStore.rollbackPending(
                 pendingCourseBinding
               );
             // Persist removal through the existing Course writer, including JSON snapshots

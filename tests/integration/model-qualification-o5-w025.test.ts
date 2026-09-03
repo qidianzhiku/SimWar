@@ -117,6 +117,28 @@ async function harness() {
 }
 
 describe("O5 W025 existing executor, without durable runtime activation", () => {
+  it.each([false, true])(
+    "leaves no partial formal state if Course finalization fails (consumed token: %s)",
+    async (consume) => {
+      const h = await harness();
+      const a = h.adopt(h.chain.qualificationA, "a-finalization", null);
+      const before = h.writes();
+      const originalCourse = structuredClone(h.store.courses);
+      const original = h.courseBindings.commitPending.bind(h.courseBindings);
+      h.courseBindings.commitPending = (pending) => {
+        if (consume) original(pending);
+        throw new Error("injected-course-finalization-failure");
+      };
+      await expect(
+        h.executor.prepareCourseRun(
+          h.input(h.chain.qualificationA, a),
+          h.launch("launch-finalize-fail")
+        )
+      ).rejects.toThrow();
+      expect(h.writes()).toBe(before);
+      expect(h.store.courses).toEqual(originalCourse);
+    }
+  );
   it("new launch consumes explicit B while retry of an existing A launch preserves original A", async () => {
     const h = await harness();
     const a = h.adopt(h.chain.qualificationA, "a", null);
@@ -163,8 +185,8 @@ describe("O5 W025 existing executor, without durable runtime activation", () => 
       h.setNow("2026-09-05T00:00:00.000Z");
     };
     const originalPending = h.courseBindings.appendPending.bind(h.courseBindings);
-    h.courseBindings.appendPending = (binding) => {
-      const token = originalPending(binding);
+    h.courseBindings.appendPending = (binding, options) => {
+      const token = originalPending(binding, options);
       h.setNow("2026-09-05T00:00:00.000Z");
       return token;
     };

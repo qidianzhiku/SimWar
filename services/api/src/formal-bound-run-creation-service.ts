@@ -29,6 +29,11 @@ export interface FormalBoundRunPersistence {
 }
 
 export interface CreateFormalBoundRunInput {
+  /**
+   * Runs after the formal binding append, while the existing writer can still
+   * compensate its Run, Round, and binding if the adjacent command fails.
+   */
+  afterFormalBindingAppend?: () => void | Promise<void>;
   authorities: FormalRunBindingAuthorityPorts;
   bindingStore: FormalRunRuntimeBindingPort;
   courseBinding: Pick<
@@ -41,6 +46,8 @@ export interface CreateFormalBoundRunInput {
 }
 
 export async function createFormalBoundRun(input: CreateFormalBoundRunInput): Promise<void> {
+  if (input.afterFormalBindingAppend && !input.bindingStore.removeAfterFailedCreation)
+    throw new Error("FORMAL_RUN_BINDING_COMPENSATION_REQUIRED");
   const binding = await createFormalRunRuntimeBinding({
     authorities: input.authorities,
     engine_reference: input.courseBinding.engine_reference,
@@ -58,19 +65,39 @@ export async function createFormalBoundRun(input: CreateFormalBoundRunInput): Pr
 
   let runPersisted = false;
   let roundPersisted = false;
+  let bindingPersisted = false;
   try {
     await input.persistence.saveRun(input.run);
     runPersisted = true;
     await input.persistence.saveRound(input.round);
     roundPersisted = true;
     await input.bindingStore.append(binding);
+    bindingPersisted = true;
+    await input.afterFormalBindingAppend?.();
   } catch (error) {
+    let compensationError: unknown;
+    if (bindingPersisted) {
+      try {
+        await input.bindingStore.removeAfterFailedCreation?.(binding);
+      } catch (rollbackError) {
+        compensationError = rollbackError;
+      }
+    }
     if (roundPersisted) {
-      await input.persistence.deleteRound(input.round.tenant_id, input.round.round_id);
+      try {
+        await input.persistence.deleteRound(input.round.tenant_id, input.round.round_id);
+      } catch (rollbackError) {
+        compensationError ??= rollbackError;
+      }
     }
     if (runPersisted) {
-      await input.persistence.deleteRun(input.run.tenant_id, input.run.run_id);
+      try {
+        await input.persistence.deleteRun(input.run.tenant_id, input.run.run_id);
+      } catch (rollbackError) {
+        compensationError ??= rollbackError;
+      }
     }
+    if (compensationError) throw new Error("FORMAL_BOUND_RUN_COMPENSATION_FAILED");
     throw error;
   }
 }

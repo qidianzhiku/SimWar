@@ -157,6 +157,41 @@ describe("formal-bound Run creation service", () => {
     expect(calls).toEqual(["save-run", "save-round", "delete-round", "delete-run"]);
   });
 
+  it("compensates Run, Round, and the exact runtime binding when adjacent finalization fails", async () => {
+    const calls: string[] = [];
+    await expect(
+      createFormalBoundRun({
+        afterFormalBindingAppend: async () => {
+          calls.push("finalize");
+          throw new Error("adjacent finalization failed");
+        },
+        authorities: createAuthorities(),
+        bindingStore: {
+          append: vi.fn(() => calls.push("append-binding")),
+          removeAfterFailedCreation: vi.fn(() => calls.push("remove-binding"))
+        },
+        courseBinding,
+        persistence: {
+          deleteRound: vi.fn(async () => calls.push("delete-round")),
+          deleteRun: vi.fn(async () => calls.push("delete-run")),
+          saveRound: vi.fn(async () => calls.push("save-round")),
+          saveRun: vi.fn(async () => calls.push("save-run"))
+        },
+        round,
+        run
+      })
+    ).rejects.toThrow("adjacent finalization failed");
+    expect(calls).toEqual([
+      "save-run",
+      "save-round",
+      "append-binding",
+      "finalize",
+      "remove-binding",
+      "delete-round",
+      "delete-run"
+    ]);
+  });
+
   it("leaves no residue when Run persistence or runtime resolution fails", async () => {
     const runWriteCalls: string[] = [];
     await expect(
