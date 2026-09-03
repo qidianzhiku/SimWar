@@ -14,6 +14,7 @@ import type {
   ScenarioPackageReference
 } from "@simwar/shared-contracts";
 import { createPostgresRuntime } from "../services/api/src/postgres-runtime.js";
+import { MODEL_QUALIFICATION_MODEL_VERSION } from "../services/api/src/model-qualification-service.js";
 import {
   calculateLaunchIdentity,
   digest as calculateDigest
@@ -221,6 +222,14 @@ function createInput(
     },
     course_blueprint_reference: target.courseBlueprintReference!,
     course_package_reference: target.coursePackageReference!,
+    qualified_run_admission: {
+      course_package_reference: target.coursePackageReference!,
+      source_package_id: "w025-source-package",
+      calibration_dataset_id: "w025-calibration-dataset",
+      qualification_id: "w025-qualification",
+      model_version_reference: MODEL_QUALIFICATION_MODEL_VERSION.model_version_reference,
+      model_artifact_reference: MODEL_QUALIFICATION_MODEL_VERSION.artifact
+    },
     course_title: courseTitle,
     source_product_merge_sha: sourceProductMergeSha,
     cohort_template_digest: calculateDigest(cohortTemplate),
