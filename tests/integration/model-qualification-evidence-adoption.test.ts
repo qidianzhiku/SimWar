@@ -152,8 +152,6 @@ describe("model qualification evidence adoption service integration", () => {
     expect(historyDeleted).toBe(false);
     const historicalReceiptRewritten = JSON.stringify(reloadedA) !== primary.originalSerializedA;
     expect(historicalReceiptRewritten).toBe(false);
-    expect(EVIDENCE_ADOPTION_AFTER_B_EXPIRES).toBe("2027-01-01T00:00:00.000Z");
-    expect(EVIDENCE_ADOPTION_NOW).toBe("2026-09-03T12:00:00.000Z");
   });
 
   it("keeps review-only state unselected and preserves A for defer, reject, and rebase", () => {
@@ -220,7 +218,15 @@ describe("model qualification evidence adoption service integration", () => {
         adoption_id: adoptedA.adoption.adoption_id,
         adoption_digest: adoptedA.adoption.adoption_digest
       });
-      expect(selectionForQualification(finalState, fixture.primary.qualificationB)).toBeUndefined();
+      const selectionForBModelScope = selectionForQualification(
+        finalState,
+        fixture.primary.qualificationB
+      );
+      expect(selectionForBModelScope).toMatchObject({
+        adoption_id: adoptedA.adoption.adoption_id,
+        adoption_digest: adoptedA.adoption.adoption_digest
+      });
+      expect(selectionForBModelScope?.adoption_id).not.toBe(disposedB.adoption.adoption_id);
     }
   });
 
@@ -228,16 +234,19 @@ describe("model qualification evidence adoption service integration", () => {
     const fixture = createEvidenceAdoptionServiceFixture();
     const adoption = asEvidenceAdoptionService(fixture.service);
 
-    expect(() =>
-      adoption.getEvidenceAdoptionState(EVIDENCE_ADOPTION_STUDENT, EVIDENCE_ADOPTION_SCOPE)
-    ).toThrow();
-    expect(() =>
-      adoption.requestEvidenceAdoption(EVIDENCE_ADOPTION_STUDENT, EVIDENCE_ADOPTION_SCOPE, {
-        command_id: "student-must-not-adopt",
-        expected_adoption: null,
-        qualification_id: fixture.primary.qualificationA.qualification_id
-      })
-    ).toThrow();
+    expectNamedServiceError(
+      () => adoption.getEvidenceAdoptionState(EVIDENCE_ADOPTION_STUDENT, EVIDENCE_ADOPTION_SCOPE),
+      /^EVIDENCE_ADOPTION_ROLE_DENIED$/
+    );
+    expectNamedServiceError(
+      () =>
+        adoption.requestEvidenceAdoption(EVIDENCE_ADOPTION_STUDENT, EVIDENCE_ADOPTION_SCOPE, {
+          command_id: "student-must-not-adopt",
+          expected_adoption: null,
+          qualification_id: fixture.primary.qualificationA.qualification_id
+        }),
+      /^EVIDENCE_ADOPTION_ROLE_DENIED$/
+    );
     expect(
       fixture.persistence.audits.some((audit) => audit.action.includes("evidence_adoption"))
     ).toBe(false);
@@ -293,13 +302,15 @@ describe("model qualification evidence adoption service integration", () => {
     expect(otherTenant.reused).toBe(false);
     expect(otherTenant.proposal.proposal_id).not.toBe(first.proposal.proposal_id);
 
-    expect(() =>
-      adoption.requestEvidenceAdoption(EVIDENCE_ADOPTION_TEACHER, EVIDENCE_ADOPTION_SCOPE, {
-        command_id,
-        expected_adoption: null,
-        qualification_id: fixture.primary.qualificationB.qualification_id
-      })
-    ).toThrow();
+    expectNamedServiceError(
+      () =>
+        adoption.requestEvidenceAdoption(EVIDENCE_ADOPTION_TEACHER, EVIDENCE_ADOPTION_SCOPE, {
+          command_id,
+          expected_adoption: null,
+          qualification_id: fixture.primary.qualificationB.qualification_id
+        }),
+      /^EVIDENCE_ADOPTION_IDEMPOTENCY_CONFLICT$/
+    );
     expect(
       adoption.getEvidenceAdoptionState(EVIDENCE_ADOPTION_TEACHER, EVIDENCE_ADOPTION_SCOPE).commands
     ).toHaveLength(1);
@@ -338,12 +349,14 @@ describe("model qualification evidence adoption service integration", () => {
     );
     expect(retriedRequest.reused).toBe(true);
     expect(retriedRequest.proposal).toEqual(requested.proposal);
-    expect(() =>
-      adoption.requestEvidenceAdoption(EVIDENCE_ADOPTION_TEACHER, chain.scope, {
-        ...requestInput,
-        qualification_id: chain.qualificationB.qualification_id
-      })
-    ).toThrow();
+    expectNamedServiceError(
+      () =>
+        adoption.requestEvidenceAdoption(EVIDENCE_ADOPTION_TEACHER, chain.scope, {
+          ...requestInput,
+          qualification_id: chain.qualificationB.qualification_id
+        }),
+      /^EVIDENCE_ADOPTION_IDEMPOTENCY_CONFLICT$/
+    );
 
     const reviewInput = {
       command_id: "service-idempotent-review",
@@ -364,12 +377,14 @@ describe("model qualification evidence adoption service integration", () => {
     );
     expect(retriedReview.reused).toBe(true);
     expect(retriedReview.review).toEqual(reviewed.review);
-    expect(() =>
-      adoption.reviewEvidenceAdoption(EVIDENCE_ADOPTION_TEACHER, chain.scope, {
-        ...reviewInput,
-        note: "Conflicting service review intent."
-      })
-    ).toThrow();
+    expectNamedServiceError(
+      () =>
+        adoption.reviewEvidenceAdoption(EVIDENCE_ADOPTION_TEACHER, chain.scope, {
+          ...reviewInput,
+          note: "Conflicting service review intent."
+        }),
+      /^EVIDENCE_ADOPTION_IDEMPOTENCY_CONFLICT$/
+    );
 
     const disposeInput = {
       command_id: "service-idempotent-dispose",
@@ -391,12 +406,14 @@ describe("model qualification evidence adoption service integration", () => {
     );
     expect(retriedDispose.reused).toBe(true);
     expect(retriedDispose.adoption).toEqual(disposed.adoption);
-    expect(() =>
-      adoption.disposeEvidenceAdoption(EVIDENCE_ADOPTION_ADMIN, chain.scope, {
-        ...disposeInput,
-        disposition: "REJECTED_CANDIDATE"
-      })
-    ).toThrow();
+    expectNamedServiceError(
+      () =>
+        adoption.disposeEvidenceAdoption(EVIDENCE_ADOPTION_ADMIN, chain.scope, {
+          ...disposeInput,
+          disposition: "REJECTED_CANDIDATE"
+        }),
+      /^EVIDENCE_ADOPTION_IDEMPOTENCY_CONFLICT$/
+    );
     expect(
       adoption.getEvidenceAdoptionState(EVIDENCE_ADOPTION_ADMIN, chain.scope).commands
     ).toHaveLength(3);
@@ -405,6 +422,7 @@ describe("model qualification evidence adoption service integration", () => {
   it.each([
     {
       label: "expired source",
+      errorPattern: /^EVIDENCE_ADOPTION_SOURCE_NOT_ELIGIBLE$/,
       update: (
         source: ModelQualificationRecordWithEvidenceAdoption["source_packages"][number]
       ) => ({
@@ -414,6 +432,7 @@ describe("model qualification evidence adoption service integration", () => {
     },
     {
       label: "invalid source rights",
+      errorPattern: /^EVIDENCE_ADOPTION_SOURCE_NOT_ELIGIBLE$/,
       update: (
         source: ModelQualificationRecordWithEvidenceAdoption["source_packages"][number]
       ) => ({
@@ -421,33 +440,38 @@ describe("model qualification evidence adoption service integration", () => {
         rights_status: "RESTRICTED" as const
       })
     }
-  ])("rejects $label when deriving an adoption epoch from current records", ({ update }) => {
-    const fixture = createEvidenceAdoptionServiceFixture();
-    const existingAuditCount = fixture.persistence.audits.length;
-    const altered = JSON.parse(
-      JSON.stringify(fixture.primary.record)
-    ) as ModelQualificationRecordWithEvidenceAdoption;
-    altered.source_packages = altered.source_packages.map((source) =>
-      source.source_package_id === fixture.primary.sourceA.source_package_id
-        ? update(source)
-        : source
-    );
-    fixture.persistence.replaceRecord(altered);
-    const reloadedService = new ModelQualificationService(
-      createEvidenceAdoptionClock(),
-      fixture.persistence
-    );
-    const adoption = asEvidenceAdoptionService(reloadedService);
+  ])(
+    "rejects $label when deriving an adoption epoch from current records",
+    ({ errorPattern, update }) => {
+      const fixture = createEvidenceAdoptionServiceFixture();
+      const existingAuditCount = fixture.persistence.audits.length;
+      const altered = JSON.parse(
+        JSON.stringify(fixture.primary.record)
+      ) as ModelQualificationRecordWithEvidenceAdoption;
+      altered.source_packages = altered.source_packages.map((source) =>
+        source.source_package_id === fixture.primary.sourceA.source_package_id
+          ? update(source)
+          : source
+      );
+      fixture.persistence.replaceRecord(altered);
+      const reloadedService = new ModelQualificationService(
+        createEvidenceAdoptionClock(),
+        fixture.persistence
+      );
+      const adoption = asEvidenceAdoptionService(reloadedService);
 
-    expect(() =>
-      adoption.requestEvidenceAdoption(EVIDENCE_ADOPTION_TEACHER, fixture.primary.scope, {
-        command_id: "invalid-current-evidence",
-        expected_adoption: null,
-        qualification_id: fixture.primary.qualificationA.qualification_id
-      })
-    ).toThrow();
-    expect(fixture.persistence.audits).toHaveLength(existingAuditCount);
-  });
+      expectNamedServiceError(
+        () =>
+          adoption.requestEvidenceAdoption(EVIDENCE_ADOPTION_TEACHER, fixture.primary.scope, {
+            command_id: "invalid-current-evidence",
+            expected_adoption: null,
+            qualification_id: fixture.primary.qualificationA.qualification_id
+          }),
+        errorPattern
+      );
+      expect(fixture.persistence.audits).toHaveLength(existingAuditCount);
+    }
+  );
 
   it("does not adopt a candidate while an unresolved O3 requalification preview blocks it", () => {
     const fixture = createEvidenceAdoptionServiceFixture();
@@ -462,16 +486,18 @@ describe("model qualification evidence adoption service integration", () => {
     expect(preview.preview).toMatchObject({ resolution: "PENDING", status: "REBASE_REQUIRED" });
 
     const adoption = asEvidenceAdoptionService(fixture.service);
-    expect(() =>
-      adoption.requestEvidenceAdoption(EVIDENCE_ADOPTION_TEACHER, fixture.primary.scope, {
-        command_id: "unresolved-o3-preview",
-        expected_adoption: null,
-        qualification_id: fixture.primary.qualificationB.qualification_id
-      })
-    ).toThrow();
+    expectNamedServiceError(
+      () =>
+        adoption.requestEvidenceAdoption(EVIDENCE_ADOPTION_TEACHER, fixture.primary.scope, {
+          command_id: "unresolved-o3-preview",
+          expected_adoption: null,
+          qualification_id: fixture.primary.qualificationB.qualification_id
+        }),
+      /^EVIDENCE_ADOPTION_REQUALIFICATION_UNRESOLVED$/
+    );
     expect(
-      adoption.getEvidenceAdoptionState(EVIDENCE_ADOPTION_ADMIN, fixture.primary.scope).records
-    ).toEqual([]);
+      recordForScope(fixture.persistence, fixture.primary.scope).evidence_adoption
+    ).toBeUndefined();
   });
 
   it("rejects a stale expected predecessor id or digest before creating B", () => {
@@ -479,26 +505,30 @@ describe("model qualification evidence adoption service integration", () => {
     const adoption = asEvidenceAdoptionService(fixture.service);
     const adoptedA = adoptA(fixture);
 
-    expect(() =>
-      adoption.requestEvidenceAdoption(EVIDENCE_ADOPTION_TEACHER, fixture.primary.scope, {
-        command_id: "stale-predecessor-id",
-        expected_adoption: {
-          adoption_digest: adoptedA.adoption.adoption_digest,
-          adoption_id: "adoption-not-a"
-        },
-        qualification_id: fixture.primary.qualificationB.qualification_id
-      })
-    ).toThrow();
-    expect(() =>
-      adoption.requestEvidenceAdoption(EVIDENCE_ADOPTION_TEACHER, fixture.primary.scope, {
-        command_id: "stale-predecessor-digest",
-        expected_adoption: {
-          adoption_digest: "f".repeat(64),
-          adoption_id: adoptedA.adoption.adoption_id
-        },
-        qualification_id: fixture.primary.qualificationB.qualification_id
-      })
-    ).toThrow();
+    expectNamedServiceError(
+      () =>
+        adoption.requestEvidenceAdoption(EVIDENCE_ADOPTION_TEACHER, fixture.primary.scope, {
+          command_id: "stale-predecessor-id",
+          expected_adoption: {
+            adoption_digest: adoptedA.adoption.adoption_digest,
+            adoption_id: "adoption-not-a"
+          },
+          qualification_id: fixture.primary.qualificationB.qualification_id
+        }),
+      /^EVIDENCE_ADOPTION_PREDECESSOR_CONFLICT$/
+    );
+    expectNamedServiceError(
+      () =>
+        adoption.requestEvidenceAdoption(EVIDENCE_ADOPTION_TEACHER, fixture.primary.scope, {
+          command_id: "stale-predecessor-digest",
+          expected_adoption: {
+            adoption_digest: "f".repeat(64),
+            adoption_id: adoptedA.adoption.adoption_id
+          },
+          qualification_id: fixture.primary.qualificationB.qualification_id
+        }),
+      /^EVIDENCE_ADOPTION_PREDECESSOR_CONFLICT$/
+    );
     expect(
       adoption.getEvidenceAdoptionState(EVIDENCE_ADOPTION_ADMIN, fixture.primary.scope).proposals
     ).toHaveLength(1);
@@ -568,4 +598,15 @@ function historicalQualificationSlice(
   if (!source || !dataset || !qualification)
     throw new Error("historical A chain missing after reload");
   return { dataset, qualification, source };
+}
+
+function expectNamedServiceError(action: () => unknown, codePattern: RegExp): void {
+  let thrown: unknown;
+  try {
+    action();
+  } catch (error) {
+    thrown = error;
+  }
+  expect(thrown).toBeInstanceOf(Error);
+  expect((thrown as Error).message).toMatch(codePattern);
 }

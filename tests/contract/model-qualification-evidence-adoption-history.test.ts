@@ -6,6 +6,7 @@ import type {
   ModelQualificationRecord
 } from "@simwar/shared-contracts";
 import {
+  EvidenceAdoptionError,
   createEvidenceEpoch,
   disposeEvidenceAdoption,
   emptyEvidenceAdoptionState,
@@ -57,7 +58,10 @@ describe("model qualification evidence adoption history contract", () => {
       adoption_digest: history.adoptionB.adoption_digest,
       adoption_id: history.adoptionB.adoption_id
     });
-    expect(selectionForEpoch(history.stateB, history.epochA)).toBeUndefined();
+    expect(selectionForEpoch(history.stateB, history.epochA)).toMatchObject({
+      adoption_digest: history.adoptionB.adoption_digest,
+      adoption_id: history.adoptionB.adoption_id
+    });
 
     const historyDeleted = !history.stateB.records.some(
       (record) => record.adoption_id === history.adoptionA.adoption_id
@@ -164,7 +168,12 @@ describe("model qualification evidence adoption history contract", () => {
       adoption_digest: history.adoptionA.adoption_digest,
       adoption_id: history.adoptionA.adoption_id
     });
-    expect(selectionForEpoch(disposedB.state, history.epochB)).toBeUndefined();
+    const selectionForBModelScope = selectionForEpoch(disposedB.state, history.epochB);
+    expect(selectionForBModelScope).toMatchObject({
+      adoption_digest: history.adoptionA.adoption_digest,
+      adoption_id: history.adoptionA.adoption_id
+    });
+    expect(selectionForBModelScope?.adoption_id).not.toBe(disposedB.receipt.adoption_id);
     expect(
       resolveFutureEvidenceAdoption(disposedB.state, {
         adoption_digest: history.adoptionA.adoption_digest,
@@ -205,35 +214,45 @@ describe("model qualification evidence adoption history contract", () => {
     expect(retriedRequest.receipt).toEqual(requested.receipt);
     expect(retriedRequest.state).toEqual(requested.state);
 
-    expect(() =>
-      requestEvidenceAdoption(requested.state, requestContext, {
-        epoch: epochB,
-        expected_adoption: null
-      })
-    ).toThrow();
-    expect(() =>
-      requestEvidenceAdoption(
-        requested.state,
-        {
-          ...requestContext,
-          actor_id: "teacher-foreign",
-          tenant_id: "tenant_foreign"
-        },
-        requestInput
-      )
-    ).toThrow();
-    expect(() =>
-      reviewEvidenceAdoption(
-        requested.state,
-        createEvidenceAdoptionContext(chain.scope, EVIDENCE_ADOPTION_TEACHER, "idempotent-request"),
-        {
-          decision: "APPROVED",
-          note: "Action must not change for an existing request command.",
-          proposal_digest: requested.receipt.proposal_digest,
-          proposal_id: requested.receipt.proposal_id
-        }
-      )
-    ).toThrow();
+    expectNamedEvidenceAdoptionError(
+      () =>
+        requestEvidenceAdoption(requested.state, requestContext, {
+          epoch: epochB,
+          expected_adoption: null
+        }),
+      /^EVIDENCE_ADOPTION_IDEMPOTENCY_CONFLICT$/
+    );
+    expectNamedEvidenceAdoptionError(
+      () =>
+        requestEvidenceAdoption(
+          requested.state,
+          {
+            ...requestContext,
+            actor_id: "teacher-foreign",
+            tenant_id: "tenant_foreign"
+          },
+          requestInput
+        ),
+      /^EVIDENCE_ADOPTION_SCOPE_MISMATCH$/
+    );
+    expectNamedEvidenceAdoptionError(
+      () =>
+        reviewEvidenceAdoption(
+          requested.state,
+          createEvidenceAdoptionContext(
+            chain.scope,
+            EVIDENCE_ADOPTION_TEACHER,
+            "idempotent-request"
+          ),
+          {
+            decision: "APPROVED",
+            note: "Action must not change for an existing request command.",
+            proposal_digest: requested.receipt.proposal_digest,
+            proposal_id: requested.receipt.proposal_id
+          }
+        ),
+      /^EVIDENCE_ADOPTION_IDEMPOTENCY_CONFLICT$/
+    );
 
     const reviewInput = {
       decision: "APPROVED" as const,
@@ -258,16 +277,22 @@ describe("model qualification evidence adoption history contract", () => {
     );
     expect(retriedReview.reused).toBe(true);
     expect(retriedReview.receipt).toEqual(reviewed.receipt);
-    expect(() =>
-      reviewEvidenceAdoption(
-        reviewed.state,
-        createEvidenceAdoptionContext(chain.scope, EVIDENCE_ADOPTION_TEACHER, "idempotent-review"),
-        {
-          ...reviewInput,
-          note: "Conflicting normalized review intent."
-        }
-      )
-    ).toThrow();
+    expectNamedEvidenceAdoptionError(
+      () =>
+        reviewEvidenceAdoption(
+          reviewed.state,
+          createEvidenceAdoptionContext(
+            chain.scope,
+            EVIDENCE_ADOPTION_TEACHER,
+            "idempotent-review"
+          ),
+          {
+            ...reviewInput,
+            note: "Conflicting normalized review intent."
+          }
+        ),
+      /^EVIDENCE_ADOPTION_IDEMPOTENCY_CONFLICT$/
+    );
 
     const disposeInput = {
       disposition: "ADOPTED_FOR_FUTURE_ADMISSION" as const,
@@ -293,16 +318,18 @@ describe("model qualification evidence adoption history contract", () => {
     );
     expect(retriedDispose.reused).toBe(true);
     expect(retriedDispose.receipt).toEqual(disposed.receipt);
-    expect(() =>
-      disposeEvidenceAdoption(
-        disposed.state,
-        createEvidenceAdoptionContext(chain.scope, EVIDENCE_ADOPTION_ADMIN, "idempotent-dispose"),
-        {
-          ...disposeInput,
-          disposition: "REJECTED_CANDIDATE"
-        }
-      )
-    ).toThrow();
+    expectNamedEvidenceAdoptionError(
+      () =>
+        disposeEvidenceAdoption(
+          disposed.state,
+          createEvidenceAdoptionContext(chain.scope, EVIDENCE_ADOPTION_ADMIN, "idempotent-dispose"),
+          {
+            ...disposeInput,
+            disposition: "REJECTED_CANDIDATE"
+          }
+        ),
+      /^EVIDENCE_ADOPTION_IDEMPOTENCY_CONFLICT$/
+    );
   });
 
   it("fails closed for wrong scope, adoption digest, evidence digest, exact tuple, and floating selectors", () => {
@@ -340,61 +367,99 @@ describe("model qualification evidence adoption history contract", () => {
       source_content_digest: "f".repeat(64)
     };
 
-    const invalidCurrentCases: Array<() => unknown> = [
-      () =>
-        resolveFutureEvidenceAdoption(history.stateB, {
-          ...currentInput,
-          tenant_id: "tenant_foreign"
-        }),
-      () =>
-        resolveFutureEvidenceAdoption(history.stateB, {
-          ...currentInput,
-          course_id: "course_other"
-        }),
-      () =>
-        resolveFutureEvidenceAdoption(history.stateB, {
-          ...currentInput,
-          adoption_digest: "f".repeat(64)
-        }),
-      () =>
-        resolveFutureEvidenceAdoption(history.stateB, {
-          ...currentInput,
-          epoch: tamperedDigestEpoch
-        }),
-      () =>
-        resolveFutureEvidenceAdoption(history.stateB, { ...currentInput, epoch: wrongSourceEpoch }),
-      () =>
-        resolveFutureEvidenceAdoption(history.stateB, {
-          ...currentInput,
-          epoch: wrongDatasetEpoch
-        }),
-      () =>
-        resolveFutureEvidenceAdoption(history.stateB, {
-          ...currentInput,
-          epoch: wrongQualificationEpoch
-        }),
-      () =>
-        resolveHistoricalEvidenceAdoption(history.stateB, {
-          ...historicalInput,
-          tenant_id: "tenant_foreign"
-        }),
-      () =>
-        resolveHistoricalEvidenceAdoption(history.stateB, {
-          ...historicalInput,
-          course_id: "course_other"
-        }),
-      () =>
-        resolveHistoricalEvidenceAdoption(history.stateB, {
-          ...historicalInput,
-          adoption_digest: "f".repeat(64)
-        }),
-      () =>
-        resolveHistoricalEvidenceAdoption(history.stateB, {
-          ...historicalInput,
-          epoch: wrongSourceEpoch
-        })
+    const invalidCases: Array<{ action: () => unknown; errorPattern: RegExp }> = [
+      {
+        action: () =>
+          resolveFutureEvidenceAdoption(history.stateB, {
+            ...currentInput,
+            tenant_id: "tenant_foreign"
+          }),
+        errorPattern: /^EVIDENCE_ADOPTION_SCOPE_MISMATCH$/
+      },
+      {
+        action: () =>
+          resolveFutureEvidenceAdoption(history.stateB, {
+            ...currentInput,
+            course_id: "course_other"
+          }),
+        errorPattern: /^EVIDENCE_ADOPTION_SCOPE_MISMATCH$/
+      },
+      {
+        action: () =>
+          resolveFutureEvidenceAdoption(history.stateB, {
+            ...currentInput,
+            adoption_digest: "f".repeat(64)
+          }),
+        errorPattern: /^EVIDENCE_ADOPTION_DIGEST_MISMATCH$/
+      },
+      {
+        action: () =>
+          resolveFutureEvidenceAdoption(history.stateB, {
+            ...currentInput,
+            epoch: tamperedDigestEpoch
+          }),
+        errorPattern: /^EVIDENCE_ADOPTION_EPOCH_DIGEST_MISMATCH$/
+      },
+      {
+        action: () =>
+          resolveFutureEvidenceAdoption(history.stateB, {
+            ...currentInput,
+            epoch: wrongSourceEpoch
+          }),
+        errorPattern: /^EVIDENCE_ADOPTION_EPOCH_MISMATCH$/
+      },
+      {
+        action: () =>
+          resolveFutureEvidenceAdoption(history.stateB, {
+            ...currentInput,
+            epoch: wrongDatasetEpoch
+          }),
+        errorPattern: /^EVIDENCE_ADOPTION_EPOCH_MISMATCH$/
+      },
+      {
+        action: () =>
+          resolveFutureEvidenceAdoption(history.stateB, {
+            ...currentInput,
+            epoch: wrongQualificationEpoch
+          }),
+        errorPattern: /^EVIDENCE_ADOPTION_EPOCH_MISMATCH$/
+      },
+      {
+        action: () =>
+          resolveHistoricalEvidenceAdoption(history.stateB, {
+            ...historicalInput,
+            tenant_id: "tenant_foreign"
+          }),
+        errorPattern: /^EVIDENCE_ADOPTION_SCOPE_MISMATCH$/
+      },
+      {
+        action: () =>
+          resolveHistoricalEvidenceAdoption(history.stateB, {
+            ...historicalInput,
+            course_id: "course_other"
+          }),
+        errorPattern: /^EVIDENCE_ADOPTION_SCOPE_MISMATCH$/
+      },
+      {
+        action: () =>
+          resolveHistoricalEvidenceAdoption(history.stateB, {
+            ...historicalInput,
+            adoption_digest: "f".repeat(64)
+          }),
+        errorPattern: /^EVIDENCE_ADOPTION_DIGEST_MISMATCH$/
+      },
+      {
+        action: () =>
+          resolveHistoricalEvidenceAdoption(history.stateB, {
+            ...historicalInput,
+            epoch: wrongSourceEpoch
+          }),
+        errorPattern: /^EVIDENCE_ADOPTION_EPOCH_MISMATCH$/
+      }
     ];
-    for (const invalidCase of invalidCurrentCases) expect(invalidCase).toThrow();
+    for (const invalidCase of invalidCases) {
+      expectNamedEvidenceAdoptionError(invalidCase.action, invalidCase.errorPattern);
+    }
 
     const currentSelection = selectionForEpoch(history.stateB, history.epochB);
     if (!currentSelection) throw new Error("B selection missing from adopted history fixture");
@@ -408,13 +473,19 @@ describe("model qualification evidence adoption history contract", () => {
         }
       ]
     };
-    expect(() => resolveFutureEvidenceAdoption(floatingState, currentInput)).toThrow();
+    expectNamedEvidenceAdoptionError(
+      () => resolveFutureEvidenceAdoption(floatingState, currentInput),
+      /^EVIDENCE_ADOPTION_STATE_INVALID$/
+    );
 
     const duplicateState: EvidenceAdoptionState = {
       ...history.stateB,
       selections: [...history.stateB.selections, { ...currentSelection }]
     };
-    expect(() => resolveFutureEvidenceAdoption(duplicateState, currentInput)).toThrow();
+    expectNamedEvidenceAdoptionError(
+      () => resolveFutureEvidenceAdoption(duplicateState, currentInput),
+      /^EVIDENCE_ADOPTION_STATE_INVALID$/
+    );
   });
 
   it("rejects expired or not-yet-valid current resolution but still resolves retained historical A", () => {
@@ -428,36 +499,42 @@ describe("model qualification evidence adoption history contract", () => {
     });
     expect(historicalA).toEqual(history.adoptionA);
 
-    expect(() =>
-      resolveFutureEvidenceAdoption(history.stateA, {
-        adoption_digest: history.adoptionA.adoption_digest,
-        adoption_id: history.adoptionA.adoption_id,
-        course_id: history.chain.scope.course_id,
-        epoch: history.epochA,
-        now: EVIDENCE_ADOPTION_AFTER_A_EXPIRES,
-        tenant_id: history.chain.scope.tenant_id
-      })
-    ).toThrow();
-    expect(() =>
-      resolveFutureEvidenceAdoption(history.stateB, {
-        adoption_digest: history.adoptionB.adoption_digest,
-        adoption_id: history.adoptionB.adoption_id,
-        course_id: history.chain.scope.course_id,
-        epoch: history.epochB,
-        now: EVIDENCE_ADOPTION_AFTER_B_EXPIRES,
-        tenant_id: history.chain.scope.tenant_id
-      })
-    ).toThrow();
-    expect(() =>
-      resolveFutureEvidenceAdoption(history.stateB, {
-        adoption_digest: history.adoptionB.adoption_digest,
-        adoption_id: history.adoptionB.adoption_id,
-        course_id: history.chain.scope.course_id,
-        epoch: history.epochB,
-        now: "2026-09-02T00:00:00.000Z",
-        tenant_id: history.chain.scope.tenant_id
-      })
-    ).toThrow();
+    expectNamedEvidenceAdoptionError(
+      () =>
+        resolveFutureEvidenceAdoption(history.stateA, {
+          adoption_digest: history.adoptionA.adoption_digest,
+          adoption_id: history.adoptionA.adoption_id,
+          course_id: history.chain.scope.course_id,
+          epoch: history.epochA,
+          now: EVIDENCE_ADOPTION_AFTER_A_EXPIRES,
+          tenant_id: history.chain.scope.tenant_id
+        }),
+      /^EVIDENCE_ADOPTION_EXPIRED$/
+    );
+    expectNamedEvidenceAdoptionError(
+      () =>
+        resolveFutureEvidenceAdoption(history.stateB, {
+          adoption_digest: history.adoptionB.adoption_digest,
+          adoption_id: history.adoptionB.adoption_id,
+          course_id: history.chain.scope.course_id,
+          epoch: history.epochB,
+          now: EVIDENCE_ADOPTION_AFTER_B_EXPIRES,
+          tenant_id: history.chain.scope.tenant_id
+        }),
+      /^EVIDENCE_ADOPTION_EXPIRED$/
+    );
+    expectNamedEvidenceAdoptionError(
+      () =>
+        resolveFutureEvidenceAdoption(history.stateB, {
+          adoption_digest: history.adoptionB.adoption_digest,
+          adoption_id: history.adoptionB.adoption_id,
+          course_id: history.chain.scope.course_id,
+          epoch: history.epochB,
+          now: "2026-09-02T00:00:00.000Z",
+          tenant_id: history.chain.scope.tenant_id
+        }),
+      /^EVIDENCE_ADOPTION_NOT_CURRENT$/
+    );
   });
 
   it("leaves an existing v1 qualified-run admission receipt and record unchanged", () => {
@@ -595,4 +672,15 @@ function withoutEpochDigest(epoch: EvidenceAdoptionEpoch): EvidenceAdoptionEpoch
 
 function cloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function expectNamedEvidenceAdoptionError(action: () => unknown, codePattern: RegExp): void {
+  let thrown: unknown;
+  try {
+    action();
+  } catch (error) {
+    thrown = error;
+  }
+  expect(thrown).toBeInstanceOf(EvidenceAdoptionError);
+  expect((thrown as EvidenceAdoptionError).code).toMatch(codePattern);
 }
