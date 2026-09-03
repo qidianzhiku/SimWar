@@ -1,4 +1,13 @@
-import type { FormalRunRuntimeBinding, Round, Run } from "@simwar/shared-contracts";
+import type {
+  EvidenceAdoptionReference,
+  FormalRunRuntimeBinding,
+  ModelQualificationRecord,
+  QualifiedRunAdmissionSnapshot,
+  Round,
+  Run
+} from "@simwar/shared-contracts";
+import { resolveAdoptedRunAdmission } from "./model-qualification-adopted-run-admission.js";
+import { createQualifiedRunAdmissionSnapshot } from "./qualified-run-admission-snapshot.js";
 import {
   createFormalRunRuntimeBinding,
   type FormalRunBindingAuthorityPorts
@@ -16,7 +25,7 @@ export interface FormalBoundRunPersistence {
   deleteRound(tenantId: string, roundId: string): Promise<void>;
   deleteRun(tenantId: string, runId: string): Promise<void>;
   saveRound(round: Round): Promise<void>;
-  saveRun(run: Run): Promise<void>;
+  saveRun(run: Run, admission?: QualifiedRunAdmissionSnapshot): Promise<void>;
 }
 
 export interface CreateFormalBoundRunInput {
@@ -81,6 +90,53 @@ export async function createQualifiedFormalBoundRun(
   const receipt = resolveQualifiedRunAdmission(input.admission);
   await createFormalBoundRun(input);
   return receipt;
+}
+
+export interface CreateAdoptedFormalBoundRunInput extends CreateQualifiedFormalBoundRunInput {
+  adoption: EvidenceAdoptionReference;
+  withAdmissionGuard<T>(
+    operation: (record: ModelQualificationRecord, now: () => string) => Promise<T>
+  ): Promise<T>;
+}
+
+/** O5 extends the existing Run writer, never the formal binding/hash shape. */
+export async function createAdoptedFormalBoundRun(
+  input: CreateAdoptedFormalBoundRunInput
+): Promise<QualifiedRunAdmissionSnapshot> {
+  if (!input.adoption?.adoption_id || !input.adoption.adoption_digest)
+    throw new Error("QUALIFIED_RUN_ADMISSION_ADOPTION_REQUIRED");
+  if (typeof input.withAdmissionGuard !== "function")
+    throw new Error("QUALIFIED_RUN_ADMISSION_GUARD_REQUIRED");
+  const identity = input.admission.admission;
+  if (
+    input.run.tenant_id !== identity.tenant_id ||
+    input.run.course_id !== identity.course_id ||
+    input.round.tenant_id !== input.run.tenant_id ||
+    input.round.run_id !== input.run.run_id
+  ) {
+    throw new Error("QUALIFIED_RUN_ADMISSION_SCOPE_MISMATCH");
+  }
+  return input.withAdmissionGuard(async (record, now) => {
+    const validate = () =>
+      resolveAdoptedRunAdmission(
+        { ...input.admission, qualification_record: record, now: now() },
+        input.adoption
+      );
+    validate();
+    let snapshot: QualifiedRunAdmissionSnapshot | undefined;
+    await createFormalBoundRun({
+      ...input,
+      persistence: {
+        ...input.persistence,
+        saveRun: async (run) => {
+          snapshot = createQualifiedRunAdmissionSnapshot(run, validate());
+          await input.persistence.saveRun(run, snapshot);
+        }
+      }
+    });
+    if (!snapshot) throw new Error("QUALIFIED_RUN_ADMISSION_SNAPSHOT_MISSING");
+    return snapshot;
+  });
 }
 
 export interface EnsureFormalRunRuntimeBindingInput {

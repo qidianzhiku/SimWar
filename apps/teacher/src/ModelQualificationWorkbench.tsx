@@ -215,6 +215,15 @@ export function ModelQualificationWorkbench({ apiBase, courseId, tenantId, token
         onSelectionChange={handleSelectionChange}
         projection={projection}
       />
+      {courseId && (
+        <ModelQualificationAdoptionPanel
+          apiBase={apiBase}
+          courseId={courseId}
+          tenantId={tenantId}
+          token={token}
+          role="teacher"
+        />
+      )}
       {projection ? (
         <>
           <div className="summary-grid">
@@ -466,3 +475,4 @@ export function ModelQualificationWorkbench({ apiBase, courseId, tenantId, token
 }
 
 export default ModelQualificationWorkbench;
+import { ModelQualificationAdoptionPanel } from "@simwar/ui";

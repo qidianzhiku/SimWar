@@ -24,6 +24,7 @@ export type W025LaunchHook =
   | "READY";
 
 export interface QualifiedRunAdmissionRequest {
+  readonly adoption?: { readonly adoption_id: string; readonly adoption_digest: string };
   readonly course_id: string;
   readonly course_package_reference: CoursePackageVersionReference;
   readonly source_package_id: string;
@@ -428,7 +429,9 @@ export class ValidationEnvironmentLaunchService {
       }
       if (launch.status === "BASELINE_READY") {
         const result = await executor.prepareCourseRun(input, launch);
-        const update: Partial<Omit<ValidationEnvironmentLaunch, "qualified_run_admission_receipt">> & {
+        const update: Partial<
+          Omit<ValidationEnvironmentLaunch, "qualified_run_admission_receipt">
+        > & {
           qualified_run_admission_receipt?: ValidationEnvironmentLaunchAdmissionReceipt;
         } = {
           course_id: result.course_id,
@@ -442,11 +445,7 @@ export class ValidationEnvironmentLaunchService {
         if (result.qualified_run_admission_receipt) {
           update.qualified_run_admission_receipt = result.qualified_run_admission_receipt;
         }
-        await advance(
-          "COURSE_RUN_READY",
-          update,
-          "COURSE_RUN_READY"
-        );
+        await advance("COURSE_RUN_READY", update, "COURSE_RUN_READY");
       }
       if (launch.status === "COURSE_RUN_READY") {
         const result = await executor.prepareCohort(input, launch);

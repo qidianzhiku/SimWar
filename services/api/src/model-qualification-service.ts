@@ -1,5 +1,21 @@
 import { createHash } from "node:crypto";
+import {
+  assertEvidenceAdoptionState,
+  emptyEvidenceAdoptionState,
+  requestEvidenceAdoption,
+  reviewEvidenceAdoption,
+  disposeEvidenceAdoption,
+  resolveFutureEvidenceAdoption,
+  resolveHistoricalEvidenceAdoption
+} from "./model-qualification-evidence-adoption.js";
+import { deriveEvidenceAdoptionEpoch } from "./model-qualification-adopted-run-admission.js";
 import type {
+  DisposeEvidenceAdoption,
+  EvidenceAdoptionCommandContext,
+  EvidenceAdoptionReference,
+  EvidenceAdoptionState,
+  QualifiedRunAdmissionSnapshot,
+  ReviewEvidenceAdoption,
   AuditLog,
   ModelArtifactReference,
   ModelVersionReference,
@@ -285,6 +301,7 @@ export class ModelQualificationError extends Error {
 }
 
 export class ModelQualificationService {
+  private readonly admissionGuards = new Set<string>();
   readonly modelCatalog = [clone(MODEL_QUALIFICATION_MODEL_VERSION)] as const;
   private readonly clock: ModelQualificationClock;
   private readonly persistence: ModelQualificationPersistence | undefined;
@@ -321,6 +338,255 @@ export class ModelQualificationService {
     return record ? clone(record) : null;
   }
 
+  private adoptionContext(
+    actor: ModelQualificationActor,
+    scope: ModelQualificationScope,
+    commandId: string
+  ): EvidenceAdoptionCommandContext {
+    this.assertScope(actor, scope);
+    if (actor.role !== "teacher" && actor.role !== "tenant_admin")
+      throw new Error("EVIDENCE_ADOPTION_ROLE_DENIED");
+    return {
+      tenant_id: scope.tenant_id,
+      course_id: scope.course_id,
+      actor_id: actor.actor_id,
+      role: actor.role,
+      command_id: commandId,
+      now: this.clock.now()
+    };
+  }
+
+  getEvidenceAdoptionState(
+    actor: ModelQualificationActor,
+    scope: ModelQualificationScope
+  ): EvidenceAdoptionState {
+    this.adoptionContext(actor, scope, "read");
+    const record = this.recordOrEmpty(scope);
+    if (record.tenant_id !== scope.tenant_id || record.course_id !== scope.course_id)
+      throw new Error("EVIDENCE_ADOPTION_SCOPE_MISMATCH");
+    return this.validatedAdoptionState(record, scope);
+  }
+
+  private validatedAdoptionState(
+    record: ModelQualificationRecord,
+    scope: ModelQualificationScope
+  ): EvidenceAdoptionState {
+    const state =
+      record.evidence_adoption ?? emptyEvidenceAdoptionState(scope.tenant_id, scope.course_id);
+    if (state.tenant_id !== scope.tenant_id || state.course_id !== scope.course_id)
+      throw new Error("EVIDENCE_ADOPTION_SCOPE_MISMATCH");
+    assertEvidenceAdoptionState(state);
+    return clone(state);
+  }
+
+  requestEvidenceAdoption(
+    actor: ModelQualificationActor,
+    scope: ModelQualificationScope,
+    input: {
+      command_id: string;
+      qualification_id: string;
+      expected_adoption: EvidenceAdoptionReference | null;
+    }
+  ) {
+    const context = this.adoptionContext(actor, scope, input.command_id);
+    const state = this.getEvidenceAdoptionState(actor, scope);
+    const record = this.mutableRecord(scope);
+    const retry = state.commands.some((item) => item.command_id === input.command_id);
+    const epoch = deriveEvidenceAdoptionEpoch(
+      record,
+      input.qualification_id,
+      this.modelCatalog,
+      context.now,
+      retry
+    );
+    const result = requestEvidenceAdoption(state, context, {
+      epoch,
+      expected_adoption: input.expected_adoption
+    });
+    if (!result.reused) {
+      record.evidence_adoption = result.state;
+      this.commit(
+        record,
+        actor,
+        "model_qualification.adoption_request",
+        result.receipt.proposal_id
+      );
+    }
+    return { proposal: result.receipt, reused: result.reused };
+  }
+
+  reviewEvidenceAdoption(
+    actor: ModelQualificationActor,
+    scope: ModelQualificationScope,
+    input: ReviewEvidenceAdoption & { command_id: string }
+  ) {
+    const context = this.adoptionContext(actor, scope, input.command_id);
+    const intent: ReviewEvidenceAdoption = {
+      proposal_id: input.proposal_id,
+      proposal_digest: input.proposal_digest,
+      decision: input.decision,
+      note: input.note
+    };
+    const result = reviewEvidenceAdoption(
+      this.getEvidenceAdoptionState(actor, scope),
+      context,
+      intent
+    );
+    if (!result.reused) {
+      const record = this.mutableRecord(scope);
+      record.evidence_adoption = result.state;
+      this.commit(record, actor, "model_qualification.adoption_review", result.receipt.review_id);
+    }
+    return { review: result.receipt, reused: result.reused };
+  }
+
+  disposeEvidenceAdoption(
+    actor: ModelQualificationActor,
+    scope: ModelQualificationScope,
+    input: DisposeEvidenceAdoption & { command_id: string }
+  ) {
+    const context = this.adoptionContext(actor, scope, input.command_id);
+    const state = this.getEvidenceAdoptionState(actor, scope);
+    if (
+      input.disposition === "ADOPTED_FOR_FUTURE_ADMISSION" &&
+      !state.commands.some((item) => item.command_id === input.command_id)
+    ) {
+      const matches = state.proposals.filter(
+        (item) =>
+          item.proposal_id === input.proposal_id && item.proposal_digest === input.proposal_digest
+      );
+      if (matches.length !== 1) throw new Error("EVIDENCE_ADOPTION_EXACT_PROPOSAL_REQUIRED");
+      const epoch = deriveEvidenceAdoptionEpoch(
+        this.recordOrEmpty(scope),
+        matches[0]!.epoch.qualification_id,
+        this.modelCatalog,
+        context.now
+      );
+      if (stable(epoch) !== stable(matches[0]!.epoch))
+        throw new Error("EVIDENCE_ADOPTION_REBASE_REQUIRED");
+    }
+    const intent: DisposeEvidenceAdoption = {
+      proposal_id: input.proposal_id,
+      proposal_digest: input.proposal_digest,
+      disposition: input.disposition,
+      expires_at: input.expires_at,
+      note: input.note
+    };
+    const result = disposeEvidenceAdoption(state, context, intent);
+    if (!result.reused) {
+      const record = this.mutableRecord(scope);
+      record.evidence_adoption = result.state;
+      this.commit(
+        record,
+        actor,
+        "model_qualification.adoption_disposition",
+        result.receipt.adoption_id
+      );
+    }
+    return { adoption: result.receipt, reused: result.reused };
+  }
+
+  /** Process-local guard for the existing JSON authority; not a durable runtime claim. */
+  async withEvidenceAdmission<T>(
+    actor: ModelQualificationActor,
+    scope: ModelQualificationScope,
+    operation: (record: ModelQualificationRecord, now: () => string) => Promise<T>
+  ): Promise<T> {
+    this.adoptionContext(actor, scope, "admit");
+    const key = this.key(scope.tenant_id, scope.course_id);
+    if (this.admissionGuards.has(key)) throw new Error("EVIDENCE_ADOPTION_ADMISSION_IN_PROGRESS");
+    const record = this.getRecordForScope(scope);
+    if (!record) throw new Error("EVIDENCE_ADOPTION_EXACT_SOURCE_REQUIRED");
+    this.admissionGuards.add(key);
+    try {
+      return await operation(record, () => this.clock.now());
+    } finally {
+      this.admissionGuards.delete(key);
+    }
+  }
+
+  resolveHistoricalAdmission(
+    actor: ModelQualificationActor,
+    scope: ModelQualificationScope,
+    snapshot: QualifiedRunAdmissionSnapshot
+  ) {
+    const state = this.getEvidenceAdoptionState(actor, scope);
+    if (snapshot.tenant_id !== scope.tenant_id || snapshot.course_id !== scope.course_id)
+      throw new Error("EVIDENCE_ADOPTION_SCOPE_MISMATCH");
+    const epoch = deriveEvidenceAdoptionEpoch(
+      this.recordOrEmpty(scope),
+      snapshot.admission.qualification_id,
+      this.modelCatalog,
+      this.clock.now(),
+      true
+    );
+    if (stable(epoch) !== stable(snapshot.admission.evidence_epoch))
+      throw new Error("HISTORICAL_REFERENCE_UNAVAILABLE");
+    resolveHistoricalEvidenceAdoption(state, {
+      tenant_id: scope.tenant_id,
+      course_id: scope.course_id,
+      ...snapshot.admission.adoption,
+      epoch
+    });
+    return clone(snapshot);
+  }
+
+  private studentAdoption(
+    scope: ModelQualificationScope,
+    qualificationId: string
+  ): ModelQualificationStudentProjection["adoption"] {
+    const record = this.recordOrEmpty(scope),
+      state = record.evidence_adoption;
+    if (!state) return undefined;
+    let applicability: NonNullable<
+      ModelQualificationStudentProjection["adoption"]
+    >["applicability"] = "NOT_ADOPTED";
+    try {
+      const historical = state.records.filter(
+        (item) =>
+          item.epoch.qualification_id === qualificationId &&
+          item.disposition === "ADOPTED_FOR_FUTURE_ADMISSION"
+      );
+      if (historical.length > 0) applicability = "HISTORICAL_ONLY";
+      const current = historical.filter((item) =>
+        state.selections.some(
+          (selection) =>
+            selection.adoption_id === item.adoption_id &&
+            selection.adoption_digest === item.adoption_digest
+        )
+      );
+      if (current.length > 1) throw new Error("ambiguous adoption");
+      if (current.length === 1) {
+        const epoch = deriveEvidenceAdoptionEpoch(
+          record,
+          qualificationId,
+          this.modelCatalog,
+          this.clock.now()
+        );
+        resolveFutureEvidenceAdoption(state, {
+          tenant_id: scope.tenant_id,
+          course_id: scope.course_id,
+          adoption_id: current[0]!.adoption_id,
+          adoption_digest: current[0]!.adoption_digest,
+          epoch,
+          now: this.clock.now()
+        });
+        applicability = "ADOPTED_FOR_FUTURE_ADMISSION";
+      }
+    } catch {
+      applicability = "UNAVAILABLE";
+    }
+    return {
+      applicability,
+      historical_non_overwrite: true,
+      provider: "OFF",
+      official_truth_write: false,
+      known_limits: [
+        "Adoption governs future admission only, never historical Run identity or official truth."
+      ]
+    };
+  }
+
   getTeacherProjection(
     actor: ModelQualificationActor,
     scope: ModelQualificationScope
@@ -329,6 +595,9 @@ export class ModelQualificationService {
     const record = this.recordOrEmpty(scope);
     return {
       calibration_datasets: clone(record.calibration_datasets),
+      ...(record.evidence_adoption
+        ? { evidence_adoption: this.validatedAdoptionState(record, scope) }
+        : {}),
       known_limits: [...DEFAULT_MODEL_QUALIFICATION_LIMITS],
       model_catalog: clone(this.modelCatalog),
       operation_id: "MODEL_QUALIFICATION_TEACHER_STUDIO_GET_V1",
@@ -381,9 +650,11 @@ export class ModelQualificationService {
           item.change_set.candidate.source_package_id === qualification.source_package_id
       )
       .sort((left, right) => right.updated_at.localeCompare(left.updated_at))[0];
+    const adoption = this.studentAdoption(scope, qualificationId);
     return {
       known_limits: [...DEFAULT_MODEL_QUALIFICATION_LIMITS],
       operation_id: "MODEL_QUALIFICATION_STUDENT_PROJECTION_GET_V1",
+      ...(adoption ? { adoption } : {}),
       qualification: {
         binding_status: qualification.binding.status,
         decision: qualification.decision,
@@ -649,10 +920,7 @@ export class ModelQualificationService {
     }
   ): { preview: ModelQualificationRequalificationPreview } {
     this.assertScope(actor, scope);
-    if (
-      !input.baseline_source_package_id ||
-      !input.candidate_source_package_id
-    ) {
+    if (!input.baseline_source_package_id || !input.candidate_source_package_id) {
       throw new ModelQualificationError("MODEL_QUALIFICATION_REQUALIFICATION_INVALID");
     }
     if (input.baseline_source_package_id === input.candidate_source_package_id) {
@@ -761,7 +1029,7 @@ export class ModelQualificationService {
   }
 
   private key(tenantId: string, courseId: string): string {
-    return `${tenantId}:${courseId}`;
+    return JSON.stringify([tenantId, courseId]);
   }
 
   private recordOrEmpty(scope: ModelQualificationScope): ModelQualificationRecord {
@@ -836,6 +1104,8 @@ export class ModelQualificationService {
     action: string,
     resourceId: string
   ): void {
+    if (this.admissionGuards.has(this.key(record.tenant_id, record.course_id)))
+      throw new Error("EVIDENCE_ADOPTION_ADMISSION_IN_PROGRESS");
     const audit: AuditLog = {
       action,
       actor_id: actor.actor_id,

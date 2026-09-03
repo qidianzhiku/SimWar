@@ -34,12 +34,43 @@ function requiredString(value: unknown): string {
   return value;
 }
 
-function parseQualifiedRunAdmission(value: unknown): QualifiedRunAdmissionRequest {
+export function parseQualifiedRunAdmission(value: unknown): QualifiedRunAdmissionRequest {
   const root = object(value);
   const coursePackage = object(root.course_package_reference);
   const modelVersion = object(root.model_version_reference);
   const modelArtifact = object(root.model_artifact_reference);
+  if (root.adoption !== undefined) {
+    const exactKeys = (input: Record<string, unknown>, keys: readonly string[]) => {
+      if (
+        Object.keys(input).length !== keys.length ||
+        keys.some((key) => !Object.hasOwn(input, key))
+      )
+        throw new ValidationEnvironmentLaunchError("W025_INPUT_INVALID");
+    };
+    exactKeys(root, [
+      "course_id",
+      "course_package_reference",
+      "source_package_id",
+      "calibration_dataset_id",
+      "qualification_id",
+      "model_version_reference",
+      "model_artifact_reference",
+      "adoption"
+    ]);
+    exactKeys(coursePackage, ["content_digest", "course_package_id", "tenant_id", "version"]);
+    exactKeys(modelVersion, ["content_digest", "model_version_id", "version"]);
+    exactKeys(modelArtifact, ["artifact_id", "content_digest", "format", "source_ref"]);
+    exactKeys(object(root.adoption), ["adoption_id", "adoption_digest"]);
+  }
   return {
+    ...(root.adoption === undefined
+      ? {}
+      : {
+          adoption: {
+            adoption_id: requiredString(object(root.adoption).adoption_id),
+            adoption_digest: requiredString(object(root.adoption).adoption_digest)
+          }
+        }),
     course_id: requiredString(root.course_id),
     course_package_reference: {
       content_digest: requiredString(coursePackage.content_digest),

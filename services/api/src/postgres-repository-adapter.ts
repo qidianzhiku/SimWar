@@ -7,6 +7,11 @@
  */
 
 import { randomUUID } from "node:crypto";
+import {
+  assertQualifiedRunAdmissionSnapshot,
+  preserveQualifiedRunAdmissionSnapshot,
+  type StoredQualifiedRun
+} from "./qualified-run-admission-snapshot.js";
 import type {
   AuditLog,
   Course,
@@ -1925,7 +1930,34 @@ export function createPostgresRepositoryPorts(
     runs: {
       getRun: adapter.runs.getRun,
       listRunsForCourse: adapter.runs.listRunsForCourse,
-      saveRun: (run: Run) => saveRunWithExecutor(adapter, run),
+      async getQualifiedRunAdmission(tenantId, runId) {
+        const row = await adapter.queryOne<{ payload: StoredQualifiedRun }>(
+          "SELECT payload FROM simulation_runs WHERE tenant_id = $1 AND run_id = $2",
+          [tenantId, runId]
+        );
+        if (!row?.payload?.qualified_admission_snapshot) return null;
+        const run = await adapter.runs.getRun(tenantId, runId);
+        if (!run) return null;
+        assertQualifiedRunAdmissionSnapshot(run, row.payload.qualified_admission_snapshot);
+        return structuredClone(row.payload.qualified_admission_snapshot);
+      },
+      saveRun: (run, admission) =>
+        transactionExecutor(async (executor) => {
+          // Serialize the existing Run payload update; no separate receipt store.
+          await executor("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+            JSON.stringify([run.tenant_id, run.run_id])
+          ]);
+          const rows = await executor<{ payload: StoredQualifiedRun }>(
+            "SELECT payload FROM simulation_runs WHERE tenant_id = $1 AND run_id = $2 FOR UPDATE",
+            [run.tenant_id, run.run_id]
+          );
+          const previous = rows.rows[0]?.payload;
+          await saveRunWithExecutor(
+            adapter,
+            preserveQualifiedRunAdmissionSnapshot(run, previous, admission),
+            executor
+          );
+        }),
       deleteRun: (tenantId: string, runId: string) =>
         adapter
           .execute("DELETE FROM simulation_runs WHERE tenant_id = $1 AND run_id = $2", [
