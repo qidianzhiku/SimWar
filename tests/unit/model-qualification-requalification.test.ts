@@ -40,12 +40,12 @@ const sourceInput = {
   evidence_refs: ["source-license", "source-provenance"]
 };
 
-function service() {
-  return new ModelQualificationService({ now: () => "2026-09-02T01:40:00.000Z" });
+function service(now: string | (() => string) = "2026-09-02T01:40:00.000Z") {
+  return new ModelQualificationService({ now: typeof now === "function" ? now : () => now });
 }
 
-function baselineQualification() {
-  const governed = service();
+function baselineQualification(now?: string | (() => string)) {
+  const governed = service(now);
   const baseline = governed.registerSourcePackage(teacher, scope, sourceInput).source_package;
   const dataset = governed.createCalibrationDataset(teacher, scope, {
     source_package_id: baseline.source_package_id,
@@ -219,5 +219,112 @@ describe("ModelQualification evidence requalification lifecycle", () => {
     expect(() =>
       governed.bindQualification(teacher, scope, qualification.qualification_id)
     ).toThrow(new ModelQualificationError("MODEL_QUALIFICATION_REVIEW_REQUIRED"));
+  });
+
+  it("fails closed when an older preview for the same candidate remains unresolved", () => {
+    let now = "2026-09-02T01:40:00.000Z";
+    const { governed, baseline, qualification } = baselineQualification(() => now);
+    const secondBaseline = governed.registerSourcePackage(teacher, scope, {
+      ...sourceInput,
+      content_digest: digest("2"),
+      feature_schema_digest: digest("f"),
+      source_version: "2026.08-second-baseline"
+    }).source_package;
+    const secondDataset = governed.createCalibrationDataset(teacher, scope, {
+      source_package_id: secondBaseline.source_package_id,
+      content_digest: digest("3"),
+      calibration_record_ids: ["second-r1"],
+      holdout_record_ids: ["second-h1"]
+    }).calibration_dataset;
+    governed.runQualification(teacher, scope, {
+      source_package_id: secondBaseline.source_package_id,
+      calibration_dataset_id: secondDataset.calibration_dataset_id,
+      model_version_reference: MODEL_QUALIFICATION_MODEL_VERSION.model_version_reference,
+      deterministic_seed: 42
+    });
+    const candidate = governed.registerSourcePackage(teacher, scope, {
+      ...sourceInput,
+      content_digest: digest("4"),
+      source_version: "2026.09-candidate"
+    }).source_package;
+
+    const rebasePreview = governed.createRequalificationPreview(teacher, scope, {
+      baseline_source_package_id: secondBaseline.source_package_id,
+      candidate_source_package_id: candidate.source_package_id
+    }).preview;
+    expect(rebasePreview.status).toBe("REBASE_REQUIRED");
+    now = "2026-09-02T01:41:00.000Z";
+    const approvedPreview = governed.createRequalificationPreview(teacher, scope, {
+      baseline_source_package_id: baseline.source_package_id,
+      candidate_source_package_id: candidate.source_package_id
+    }).preview;
+    expect(approvedPreview.status).toBe("REQUALIFICATION_REQUIRED");
+    governed.reviewRequalificationPreview(teacher, scope, approvedPreview.preview_id, {
+      decision: "APPROVED",
+      note: "Only the compatible baseline was reviewed."
+    });
+
+    const candidateDataset = governed.createCalibrationDataset(teacher, scope, {
+      source_package_id: candidate.source_package_id,
+      content_digest: digest("5"),
+      calibration_record_ids: ["candidate-r1"],
+      holdout_record_ids: ["candidate-h1"]
+    }).calibration_dataset;
+    const candidateQualification = governed.runQualification(teacher, scope, {
+      source_package_id: candidate.source_package_id,
+      calibration_dataset_id: candidateDataset.calibration_dataset_id,
+      model_version_reference: MODEL_QUALIFICATION_MODEL_VERSION.model_version_reference,
+      deterministic_seed: 42
+    }).qualification;
+    governed.reviewQualification(teacher, scope, candidateQualification.qualification_id, {
+      decision: "APPROVED",
+      note: "Candidate qualification reviewed."
+    });
+
+    expect(() =>
+      governed.bindQualification(teacher, scope, candidateQualification.qualification_id)
+    ).toThrow(new ModelQualificationError("MODEL_QUALIFICATION_REVIEW_REQUIRED"));
+    expect(qualification.binding.status).toBe("UNBOUND");
+  });
+
+  it("rechecks candidate expiry at bind time instead of trusting an approved preview", () => {
+    let now = "2026-09-02T01:40:00.000Z";
+    const governed = new ModelQualificationService({ now: () => now });
+    const baseline = governed.registerSourcePackage(teacher, scope, sourceInput).source_package;
+    const candidate = governed.registerSourcePackage(teacher, scope, {
+      ...sourceInput,
+      content_digest: digest("6"),
+      source_version: "2026.09-expiring-candidate",
+      expires_at: "2026-09-02T02:00:00.000Z"
+    }).source_package;
+    const preview = governed.createRequalificationPreview(teacher, scope, {
+      baseline_source_package_id: baseline.source_package_id,
+      candidate_source_package_id: candidate.source_package_id
+    }).preview;
+    const dataset = governed.createCalibrationDataset(teacher, scope, {
+      source_package_id: candidate.source_package_id,
+      content_digest: digest("7"),
+      calibration_record_ids: ["expiring-r1"],
+      holdout_record_ids: ["expiring-h1"]
+    }).calibration_dataset;
+    const qualification = governed.runQualification(teacher, scope, {
+      source_package_id: candidate.source_package_id,
+      calibration_dataset_id: dataset.calibration_dataset_id,
+      model_version_reference: MODEL_QUALIFICATION_MODEL_VERSION.model_version_reference,
+      deterministic_seed: 42
+    }).qualification;
+    governed.reviewQualification(teacher, scope, qualification.qualification_id, {
+      decision: "APPROVED",
+      note: "Candidate qualification reviewed before expiry."
+    });
+    governed.reviewRequalificationPreview(teacher, scope, preview.preview_id, {
+      decision: "APPROVED",
+      note: "Candidate evidence reviewed before expiry."
+    });
+
+    now = "2026-09-02T02:01:00.000Z";
+    expect(() => governed.bindQualification(teacher, scope, qualification.qualification_id)).toThrow(
+      new ModelQualificationError("MODEL_QUALIFICATION_REVIEW_REQUIRED")
+    );
   });
 });

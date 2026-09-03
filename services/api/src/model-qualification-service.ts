@@ -277,6 +277,7 @@ export class ModelQualificationError extends Error {
       | "MODEL_QUALIFICATION_REVIEW_INVALID"
       | "MODEL_QUALIFICATION_BINDING_REQUIRED"
       | "MODEL_QUALIFICATION_REQUALIFICATION_INVALID"
+      | "MODEL_QUALIFICATION_REQUALIFICATION_CONFLICT"
   ) {
     super(code);
     this.name = "ModelQualificationError";
@@ -588,20 +589,19 @@ export class ModelQualificationService {
     if (current.decision !== "APPROVED" || current.review.status !== "APPROVED") {
       throw new ModelQualificationError("MODEL_QUALIFICATION_REVIEW_REQUIRED");
     }
-    const requalificationPreview = [...(record.requalification_previews ?? [])]
+    const requalificationPreviews = [...(record.requalification_previews ?? [])]
       .filter(
         (item) =>
           item.change_set.candidate.source_package_id === current.source_package_id &&
           item.change_set.affected_qualification_ids.length > 0
       )
-      .sort((left, right) => right.updated_at.localeCompare(left.updated_at))[0];
-    if (
-      requalificationPreview &&
-      ((requalificationPreview.status !== "NO_CHANGE" &&
-        requalificationPreview.review.status !== "APPROVED") ||
-        requalificationPreview.status === "NOT_ELIGIBLE" ||
-        requalificationPreview.status === "REBASE_REQUIRED")
-    ) {
+      .sort((left, right) => right.updated_at.localeCompare(left.updated_at));
+    const requalificationPreview = requalificationPreviews[0];
+    if (requalificationPreviews.some((preview) => blocksCandidateBinding(preview))) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_REVIEW_REQUIRED");
+    }
+    const candidateSource = this.findSource(scope, current.source_package_id);
+    if (!candidateSource || !isSourceEligibleAt(candidateSource, this.clock.now())) {
       throw new ModelQualificationError("MODEL_QUALIFICATION_REVIEW_REQUIRED");
     }
     const next: ModelQualification = {
@@ -639,16 +639,18 @@ export class ModelQualificationService {
     this.assertScope(actor, scope);
     if (
       !input.baseline_source_package_id ||
-      !input.candidate_source_package_id ||
-      input.baseline_source_package_id === input.candidate_source_package_id
+      !input.candidate_source_package_id
     ) {
       throw new ModelQualificationError("MODEL_QUALIFICATION_REQUALIFICATION_INVALID");
+    }
+    if (input.baseline_source_package_id === input.candidate_source_package_id) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_REQUALIFICATION_CONFLICT");
     }
     const record = this.mutableRecord(scope);
     const baseline = this.findSource(scope, input.baseline_source_package_id);
     const candidate = this.findSource(scope, input.candidate_source_package_id);
     if (!baseline || !candidate) {
-      throw new ModelQualificationError("MODEL_QUALIFICATION_REQUALIFICATION_INVALID");
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SOURCE_NOT_FOUND");
     }
     const changedDimensions = evidenceChangeDimensions(baseline, candidate);
     const affectedQualificationIds = record.qualifications
@@ -930,6 +932,23 @@ function requalificationStatus(
   if (dimensions.length === 0) return "NO_CHANGE";
   if (dimensions.includes("feature_schema_digest")) return "REBASE_REQUIRED";
   return "REQUALIFICATION_REQUIRED";
+}
+
+function isSourceEligibleAt(source: ModelQualificationSourcePackage, now: string): boolean {
+  return (
+    source.rights_status === "VALID" &&
+    source.freshness_status === "FRESH" &&
+    source.quality.missingness_rate <= MAX_MISSINGNESS &&
+    source.quality.conflict_count === 0 &&
+    !(source.expires_at && Date.parse(source.expires_at) <= Date.parse(now))
+  );
+}
+
+function blocksCandidateBinding(preview: ModelQualificationRequalificationPreview): boolean {
+  if (preview.resolution === "ACCEPTED") return false;
+  if (preview.status === "NO_CHANGE") return false;
+  if (preview.status === "NOT_ELIGIBLE" || preview.status === "REBASE_REQUIRED") return true;
+  return preview.review.status !== "APPROVED";
 }
 
 export type { ModelArtifactReference };

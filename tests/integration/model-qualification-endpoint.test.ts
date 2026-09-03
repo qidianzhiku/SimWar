@@ -428,6 +428,50 @@ describe("source-backed model qualification BFF", () => {
     }
   });
 
+  it("maps missing and conflicting requalification source identities to documented statuses", async () => {
+    const { baseUrl, server } = await startServer();
+    try {
+      const teacher = await login(baseUrl, "teacher");
+      const missing = await api(
+        baseUrl,
+        "/api/v1/bff/teacher/model-qualification/requalification-previews",
+        teacher.access_token,
+        "POST",
+        {
+          baseline_source_package_id: "mq_source_missing_baseline",
+          candidate_source_package_id: "mq_source_missing_candidate",
+          course_id: "course_demo"
+        }
+      );
+      expect(missing.status).toBe(404);
+
+      const source = await api<ApiEnvelope<{ source_package: { source_package_id: string } }>>(
+        baseUrl,
+        "/api/v1/bff/teacher/model-qualification/source-packages",
+        teacher.access_token,
+        "POST",
+        sourceBody
+      );
+      const sourceId = source.body.data.source_package.source_package_id;
+      const conflicting = await api(
+        baseUrl,
+        "/api/v1/bff/teacher/model-qualification/requalification-previews",
+        teacher.access_token,
+        "POST",
+        {
+          baseline_source_package_id: sourceId,
+          candidate_source_package_id: sourceId,
+          course_id: "course_demo"
+        }
+      );
+      expect(conflicting.status).toBe(409);
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve()))
+      );
+    }
+  });
+
   it("fails closed for tenant scope and holdout leakage", async () => {
     const { baseUrl, server, store } = await startServer();
     try {

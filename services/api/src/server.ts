@@ -11631,6 +11631,8 @@ export function createApiServer(
               : error.code === "MODEL_QUALIFICATION_REVIEW_REQUIRED" ||
                   error.code === "MODEL_QUALIFICATION_BINDING_REQUIRED"
                 ? 409
+                : error.code === "MODEL_QUALIFICATION_REQUALIFICATION_CONFLICT"
+                  ? 409
                 : 422;
         sendError(response, fallbackContext, new HttpError(statusCode, error.code, error.message));
         return;

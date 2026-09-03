@@ -5912,6 +5912,7 @@ paths:
         "403": { description: Teacher or course scope denied }
         "404": { description: Baseline or candidate source package not found }
         "409": { description: Evidence scope or identity conflict }
+        "422": { description: Requalification preview input is invalid }
 
   /api/v1/bff/teacher/model-qualification/requalification-previews/{previewId}/review:
     post:
