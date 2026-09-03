@@ -1493,6 +1493,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
               formalRunBindingAuthorities,
               formalCourseBlueprints,
               coursePackageQueries,
+              modelQualification,
               courseBlueprintBindingStore:
                 options.validationEnvironmentLaunchBindings?.courseBlueprintBindingStore ??
                 courseBlueprintBindingStore,

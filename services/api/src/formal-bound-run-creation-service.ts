@@ -6,6 +6,11 @@ import {
 import type { FormalRunRuntimeBindingPort } from "./formal-run-runtime-binding-store.js";
 import { resolveFormalRuntimeInputsForActiveRun } from "./formal-runtime-input-resolver.js";
 import type { FormalCourseAuthorityBinding } from "./formal-course-authority-binding.js";
+import {
+  resolveQualifiedRunAdmission,
+  type QualifiedRunAdmissionInput,
+  type QualifiedRunAdmissionReceipt
+} from "./model-qualification-run-admission.js";
 
 export interface FormalBoundRunPersistence {
   deleteRound(tenantId: string, roundId: string): Promise<void>;
@@ -59,6 +64,23 @@ export async function createFormalBoundRun(input: CreateFormalBoundRunInput): Pr
     }
     throw error;
   }
+}
+
+export interface CreateQualifiedFormalBoundRunInput extends CreateFormalBoundRunInput {
+  admission: QualifiedRunAdmissionInput;
+}
+
+/**
+ * Admit the exact qualification/evidence chain before the existing formal Run
+ * writer path is entered. The resolver is pure and runs before saveRun,
+ * saveRound, or binding append, so a rejected candidate has no partial write.
+ */
+export async function createQualifiedFormalBoundRun(
+  input: CreateQualifiedFormalBoundRunInput
+): Promise<QualifiedRunAdmissionReceipt> {
+  const receipt = resolveQualifiedRunAdmission(input.admission);
+  await createFormalBoundRun(input);
+  return receipt;
 }
 
 export interface EnsureFormalRunRuntimeBindingInput {

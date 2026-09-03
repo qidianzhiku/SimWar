@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type {
   CoursePackageVersion,
   ModelArtifactReference,
@@ -14,15 +15,15 @@ import type {
   FormalRunBindingAuthorityPorts,
   FormalRunParameterSetAuthorityBindingRecord,
   FormalRunScenarioPackageAuthorityBindingRecord
-} from "../../../services/api/src/formal-run-runtime-binding";
-import type { QualifiedRunAdmissionInput } from "../../../services/api/src/model-qualification-run-admission";
+} from "../../services/api/src/formal-run-runtime-binding";
+import type { QualifiedRunAdmissionInput } from "../../services/api/src/model-qualification-run-admission";
 
 export const ADMISSION_FIXTURE_SCOPE = {
   tenant_id: "tenant_demo",
   course_id: "course_demo"
 } as const;
 
-const digest = (seed: string): string => `${seed}${"0".repeat(64)}`.slice(0, 64);
+const digest = (seed: string): string => createHash("sha256").update(seed).digest("hex");
 
 export const ADMISSION_FIXTURE_REFERENCES = {
   course_package: {

@@ -309,6 +309,18 @@ export class ModelQualificationService {
     }
   }
 
+  /**
+   * Read one tenant/course-scoped qualification record for an existing
+   * admission boundary. The returned value is cloned so this read cannot
+   * mutate the sole model-governance writer's in-memory authority.
+   */
+  getRecordForScope(
+    scope: Pick<ModelQualificationScope, "tenant_id" | "course_id">
+  ): ModelQualificationRecord | null {
+    const record = this.records.get(this.key(scope.tenant_id, scope.course_id));
+    return record ? clone(record) : null;
+  }
+
   getTeacherProjection(
     actor: ModelQualificationActor,
     scope: ModelQualificationScope

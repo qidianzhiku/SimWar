@@ -7780,6 +7780,39 @@ components:
           minLength: 1
           description: Optional redundant source tenant identifier. When present, it must equal source_tenant_id.
         version: { type: string, minLength: 1 }
+    QualifiedRunAdmissionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - course_package_reference
+        - source_package_id
+        - calibration_dataset_id
+        - qualification_id
+        - model_version_reference
+        - model_artifact_reference
+      properties:
+        course_package_reference:
+          $ref: "#/components/schemas/CoursePackageVersionReferenceInput"
+        source_package_id: { type: string, minLength: 1 }
+        calibration_dataset_id: { type: string, minLength: 1 }
+        qualification_id: { type: string, minLength: 1 }
+        model_version_reference:
+          type: object
+          additionalProperties: false
+          required: [model_version_id, version, content_digest]
+          properties:
+            model_version_id: { type: string, minLength: 1 }
+            version: { type: string, minLength: 1 }
+            content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        model_artifact_reference:
+          type: object
+          additionalProperties: false
+          required: [artifact_id, content_digest, format, source_ref]
+          properties:
+            artifact_id: { type: string, minLength: 1 }
+            content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+            format: { type: string, minLength: 1 }
+            source_ref: { type: string, minLength: 1 }
     ValidationEnvironmentLaunchStartRequest:
       type: object
       additionalProperties: false
@@ -7790,6 +7823,7 @@ components:
         - source_scenario_package
         - course_blueprint_reference
         - course_package_reference
+        - qualified_run_admission
         - course_title
         - source_product_merge_sha
         - cohort_template_digest
@@ -7816,6 +7850,8 @@ components:
           { $ref: "#/components/schemas/FormalCourseBlueprintReferenceInput" }
         course_package_reference:
           { $ref: "#/components/schemas/CoursePackageVersionReferenceInput" }
+        qualified_run_admission:
+          $ref: "#/components/schemas/QualifiedRunAdmissionRequest"
         course_title: { type: string, minLength: 1 }
         source_product_merge_sha: { type: string, pattern: "^[a-f0-9]{40}$" }
         cohort_template_digest: { type: string, pattern: "^[a-f0-9]{64}$" }

@@ -66,6 +66,28 @@ const input = (overrides: Record<string, unknown> = {}) =>
       version: "1.0.0",
       content_digest: digest
     },
+    qualified_run_admission: {
+      course_package_reference: {
+        course_package_id: "package-1",
+        tenant_id: "tenant-w025",
+        version: "1.0.0",
+        content_digest: digest
+      },
+      source_package_id: "source-1",
+      calibration_dataset_id: "dataset-1",
+      qualification_id: "qualification-1",
+      model_version_reference: {
+        model_version_id: "model-1",
+        version: "2.0.0",
+        content_digest: digest
+      },
+      model_artifact_reference: {
+        artifact_id: "artifact-1",
+        content_digest: digest,
+        format: "typescript-boundary",
+        source_ref: "fixture://model-artifact"
+      }
+    },
     course_title: "W025 durable validation",
     source_product_merge_sha: "b".repeat(40),
     cohort_template_digest: calculateDigest(createCohortTemplate()),
