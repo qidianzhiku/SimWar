@@ -10,6 +10,25 @@ export type ModelQualificationRightsStatus = "VALID" | "EXPIRED" | "UNKNOWN" | "
 export type ModelQualificationFreshnessStatus = "FRESH" | "STALE" | "UNKNOWN";
 export type ModelQualificationReviewStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type ModelQualificationBindingStatus = "UNBOUND" | "BOUND";
+export type ModelQualificationRequalificationStatus =
+  | "NO_CHANGE"
+  | "REQUALIFICATION_REQUIRED"
+  | "NOT_ELIGIBLE"
+  | "BLOCKED"
+  | "REBASE_REQUIRED";
+export type ModelQualificationRequalificationReviewStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type ModelQualificationRequalificationResolution = "PENDING" | "ACCEPTED" | "REJECTED";
+export type ModelQualificationEvidenceChangeDimension =
+  | "content_digest"
+  | "source_ref"
+  | "source_version"
+  | "feature_schema_digest"
+  | "observed_at"
+  | "expires_at"
+  | "rights_status"
+  | "freshness_status"
+  | "quality"
+  | "evidence_refs";
 
 export interface ModelQualificationModelCatalogEntry {
   artifact: ModelArtifactReference;
@@ -74,8 +93,55 @@ export interface ModelQualificationRecord {
   calibration_datasets: readonly ModelQualificationCalibrationDataset[];
   course_id: string;
   qualifications: readonly ModelQualification[];
+  requalification_previews?: readonly ModelQualificationRequalificationPreview[];
   source_packages: readonly ModelQualificationSourcePackage[];
   tenant_id: string;
+}
+
+export interface ModelQualificationEvidenceIdentity {
+  content_digest: string;
+  evidence_refs: readonly string[];
+  expires_at: string | null;
+  feature_schema_digest: string;
+  freshness_status: ModelQualificationFreshnessStatus;
+  observed_at: string;
+  quality: ModelQualificationSourceQuality;
+  rights_status: ModelQualificationRightsStatus;
+  source_package_id: string;
+  source_ref: string;
+  source_version: string;
+}
+
+export interface ModelQualificationEvidenceChangeSet {
+  affected_qualification_ids: readonly string[];
+  baseline: ModelQualificationEvidenceIdentity;
+  candidate: ModelQualificationEvidenceIdentity;
+  change_set_digest: string;
+  changed_dimensions: readonly ModelQualificationEvidenceChangeDimension[];
+  course_id: string;
+  generated_at: string;
+  historical_non_overwrite: true;
+  tenant_id: string;
+}
+
+export interface ModelQualificationRequalificationPreview {
+  change_set: ModelQualificationEvidenceChangeSet;
+  course_id: string;
+  created_at: string;
+  historical_non_overwrite: true;
+  known_limits: readonly string[];
+  preview_id: string;
+  reasons: readonly string[];
+  resolution: ModelQualificationRequalificationResolution;
+  review: {
+    decision_note?: string;
+    reviewed_at?: string;
+    reviewed_by?: string;
+    status: ModelQualificationRequalificationReviewStatus;
+  };
+  status: ModelQualificationRequalificationStatus;
+  tenant_id: string;
+  updated_at: string;
 }
 
 export interface ModelQualification {
@@ -116,6 +182,7 @@ export interface ModelQualificationTeacherProjection {
   model_catalog: readonly ModelQualificationModelCatalogEntry[];
   operation_id: "MODEL_QUALIFICATION_TEACHER_STUDIO_GET_V1";
   qualifications: readonly ModelQualification[];
+  requalification_previews?: readonly ModelQualificationRequalificationPreview[];
   security: {
     activity: string;
     course: string;
@@ -160,6 +227,13 @@ export interface ModelQualificationStudentProjection {
       source_version: string;
       title: string;
     };
+  };
+  requalification?: {
+    historical_non_overwrite: true;
+    known_limits: readonly string[];
+    resolution: ModelQualificationRequalificationResolution;
+    review_status: ModelQualificationRequalificationReviewStatus;
+    status: ModelQualificationRequalificationStatus;
   };
   security: {
     activity: string;

@@ -91,6 +91,128 @@
         "title": { "type": "string", "minLength": 1 }
       }
     },
+    "evidenceIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content_digest",
+        "evidence_refs",
+        "expires_at",
+        "feature_schema_digest",
+        "freshness_status",
+        "observed_at",
+        "quality",
+        "rights_status",
+        "source_package_id",
+        "source_ref",
+        "source_version"
+      ],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "evidence_refs": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "expires_at": { "type": ["string", "null"] },
+        "feature_schema_digest": { "$ref": "#/$defs/digest" },
+        "freshness_status": { "enum": ["FRESH", "STALE", "UNKNOWN"] },
+        "observed_at": { "type": "string", "minLength": 1 },
+        "quality": { "$ref": "#/$defs/quality" },
+        "rights_status": { "enum": ["VALID", "EXPIRED", "UNKNOWN", "RESTRICTED"] },
+        "source_package_id": { "type": "string", "minLength": 1 },
+        "source_ref": { "type": "string", "minLength": 1 },
+        "source_version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "evidenceChangeSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "affected_qualification_ids",
+        "baseline",
+        "candidate",
+        "change_set_digest",
+        "changed_dimensions",
+        "course_id",
+        "generated_at",
+        "historical_non_overwrite",
+        "tenant_id"
+      ],
+      "properties": {
+        "affected_qualification_ids": { "type": "array", "items": { "type": "string" } },
+        "baseline": { "$ref": "#/$defs/evidenceIdentity" },
+        "candidate": { "$ref": "#/$defs/evidenceIdentity" },
+        "change_set_digest": { "$ref": "#/$defs/digest" },
+        "changed_dimensions": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "content_digest",
+              "source_ref",
+              "source_version",
+              "feature_schema_digest",
+              "observed_at",
+              "expires_at",
+              "rights_status",
+              "freshness_status",
+              "quality",
+              "evidence_refs"
+            ]
+          }
+        },
+        "course_id": { "type": "string", "minLength": 1 },
+        "generated_at": { "type": "string", "minLength": 1 },
+        "historical_non_overwrite": { "const": true },
+        "tenant_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "requalificationPreview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "change_set",
+        "course_id",
+        "created_at",
+        "historical_non_overwrite",
+        "known_limits",
+        "preview_id",
+        "reasons",
+        "resolution",
+        "review",
+        "status",
+        "tenant_id",
+        "updated_at"
+      ],
+      "properties": {
+        "change_set": { "$ref": "#/$defs/evidenceChangeSet" },
+        "course_id": { "type": "string", "minLength": 1 },
+        "created_at": { "type": "string", "minLength": 1 },
+        "historical_non_overwrite": { "const": true },
+        "known_limits": { "type": "array", "items": { "type": "string" } },
+        "preview_id": { "type": "string", "minLength": 1 },
+        "reasons": { "type": "array", "items": { "type": "string" } },
+        "resolution": { "enum": ["PENDING", "ACCEPTED", "REJECTED"] },
+        "review": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status"],
+          "properties": {
+            "decision_note": { "type": "string" },
+            "reviewed_at": { "type": "string" },
+            "reviewed_by": { "type": "string" },
+            "status": { "enum": ["PENDING", "APPROVED", "REJECTED"] }
+          }
+        },
+        "status": {
+          "enum": [
+            "NO_CHANGE",
+            "REQUALIFICATION_REQUIRED",
+            "NOT_ELIGIBLE",
+            "BLOCKED",
+            "REBASE_REQUIRED"
+          ]
+        },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "updated_at": { "type": "string", "minLength": 1 }
+      }
+    },
     "dataset": {
       "type": "object",
       "additionalProperties": false,
@@ -258,6 +380,10 @@
         },
         "operation_id": { "const": "MODEL_QUALIFICATION_TEACHER_STUDIO_GET_V1" },
         "qualifications": { "type": "array", "items": { "$ref": "#/$defs/qualification" } },
+        "requalification_previews": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/requalificationPreview" }
+        },
         "security": { "$ref": "#/$defs/security" },
         "source_packages": { "type": "array", "items": { "$ref": "#/$defs/sourcePackage" } }
       }
@@ -303,6 +429,10 @@
         },
         "operation_id": { "const": "MODEL_QUALIFICATION_ADMIN_AUDIT_GET_V1" },
         "qualifications": { "type": "array", "items": { "$ref": "#/$defs/qualification" } },
+        "requalification_previews": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/requalificationPreview" }
+        },
         "security": { "$ref": "#/$defs/security" },
         "source_packages": { "type": "array", "items": { "$ref": "#/$defs/sourcePackage" } }
       }
@@ -364,6 +494,32 @@
                 "source_version": { "type": "string", "minLength": 1 },
                 "title": { "type": "string", "minLength": 1 }
               }
+            }
+          }
+        },
+        "requalification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "historical_non_overwrite",
+            "known_limits",
+            "resolution",
+            "review_status",
+            "status"
+          ],
+          "properties": {
+            "historical_non_overwrite": { "const": true },
+            "known_limits": { "type": "array", "items": { "type": "string" } },
+            "resolution": { "enum": ["PENDING", "ACCEPTED", "REJECTED"] },
+            "review_status": { "enum": ["PENDING", "APPROVED", "REJECTED"] },
+            "status": {
+              "enum": [
+                "NO_CHANGE",
+                "REQUALIFICATION_REQUIRED",
+                "NOT_ELIGIBLE",
+                "BLOCKED",
+                "REBASE_REQUIRED"
+              ]
             }
           }
         },

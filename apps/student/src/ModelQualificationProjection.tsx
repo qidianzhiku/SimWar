@@ -77,9 +77,22 @@ export function ModelQualificationProjection({
               <li key={item}>{item}</li>
             ))}
           </ul>
+          <section aria-label="student safe requalification status">
+            <h3>证据新鲜度与限制</h3>
+            <p data-testid="student-requalification-status">
+              requalification={projection.requalification?.status ?? "NO_CHANGE"} · review=
+              {projection.requalification?.review_status ?? "PENDING"} · resolution=
+              {projection.requalification?.resolution ?? "PENDING"}
+            </p>
+            <p className="evidence-note">
+              historical_non_overwrite=
+              {String(projection.requalification?.historical_non_overwrite ?? true)}
+              。Teacher 未完成替代证据复核前，Student 只看到当前已发布资格及已知限制。
+            </p>
+          </section>
           <p className="evidence-note">
-            仅显示来源新鲜度、权利状态、诊断摘要和解释；来源定位、模型工件与内容摘要等
-            内部字段不向 Student 暴露。
+            仅显示来源新鲜度、权利状态、诊断摘要和解释；来源定位、模型工件与内容摘要等 内部字段不向
+            Student 暴露。
           </p>
         </>
       ) : (

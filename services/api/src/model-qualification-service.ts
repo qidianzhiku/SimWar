@@ -8,8 +8,13 @@ import type {
   ModelQualificationCalibrationDataset,
   ModelQualificationDecision,
   ModelQualificationDiagnostics,
+  ModelQualificationEvidenceChangeDimension,
+  ModelQualificationEvidenceChangeSet,
+  ModelQualificationEvidenceIdentity,
   ModelQualificationModelCatalogEntry,
   ModelQualificationRecord,
+  ModelQualificationRequalificationPreview,
+  ModelQualificationRequalificationStatus,
   ModelQualificationStudentProjection,
   ModelQualificationTeacherProjection,
   ModelQualificationSourcePackage
@@ -271,6 +276,7 @@ export class ModelQualificationError extends Error {
       | "MODEL_QUALIFICATION_REVIEW_REQUIRED"
       | "MODEL_QUALIFICATION_REVIEW_INVALID"
       | "MODEL_QUALIFICATION_BINDING_REQUIRED"
+      | "MODEL_QUALIFICATION_REQUALIFICATION_INVALID"
   ) {
     super(code);
     this.name = "ModelQualificationError";
@@ -296,7 +302,8 @@ export class ModelQualificationService {
         this.sequence,
         ...record.source_packages.map((item) => sequenceFromId(item.source_package_id)),
         ...record.calibration_datasets.map((item) => sequenceFromId(item.calibration_dataset_id)),
-        ...record.qualifications.map((item) => sequenceFromId(item.qualification_id))
+        ...record.qualifications.map((item) => sequenceFromId(item.qualification_id)),
+        ...(record.requalification_previews ?? []).map((item) => sequenceFromId(item.preview_id))
       );
     }
   }
@@ -313,6 +320,7 @@ export class ModelQualificationService {
       model_catalog: clone(this.modelCatalog),
       operation_id: "MODEL_QUALIFICATION_TEACHER_STUDIO_GET_V1",
       qualifications: clone(record.qualifications),
+      requalification_previews: clone(record.requalification_previews ?? []),
       security: this.security(actor, scope),
       source_packages: clone(record.source_packages)
     };
@@ -353,6 +361,13 @@ export class ModelQualificationService {
       isExactModelReference(entry.model_version_reference, qualification.model_version_reference)
     );
     if (!source || !model) throw new ModelQualificationError("MODEL_QUALIFICATION_NOT_FOUND");
+    const preview = [...(this.recordOrEmpty(scope).requalification_previews ?? [])]
+      .filter(
+        (item) =>
+          item.change_set.affected_qualification_ids.includes(qualification.qualification_id) ||
+          item.change_set.candidate.source_package_id === qualification.source_package_id
+      )
+      .sort((left, right) => right.updated_at.localeCompare(left.updated_at))[0];
     return {
       known_limits: [...DEFAULT_MODEL_QUALIFICATION_LIMITS],
       operation_id: "MODEL_QUALIFICATION_STUDENT_PROJECTION_GET_V1",
@@ -377,6 +392,13 @@ export class ModelQualificationService {
           source_version: source.source_version,
           title: source.title
         }
+      },
+      requalification: {
+        historical_non_overwrite: true,
+        known_limits: [...DEFAULT_MODEL_QUALIFICATION_LIMITS],
+        resolution: preview?.resolution ?? "PENDING",
+        review_status: preview?.review.status ?? "PENDING",
+        status: preview?.status ?? "NO_CHANGE"
       },
       security: this.security(actor, scope),
       visibility: "ROLE_SAFE_STUDENT"
@@ -566,6 +588,22 @@ export class ModelQualificationService {
     if (current.decision !== "APPROVED" || current.review.status !== "APPROVED") {
       throw new ModelQualificationError("MODEL_QUALIFICATION_REVIEW_REQUIRED");
     }
+    const requalificationPreview = [...(record.requalification_previews ?? [])]
+      .filter(
+        (item) =>
+          item.change_set.candidate.source_package_id === current.source_package_id &&
+          item.change_set.affected_qualification_ids.length > 0
+      )
+      .sort((left, right) => right.updated_at.localeCompare(left.updated_at))[0];
+    if (
+      requalificationPreview &&
+      ((requalificationPreview.status !== "NO_CHANGE" &&
+        requalificationPreview.review.status !== "APPROVED") ||
+        requalificationPreview.status === "NOT_ELIGIBLE" ||
+        requalificationPreview.status === "REBASE_REQUIRED")
+    ) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_REVIEW_REQUIRED");
+    }
     const next: ModelQualification = {
       ...clone(current),
       binding: {
@@ -579,8 +617,133 @@ export class ModelQualificationService {
     record.qualifications = record.qualifications.map((item, itemIndex) =>
       itemIndex === index ? next : item
     );
+    if (requalificationPreview) {
+      record.requalification_previews = (record.requalification_previews ?? []).map((item) =>
+        item.preview_id === requalificationPreview.preview_id
+          ? { ...item, resolution: "ACCEPTED" as const, updated_at: this.clock.now() }
+          : item
+      );
+    }
     this.commit(record, actor, "model_qualification.bind", qualificationId);
     return { qualification: clone(next) };
+  }
+
+  createRequalificationPreview(
+    actor: ModelQualificationActor,
+    scope: ModelQualificationScope,
+    input: {
+      baseline_source_package_id: string;
+      candidate_source_package_id: string;
+    }
+  ): { preview: ModelQualificationRequalificationPreview } {
+    this.assertScope(actor, scope);
+    if (
+      !input.baseline_source_package_id ||
+      !input.candidate_source_package_id ||
+      input.baseline_source_package_id === input.candidate_source_package_id
+    ) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_REQUALIFICATION_INVALID");
+    }
+    const record = this.mutableRecord(scope);
+    const baseline = this.findSource(scope, input.baseline_source_package_id);
+    const candidate = this.findSource(scope, input.candidate_source_package_id);
+    if (!baseline || !candidate) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_REQUALIFICATION_INVALID");
+    }
+    const changedDimensions = evidenceChangeDimensions(baseline, candidate);
+    const affectedQualificationIds = record.qualifications
+      .filter((qualification) => qualification.source_package_id === baseline.source_package_id)
+      .map((qualification) => qualification.qualification_id);
+    const generatedAt = this.clock.now();
+    const reasons = requalificationReasons(baseline, candidate, changedDimensions, generatedAt);
+    const status = requalificationStatus(candidate, changedDimensions, reasons, generatedAt);
+    const changeSetWithoutDigest = {
+      affected_qualification_ids: affectedQualificationIds,
+      baseline: evidenceIdentity(baseline),
+      candidate: evidenceIdentity(candidate),
+      changed_dimensions: changedDimensions,
+      course_id: scope.course_id,
+      generated_at: generatedAt,
+      historical_non_overwrite: true as const,
+      tenant_id: scope.tenant_id
+    } satisfies Omit<ModelQualificationEvidenceChangeSet, "change_set_digest">;
+    const changeSet: ModelQualificationEvidenceChangeSet = {
+      ...changeSetWithoutDigest,
+      change_set_digest: (() => {
+        const {
+          affected_qualification_ids,
+          baseline,
+          candidate,
+          changed_dimensions,
+          course_id,
+          historical_non_overwrite,
+          tenant_id
+        } = changeSetWithoutDigest;
+        return digest({
+          affected_qualification_ids,
+          baseline,
+          candidate,
+          changed_dimensions,
+          course_id,
+          historical_non_overwrite,
+          tenant_id
+        });
+      })()
+    };
+    const preview: ModelQualificationRequalificationPreview = {
+      change_set: changeSet,
+      course_id: scope.course_id,
+      created_at: generatedAt,
+      historical_non_overwrite: true,
+      known_limits: [...DEFAULT_MODEL_QUALIFICATION_LIMITS],
+      preview_id: `mq_preview_${++this.sequence}`,
+      reasons,
+      resolution: "PENDING",
+      review: { status: status === "NO_CHANGE" ? "APPROVED" : "PENDING" },
+      status,
+      tenant_id: scope.tenant_id,
+      updated_at: generatedAt
+    };
+    record.requalification_previews = [...(record.requalification_previews ?? []), preview];
+    this.commit(record, actor, "model_qualification.requalification_preview", preview.preview_id);
+    return { preview: clone(preview) };
+  }
+
+  reviewRequalificationPreview(
+    actor: ModelQualificationActor,
+    scope: ModelQualificationScope,
+    previewId: string,
+    input: { decision: "APPROVED" | "REJECTED"; note: string }
+  ): { preview: ModelQualificationRequalificationPreview } {
+    this.assertScope(actor, scope);
+    if (!input.note.trim()) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_REVIEW_INVALID");
+    }
+    const record = this.mutableRecord(scope);
+    const current = (record.requalification_previews ?? []).find(
+      (item) => item.preview_id === previewId
+    );
+    if (!current) throw new ModelQualificationError("MODEL_QUALIFICATION_NOT_FOUND");
+    if (current.status === "NO_CHANGE" || current.resolution !== "PENDING") {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_REVIEW_REQUIRED");
+    }
+    const reviewedAt = this.clock.now();
+    const next: ModelQualificationRequalificationPreview = {
+      ...clone(current),
+      review: {
+        decision_note: input.note.trim(),
+        reviewed_at: reviewedAt,
+        reviewed_by: actor.actor_id,
+        status: input.decision
+      },
+      resolution: input.decision === "REJECTED" ? "REJECTED" : "PENDING",
+      updated_at: reviewedAt
+    };
+    record.requalification_previews = (record.requalification_previews ?? []).map((item) =>
+      item.preview_id === previewId ? next : item
+    );
+    this.commit(record, actor, "model_qualification.requalification_review", previewId);
+    return { preview: clone(next) };
   }
 
   private key(tenantId: string, courseId: string): string {
@@ -593,6 +756,7 @@ export class ModelQualificationService {
         calibration_datasets: [],
         course_id: scope.course_id,
         qualifications: [],
+        requalification_previews: [],
         source_packages: [],
         tenant_id: scope.tenant_id
       }
@@ -679,6 +843,93 @@ export class ModelQualificationService {
     this.persistence?.commitRecord(clone(record), audit);
     this.records.set(this.key(record.tenant_id, record.course_id), clone(record));
   }
+}
+
+function evidenceIdentity(
+  source: ModelQualificationSourcePackage
+): ModelQualificationEvidenceIdentity {
+  return {
+    content_digest: source.content_digest,
+    evidence_refs: [...source.evidence_refs],
+    expires_at: source.expires_at,
+    feature_schema_digest: source.feature_schema_digest,
+    freshness_status: source.freshness_status,
+    observed_at: source.observed_at,
+    quality: clone(source.quality),
+    rights_status: source.rights_status,
+    source_package_id: source.source_package_id,
+    source_ref: source.source_ref,
+    source_version: source.source_version
+  };
+}
+
+function evidenceChangeDimensions(
+  baseline: ModelQualificationSourcePackage,
+  candidate: ModelQualificationSourcePackage
+): ModelQualificationEvidenceChangeDimension[] {
+  const dimensions: ModelQualificationEvidenceChangeDimension[] = [];
+  if (baseline.content_digest !== candidate.content_digest) dimensions.push("content_digest");
+  if (baseline.source_ref !== candidate.source_ref) dimensions.push("source_ref");
+  if (baseline.source_version !== candidate.source_version) dimensions.push("source_version");
+  if (baseline.feature_schema_digest !== candidate.feature_schema_digest) {
+    dimensions.push("feature_schema_digest");
+  }
+  if (baseline.observed_at !== candidate.observed_at) dimensions.push("observed_at");
+  if (baseline.expires_at !== candidate.expires_at) dimensions.push("expires_at");
+  if (baseline.rights_status !== candidate.rights_status) dimensions.push("rights_status");
+  if (baseline.freshness_status !== candidate.freshness_status) {
+    dimensions.push("freshness_status");
+  }
+  if (stable(baseline.quality) !== stable(candidate.quality)) dimensions.push("quality");
+  if (stable(baseline.evidence_refs) !== stable(candidate.evidence_refs)) {
+    dimensions.push("evidence_refs");
+  }
+  return dimensions;
+}
+
+function requalificationReasons(
+  baseline: ModelQualificationSourcePackage,
+  candidate: ModelQualificationSourcePackage,
+  dimensions: readonly ModelQualificationEvidenceChangeDimension[],
+  now: string
+): string[] {
+  const reasons = dimensions.map((dimension) => `SOURCE_${dimension.toUpperCase()}_CHANGED`);
+  if (candidate.rights_status !== "VALID") reasons.push("CANDIDATE_RIGHTS_NOT_ELIGIBLE");
+  if (candidate.freshness_status !== "FRESH") reasons.push("CANDIDATE_NOT_FRESH");
+  if (
+    candidate.quality.missingness_rate > MAX_MISSINGNESS ||
+    candidate.quality.conflict_count > 0
+  ) {
+    reasons.push("CANDIDATE_QUALITY_NOT_ELIGIBLE");
+  }
+  if (candidate.expires_at && Date.parse(candidate.expires_at) <= Date.parse(now)) {
+    reasons.push("CANDIDATE_EXPIRED");
+  }
+  if (baseline.tenant_id !== candidate.tenant_id || baseline.course_id !== candidate.course_id) {
+    reasons.push("EVIDENCE_SCOPE_CONFLICT");
+  }
+  return [...new Set(reasons)];
+}
+
+function requalificationStatus(
+  candidate: ModelQualificationSourcePackage,
+  dimensions: readonly ModelQualificationEvidenceChangeDimension[],
+  reasons: readonly string[],
+  now: string
+): ModelQualificationRequalificationStatus {
+  if (
+    candidate.rights_status !== "VALID" ||
+    candidate.freshness_status !== "FRESH" ||
+    candidate.quality.missingness_rate > MAX_MISSINGNESS ||
+    candidate.quality.conflict_count > 0 ||
+    Boolean(candidate.expires_at && Date.parse(candidate.expires_at) <= Date.parse(now)) ||
+    reasons.includes("EVIDENCE_SCOPE_CONFLICT")
+  ) {
+    return "NOT_ELIGIBLE";
+  }
+  if (dimensions.length === 0) return "NO_CHANGE";
+  if (dimensions.includes("feature_schema_digest")) return "REBASE_REQUIRED";
+  return "REQUALIFICATION_REQUIRED";
 }
 
 export type { ModelArtifactReference };
