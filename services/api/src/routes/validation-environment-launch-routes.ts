@@ -40,6 +40,7 @@ function parseQualifiedRunAdmission(value: unknown): QualifiedRunAdmissionReques
   const modelVersion = object(root.model_version_reference);
   const modelArtifact = object(root.model_artifact_reference);
   return {
+    course_id: requiredString(root.course_id),
     course_package_reference: {
       content_digest: requiredString(coursePackage.content_digest),
       course_package_id: requiredString(coursePackage.course_package_id),

@@ -7,6 +7,7 @@ import {
   createTestLaunchStepExecutor,
   digest as calculateDigest
 } from "../../services/api/src/validation-environment-launch";
+import { isValidationEnvironmentLaunch } from "@simwar/shared-contracts";
 
 const digest = "a".repeat(64);
 function createCohortTemplate() {
@@ -67,6 +68,7 @@ const input = (overrides: Record<string, unknown> = {}) =>
       content_digest: digest
     },
     qualified_run_admission: {
+      course_id: "course_w025",
       course_package_reference: {
         course_package_id: "package-1",
         tenant_id: "tenant-w025",
@@ -188,5 +190,50 @@ describe("W025 durable validation environment launch", () => {
     const ledger = new MemoryLedger();
     const service = new ValidationEnvironmentLaunchService(ledger);
     expect(service.get("tenant-w025", "missing")).resolves.toBeNull();
+  });
+
+  it("requires an explicit existing course identity for qualified admission", () => {
+    const malformed = input() as Record<string, unknown>;
+    const admission = { ...(malformed.qualified_run_admission as Record<string, unknown>) };
+    delete admission.course_id;
+    malformed.qualified_run_admission = admission;
+
+    expect(() => calculateLaunchIdentity(malformed as never)).toThrow("W025_INPUT_INVALID");
+  });
+
+  it("durably retains the exact qualified admission receipt on the launch record", async () => {
+    const admissionReceipt = {
+      calibration_dataset_id: "dataset-1",
+      course_id: "course_w025",
+      course_package_reference: input().course_package_reference,
+      model_artifact_reference: input().qualified_run_admission.model_artifact_reference,
+      model_version_reference: input().qualified_run_admission.model_version_reference,
+      official_truth_write: false,
+      parameter_set_reference: input().source_parameter_set.reference,
+      provider: "OFF",
+      qualification_content_digest: digest,
+      qualification_id: "qualification-1",
+      scenario_package_reference: input().source_scenario_package.reference,
+      source_package_id: "source-1",
+      status: "ADMITTED",
+      tenant_id: "tenant-w025",
+      writer_effect: "NONE"
+    } as const;
+    const service = new ValidationEnvironmentLaunchService(new MemoryLedger());
+    const launch = await service.start(input(), {
+      ...createTestLaunchStepExecutor({}),
+      async prepareCourseRun() {
+        return {
+          course_id: "course_w025",
+          run_id: "run_w025",
+          round_id: "round_w025",
+          receipt: "course-run",
+          qualified_run_admission_receipt: admissionReceipt
+        };
+      }
+    });
+
+    expect(launch.qualified_run_admission_receipt).toEqual(admissionReceipt);
+    expect(isValidationEnvironmentLaunch(launch)).toBe(true);
   });
 });

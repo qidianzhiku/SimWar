@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createQualifiedFormalBoundRun } from "../../services/api/src/formal-bound-run-creation-service";
+import { createW025LaunchExecutor } from "../../services/api/src/w025-launch-executor";
 import {
   createFormalRunAuthorityFixture,
   createQualifiedRunAdmissionFixture
@@ -50,5 +51,25 @@ describe("qualified Run admission integration boundary", () => {
       })
     ).rejects.toThrow("QUALIFIED_RUN_ADMISSION_QUALIFICATION_NOT_FOUND");
     expect(calls).toEqual([]);
+  });
+
+  it("requires the explicitly qualified Course to exist before W025 admission writes", async () => {
+    const getCourse = vi.fn(async () => null);
+    const executor = createW025LaunchExecutor({
+      actor: { user_id: "teacher", roles: ["teacher"] },
+      requestId: "w025-review",
+      repositoryProvider: { facade: { courses: { getCourse } } },
+    } as never);
+
+    await expect(
+      executor.prepareCourseRun(
+        {
+          target_tenant_id: "tenant_demo",
+          qualified_run_admission: { course_id: "course-not-created" }
+        } as never,
+        { launch_id: "launch-review" } as never
+      )
+    ).rejects.toThrow("W025_COURSE_REQUIRED_FOR_QUALIFIED_RUN_ADMISSION");
+    expect(getCourse).toHaveBeenCalledWith("tenant_demo", "course-not-created");
   });
 });

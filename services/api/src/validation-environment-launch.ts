@@ -7,6 +7,7 @@ import type {
   ParameterSetReference,
   ScenarioPackageReference,
   ValidationEnvironmentLaunch,
+  ValidationEnvironmentLaunchAdmissionReceipt,
   ValidationEnvironmentLaunchStepReceipt
 } from "@simwar/shared-contracts";
 import {
@@ -23,6 +24,7 @@ export type W025LaunchHook =
   | "READY";
 
 export interface QualifiedRunAdmissionRequest {
+  readonly course_id: string;
   readonly course_package_reference: CoursePackageVersionReference;
   readonly source_package_id: string;
   readonly calibration_dataset_id: string;
@@ -73,6 +75,7 @@ export interface CourseRunStepResult {
   readonly run_id: string;
   readonly round_id: string;
   readonly receipt: string;
+  readonly qualified_run_admission_receipt?: ValidationEnvironmentLaunchAdmissionReceipt;
 }
 
 export interface CohortStepResult {
@@ -195,6 +198,7 @@ function qualifiedRunAdmissionRequestValid(value: unknown): value is QualifiedRu
   const modelVersion = request.model_version_reference;
   const modelArtifact = request.model_artifact_reference;
   return (
+    nonBlank(request.course_id) &&
     Boolean(coursePackageReference) &&
     typeof coursePackageReference === "object" &&
     !Array.isArray(coursePackageReference) &&
@@ -424,17 +428,23 @@ export class ValidationEnvironmentLaunchService {
       }
       if (launch.status === "BASELINE_READY") {
         const result = await executor.prepareCourseRun(input, launch);
+        const update: Partial<Omit<ValidationEnvironmentLaunch, "qualified_run_admission_receipt">> & {
+          qualified_run_admission_receipt?: ValidationEnvironmentLaunchAdmissionReceipt;
+        } = {
+          course_id: result.course_id,
+          run_id: result.run_id,
+          round_id: result.round_id,
+          step_receipts: {
+            ...launch.step_receipts,
+            course_run: receipt("course and run ready", result)
+          }
+        };
+        if (result.qualified_run_admission_receipt) {
+          update.qualified_run_admission_receipt = result.qualified_run_admission_receipt;
+        }
         await advance(
           "COURSE_RUN_READY",
-          {
-            course_id: result.course_id,
-            run_id: result.run_id,
-            round_id: result.round_id,
-            step_receipts: {
-              ...launch.step_receipts,
-              course_run: receipt("course and run ready", result)
-            }
-          },
+          update,
           "COURSE_RUN_READY"
         );
       }

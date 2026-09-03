@@ -7784,6 +7784,7 @@ components:
       type: object
       additionalProperties: false
       required:
+        - course_id
         - course_package_reference
         - source_package_id
         - calibration_dataset_id
@@ -7791,6 +7792,7 @@ components:
         - model_version_reference
         - model_artifact_reference
       properties:
+        course_id: { type: string, minLength: 1 }
         course_package_reference:
           $ref: "#/components/schemas/CoursePackageVersionReferenceInput"
         source_package_id: { type: string, minLength: 1 }
@@ -7813,6 +7815,59 @@ components:
             content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
             format: { type: string, minLength: 1 }
             source_ref: { type: string, minLength: 1 }
+    QualifiedRunAdmissionReceipt:
+      type: object
+      additionalProperties: false
+      required:
+        - calibration_dataset_id
+        - course_id
+        - course_package_reference
+        - model_artifact_reference
+        - model_version_reference
+        - official_truth_write
+        - parameter_set_reference
+        - provider
+        - qualification_content_digest
+        - qualification_id
+        - scenario_package_reference
+        - source_package_id
+        - status
+        - tenant_id
+        - writer_effect
+      properties:
+        calibration_dataset_id: { type: string, minLength: 1 }
+        course_id: { type: string, minLength: 1 }
+        course_package_reference:
+          $ref: "#/components/schemas/CoursePackageVersionReferenceInput"
+        model_artifact_reference:
+          type: object
+          additionalProperties: false
+          required: [artifact_id, content_digest, format, source_ref]
+          properties:
+            artifact_id: { type: string, minLength: 1 }
+            content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+            format: { type: string, minLength: 1 }
+            source_ref: { type: string, minLength: 1 }
+        model_version_reference:
+          type: object
+          additionalProperties: false
+          required: [model_version_id, version, content_digest]
+          properties:
+            model_version_id: { type: string, minLength: 1 }
+            version: { type: string, minLength: 1 }
+            content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        official_truth_write: { type: boolean, const: false }
+        parameter_set_reference:
+          $ref: "#/components/schemas/FormalParameterSetReferenceInput"
+        provider: { type: string, enum: [OFF] }
+        qualification_content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        qualification_id: { type: string, minLength: 1 }
+        scenario_package_reference:
+          $ref: "#/components/schemas/FormalScenarioPackageReferenceInput"
+        source_package_id: { type: string, minLength: 1 }
+        status: { type: string, enum: [ADMITTED] }
+        tenant_id: { type: string, minLength: 1 }
+        writer_effect: { type: string, enum: [NONE] }
     ValidationEnvironmentLaunchStartRequest:
       type: object
       additionalProperties: false
@@ -7920,6 +7975,8 @@ components:
               ]
           }
         version: { type: integer, minimum: 0 }
+        qualified_run_admission_receipt:
+          $ref: "#/components/schemas/QualifiedRunAdmissionReceipt"
     ValidationEnvironmentLaunchEnvelope:
       type: object
       additionalProperties: false

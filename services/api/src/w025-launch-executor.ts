@@ -1,5 +1,4 @@
 import type {
-  Course,
   CurrentUser,
   Round,
   Run,
@@ -10,7 +9,6 @@ import type { ValidationEnvironmentLaunch } from "@simwar/shared-contracts";
 import { getActiveJsonRuntimeEngineProfile } from "./formal-runtime-input-resolver.js";
 import { createQualifiedFormalBoundRun } from "./formal-bound-run-creation-service.js";
 import { createFormalCourseAuthorityBinding } from "./formal-course-authority-binding.js";
-import { createTeacherCourseFromBlueprint } from "./teacher-course-blueprint-service.js";
 import type { CourseBlueprintCommandService } from "./course-blueprint-authority.js";
 import type { CourseBlueprintBindingPort } from "./course-blueprint-binding-store.js";
 import type { FormalCourseAuthorityBindingPort } from "./formal-course-authority-binding-store.js";
@@ -140,13 +138,14 @@ export function createW025LaunchExecutor(
     },
 
     async prepareCourseRun(input, launch) {
-      const courseId = deterministicId("w025_course", launch.launch_id, "formal");
+      const courseId = input.qualified_run_admission.course_id;
       const runId = deterministicId("w025_run", launch.launch_id, "formal");
       const roundId = deterministicId("w025_round", launch.launch_id, "01");
-      let course = await dependencies.repositoryProvider.facade.courses.getCourse(
+      const course = await dependencies.repositoryProvider.facade.courses.getCourse(
         input.target_tenant_id,
         courseId
       );
+      if (!course) throw new Error("W025_COURSE_REQUIRED_FOR_QUALIFIED_RUN_ADMISSION");
       const coursePackage = await dependencies.coursePackageQueries.getByReference(
         input.target_tenant_id,
         input.course_package_reference
@@ -160,6 +159,12 @@ export function createW025LaunchExecutor(
         )
       )
         throw new Error("W025_COURSE_BLUEPRINT_REFERENCE_MISMATCH");
+      if (
+        course.tenant_id !== input.target_tenant_id ||
+        course.parameter_set_id !== coursePackage.parameter_set_reference.parameter_set_id ||
+        course.scenario_package_id !== coursePackage.scenario_package_reference.scenario_package_id
+      )
+        throw new Error("W025_COURSE_AUTHORITY_REFERENCE_MISMATCH");
 
       const parameter = await dependencies.formalRunBindingAuthorities.parameterSets.getByReference(
         input.target_tenant_id,
@@ -227,36 +232,7 @@ export function createW025LaunchExecutor(
         throw error;
       }
 
-      if (!course) {
-        course = {
-          course_id: courseId,
-          created_by: actor.user_id,
-          parameter_set_id: coursePackage.parameter_set_reference.parameter_set_id,
-          scenario_package_id: coursePackage.scenario_package_reference.scenario_package_id,
-          status: "draft",
-          tenant_id: input.target_tenant_id,
-          title: input.course_title
-        } satisfies Course;
-        await createTeacherCourseFromBlueprint(dependencies.formalCourseBlueprints, {
-          bindingStore: dependencies.courseBlueprintBindingStore,
-          course,
-          course_blueprint_reference: input.course_blueprint_reference,
-          formalCourse: {
-            authorities: dependencies.formalRunBindingAuthorities,
-            bindingStore: dependencies.formalCourseAuthorityBindingStore,
-            persistence: dependencies.repositoryProvider.facade.courses,
-            scenario_package_reference: coursePackage.scenario_package_reference,
-            tenant_id: input.target_tenant_id
-          },
-          formal_course: {
-            authorities: dependencies.formalRunBindingAuthorities,
-            scenario_package_reference: coursePackage.scenario_package_reference,
-            tenant_id: input.target_tenant_id
-          }
-        });
-        course.status = "published";
-        await dependencies.repositoryProvider.facade.courses.saveCourse(course);
-      } else if (course.status !== "published" && course.status !== "active") {
+      if (course.status !== "published" && course.status !== "active") {
         course.status = "published";
         await dependencies.repositoryProvider.facade.courses.saveCourse(course);
       }
@@ -322,6 +298,7 @@ export function createW025LaunchExecutor(
         course_id: courseId,
         run_id: runId,
         round_id: roundId,
+        qualified_run_admission_receipt: admissionReceipt,
         receipt: JSON.stringify({
           admission: admissionReceipt,
           binding,
