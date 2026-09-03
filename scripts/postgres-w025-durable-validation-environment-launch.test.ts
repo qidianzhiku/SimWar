@@ -8,6 +8,7 @@ import { createCoursePackageVersionReference } from "../services/api/src/course-
 import { ParameterSetCommandService } from "../services/api/src/parameter-set-authority.js";
 import { ScenarioPackageCommandService } from "../services/api/src/scenario-package-authority.js";
 import type {
+  Course,
   CourseBlueprintReference,
   CoursePackageVersionReference,
   ParameterSetReference,
@@ -30,6 +31,7 @@ const sourceProductMergeSha = "b".repeat(40);
 
 interface SeededAuthorityBundle {
   tenantId: string;
+  courseId?: string;
   parameterReference: ParameterSetReference;
   scenarioReference: ScenarioPackageReference;
   courseBlueprintReference?: CourseBlueprintReference;
@@ -167,8 +169,20 @@ async function seedAuthorityBundle(
     { actor_id: actor.actor_id, tenant_id: tenantId },
     createCoursePackageVersionReference(packageValidated)
   );
+  const courseId = `w025-course-${suffix}`;
+  const course: Course = {
+    course_id: courseId,
+    created_by: actor.actor_id,
+    parameter_set_id: parameterApproved.version.reference.parameter_set_id,
+    scenario_package_id: scenarioApproved.version.reference.scenario_package_id,
+    status: "active",
+    tenant_id: tenantId,
+    title: "W025 durable validation course"
+  };
+  await runtime.provider.facade.courses.saveCourse(course);
   return {
     tenantId,
+    courseId,
     parameterReference: parameterApproved.version.reference,
     scenarioReference: scenarioApproved.version.reference,
     courseBlueprintReference: blueprintApproved.version.reference,
@@ -223,6 +237,7 @@ function createInput(
     course_blueprint_reference: target.courseBlueprintReference!,
     course_package_reference: target.coursePackageReference!,
     qualified_run_admission: {
+      course_id: target.courseId!,
       course_package_reference: target.coursePackageReference!,
       source_package_id: "w025-source-package",
       calibration_dataset_id: "w025-calibration-dataset",
