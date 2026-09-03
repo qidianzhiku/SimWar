@@ -1,5 +1,4 @@
 import type {
-  Course,
   CurrentUser,
   Round,
   Run,
@@ -8,9 +7,8 @@ import type {
 } from "@simwar/shared-contracts";
 import type { ValidationEnvironmentLaunch } from "@simwar/shared-contracts";
 import { getActiveJsonRuntimeEngineProfile } from "./formal-runtime-input-resolver.js";
-import { createFormalBoundRun } from "./formal-bound-run-creation-service.js";
+import { createQualifiedFormalBoundRun } from "./formal-bound-run-creation-service.js";
 import { createFormalCourseAuthorityBinding } from "./formal-course-authority-binding.js";
-import { createTeacherCourseFromBlueprint } from "./teacher-course-blueprint-service.js";
 import type { CourseBlueprintCommandService } from "./course-blueprint-authority.js";
 import type { CourseBlueprintBindingPort } from "./course-blueprint-binding-store.js";
 import type { FormalCourseAuthorityBindingPort } from "./formal-course-authority-binding-store.js";
@@ -24,8 +22,14 @@ import type {
   ValidationEnvironmentLaunchStepExecutor,
   W025LaunchHook
 } from "./validation-environment-launch.js";
+import { ValidationEnvironmentLaunchError } from "./validation-environment-launch.js";
 import { digest } from "./validation-environment-launch.js";
 import type { CoursePackageQueryService } from "./course-package-query-service.js";
+import {
+  QualifiedRunAdmissionError,
+  resolveQualifiedRunAdmission
+} from "./model-qualification-run-admission.js";
+import type { ModelQualificationService } from "./model-qualification-service.js";
 
 export interface W025LaunchExecutorDependencies {
   readonly actor: CurrentUser;
@@ -34,6 +38,7 @@ export interface W025LaunchExecutorDependencies {
   readonly formalRunBindingAuthorities: FormalRunBindingAuthorityPorts;
   readonly formalCourseBlueprints: CourseBlueprintCommandService;
   readonly coursePackageQueries: CoursePackageQueryService;
+  readonly modelQualification: ModelQualificationService;
   readonly courseBlueprintBindingStore: CourseBlueprintBindingPort;
   readonly formalCourseAuthorityBindingStore: FormalCourseAuthorityBindingPort;
   readonly formalRunRuntimeBindingStore: FormalRunRuntimeBindingPort;
@@ -133,13 +138,14 @@ export function createW025LaunchExecutor(
     },
 
     async prepareCourseRun(input, launch) {
-      const courseId = deterministicId("w025_course", launch.launch_id, "formal");
+      const courseId = input.qualified_run_admission.course_id;
       const runId = deterministicId("w025_run", launch.launch_id, "formal");
       const roundId = deterministicId("w025_round", launch.launch_id, "01");
-      let course = await dependencies.repositoryProvider.facade.courses.getCourse(
+      const course = await dependencies.repositoryProvider.facade.courses.getCourse(
         input.target_tenant_id,
         courseId
       );
+      if (!course) throw new Error("W025_COURSE_REQUIRED_FOR_QUALIFIED_RUN_ADMISSION");
       const coursePackage = await dependencies.coursePackageQueries.getByReference(
         input.target_tenant_id,
         input.course_package_reference
@@ -153,37 +159,80 @@ export function createW025LaunchExecutor(
         )
       )
         throw new Error("W025_COURSE_BLUEPRINT_REFERENCE_MISMATCH");
+      if (
+        course.tenant_id !== input.target_tenant_id ||
+        course.parameter_set_id !== coursePackage.parameter_set_reference.parameter_set_id ||
+        course.scenario_package_id !== coursePackage.scenario_package_reference.scenario_package_id
+      )
+        throw new Error("W025_COURSE_AUTHORITY_REFERENCE_MISMATCH");
 
-      if (!course) {
-        course = {
+      const parameter = await dependencies.formalRunBindingAuthorities.parameterSets.getByReference(
+        input.target_tenant_id,
+        coursePackage.parameter_set_reference
+      );
+      const scenario = await dependencies.formalRunBindingAuthorities.scenarios.getByReference(
+        input.target_tenant_id,
+        coursePackage.scenario_package_reference
+      );
+      const qualificationRecord = dependencies.modelQualification.getRecordForScope({
+        tenant_id: input.target_tenant_id,
+        course_id: courseId
+      });
+      const selectedModel =
+        dependencies.modelQualification.modelCatalog.find(
+          (candidate) =>
+            candidate.model_version_reference.model_version_id ===
+              input.qualified_run_admission.model_version_reference.model_version_id &&
+            candidate.model_version_reference.version ===
+              input.qualified_run_admission.model_version_reference.version &&
+            candidate.model_version_reference.content_digest ===
+              input.qualified_run_admission.model_version_reference.content_digest &&
+            candidate.artifact.artifact_id ===
+              input.qualified_run_admission.model_artifact_reference.artifact_id &&
+            candidate.artifact.content_digest ===
+              input.qualified_run_admission.model_artifact_reference.content_digest
+        ) ?? null;
+      const qualifiedAdmission = {
+        admission: {
+          calibration_dataset_id: input.qualified_run_admission.calibration_dataset_id,
           course_id: courseId,
-          created_by: actor.user_id,
-          parameter_set_id: coursePackage.parameter_set_reference.parameter_set_id,
-          scenario_package_id: coursePackage.scenario_package_reference.scenario_package_id,
-          status: "draft",
-          tenant_id: input.target_tenant_id,
-          title: input.course_title
-        } satisfies Course;
-        await createTeacherCourseFromBlueprint(dependencies.formalCourseBlueprints, {
-          bindingStore: dependencies.courseBlueprintBindingStore,
-          course,
-          course_blueprint_reference: input.course_blueprint_reference,
-          formalCourse: {
-            authorities: dependencies.formalRunBindingAuthorities,
-            bindingStore: dependencies.formalCourseAuthorityBindingStore,
-            persistence: dependencies.repositoryProvider.facade.courses,
-            scenario_package_reference: coursePackage.scenario_package_reference,
-            tenant_id: input.target_tenant_id
-          },
-          formal_course: {
-            authorities: dependencies.formalRunBindingAuthorities,
-            scenario_package_reference: coursePackage.scenario_package_reference,
-            tenant_id: input.target_tenant_id
-          }
-        });
-        course.status = "published";
-        await dependencies.repositoryProvider.facade.courses.saveCourse(course);
-      } else if (course.status !== "published" && course.status !== "active") {
+          course_package_reference: input.course_package_reference,
+          model_artifact_reference: input.qualified_run_admission.model_artifact_reference,
+          model_version_reference: input.qualified_run_admission.model_version_reference,
+          parameter_set_reference: coursePackage.parameter_set_reference,
+          qualification_id: input.qualified_run_admission.qualification_id,
+          scenario_package_reference: coursePackage.scenario_package_reference,
+          source_package_id: input.qualified_run_admission.source_package_id,
+          tenant_id: input.target_tenant_id
+        },
+        calibration_dataset:
+          qualificationRecord?.calibration_datasets.find(
+            (candidate) =>
+              candidate.calibration_dataset_id ===
+              input.qualified_run_admission.calibration_dataset_id
+          ) ?? null,
+        course_package: coursePackage,
+        model: selectedModel,
+        now: new Date().toISOString(),
+        parameter_set: parameter,
+        qualification_record: qualificationRecord,
+        scenario_package: scenario
+      };
+      // The pure admission resolver runs before Course/Run/Round/binding writes.
+      let admissionReceipt: ReturnType<typeof resolveQualifiedRunAdmission>;
+      try {
+        admissionReceipt = resolveQualifiedRunAdmission(qualifiedAdmission);
+      } catch (error) {
+        if (error instanceof QualifiedRunAdmissionError) {
+          throw new ValidationEnvironmentLaunchError(
+            "W025_QUALIFIED_RUN_ADMISSION_INVALID",
+            error.code
+          );
+        }
+        throw error;
+      }
+
+      if (course.status !== "published" && course.status !== "active") {
         course.status = "published";
         await dependencies.repositoryProvider.facade.courses.saveCourse(course);
       }
@@ -230,7 +279,7 @@ export function createW025LaunchExecutor(
           status: "draft",
           tenant_id: input.target_tenant_id
         } satisfies Round;
-        await createFormalBoundRun({
+        admissionReceipt = await createQualifiedFormalBoundRun({
           authorities: dependencies.formalRunBindingAuthorities,
           bindingStore: dependencies.formalRunRuntimeBindingStore,
           courseBinding: binding,
@@ -241,14 +290,22 @@ export function createW025LaunchExecutor(
             saveRun: dependencies.repositoryProvider.facade.runs.saveRun
           },
           round,
-          run
+          run,
+          admission: qualifiedAdmission
         });
       }
       return {
         course_id: courseId,
         run_id: runId,
         round_id: roundId,
-        receipt: JSON.stringify({ binding, course, run, round })
+        qualified_run_admission_receipt: admissionReceipt,
+        receipt: JSON.stringify({
+          admission: admissionReceipt,
+          binding,
+          course,
+          run,
+          round
+        })
       };
     },
 

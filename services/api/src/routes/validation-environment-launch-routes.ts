@@ -4,6 +4,7 @@ import {
   ValidationEnvironmentLaunchError,
   ValidationEnvironmentLaunchService,
   type ValidationEnvironmentLaunchInput,
+  type QualifiedRunAdmissionRequest,
   type ValidationEnvironmentLaunchStepExecutor
 } from "../validation-environment-launch.js";
 
@@ -26,6 +27,43 @@ function object(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+function requiredString(value: unknown): string {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new ValidationEnvironmentLaunchError("W025_INPUT_INVALID");
+  }
+  return value;
+}
+
+function parseQualifiedRunAdmission(value: unknown): QualifiedRunAdmissionRequest {
+  const root = object(value);
+  const coursePackage = object(root.course_package_reference);
+  const modelVersion = object(root.model_version_reference);
+  const modelArtifact = object(root.model_artifact_reference);
+  return {
+    course_id: requiredString(root.course_id),
+    course_package_reference: {
+      content_digest: requiredString(coursePackage.content_digest),
+      course_package_id: requiredString(coursePackage.course_package_id),
+      tenant_id: requiredString(coursePackage.tenant_id),
+      version: requiredString(coursePackage.version)
+    },
+    source_package_id: requiredString(root.source_package_id),
+    calibration_dataset_id: requiredString(root.calibration_dataset_id),
+    qualification_id: requiredString(root.qualification_id),
+    model_version_reference: {
+      content_digest: requiredString(modelVersion.content_digest),
+      model_version_id: requiredString(modelVersion.model_version_id),
+      version: requiredString(modelVersion.version)
+    },
+    model_artifact_reference: {
+      artifact_id: requiredString(modelArtifact.artifact_id),
+      content_digest: requiredString(modelArtifact.content_digest),
+      format: requiredString(modelArtifact.format),
+      source_ref: requiredString(modelArtifact.source_ref)
+    }
+  };
+}
+
 function parseInput(
   value: unknown,
   context: W025LaunchRouteContext
@@ -39,6 +77,7 @@ function parseInput(
   }
   return {
     ...body,
+    qualified_run_admission: parseQualifiedRunAdmission(body.qualified_run_admission),
     created_by: context.actor.user_id
   } as unknown as ValidationEnvironmentLaunchInput;
 }

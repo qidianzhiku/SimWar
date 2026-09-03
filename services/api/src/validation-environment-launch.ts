@@ -2,9 +2,12 @@ import { createHash, randomUUID } from "node:crypto";
 import type {
   CourseBlueprintReference,
   CoursePackageVersionReference,
+  ModelArtifactReference,
+  ModelVersionReference,
   ParameterSetReference,
   ScenarioPackageReference,
   ValidationEnvironmentLaunch,
+  ValidationEnvironmentLaunchAdmissionReceipt,
   ValidationEnvironmentLaunchStepReceipt
 } from "@simwar/shared-contracts";
 import {
@@ -20,6 +23,16 @@ export type W025LaunchHook =
   | "SESSION_PREFLIGHT_READY"
   | "READY";
 
+export interface QualifiedRunAdmissionRequest {
+  readonly course_id: string;
+  readonly course_package_reference: CoursePackageVersionReference;
+  readonly source_package_id: string;
+  readonly calibration_dataset_id: string;
+  readonly qualification_id: string;
+  readonly model_version_reference: ModelVersionReference;
+  readonly model_artifact_reference: ModelArtifactReference;
+}
+
 export interface ValidationEnvironmentLaunchInput {
   readonly target_tenant_id: string;
   readonly launch_key: string;
@@ -34,6 +47,7 @@ export interface ValidationEnvironmentLaunchInput {
   };
   readonly course_blueprint_reference: CourseBlueprintReference;
   readonly course_package_reference: CoursePackageVersionReference;
+  readonly qualified_run_admission: QualifiedRunAdmissionRequest;
   readonly course_title: string;
   readonly source_product_merge_sha: string;
   readonly cohort_template_digest: string;
@@ -61,6 +75,7 @@ export interface CourseRunStepResult {
   readonly run_id: string;
   readonly round_id: string;
   readonly receipt: string;
+  readonly qualified_run_admission_receipt?: ValidationEnvironmentLaunchAdmissionReceipt;
 }
 
 export interface CohortStepResult {
@@ -122,6 +137,7 @@ export class ValidationEnvironmentLaunchError extends Error {
       | "W025_LAUNCH_CONFLICT"
       | "W025_LAUNCH_ABORTED"
       | "W025_LAUNCH_CAS_STALE"
+      | "W025_QUALIFIED_RUN_ADMISSION_INVALID"
       | "W025_LAUNCH_HISTORY_INVALID",
     message: string = code
   ) {
@@ -175,6 +191,41 @@ function parameterRefValid(reference: ParameterSetReference): boolean {
   );
 }
 
+function qualifiedRunAdmissionRequestValid(value: unknown): value is QualifiedRunAdmissionRequest {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const request = value as Record<string, unknown>;
+  const coursePackageReference = request.course_package_reference;
+  const modelVersion = request.model_version_reference;
+  const modelArtifact = request.model_artifact_reference;
+  return (
+    nonBlank(request.course_id) &&
+    Boolean(coursePackageReference) &&
+    typeof coursePackageReference === "object" &&
+    !Array.isArray(coursePackageReference) &&
+    sourceRefValid(
+      coursePackageReference as Record<string, unknown>,
+      String((coursePackageReference as Record<string, unknown>).tenant_id ?? "")
+    ) &&
+    nonBlank((coursePackageReference as Record<string, unknown>).course_package_id) &&
+    nonBlank(request.source_package_id) &&
+    nonBlank(request.calibration_dataset_id) &&
+    nonBlank(request.qualification_id) &&
+    Boolean(modelVersion) &&
+    typeof modelVersion === "object" &&
+    !Array.isArray(modelVersion) &&
+    nonBlank((modelVersion as Record<string, unknown>).model_version_id) &&
+    nonBlank((modelVersion as Record<string, unknown>).version) &&
+    sha((modelVersion as Record<string, unknown>).content_digest) &&
+    Boolean(modelArtifact) &&
+    typeof modelArtifact === "object" &&
+    !Array.isArray(modelArtifact) &&
+    nonBlank((modelArtifact as Record<string, unknown>).artifact_id) &&
+    sha((modelArtifact as Record<string, unknown>).content_digest) &&
+    nonBlank((modelArtifact as Record<string, unknown>).format) &&
+    nonBlank((modelArtifact as Record<string, unknown>).source_ref)
+  );
+}
+
 function validateInput(input: ValidationEnvironmentLaunchInput): void {
   if (
     !nonBlank(input.target_tenant_id) ||
@@ -191,6 +242,14 @@ function validateInput(input: ValidationEnvironmentLaunchInput): void {
     input.source_parameter_set.reference.version.trim().length === 0 ||
     input.course_blueprint_reference.tenant_id !== input.target_tenant_id ||
     input.course_package_reference.tenant_id !== input.target_tenant_id ||
+    !qualifiedRunAdmissionRequestValid(input.qualified_run_admission) ||
+    input.qualified_run_admission.course_package_reference.tenant_id !== input.target_tenant_id ||
+    input.qualified_run_admission.course_package_reference.course_package_id !==
+      input.course_package_reference.course_package_id ||
+    input.qualified_run_admission.course_package_reference.version !==
+      input.course_package_reference.version ||
+    input.qualified_run_admission.course_package_reference.content_digest !==
+      input.course_package_reference.content_digest ||
     input.source_scenario_package.reference.tenant_id !== input.source_scenario_package.tenant_id ||
     !parameterRefValid(input.source_parameter_set.reference) ||
     !sourceRefValid(
@@ -282,6 +341,7 @@ export function calculateLaunchIdentity(input: ValidationEnvironmentLaunchInput)
     source_scenario_package: input.source_scenario_package,
     course_blueprint_reference: input.course_blueprint_reference,
     course_package_reference: input.course_package_reference,
+    qualified_run_admission: input.qualified_run_admission,
     course_title: input.course_title,
     source_product_merge_sha: input.source_product_merge_sha,
     cohort_template_digest: input.cohort_template_digest,
@@ -368,17 +428,23 @@ export class ValidationEnvironmentLaunchService {
       }
       if (launch.status === "BASELINE_READY") {
         const result = await executor.prepareCourseRun(input, launch);
+        const update: Partial<Omit<ValidationEnvironmentLaunch, "qualified_run_admission_receipt">> & {
+          qualified_run_admission_receipt?: ValidationEnvironmentLaunchAdmissionReceipt;
+        } = {
+          course_id: result.course_id,
+          run_id: result.run_id,
+          round_id: result.round_id,
+          step_receipts: {
+            ...launch.step_receipts,
+            course_run: receipt("course and run ready", result)
+          }
+        };
+        if (result.qualified_run_admission_receipt) {
+          update.qualified_run_admission_receipt = result.qualified_run_admission_receipt;
+        }
         await advance(
           "COURSE_RUN_READY",
-          {
-            course_id: result.course_id,
-            run_id: result.run_id,
-            round_id: result.round_id,
-            step_receipts: {
-              ...launch.step_receipts,
-              course_run: receipt("course and run ready", result)
-            }
-          },
+          update,
           "COURSE_RUN_READY"
         );
       }

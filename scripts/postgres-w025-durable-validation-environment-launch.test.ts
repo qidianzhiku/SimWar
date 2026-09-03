@@ -8,12 +8,14 @@ import { createCoursePackageVersionReference } from "../services/api/src/course-
 import { ParameterSetCommandService } from "../services/api/src/parameter-set-authority.js";
 import { ScenarioPackageCommandService } from "../services/api/src/scenario-package-authority.js";
 import type {
+  Course,
   CourseBlueprintReference,
   CoursePackageVersionReference,
   ParameterSetReference,
   ScenarioPackageReference
 } from "@simwar/shared-contracts";
 import { createPostgresRuntime } from "../services/api/src/postgres-runtime.js";
+import { MODEL_QUALIFICATION_MODEL_VERSION } from "../services/api/src/model-qualification-service.js";
 import {
   calculateLaunchIdentity,
   digest as calculateDigest
@@ -29,6 +31,7 @@ const sourceProductMergeSha = "b".repeat(40);
 
 interface SeededAuthorityBundle {
   tenantId: string;
+  courseId?: string;
   parameterReference: ParameterSetReference;
   scenarioReference: ScenarioPackageReference;
   courseBlueprintReference?: CourseBlueprintReference;
@@ -166,8 +169,20 @@ async function seedAuthorityBundle(
     { actor_id: actor.actor_id, tenant_id: tenantId },
     createCoursePackageVersionReference(packageValidated)
   );
+  const courseId = `w025-course-${suffix}`;
+  const course: Course = {
+    course_id: courseId,
+    created_by: actor.actor_id,
+    parameter_set_id: parameterApproved.version.reference.parameter_set_id,
+    scenario_package_id: scenarioApproved.version.reference.scenario_package_id,
+    status: "active",
+    tenant_id: tenantId,
+    title: "W025 durable validation course"
+  };
+  await runtime.provider.facade.courses.saveCourse(course);
   return {
     tenantId,
+    courseId,
     parameterReference: parameterApproved.version.reference,
     scenarioReference: scenarioApproved.version.reference,
     courseBlueprintReference: blueprintApproved.version.reference,
@@ -221,11 +236,151 @@ function createInput(
     },
     course_blueprint_reference: target.courseBlueprintReference!,
     course_package_reference: target.coursePackageReference!,
+    qualified_run_admission: {
+      course_id: target.courseId!,
+      course_package_reference: target.coursePackageReference!,
+      source_package_id: "w025-source-package",
+      calibration_dataset_id: "w025-calibration-dataset",
+      qualification_id: "w025-qualification",
+      model_version_reference: MODEL_QUALIFICATION_MODEL_VERSION.model_version_reference,
+      model_artifact_reference: MODEL_QUALIFICATION_MODEL_VERSION.artifact
+    },
     course_title: courseTitle,
     source_product_merge_sha: sourceProductMergeSha,
     cohort_template_digest: calculateDigest(cohortTemplate),
     cohort_template: cohortTemplate,
     seed: 25025
+  };
+}
+
+type W025LaunchInput = ReturnType<typeof createInput>;
+
+async function loginTeacher(port: number): Promise<string> {
+  const login = await fetch(`http://127.0.0.1:${port}/api/v1/auth/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-tenant-id": "tenant_demo" },
+    body: JSON.stringify({ username: "teacher", password: "teacher" })
+  });
+  if (!login.ok) throw new Error(`API teacher login failed: ${login.status}`);
+  const loginBody = (await login.json()) as { data?: { access_token?: string } };
+  const token = loginBody.data?.access_token;
+  if (!token) throw new Error("API teacher login did not return a token");
+  return token;
+}
+
+async function postTeacherJson(
+  port: number,
+  token: string,
+  pathname: string,
+  body?: unknown
+): Promise<Record<string, unknown>> {
+  const response = await fetch(`http://127.0.0.1:${port}${pathname}`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+      "x-request-id": `w025-qualification-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      "x-tenant-id": "tenant_demo"
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) })
+  });
+  const text = await response.text();
+  if (!response.ok)
+    throw new Error(`W025 qualification request failed: ${response.status} ${text}`);
+  return JSON.parse(text) as Record<string, unknown>;
+}
+
+async function seedModelQualification(
+  port: number,
+  input: W025LaunchInput
+): Promise<W025LaunchInput> {
+  const token = await loginTeacher(port);
+  const courseId = input.qualified_run_admission.course_id;
+  const sourceResponse = await postTeacherJson(
+    port,
+    token,
+    "/api/v1/bff/teacher/model-qualification/source-packages",
+    {
+      content_digest: "1".repeat(64),
+      course_id: courseId,
+      evidence_refs: ["w025-durable-evidence"],
+      expires_at: null,
+      feature_schema_digest: "2".repeat(64),
+      freshness_status: "FRESH",
+      observed_at: new Date(Date.now() - 1_000).toISOString(),
+      quality: { conflict_count: 0, missingness_rate: 0, record_count: 2 },
+      rights_status: "VALID",
+      source_ref: "w025-durable-source",
+      source_version: "1.0.0",
+      title: "W025 durable source"
+    }
+  );
+  const sourcePackage = (sourceResponse.data as { source_package?: { source_package_id?: string } })
+    .source_package;
+  if (!sourcePackage?.source_package_id) throw new Error("W025 source package id missing");
+
+  const datasetResponse = await postTeacherJson(
+    port,
+    token,
+    "/api/v1/bff/teacher/model-qualification/datasets",
+    {
+      calibration_record_ids: ["w025-calibration-record"],
+      content_digest: "3".repeat(64),
+      course_id: courseId,
+      holdout_record_ids: ["w025-holdout-record"],
+      source_package_id: sourcePackage.source_package_id
+    }
+  );
+  const dataset = (
+    datasetResponse.data as {
+      calibration_dataset?: { calibration_dataset_id?: string; content_digest?: string };
+    }
+  ).calibration_dataset;
+  if (!dataset?.calibration_dataset_id || !dataset.content_digest) {
+    throw new Error("W025 calibration dataset identity missing");
+  }
+
+  const qualificationResponse = await postTeacherJson(
+    port,
+    token,
+    "/api/v1/bff/teacher/model-qualification/qualifications",
+    {
+      calibration_dataset_id: dataset.calibration_dataset_id,
+      course_id: courseId,
+      deterministic_seed: 25025,
+      model_version_reference: MODEL_QUALIFICATION_MODEL_VERSION.model_version_reference,
+      source_package_id: sourcePackage.source_package_id
+    }
+  );
+  const qualification = (
+    qualificationResponse.data as {
+      qualification?: { qualification_id?: string; decision?: string };
+    }
+  ).qualification;
+  if (!qualification?.qualification_id || qualification.decision !== "APPROVED") {
+    throw new Error("W025 approved qualification identity missing");
+  }
+
+  await postTeacherJson(
+    port,
+    token,
+    `/api/v1/bff/teacher/model-qualification/qualifications/${encodeURIComponent(qualification.qualification_id)}/review`,
+    { decision: "APPROVED", note: "W025 durable admission fixture reviewed" }
+  );
+  await postTeacherJson(
+    port,
+    token,
+    `/api/v1/bff/teacher/model-qualification/qualifications/${encodeURIComponent(qualification.qualification_id)}/bind`
+  );
+
+  return {
+    ...input,
+    qualified_run_admission: {
+      ...input.qualified_run_admission,
+      calibration_dataset_id: dataset.calibration_dataset_id,
+      qualification_id: qualification.qualification_id,
+      source_package_id: sourcePackage.source_package_id
+    }
   };
 }
 
@@ -343,7 +498,7 @@ describe("W025 PostgreSQL durable launch C1-C5 process recovery", () => {
 
     try {
       for (const [index, hook] of hooks.entries()) {
-        const input = createInput(
+        let input = createInput(
           `restart-${runSuffix}-${index}`,
           source,
           target,
@@ -353,6 +508,7 @@ describe("W025 PostgreSQL durable launch C1-C5 process recovery", () => {
         const interrupted = startApiProcess(31_000 + index, hook);
         try {
           await waitForApi(interrupted);
+          input = await seedModelQualification(interrupted.port, input);
           await expect(requestApiLaunch(interrupted.port, input)).rejects.toThrow();
         } finally {
           const exitCode = await waitForExit(interrupted.child);
@@ -363,6 +519,7 @@ describe("W025 PostgreSQL durable launch C1-C5 process recovery", () => {
         let response: Response;
         try {
           await waitForApi(resumed);
+          input = await seedModelQualification(resumed.port, input);
           response = await requestApiLaunch(resumed.port, input);
           const responseText = await response.text();
           expect(response.status, responseText).toBe(201);
@@ -431,7 +588,7 @@ describe("W025 PostgreSQL durable launch C1-C5 process recovery", () => {
       true
     );
     try {
-      const input = createInput(
+      let input = createInput(
         `concurrency-${runSuffix}`,
         source,
         target,
@@ -442,6 +599,9 @@ describe("W025 PostgreSQL durable launch C1-C5 process recovery", () => {
       const second = startApiProcess(32_001);
       try {
         await Promise.all([waitForApi(first), waitForApi(second)]);
+        input = await seedModelQualification(first.port, input);
+        const secondInput = await seedModelQualification(second.port, input);
+        expect(secondInput.qualified_run_admission).toEqual(input.qualified_run_admission);
         const responses = await Promise.all(
           Array.from({ length: 10 }, (_, index) =>
             requestApiLaunch(index % 2 === 0 ? first.port : second.port, input)
