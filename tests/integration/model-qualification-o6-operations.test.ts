@@ -270,4 +270,46 @@ describe("O6 model qualification adoption operations integration", () => {
     expect(safe).not.toHaveProperty("operations_policy_digest");
     expect(safe).not.toHaveProperty("predecessor_adoption");
   });
+
+  it("normalizes inconsistent persisted epoch identity for every O6 GET projection", async () => {
+    const fixture = createEvidenceAdoptionServiceFixture();
+    const adopted = adopt(
+      fixture.service,
+      fixture.primary.qualificationA.qualification_id,
+      "projection-tamper",
+      null
+    );
+    const current = fixture.service.getRecordForScope(EVIDENCE_ADOPTION_SCOPE);
+    expect(current).not.toBeNull();
+    const persistence = new ModelQualificationEvidenceAdoptionFakePersistence([
+      {
+        ...current!,
+        qualifications: current!.qualifications.map((qualification) =>
+          qualification.qualification_id === fixture.primary.qualificationA.qualification_id
+            ? { ...qualification, source_package_id: "source-tampered" }
+            : qualification
+        )
+      }
+    ]);
+    const service = new ModelQualificationService(
+      { now: () => EVIDENCE_ADOPTION_NOW },
+      persistence
+    ) as O6Service;
+
+    await expect(
+      service.getAdoptionOperationsProjection(EVIDENCE_ADOPTION_TEACHER, EVIDENCE_ADOPTION_SCOPE)
+    ).rejects.toMatchObject({
+      code: "MODEL_QUALIFICATION_ADOPTION_OPERATIONS_INVALID"
+    });
+    await expect(
+      service.getStudentAdoptionOperationsProjection(
+        EVIDENCE_ADOPTION_STUDENT,
+        EVIDENCE_ADOPTION_SCOPE,
+        fixture.primary.qualificationA.qualification_id
+      )
+    ).rejects.toMatchObject({
+      code: "MODEL_QUALIFICATION_ADOPTION_OPERATIONS_INVALID"
+    });
+    expect(adopted.adoption_id).toBeTruthy();
+  });
 });

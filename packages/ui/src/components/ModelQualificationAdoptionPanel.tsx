@@ -109,6 +109,10 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
       setAssessment(null);
       setRollbackDryRun(null);
     };
+    if (generation === epoch.current) {
+      setLoaded(null);
+      clearOperations();
+    }
     const query = `courseId=${encodeURIComponent(courseId)}`;
     const [projectionOutcome, operationsOutcome] = await Promise.allSettled([
       fetch(`${base}?${query}`, { headers }),

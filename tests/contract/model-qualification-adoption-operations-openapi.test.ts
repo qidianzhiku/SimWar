@@ -4,7 +4,13 @@ import yaml from "js-yaml";
 import { describe, expect, it } from "vitest";
 
 const openapi = yaml.load(readFileSync("contracts/openapi/p0-api.openapi.yaml", "utf8")) as {
-  paths: Record<string, { get?: unknown; post?: unknown }>;
+  paths: Record<
+    string,
+    {
+      get?: { responses?: Record<string, unknown> };
+      post?: { responses?: Record<string, unknown> };
+    }
+  >;
 };
 
 describe("O6 adoption operations canonical contract", () => {
@@ -82,5 +88,28 @@ describe("O6 adoption operations canonical contract", () => {
       expect(post.responses?.["200"]).toBeDefined();
       expect(post.responses?.["409"]).toBeUndefined();
     }
+  });
+
+  it("documents every fail-closed runtime status exposed by the O6 routes", () => {
+    for (const role of ["teacher", "admin"]) {
+      const projection =
+        openapi.paths[`/api/v1/bff/${role}/model-qualification/adoption-operations`]?.get;
+      const assessment =
+        openapi.paths[
+          `/api/v1/bff/${role}/model-qualification/adoption-operations/drift-assessments`
+        ]?.post;
+      const rollback =
+        openapi.paths[
+          `/api/v1/bff/${role}/model-qualification/adoption-operations/rollback-dry-runs`
+        ]?.post;
+      expect(projection?.responses?.["422"]).toBeDefined();
+      expect(assessment?.responses?.["422"]).toBeDefined();
+      expect(rollback?.responses?.["422"]).toBeDefined();
+    }
+
+    const student =
+      openapi.paths["/api/v1/bff/student/model-qualification/adoption-operations"]?.get;
+    expect(student?.responses?.["404"]).toBeDefined();
+    expect(student?.responses?.["422"]).toBeDefined();
   });
 });

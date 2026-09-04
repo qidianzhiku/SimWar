@@ -6523,6 +6523,7 @@ paths:
               }
         "401": { description: Authentication required }
         "403": { description: Teacher or course scope denied }
+        "422": { description: Exact adoption source or operations identity is invalid }
   /api/v1/bff/teacher/model-qualification/adoption-operations/drift-assessments:
     post:
       operationId: MODEL_QUALIFICATION_ADOPTION_OPERATIONS_TEACHER_ASSESS_V1
@@ -6549,6 +6550,7 @@ paths:
               }
         "401": { description: Authentication required }
         "403": { description: Teacher or course scope denied }
+        "422": { description: Request or exact adoption operations identity is invalid }
   /api/v1/bff/teacher/model-qualification/adoption-operations/rollback-dry-runs:
     post:
       operationId: MODEL_QUALIFICATION_ADOPTION_OPERATIONS_TEACHER_ROLLBACK_DRY_RUN_V1
@@ -6575,6 +6577,7 @@ paths:
               }
         "401": { description: Authentication required }
         "403": { description: Teacher or course scope denied }
+        "422": { description: Request or exact rollback operations identity is invalid }
 
   /api/v1/bff/admin/model-qualification/adoption-operations:
     get:
@@ -6594,6 +6597,7 @@ paths:
               }
         "401": { description: Authentication required }
         "403": { description: Tenant administrator scope denied }
+        "422": { description: Exact adoption source or operations identity is invalid }
   /api/v1/bff/admin/model-qualification/adoption-operations/drift-assessments:
     post:
       operationId: MODEL_QUALIFICATION_ADOPTION_OPERATIONS_ADMIN_ASSESS_V1
@@ -6620,6 +6624,7 @@ paths:
               }
         "401": { description: Authentication required }
         "403": { description: Tenant administrator scope denied }
+        "422": { description: Request or exact adoption operations identity is invalid }
   /api/v1/bff/admin/model-qualification/adoption-operations/rollback-dry-runs:
     post:
       operationId: MODEL_QUALIFICATION_ADOPTION_OPERATIONS_ADMIN_ROLLBACK_DRY_RUN_V1
@@ -6646,6 +6651,7 @@ paths:
               }
         "401": { description: Authentication required }
         "403": { description: Tenant administrator scope denied }
+        "422": { description: Request or exact rollback operations identity is invalid }
 
   /api/v1/bff/student/model-qualification/adoption-operations:
     get:
@@ -6673,6 +6679,8 @@ paths:
               }
         "401": { description: Authentication required }
         "403": { description: Student or course scope denied }
+        "404": { description: Qualification not found }
+        "422": { description: Exact adoption source or operations identity is invalid }
 
   /api/v1/bff/student/model-qualification:
     get:
