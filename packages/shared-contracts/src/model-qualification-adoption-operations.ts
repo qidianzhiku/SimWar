@@ -60,11 +60,7 @@ export interface AdoptionDriftAssessment {
   readonly epoch: EvidenceAdoptionEpoch;
   readonly operations_policy_digest: string;
   readonly status: AdoptionDriftAssessmentStatus;
-  readonly future_admission_impact:
-    | "UNCHANGED"
-    | "REVIEW_REQUIRED"
-    | "BLOCKED"
-    | "REBASE_REQUIRED";
+  readonly future_admission_impact: "UNCHANGED" | "REVIEW_REQUIRED" | "BLOCKED" | "REBASE_REQUIRED";
   readonly issue_codes: readonly AdoptionDriftIssueCode[];
   readonly known_limits: readonly string[];
   readonly provider: "OFF";
@@ -114,7 +110,10 @@ export interface AdoptionRollbackDryRun {
   readonly operations_policy_digest: string;
   readonly status: AdoptionRollbackDryRunStatus;
   readonly predecessor_currently_eligible: boolean;
-  readonly future_admission_impact: "WOULD_SELECT_EXACT_PREDECESSOR" | "BLOCKED" | "REBASE_REQUIRED";
+  readonly future_admission_impact:
+    | "WOULD_SELECT_EXACT_PREDECESSOR"
+    | "BLOCKED"
+    | "REBASE_REQUIRED";
   readonly blockers: readonly AdoptionRollbackDryRunBlocker[];
   readonly known_limits: readonly string[];
   readonly provider: "OFF";
@@ -138,8 +137,10 @@ export interface ModelQualificationAdoptionOperationsTeacherProjection {
   readonly advisory_only: true;
 }
 
-export interface ModelQualificationAdoptionOperationsAdminProjection
-  extends Omit<ModelQualificationAdoptionOperationsTeacherProjection, "operation_id"> {
+export interface ModelQualificationAdoptionOperationsAdminProjection extends Omit<
+  ModelQualificationAdoptionOperationsTeacherProjection,
+  "operation_id"
+> {
   readonly operation_id: "MODEL_QUALIFICATION_ADOPTION_OPERATIONS_ADMIN_GET_V1";
   readonly authority: {
     readonly model_governance_writer: "MAIN_MODEL_GOVERNANCE";
@@ -152,11 +153,7 @@ export interface ModelQualificationAdoptionOperationsStudentProjection {
   readonly operation_id: "MODEL_QUALIFICATION_ADOPTION_OPERATIONS_STUDENT_GET_V1";
   readonly applicability: "HEALTHY" | "LIMITED" | "BLOCKED" | "UNAVAILABLE";
   readonly freshness: "FRESH" | "STALE" | "UNKNOWN";
-  readonly requalification_impact:
-    | "NONE"
-    | "REVIEW_REQUIRED"
-    | "BLOCKED"
-    | "REBASE_REQUIRED";
+  readonly requalification_impact: "NONE" | "REVIEW_REQUIRED" | "BLOCKED" | "REBASE_REQUIRED";
   readonly known_limits: readonly string[];
   readonly provider: "OFF";
   readonly advisory_only: true;

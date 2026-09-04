@@ -77,7 +77,11 @@ function isActiveCurrent(record: EvidenceAdoptionRecord, assessedAt: string): bo
   if (record.disposition !== "ADOPTED_FOR_FUTURE_ADMISSION") return false;
   const assessedTime = Date.parse(assessedAt);
   const decidedTime = Date.parse(record.decided_at);
-  if (!Number.isFinite(assessedTime) || !Number.isFinite(decidedTime) || decidedTime > assessedTime) {
+  if (
+    !Number.isFinite(assessedTime) ||
+    !Number.isFinite(decidedTime) ||
+    decidedTime > assessedTime
+  ) {
     return false;
   }
   for (const expiry of [record.expires_at, record.epoch.source_expires_at]) {
@@ -261,7 +265,10 @@ export function runAdoptionRollbackDryRun(
         addBlocker("OPERATIONS_POLICY_DIGEST_CHANGED");
         requiresRebase = true;
       }
-      if (assessment.status === "REBASE_REQUIRED" || assessment.future_admission_impact === "REBASE_REQUIRED") {
+      if (
+        assessment.status === "REBASE_REQUIRED" ||
+        assessment.future_admission_impact === "REBASE_REQUIRED"
+      ) {
         requiresRebase = true;
       }
       if (!assessmentIsSafeAndHealthy(assessment, input.assessed_at)) {

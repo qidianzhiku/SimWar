@@ -37,11 +37,15 @@ function createAdoptedHistory(): AdoptionHistory {
     commandPrefix: string,
     expectedAdoption: EvidenceAdoptionRecord | null
   ): EvidenceAdoptionRecord => {
-    const proposal = service.requestEvidenceAdoption(EVIDENCE_ADOPTION_TEACHER, EVIDENCE_ADOPTION_SCOPE, {
-      command_id: `${commandPrefix}-request`,
-      qualification_id: qualificationId,
-      expected_adoption: expectedAdoption ? adoptionReference(expectedAdoption) : null
-    }).proposal;
+    const proposal = service.requestEvidenceAdoption(
+      EVIDENCE_ADOPTION_TEACHER,
+      EVIDENCE_ADOPTION_SCOPE,
+      {
+        command_id: `${commandPrefix}-request`,
+        qualification_id: qualificationId,
+        expected_adoption: expectedAdoption ? adoptionReference(expectedAdoption) : null
+      }
+    ).proposal;
     service.reviewEvidenceAdoption(EVIDENCE_ADOPTION_TEACHER, EVIDENCE_ADOPTION_SCOPE, {
       command_id: `${commandPrefix}-review`,
       proposal_id: proposal.proposal_id,
@@ -234,7 +238,10 @@ describe("O6 adoption rollback dry-run leaf", () => {
 
   it.each([
     { status: "REVIEW_REQUIRED" as const, issue_codes: ["SOURCE_NOT_FRESH" as const] },
-    { status: "FUTURE_ADMISSION_BLOCKED" as const, issue_codes: ["REQUALIFICATION_UNRESOLVED" as const] }
+    {
+      status: "FUTURE_ADMISSION_BLOCKED" as const,
+      issue_codes: ["REQUALIFICATION_UNRESOLVED" as const]
+    }
   ])("blocks a predecessor whose supplied assessment is $status", ({ status, issue_codes }) => {
     const history = createAdoptedHistory();
     const result = runAdoptionRollbackDryRun(
@@ -352,7 +359,10 @@ describe("O6 adoption rollback dry-run leaf", () => {
       name: "conflicting predecessor record digest",
       mutate: (state: EvidenceAdoptionState, history: AdoptionHistory): EvidenceAdoptionState => ({
         ...state,
-        records: [...state.records, { ...clone(history.adoptionA), adoption_digest: "f".repeat(64) }]
+        records: [
+          ...state.records,
+          { ...clone(history.adoptionA), adoption_digest: "f".repeat(64) }
+        ]
       })
     }
   ])("blocks a $name instead of choosing one record by array position", ({ mutate }) => {
