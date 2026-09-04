@@ -703,6 +703,9 @@ export class ModelQualificationService {
     }
     try {
       return await this.withScopedEvidenceAdmission(actor, scope, async (record, now) => {
+        if (!record.qualifications.some((item) => item.qualification_id === qualificationId)) {
+          throw new ModelQualificationError("MODEL_QUALIFICATION_NOT_FOUND");
+        }
         const state = this.validatedAdoptionState(record, scope);
         const matches = state.selections.filter((selection) =>
           state.records.some(

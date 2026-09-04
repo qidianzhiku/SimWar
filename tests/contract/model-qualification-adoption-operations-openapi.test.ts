@@ -112,4 +112,19 @@ describe("O6 adoption operations canonical contract", () => {
     expect(student?.responses?.["404"]).toBeDefined();
     expect(student?.responses?.["422"]).toBeDefined();
   });
+
+  it("keeps the O6 adoption evidence document aligned with the runtime contract", () => {
+    const document = readFileSync(
+      "docs/contracts/model-qualification-evidence-adoption.md",
+      "utf8"
+    );
+    for (const role of ["teacher", "admin", "student"]) {
+      expect(document).toContain(`/api/v1/bff/${role}/model-qualification/adoption-operations`);
+    }
+    expect(document).toContain("MODEL_QUALIFICATION_NOT_FOUND");
+    expect(document).toContain("REBASE_REQUIRED");
+    expect(document).toContain("rollback_applied=false");
+    expect(document).toContain("Student-safe projection deliberately");
+    expect(document).toContain("npm run test:e2e:ui:o6");
+  });
 });

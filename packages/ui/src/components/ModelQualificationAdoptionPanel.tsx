@@ -21,6 +21,11 @@ export interface ModelQualificationAdoptionPanelProps {
 }
 
 type PendingCommand = { action: string; body: Record<string, unknown> };
+type ProjectionLoadResult = {
+  operationsAvailable: boolean;
+  retryRequired: boolean;
+  notice?: string;
+};
 const equal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 /** One role-bound consumer of the existing Model Qualification authority. */
@@ -46,6 +51,7 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
   const [note, setNote] = useState("");
   const [expiry, setExpiry] = useState("");
   const [notice, setNotice] = useState("读取 exact adoption 状态");
+  const [reauthenticationRequired, setReauthenticationRequired] = useState(false);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<PendingCommand | null>(null);
   const [runId, setRunId] = useState("");
@@ -102,55 +108,71 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
   const disposed =
     proposal && (state?.records ?? []).some((item) => item.proposal_id === proposal.proposal_id);
 
-  async function load(generation: number): Promise<boolean> {
+  async function load(generation: number): Promise<ProjectionLoadResult> {
     const clearOperations = () => {
       if (generation !== epoch.current) return;
       setOperations(null);
       setAssessment(null);
       setRollbackDryRun(null);
     };
+    const operationsUnavailable = (notice: string): ProjectionLoadResult => {
+      clearOperations();
+      if (generation === epoch.current) setReauthenticationRequired(true);
+      return { operationsAvailable: false, retryRequired: true, notice };
+    };
     if (generation === epoch.current) {
       setLoaded(null);
       clearOperations();
     }
     const query = `courseId=${encodeURIComponent(courseId)}`;
-    const [projectionOutcome, operationsOutcome] = await Promise.allSettled([
-      fetch(`${base}?${query}`, { headers }),
-      fetch(`${base}/adoption-operations?${query}`, { headers })
-    ]);
-    if (projectionOutcome.status === "rejected") throw projectionOutcome.reason;
-    const projectionResponse = projectionOutcome.value;
-    const projectionResult = await projectionResponse.json();
-    if (!projectionResponse.ok)
-      throw new Error(
-        `${projectionResult.code ?? projectionResponse.status}: ${projectionResult.message ?? "读取失败"}`
-      );
-    if (generation === epoch.current) {
-      setLoaded({ context, data: projectionResult.data as ModelQualificationTeacherProjection });
+    let projectionData: ModelQualificationTeacherProjection;
+    try {
+      const projectionResponse = await fetch(`${base}?${query}`, { headers });
+      const projectionResult = await projectionResponse.json();
+      if (!projectionResponse.ok)
+        throw new Error(
+          `${projectionResult.code ?? projectionResponse.status}: ${projectionResult.message ?? "读取失败"}`
+        );
+      projectionData = projectionResult.data as ModelQualificationTeacherProjection;
+      if (generation === epoch.current) {
+        setLoaded({ context, data: projectionData });
+        setReauthenticationRequired(false);
+      }
+    } catch (error) {
+      if (generation === epoch.current) setReauthenticationRequired(true);
+      throw error;
     }
-    if (operationsOutcome.status === "rejected") {
+    if (generation !== epoch.current || !projectionData.evidence_adoption) {
       clearOperations();
-      return false;
+      return { operationsAvailable: false, retryRequired: false };
     }
-    const operationsResponse = operationsOutcome.value;
+    let operationsResponse: Response;
+    try {
+      operationsResponse = await fetch(`${base}/adoption-operations?${query}`, { headers });
+    } catch (error) {
+      return operationsUnavailable(
+        error instanceof Error ? error.message : "O6 operations 读取失败"
+      );
+    }
     let operationsResult: {
+      code?: string;
       data?:
         | ModelQualificationAdoptionOperationsTeacherProjection
         | ModelQualificationAdoptionOperationsAdminProjection;
+      message?: string;
     };
     try {
       operationsResult = await operationsResponse.json();
     } catch {
-      clearOperations();
-      return false;
+      return operationsUnavailable("O6 operations 返回了非 JSON 响应");
     }
     if (!operationsResponse.ok) {
-      clearOperations();
-      return false;
+      return operationsUnavailable(
+        `${operationsResult.code ?? operationsResponse.status}: ${operationsResult.message ?? "O6 operations 读取失败"}`
+      );
     }
     if (!operationsResult.data) {
-      clearOperations();
-      return false;
+      return operationsUnavailable("O6 operations 响应缺少数据");
     }
     if (generation === epoch.current) {
       setOperations({
@@ -159,8 +181,33 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
       });
       setAssessment(operationsResult.data.current_assessment ?? null);
       setRollbackDryRun(null);
+      setReauthenticationRequired(false);
     }
-    return true;
+    return { operationsAvailable: true, retryRequired: false };
+  }
+
+  async function reloadProjection() {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    const generation = epoch.current;
+    setBusy(true);
+    try {
+      const result = await load(generation);
+      if (generation === epoch.current)
+        setNotice(
+          result.operationsAvailable
+            ? "显式选择资格与采用候选；复核不会自动采用"
+            : (result.notice ?? "O6 operations unavailable；既有采用投影保持只读可见")
+        );
+    } catch (error) {
+      if (generation === epoch.current)
+        setNotice(error instanceof Error ? error.message : "读取失败");
+    } finally {
+      if (generation === epoch.current) {
+        setBusy(false);
+        inFlight.current = false;
+      }
+    }
   }
 
   useEffect(() => {
@@ -169,6 +216,7 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
     setOperations(null);
     setAssessment(null);
     setRollbackDryRun(null);
+    setReauthenticationRequired(false);
     setQualificationId("");
     setProposalId("");
     setPending(null);
@@ -182,12 +230,12 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
     setNotice("读取 exact adoption 状态");
     if (courseId && token)
       void load(generation)
-        .then((operationsAvailable) => {
+        .then((result) => {
           if (generation === epoch.current)
             setNotice(
-              operationsAvailable
+              result.operationsAvailable
                 ? "显式选择资格与采用候选；复核不会自动采用"
-                : "O6 operations unavailable；既有采用投影保持只读可见"
+                : (result.notice ?? "O6 operations unavailable；既有采用投影保持只读可见")
             );
         })
         .catch((error: unknown) => {
@@ -224,12 +272,14 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
       }
       setPending(null);
       if (result.data?.proposal?.proposal_id) setProposalId(result.data.proposal.proposal_id);
-      await load(generation);
+      const refreshed = await load(generation);
       if (generation === epoch.current)
         setNotice(
-          result.data?.reused
-            ? "REUSED：返回原命令回执，未重复采用"
-            : "命令已完成；请检查 exact 回执与未来准入指针"
+          refreshed.operationsAvailable
+            ? result.data?.reused
+              ? "REUSED：返回原命令回执，未重复采用"
+              : "命令已完成；请检查 exact 回执与未来准入指针"
+            : (refreshed.notice ?? "命令已完成；请重新读取 exact adoption 状态")
         );
     } catch (error) {
       if (generation === epoch.current)
@@ -399,6 +449,16 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
       <p role="status" aria-live="polite">
         {notice}
       </p>
+      {reauthenticationRequired && (
+        <button
+          type="button"
+          data-testid="reload-adoption-projection"
+          disabled={busy}
+          onClick={() => void reloadProjection()}
+        >
+          重新读取 exact adoption 状态
+        </button>
+      )}
       <p>
         {(state?.selections.length ?? 0) === 0
           ? "尚无明确采用记录；未来 O5 准入不可使用默认证据"

@@ -402,77 +402,112 @@ describe("exact evidence adoption UI", () => {
     expect(
       (host.querySelector('[data-testid="assess-adoption-drift"]') as HTMLButtonElement).disabled
     ).toBe(true);
+    expect(fetchMock.mock.calls.some(([url]) => url.includes("adoption-operations"))).toBe(false);
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(0);
     await act(async () => root.unmount());
   });
 
-  it("clears prior O5 and O6 receipts when a same-context refresh cannot reauthenticate", async () => {
-    const qualification = {
-      qualification_id: "qualification-before-refresh",
-      source_package_id: "source-before-refresh",
-      review: { status: "APPROVED" },
-      binding: { status: "BOUND" }
-    };
-    const projection = { ...empty, qualifications: [qualification] };
-    const operations = {
-      operation_id: "MODEL_QUALIFICATION_ADOPTION_OPERATIONS_TEACHER_GET_V1",
-      current_adoption: null,
-      current_assessment: { status: "HEALTHY", future_admission_impact: "UNCHANGED" },
-      rollback_dry_run: null,
-      adoption_state_digest: "a".repeat(64),
-      operations_policy_digest: "b".repeat(64),
-      known_limits: [],
-      provider: "OFF",
-      advisory_only: true
-    };
-    let postCompleted = false;
-    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
-      if (init?.method === "POST") {
-        postCompleted = true;
+  it.each(["projection", "operations"] as const)(
+    "clears unverified receipts and offers read recovery when the %s refresh fails",
+    async (failedRead) => {
+      const qualification = {
+        qualification_id: "qualification-before-refresh",
+        source_package_id: "source-before-refresh",
+        review: { status: "APPROVED" },
+        binding: { status: "BOUND" }
+      };
+      const projection = {
+        ...empty,
+        qualifications: [qualification],
+        evidence_adoption: {
+          tenant_id: "tenant_a",
+          course_id: "course_a",
+          proposals: [],
+          reviews: [],
+          records: [],
+          commands: [],
+          selections: []
+        }
+      };
+      const operations = {
+        operation_id: "MODEL_QUALIFICATION_ADOPTION_OPERATIONS_TEACHER_GET_V1",
+        current_adoption: null,
+        current_assessment: { status: "HEALTHY", future_admission_impact: "UNCHANGED" },
+        rollback_dry_run: null,
+        adoption_state_digest: "a".repeat(64),
+        operations_policy_digest: "b".repeat(64),
+        known_limits: [],
+        provider: "OFF",
+        advisory_only: true
+      };
+      let postCompleted = false;
+      let refreshFails = true;
+      const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === "POST") {
+          postCompleted = true;
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ data: { proposal: { proposal_id: "proposal-refresh" } } })
+          };
+        }
+        if (
+          postCompleted &&
+          refreshFails &&
+          url.includes("adoption-operations") === (failedRead === "operations")
+        ) {
+          return {
+            ok: false,
+            status: 503,
+            json: async () => ({ code: "PROJECTION_REAUTH_FAILED", message: "refresh denied" })
+          };
+        }
         return {
           ok: true,
           status: 200,
-          json: async () => ({ data: { proposal: { proposal_id: "proposal-refresh" } } })
+          json: async () => ({
+            data: url.includes("adoption-operations") ? operations : projection
+          })
         };
-      }
-      if (postCompleted && !url.includes("adoption-operations")) {
-        return {
-          ok: false,
-          status: 503,
-          json: async () => ({ code: "PROJECTION_REAUTH_FAILED", message: "refresh denied" })
-        };
-      }
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ data: url.includes("adoption-operations") ? operations : projection })
-      };
-    });
-    vi.stubGlobal("fetch", fetchMock);
-    const host = document.createElement("div");
-    document.body.append(host);
-    const root = createRoot(host);
-    await act(async () => root.render(<ModelQualificationAdoptionPanel {...props} />));
-    expect(host.textContent).toContain("qualification-before-refresh");
-    expect(host.textContent).toContain("health=HEALTHY");
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      const host = document.createElement("div");
+      document.body.append(host);
+      const root = createRoot(host);
+      await act(async () => root.render(<ModelQualificationAdoptionPanel {...props} />));
+      expect(host.textContent).toContain("qualification-before-refresh");
+      expect(host.textContent).toContain("health=HEALTHY");
 
-    const select = host.querySelector(
-      '[aria-label="待采用的 exact Qualification"]'
-    ) as HTMLSelectElement;
-    await act(async () => {
-      select.value = qualification.qualification_id;
-      select.dispatchEvent(new Event("change", { bubbles: true }));
-    });
-    await act(async () => {
-      (
-        host.querySelector('[data-testid="request-evidence-adoption"]') as HTMLButtonElement
-      ).click();
-    });
+      const select = host.querySelector(
+        '[aria-label="待采用的 exact Qualification"]'
+      ) as HTMLSelectElement;
+      await act(async () => {
+        select.value = qualification.qualification_id;
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      await act(async () => {
+        (
+          host.querySelector('[data-testid="request-evidence-adoption"]') as HTMLButtonElement
+        ).click();
+      });
 
-    expect(host.textContent).toContain("PROJECTION_REAUTH_FAILED");
-    expect(host.textContent).not.toContain("qualification-before-refresh");
-    expect(host.textContent).not.toContain("health=HEALTHY");
-    expect(host.querySelector('[data-testid="rollback-dry-run-receipt"]')).toBeNull();
-    await act(async () => root.unmount());
-  });
+      expect(host.textContent).toContain("PROJECTION_REAUTH_FAILED");
+      if (failedRead === "projection")
+        expect(host.textContent).not.toContain("qualification-before-refresh");
+      expect(host.textContent).not.toContain("health=HEALTHY");
+      expect(host.querySelector('[data-testid="rollback-dry-run-receipt"]')).toBeNull();
+
+      const reload = host.querySelector(
+        '[data-testid="reload-adoption-projection"]'
+      ) as HTMLButtonElement;
+      expect(reload).not.toBeNull();
+      expect(reload.disabled).toBe(false);
+      refreshFails = false;
+      await act(async () => reload.click());
+      expect(host.textContent).toContain("qualification-before-refresh");
+      expect(host.textContent).toContain("health=HEALTHY");
+      expect(host.textContent).toContain("显式选择资格与采用候选；复核不会自动采用");
+      await act(async () => root.unmount());
+    }
+  );
 });

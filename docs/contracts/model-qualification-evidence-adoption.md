@@ -84,3 +84,68 @@ runs independent `SIMWAR_PLAYWRIGHT_*_PORT` values and a store file under the
 controlled temporary `simwar-playwright/<mission>/playwright-store.json` root.
 Focused browser/axe results do not establish Human Validation, full WCAG
 conformance, production readiness or durable PostgreSQL application activation.
+
+## O6 adoption operations and rollback dry-run
+
+O6 adds a read-only operations layer over the existing O5 evidence-adoption
+authority. Teacher and Admin can inspect current adoption health, request a
+deterministic drift assessment, and preview the impact of selecting one exact
+historically adopted predecessor. Student receives only a role-safe
+applicability, freshness, requalification-impact, and known-limit projection.
+The operations layer does not add a writer, store, registry, truth engine,
+settlement authority, scheduler, rollback-apply route, or automatic rollback.
+
+The canonical role-BFF entry points are:
+
+- `GET /api/v1/bff/teacher/model-qualification/adoption-operations`
+- `GET /api/v1/bff/admin/model-qualification/adoption-operations`
+- `GET /api/v1/bff/student/model-qualification/adoption-operations`
+- Teacher/Admin `POST .../drift-assessments`
+- Teacher/Admin `POST .../rollback-dry-runs`
+
+Every assessment and rollback dry-run binds the caller's exact adoption
+identifier and digest to both the complete current adoption-state digest and the
+versioned operations-policy digest. If the adoption selection or either digest
+changes before evaluation, the result is `REBASE_REQUIRED`; the runtime never
+falls back to latest, current, default, first, last, or newest-timestamp
+selection. A rollback candidate must be the exact retained predecessor and must
+independently remain eligible for future admission. Historical readability alone
+is not rollback eligibility.
+
+The O6 endpoints fail closed on missing qualifications, tenant/course or role
+scope conflicts, malformed exact identities, stale state/policy digests, missing
+predecessors, expired or invalid source rights, and unresolved qualification or
+requalification conditions. Student requests for an unknown qualification return
+`MODEL_QUALIFICATION_NOT_FOUND` with HTTP 404 rather than an `UNAVAILABLE`
+projection. Teacher/Admin projection refresh failures clear unverified current
+receipts and expose an explicit retry control; the UI does not keep displaying a
+stale ready receipt.
+
+Teacher/Admin drift-assessment and rollback-dry-run receipts expose the
+applicable hard non-effect fields below. The Student-safe projection deliberately
+does not expose the private Teacher/Admin receipt or every receipt-only field;
+the same non-write boundaries still govern its read-only runtime path.
+
+```text
+rollback_applied=false
+adoption_mutation=false
+official_truth_write=false
+history_deleted=false
+historical_receipt_rewritten=false
+Provider=OFF
+```
+
+Run the O6-focused verification from a clean checkout after building the shared
+prerequisites:
+
+```powershell
+npx vitest run tests/unit/model-qualification-adoption-drift-assessment.test.ts tests/unit/model-qualification-rollback-dry-run.test.ts tests/integration/model-qualification-o6-operations.test.ts tests/integration/model-qualification-o6-http.test.ts tests/contract/model-qualification-adoption-operations-openapi.test.ts tests/unit/ui-model-qualification-adoption.test.tsx tests/unit/ui-model-qualification-operations-student.test.tsx
+npm run test:contract
+npm run test:e2e:ui:o6
+```
+
+The O6 Playwright path uses real role BFF routes with target-route mocks set to
+zero. Each run must use an independent store under the controlled temporary
+`simwar-playwright/<mission>/playwright-store.json` root. O6 browser and focused
+axe evidence does not prove Human Validation, full WCAG conformance, Pilot,
+Production, Release, Provider activation, or durable database activation.

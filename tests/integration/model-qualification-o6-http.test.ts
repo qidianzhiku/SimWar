@@ -207,6 +207,14 @@ describe("O6 real BFF adoption operations", () => {
       expect(student.body.data).not.toHaveProperty("predecessor_adoption");
       expect(JSON.stringify(store.modelQualificationRecords)).toBe(immutableBefore);
 
+      const unknownStudentQualification = await request<unknown>(
+        `/api/v1/bff/student/model-qualification/adoption-operations?${query}&qualificationId=qualification-missing`,
+        studentToken
+      );
+      expect(unknownStudentQualification.status).toBe(404);
+      expect(unknownStudentQualification.body.code).toBe("MODEL_QUALIFICATION_NOT_FOUND");
+      expect(JSON.stringify(store.modelQualificationRecords)).toBe(immutableBefore);
+
       const multiRoleTeacher = await request<ModelQualificationTeacherProjection>(
         `/api/v1/bff/teacher/model-qualification?${query}`,
         studentToken
