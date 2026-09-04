@@ -389,6 +389,7 @@ export class ModelQualificationService {
     }
   ) {
     const context = this.adoptionContext(actor, scope, input.command_id);
+    this.assertAdmissionNotInProgress(scope);
     const state = this.getEvidenceAdoptionState(actor, scope);
     const record = this.mutableRecord(scope);
     const retry = state.commands.some((item) => item.command_id === input.command_id);
@@ -421,6 +422,7 @@ export class ModelQualificationService {
     input: ReviewEvidenceAdoption & { command_id: string }
   ) {
     const context = this.adoptionContext(actor, scope, input.command_id);
+    this.assertAdmissionNotInProgress(scope);
     const intent: ReviewEvidenceAdoption = {
       proposal_id: input.proposal_id,
       proposal_digest: input.proposal_digest,
@@ -446,6 +448,7 @@ export class ModelQualificationService {
     input: DisposeEvidenceAdoption & { command_id: string }
   ) {
     const context = this.adoptionContext(actor, scope, input.command_id);
+    this.assertAdmissionNotInProgress(scope);
     const state = this.getEvidenceAdoptionState(actor, scope);
     if (
       input.disposition === "ADOPTED_FOR_FUTURE_ADMISSION" &&
@@ -490,16 +493,34 @@ export class ModelQualificationService {
   async withEvidenceAdmission<T>(
     actor: ModelQualificationActor,
     scope: ModelQualificationScope,
-    operation: (record: ModelQualificationRecord, now: () => string) => Promise<T>
+    operation: (record: ModelQualificationRecord, now: () => string) => Promise<T>,
+    options: { allowMissingRecord?: boolean } = {}
   ): Promise<T> {
     this.adoptionContext(actor, scope, "admit");
+    return this.withScopedEvidenceAdmission(actor, scope, operation, options);
+  }
+
+  /**
+   * Reuses the same course-scoped guard for Run creation even when the course
+   * has no qualification record yet. The actor tenant is still checked here;
+   * role-specific adoption operations remain behind adoptionContext above.
+   */
+  async withScopedEvidenceAdmission<T>(
+    actor: Pick<ModelQualificationActor, "tenant_id">,
+    scope: ModelQualificationScope,
+    operation: (record: ModelQualificationRecord, now: () => string) => Promise<T>,
+    options: { allowMissingRecord?: boolean } = {}
+  ): Promise<T> {
+    if (!actor.tenant_id || actor.tenant_id !== scope.tenant_id || !scope.course_id)
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
     const key = this.key(scope.tenant_id, scope.course_id);
-    if (this.admissionGuards.has(key)) throw new Error("EVIDENCE_ADOPTION_ADMISSION_IN_PROGRESS");
+    this.assertAdmissionNotInProgress(scope);
     const record = this.getRecordForScope(scope);
-    if (!record) throw new Error("EVIDENCE_ADOPTION_EXACT_SOURCE_REQUIRED");
+    if (!record && !options.allowMissingRecord)
+      throw new Error("EVIDENCE_ADOPTION_EXACT_SOURCE_REQUIRED");
     this.admissionGuards.add(key);
     try {
-      return await operation(record, () => this.clock.now());
+      return await operation(record ?? this.recordOrEmpty(scope), () => this.clock.now());
     } finally {
       this.admissionGuards.delete(key);
     }
@@ -1087,6 +1108,11 @@ export class ModelQualificationService {
     ) {
       throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
     }
+  }
+
+  private assertAdmissionNotInProgress(scope: ModelQualificationScope): void {
+    if (this.admissionGuards.has(this.key(scope.tenant_id, scope.course_id)))
+      throw new Error("EVIDENCE_ADOPTION_ADMISSION_IN_PROGRESS");
   }
 
   private security(actor: ModelQualificationActor, scope: ModelQualificationScope) {

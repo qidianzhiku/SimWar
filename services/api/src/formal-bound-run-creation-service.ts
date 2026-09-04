@@ -126,14 +126,16 @@ export interface CreateAdoptedFormalBoundRunInput extends CreateQualifiedFormalB
   ): Promise<T>;
 }
 
-/** O5 extends the existing Run writer, never the formal binding/hash shape. */
-export async function createAdoptedFormalBoundRun(
-  input: CreateAdoptedFormalBoundRunInput
-): Promise<QualifiedRunAdmissionSnapshot> {
+export type CreateAdoptedFormalBoundRunWithinAdmissionInput = Omit<
+  CreateAdoptedFormalBoundRunInput,
+  "withAdmissionGuard"
+>;
+
+function assertAdoptedFormalBoundRunInput(
+  input: CreateAdoptedFormalBoundRunWithinAdmissionInput
+): void {
   if (!input.adoption?.adoption_id || !input.adoption.adoption_digest)
     throw new Error("QUALIFIED_RUN_ADMISSION_ADOPTION_REQUIRED");
-  if (typeof input.withAdmissionGuard !== "function")
-    throw new Error("QUALIFIED_RUN_ADMISSION_GUARD_REQUIRED");
   const identity = input.admission.admission;
   if (
     input.run.tenant_id !== identity.tenant_id ||
@@ -143,27 +145,51 @@ export async function createAdoptedFormalBoundRun(
   ) {
     throw new Error("QUALIFIED_RUN_ADMISSION_SCOPE_MISMATCH");
   }
-  return input.withAdmissionGuard(async (record, now) => {
-    const validate = () =>
-      resolveAdoptedRunAdmission(
-        { ...input.admission, qualification_record: record, now: now() },
-        input.adoption
-      );
-    validate();
-    let snapshot: QualifiedRunAdmissionSnapshot | undefined;
-    await createFormalBoundRun({
-      ...input,
-      persistence: {
-        ...input.persistence,
-        saveRun: async (run) => {
-          snapshot = createQualifiedRunAdmissionSnapshot(run, validate());
-          await input.persistence.saveRun(run, snapshot);
-        }
+}
+
+/**
+ * Execute the adopted admission after the caller has acquired the existing
+ * course-scoped authority guard. This keeps the guard acquisition exactly
+ * once across the full admission-to-Run write transaction.
+ */
+export async function createAdoptedFormalBoundRunWithinAdmission(
+  input: CreateAdoptedFormalBoundRunWithinAdmissionInput,
+  record: ModelQualificationRecord,
+  now: () => string
+): Promise<QualifiedRunAdmissionSnapshot> {
+  assertAdoptedFormalBoundRunInput(input);
+  const validate = () =>
+    resolveAdoptedRunAdmission(
+      { ...input.admission, qualification_record: record, now: now() },
+      input.adoption
+    );
+  validate();
+  let snapshot: QualifiedRunAdmissionSnapshot | undefined;
+  await createFormalBoundRun({
+    ...input,
+    persistence: {
+      ...input.persistence,
+      saveRun: async (run) => {
+        snapshot = createQualifiedRunAdmissionSnapshot(run, validate());
+        await input.persistence.saveRun(run, snapshot);
       }
-    });
-    if (!snapshot) throw new Error("QUALIFIED_RUN_ADMISSION_SNAPSHOT_MISSING");
-    return snapshot;
+    }
   });
+  if (!snapshot) throw new Error("QUALIFIED_RUN_ADMISSION_SNAPSHOT_MISSING");
+  return snapshot;
+}
+
+/** O5 extends the existing Run writer, never the formal binding/hash shape. */
+export async function createAdoptedFormalBoundRun(
+  input: CreateAdoptedFormalBoundRunInput
+): Promise<QualifiedRunAdmissionSnapshot> {
+  const { withAdmissionGuard, ...core } = input;
+  assertAdoptedFormalBoundRunInput(core);
+  if (typeof withAdmissionGuard !== "function")
+    throw new Error("QUALIFIED_RUN_ADMISSION_GUARD_REQUIRED");
+  return withAdmissionGuard((record, now) =>
+    createAdoptedFormalBoundRunWithinAdmission(core, record, now)
+  );
 }
 
 export interface EnsureFormalRunRuntimeBindingInput {

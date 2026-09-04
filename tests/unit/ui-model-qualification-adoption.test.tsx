@@ -168,6 +168,82 @@ describe("exact evidence adoption UI", () => {
     await act(async () => root.unmount());
   });
 
+  it("emits the exact adopted qualification selector for Run creation", async () => {
+    const qualification = {
+      qualification_id: "qualification-a",
+      source_package_id: "source-a",
+      calibration_dataset_id: "dataset-a",
+      model_version_reference: {
+        content_digest: "a".repeat(64),
+        model_version_id: "model-a",
+        version: "1.0.0"
+      },
+      artifact: {
+        artifact_id: "artifact-a",
+        content_digest: "b".repeat(64),
+        format: "typescript-boundary",
+        source_ref: "artifact://model-a"
+      },
+      review: { status: "APPROVED" },
+      binding: { status: "BOUND" }
+    };
+    const onSelection = vi.fn();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          data: {
+            ...empty,
+            qualifications: [qualification],
+            evidence_adoption: {
+              tenant_id: "tenant_a",
+              course_id: "course_a",
+              proposals: [],
+              reviews: [],
+              records: [],
+              commands: [],
+              selections: [
+                {
+                  adoption_id: "adoption-a",
+                  adoption_digest: "c".repeat(64),
+                  model_version_reference: qualification.model_version_reference,
+                  model_artifact_reference: qualification.artifact
+                }
+              ]
+            }
+          }
+        })
+      }))
+    );
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        <ModelQualificationAdoptionPanel
+          {...({ ...props, onRunAdmissionSelectionChange: onSelection } as never)}
+        />
+      );
+    });
+    const select = host.querySelector(
+      '[aria-label="待采用的 exact Qualification"]'
+    ) as HTMLSelectElement;
+    await act(async () => {
+      select.value = "qualification-a";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(onSelection).toHaveBeenLastCalledWith({
+      adoption: { adoption_id: "adoption-a", adoption_digest: "c".repeat(64) },
+      calibration_dataset_id: "dataset-a",
+      model_artifact_reference: qualification.artifact,
+      model_version_reference: qualification.model_version_reference,
+      qualification_id: "qualification-a",
+      source_package_id: "source-a"
+    });
+    await act(async () => root.unmount());
+  });
+
   it("does not display a late response from another Course context", async () => {
     let resolveOld!: (value: unknown) => void;
     const oldResponse = new Promise((resolve) => {

@@ -1,12 +1,16 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   EvidenceAdoptionDisposition,
+  ModelQualificationRunAdmissionSelection,
   ModelQualificationTeacherProjection
 } from "@simwar/shared-contracts";
 
 export interface ModelQualificationAdoptionPanelProps {
   apiBase: string;
   courseId: string;
+  onRunAdmissionSelectionChange?: (
+    selection: ModelQualificationRunAdmissionSelection | null
+  ) => void;
   tenantId: string;
   token: string;
   role: "teacher" | "admin";
@@ -17,7 +21,7 @@ const equal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b
 
 /** One role-bound consumer of the existing Model Qualification authority. */
 export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptionPanelProps) {
-  const { apiBase, courseId, tenantId, token, role } = props;
+  const { apiBase, courseId, onRunAdmissionSelectionChange, tenantId, token, role } = props;
   const context = JSON.stringify([apiBase, tenantId, courseId, token, role]);
   const epoch = useRef(0);
   const inFlight = useRef(false);
@@ -62,6 +66,21 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
     pointers.length === 1
       ? { adoption_id: pointers[0]!.adoption_id, adoption_digest: pointers[0]!.adoption_digest }
       : null;
+  const selectedPointer = pointers.length === 1 ? pointers[0] : undefined;
+  const runAdmissionSelection = useMemo<ModelQualificationRunAdmissionSelection | null>(() => {
+    if (!qualification || !selectedPointer) return null;
+    return {
+      adoption: {
+        adoption_digest: selectedPointer.adoption_digest,
+        adoption_id: selectedPointer.adoption_id
+      },
+      calibration_dataset_id: qualification.calibration_dataset_id,
+      model_artifact_reference: qualification.artifact,
+      model_version_reference: qualification.model_version_reference,
+      qualification_id: qualification.qualification_id,
+      source_package_id: qualification.source_package_id
+    };
+  }, [qualification, selectedPointer?.adoption_digest, selectedPointer?.adoption_id]);
   const proposals = state?.proposals ?? [];
   const selectedProposals = proposals.filter((item) => item.proposal_id === proposalId);
   const proposal = selectedProposals.length === 1 ? selectedProposals[0] : undefined;
@@ -107,6 +126,10 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
     };
     // Context binds every request input and invalidates all late responses.
   }, [context]);
+
+  useEffect(() => {
+    onRunAdmissionSelectionChange?.(runAdmissionSelection);
+  }, [onRunAdmissionSelectionChange, runAdmissionSelection]);
 
   async function execute(command: PendingCommand) {
     if (inFlight.current || !projection) return;
