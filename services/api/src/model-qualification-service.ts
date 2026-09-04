@@ -9,7 +9,17 @@ import {
   resolveHistoricalEvidenceAdoption
 } from "./model-qualification-evidence-adoption.js";
 import { deriveEvidenceAdoptionEpoch } from "./model-qualification-adopted-run-admission.js";
+import {
+  assessAdoptionDrift,
+  digestAdoptionOperationsPolicy,
+  digestEvidenceAdoptionState
+} from "./model-qualification-adoption-drift-assessment.js";
+import { runAdoptionRollbackDryRun } from "./model-qualification-rollback-dry-run.js";
 import type {
+  AdoptionDriftAssessment,
+  AdoptionDriftAssessmentRequest,
+  AdoptionRollbackDryRun,
+  AdoptionRollbackDryRunRequest,
   DisposeEvidenceAdoption,
   EvidenceAdoptionCommandContext,
   EvidenceAdoptionReference,
@@ -21,6 +31,9 @@ import type {
   ModelVersionReference,
   ModelQualification,
   ModelQualificationAdminProjection,
+  ModelQualificationAdoptionOperationsAdminProjection,
+  ModelQualificationAdoptionOperationsStudentProjection,
+  ModelQualificationAdoptionOperationsTeacherProjection,
   ModelQualificationCalibrationDataset,
   ModelQualificationDecision,
   ModelQualificationDiagnostics,
@@ -294,10 +307,18 @@ export class ModelQualificationError extends Error {
       | "MODEL_QUALIFICATION_BINDING_REQUIRED"
       | "MODEL_QUALIFICATION_REQUALIFICATION_INVALID"
       | "MODEL_QUALIFICATION_REQUALIFICATION_CONFLICT"
+      | "MODEL_QUALIFICATION_ADOPTION_OPERATIONS_INVALID"
   ) {
     super(code);
     this.name = "ModelQualificationError";
   }
+}
+
+function rethrowAdoptionOperationsError(error: unknown): never {
+  if (error instanceof Error && /^O6_/.test(error.message)) {
+    throw new ModelQualificationError("MODEL_QUALIFICATION_ADOPTION_OPERATIONS_INVALID");
+  }
+  throw error;
 }
 
 export class ModelQualificationService {
@@ -523,6 +544,236 @@ export class ModelQualificationService {
       return await operation(record ?? this.recordOrEmpty(scope), () => this.clock.now());
     } finally {
       this.admissionGuards.delete(key);
+    }
+  }
+
+  /**
+   * Evaluate the exact O5 adoption under the existing course-scoped admission
+   * guard. This is a transient operations receipt: no record, adoption, Run,
+   * settlement, or official-truth writer is invoked.
+   */
+  async assessEvidenceAdoptionDrift(
+    actor: ModelQualificationActor,
+    scope: ModelQualificationScope,
+    input: AdoptionDriftAssessmentRequest
+  ): Promise<AdoptionDriftAssessment> {
+    if (input.course_id !== scope.course_id) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    const request = {
+      assessed_at: input.assessed_at,
+      expected_adoption: input.expected_adoption,
+      expected_adoption_state_digest: input.expected_adoption_state_digest,
+      expected_operations_policy_digest: input.expected_operations_policy_digest
+    };
+    try {
+      return await this.withEvidenceAdmission(actor, scope, async (record) =>
+        assessAdoptionDrift({
+          ...request,
+          record,
+          selection_requirement: "CURRENT",
+          state: this.validatedAdoptionState(record, scope)
+        })
+      );
+    } catch (error) {
+      rethrowAdoptionOperationsError(error);
+    }
+  }
+
+  /** Pure rollback impact preview. It never applies an adoption mutation. */
+  async dryRunEvidenceAdoptionRollback(
+    actor: ModelQualificationActor,
+    scope: ModelQualificationScope,
+    input: AdoptionRollbackDryRunRequest
+  ): Promise<AdoptionRollbackDryRun> {
+    if (input.course_id !== scope.course_id) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    const request = {
+      assessed_at: input.assessed_at,
+      current_adoption: input.current_adoption,
+      predecessor_adoption: input.predecessor_adoption,
+      expected_adoption_state_digest: input.expected_adoption_state_digest,
+      expected_operations_policy_digest: input.expected_operations_policy_digest
+    };
+    try {
+      return await this.withEvidenceAdmission(actor, scope, async (record) => {
+        const state = this.validatedAdoptionState(record, scope);
+        const actualStateDigest = digestEvidenceAdoptionState(state);
+        const actualPolicyDigest = digestAdoptionOperationsPolicy();
+        const predecessorAssessment = assessAdoptionDrift({
+          assessed_at: request.assessed_at,
+          expected_adoption: request.predecessor_adoption,
+          expected_adoption_state_digest: request.expected_adoption_state_digest,
+          expected_operations_policy_digest: request.expected_operations_policy_digest,
+          record,
+          selection_requirement: "HISTORICAL_PREDECESSOR",
+          state
+        });
+        return runAdoptionRollbackDryRun({
+          ...request,
+          actual_adoption_state_digest: actualStateDigest,
+          actual_operations_policy_digest: actualPolicyDigest,
+          adoption_state: state,
+          predecessor_assessment: predecessorAssessment
+        });
+      });
+    } catch (error) {
+      rethrowAdoptionOperationsError(error);
+    }
+  }
+
+  async getAdoptionOperationsProjection(
+    actor: ModelQualificationActor,
+    scope: ModelQualificationScope
+  ): Promise<
+    | ModelQualificationAdoptionOperationsTeacherProjection
+    | ModelQualificationAdoptionOperationsAdminProjection
+  > {
+    try {
+      return await this.withEvidenceAdmission(actor, scope, async (record, now) => {
+        const state = this.validatedAdoptionState(record, scope);
+        const selections = state.selections;
+        const current =
+          selections.length === 1
+            ? {
+                adoption_id: selections[0]!.adoption_id,
+                adoption_digest: selections[0]!.adoption_digest
+              }
+            : null;
+        const stateDigest = digestEvidenceAdoptionState(state);
+        const policyDigest = digestAdoptionOperationsPolicy();
+        const currentAssessment = current
+          ? assessAdoptionDrift({
+              assessed_at: now(),
+              expected_adoption: current,
+              expected_adoption_state_digest: stateDigest,
+              expected_operations_policy_digest: policyDigest,
+              record,
+              selection_requirement: "CURRENT",
+              state
+            })
+          : null;
+        const common = {
+          current_adoption: current,
+          current_assessment: currentAssessment,
+          rollback_dry_run: null,
+          adoption_state_digest: stateDigest,
+          operations_policy_digest: policyDigest,
+          known_limits: [
+            "Dry-run operations do not mutate adoption, Run, settlement, or official truth.",
+            ...(selections.length > 1
+              ? [
+                  "Multiple exact model selections exist; supply an exact adoption selector to assess one."
+                ]
+              : [])
+          ],
+          provider: "OFF" as const,
+          advisory_only: true as const
+        };
+        if (actor.role === "tenant_admin") {
+          return {
+            ...common,
+            operation_id: "MODEL_QUALIFICATION_ADOPTION_OPERATIONS_ADMIN_GET_V1" as const,
+            authority: {
+              model_governance_writer: MODEL_QUALIFICATION_SOLE_WRITER,
+              formal_truth_writer: "SIMULATION_CORE" as const,
+              writes_formal_truth: false as const
+            }
+          };
+        }
+        return {
+          ...common,
+          operation_id: "MODEL_QUALIFICATION_ADOPTION_OPERATIONS_TEACHER_GET_V1" as const
+        };
+      });
+    } catch (error) {
+      rethrowAdoptionOperationsError(error);
+    }
+  }
+
+  async getStudentAdoptionOperationsProjection(
+    actor: ModelQualificationActor,
+    scope: ModelQualificationScope,
+    qualificationId: string
+  ): Promise<ModelQualificationAdoptionOperationsStudentProjection> {
+    this.assertScope(actor, scope);
+    if (actor.role !== "student" && actor.role !== "learner") {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    try {
+      return await this.withScopedEvidenceAdmission(actor, scope, async (record, now) => {
+        if (!record.qualifications.some((item) => item.qualification_id === qualificationId)) {
+          throw new ModelQualificationError("MODEL_QUALIFICATION_NOT_FOUND");
+        }
+        const state = this.validatedAdoptionState(record, scope);
+        const matches = state.selections.filter((selection) =>
+          state.records.some(
+            (candidate) =>
+              candidate.adoption_id === selection.adoption_id &&
+              candidate.adoption_digest === selection.adoption_digest &&
+              candidate.epoch.qualification_id === qualificationId
+          )
+        );
+        let assessment: AdoptionDriftAssessment | null = null;
+        if (matches.length === 1) {
+          const reference = {
+            adoption_id: matches[0]!.adoption_id,
+            adoption_digest: matches[0]!.adoption_digest
+          };
+          const stateDigest = digestEvidenceAdoptionState(state);
+          assessment = assessAdoptionDrift({
+            assessed_at: now(),
+            expected_adoption: reference,
+            expected_adoption_state_digest: stateDigest,
+            expected_operations_policy_digest: digestAdoptionOperationsPolicy(),
+            record,
+            selection_requirement: "CURRENT",
+            state
+          });
+        }
+        const applicability =
+          assessment?.status === "HEALTHY"
+            ? "HEALTHY"
+            : assessment?.status === "REVIEW_REQUIRED"
+              ? "LIMITED"
+              : assessment?.status === "FUTURE_ADMISSION_BLOCKED" ||
+                  assessment?.status === "REBASE_REQUIRED"
+                ? "BLOCKED"
+                : "UNAVAILABLE";
+        const freshness =
+          assessment?.issue_codes.includes("SOURCE_EXPIRED") ||
+          assessment?.issue_codes.includes("SOURCE_NOT_FRESH")
+            ? "STALE"
+            : assessment
+              ? "FRESH"
+              : "UNKNOWN";
+        const requalificationImpact =
+          assessment?.future_admission_impact === "REBASE_REQUIRED"
+            ? "REBASE_REQUIRED"
+            : assessment?.future_admission_impact === "BLOCKED"
+              ? "BLOCKED"
+              : assessment?.future_admission_impact === "REVIEW_REQUIRED"
+                ? "REVIEW_REQUIRED"
+                : "NONE";
+        return {
+          operation_id: "MODEL_QUALIFICATION_ADOPTION_OPERATIONS_STUDENT_GET_V1",
+          applicability,
+          freshness,
+          requalification_impact: requalificationImpact,
+          known_limits: [
+            "Role-safe status only; exact adoption, evidence, digest, and rollback candidate identities are hidden.",
+            "Provider OFF; this advisory-only projection does not change decisions or official truth."
+          ],
+          provider: "OFF",
+          advisory_only: true,
+          rollback_applied: false,
+          official_truth_write: false,
+          visibility: "ROLE_SAFE_STUDENT"
+        };
+      });
+    } catch (error) {
+      rethrowAdoptionOperationsError(error);
     }
   }
 

@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import type { ApiEnvelope, ModelQualificationStudentProjection } from "@simwar/shared-contracts";
+import type {
+  ApiEnvelope,
+  ModelQualificationAdoptionOperationsStudentProjection,
+  ModelQualificationStudentProjection
+} from "@simwar/shared-contracts";
 
 interface Props {
   apiBase: string;
@@ -17,36 +21,63 @@ export function ModelQualificationProjection({
   token
 }: Props) {
   const [projection, setProjection] = useState<ModelQualificationStudentProjection | null>(null);
+  const [operations, setOperations] =
+    useState<ModelQualificationAdoptionOperationsStudentProjection | null>(null);
   const contextIdentity = JSON.stringify([apiBase, courseId, qualificationId, tenantId, token]);
   const [projectionIdentity, setProjectionIdentity] = useState("");
   const [notice, setNotice] = useState("等待已绑定模型资格");
+  const [operationsNotice, setOperationsNotice] = useState("");
 
   useEffect(() => {
     setProjection(null);
+    setOperations(null);
+    setOperationsNotice("");
     if (!courseId || !qualificationId || !token) {
       setProjection(null);
       setNotice("Teacher 绑定后，通过 modelQualificationId 查询已发布解释");
       return;
     }
     let active = true;
-    void fetch(
-      `${apiBase}/api/v1/bff/student/model-qualification?courseId=${encodeURIComponent(courseId)}&qualificationId=${encodeURIComponent(qualificationId)}`,
-      {
-        headers: {
-          authorization: `Bearer ${token}`,
-          "content-type": "application/json",
-          "x-tenant-id": tenantId
-        }
-      }
-    )
-      .then(async (response) => {
+    const headers = {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+      "x-tenant-id": tenantId
+    };
+    const query = `courseId=${encodeURIComponent(courseId)}&qualificationId=${encodeURIComponent(qualificationId)}`;
+    void Promise.allSettled([
+      fetch(`${apiBase}/api/v1/bff/student/model-qualification?${query}`, { headers }),
+      fetch(`${apiBase}/api/v1/bff/student/model-qualification/adoption-operations?${query}`, {
+        headers
+      })
+    ])
+      .then(async ([projectionOutcome, operationsOutcome]) => {
+        if (projectionOutcome.status === "rejected") throw projectionOutcome.reason;
+        const projectionResponse = projectionOutcome.value;
         const envelope =
-          (await response.json()) as ApiEnvelope<ModelQualificationStudentProjection>;
-        if (!response.ok) throw new Error(`${envelope.code}: ${envelope.message}`);
+          (await projectionResponse.json()) as ApiEnvelope<ModelQualificationStudentProjection>;
+        if (!projectionResponse.ok) throw new Error(`${envelope.code}: ${envelope.message}`);
         if (active) {
           setProjection(envelope.data);
           setProjectionIdentity(contextIdentity);
         }
+        if (operationsOutcome.status === "rejected") {
+          if (active) setOperationsNotice("O6 operations unavailable");
+          return;
+        }
+        const operationsResponse = operationsOutcome.value;
+        let operationsEnvelope: ApiEnvelope<ModelQualificationAdoptionOperationsStudentProjection>;
+        try {
+          operationsEnvelope =
+            (await operationsResponse.json()) as ApiEnvelope<ModelQualificationAdoptionOperationsStudentProjection>;
+        } catch {
+          if (active) setOperationsNotice("O6 operations unavailable");
+          return;
+        }
+        if (!operationsResponse.ok) {
+          if (active) setOperationsNotice("O6 operations unavailable");
+          return;
+        }
+        if (active) setOperations(operationsEnvelope.data);
       })
       .catch((error: unknown) => {
         if (active) setNotice(error instanceof Error ? error.message : "学生模型解释加载失败");
@@ -91,6 +122,30 @@ export function ModelQualificationProjection({
               </p>
               <p>采用状态只约束未来新 Run，不改变本 Run 的历史证据或任何正式分数、排名与结算。</p>
             </section>
+          )}
+          {operations && (
+            <section aria-label="student safe adoption operations status">
+              <h3>采用健康与未来准入适用性</h3>
+              <p data-testid="student-adoption-operations-status">
+                applicability={operations.applicability} · freshness={operations.freshness} ·
+                requalification={operations.requalification_impact}
+              </p>
+              <p>
+                Provider OFF · advisory-only · rollback_applied=
+                {String(operations.rollback_applied)} · official_truth_write=
+                {String(operations.official_truth_write)}
+              </p>
+              <ul>
+                {operations.known_limits.map((limit) => (
+                  <li key={limit}>{limit}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {operationsNotice && (
+            <p className="evidence-note" role="status">
+              {operationsNotice}；既有受治理模型解释保持可见
+            </p>
           )}
           <section aria-label="student safe requalification status">
             <h3>证据新鲜度与限制</h3>
