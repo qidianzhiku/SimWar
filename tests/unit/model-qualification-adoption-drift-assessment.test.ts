@@ -13,6 +13,7 @@ import {
   digestAdoptionOperationsPolicy,
   digestEvidenceAdoptionState,
   MODEL_QUALIFICATION_ADOPTION_OPERATIONS_POLICY_V1,
+  stableSha256,
   type AdoptionDriftAssessmentInput
 } from "../../services/api/src/model-qualification-adoption-drift-assessment";
 import {
@@ -226,11 +227,32 @@ describe("O6 adoption drift assessment domain", () => {
         MODEL_QUALIFICATION_ADOPTION_OPERATIONS_POLICY_V1
       ),
       provider: "OFF",
-      status: "HEALTHY",
-      writer_effect: "NONE"
+      status: "HEALTHY"
     });
     expect(first.epoch).toEqual(chain.current.epoch);
     expect(first.assessment_id).toMatch(/^adoption_drift_[a-f0-9]{64}$/);
+    expect(Object.keys(first.adoption).sort()).toEqual(["adoption_digest", "adoption_id"]);
+    expect(Object.keys(first).sort()).toEqual(
+      [
+        "adoption",
+        "adoption_mutation",
+        "adoption_state_digest",
+        "advisory_only",
+        "assessed_at",
+        "assessment_digest",
+        "assessment_id",
+        "epoch",
+        "future_admission_impact",
+        "issue_codes",
+        "known_limits",
+        "official_truth_write",
+        "operations_policy_digest",
+        "provider",
+        "status"
+      ].sort()
+    );
+    const { assessment_digest: assessmentDigest, ...assessmentShape } = first;
+    expect(assessmentDigest).toBe(stableSha256(assessmentShape));
   });
 
   it("uses sorted-key SHA-256 digests for policy and adoption state", () => {
@@ -340,6 +362,37 @@ describe("O6 adoption drift assessment domain", () => {
     expect(() => assessAdoptionDrift(inputFor(chain, { record: brokenRecord }))).toThrow(
       "O6_SOURCE_IDENTITY_MISMATCH"
     );
+  });
+
+  it("fails closed when the exact adoption is missing, has the wrong digest, or is duplicated", () => {
+    const chain = adoptedChain();
+    const missing = {
+      adoption_digest: "0".repeat(64),
+      adoption_id: "o6-a1-missing-adoption"
+    };
+    const incorrectDigest = {
+      adoption_digest: "0".repeat(64),
+      adoption_id: chain.current.adoption_id
+    };
+    const duplicateState: EvidenceAdoptionState = {
+      ...chain.state,
+      records: [...chain.state.records, clone(chain.current)]
+    };
+
+    expect(() => assessAdoptionDrift(inputFor(chain, { expected_adoption: missing }))).toThrow(
+      "O6_EXACT_ADOPTION_REQUIRED"
+    );
+    expect(() =>
+      assessAdoptionDrift(inputFor(chain, { expected_adoption: incorrectDigest }))
+    ).toThrow("O6_EXACT_ADOPTION_REQUIRED");
+    expect(() =>
+      assessAdoptionDrift(
+        inputFor(chain, {
+          expected_adoption_state_digest: digestEvidenceAdoptionState(duplicateState),
+          state: duplicateState
+        })
+      )
+    ).toThrow("O6_EXACT_ADOPTION_REQUIRED");
   });
 
   it("reports source, dataset, qualification, diagnostic, and requalification blockers", () => {

@@ -46,10 +46,7 @@ export interface AdoptionDriftAssessmentInput {
   readonly state: EvidenceAdoptionState;
 }
 
-/** The shared contract is unchanged; writer_effect is the A1 leaf's explicit safety receipt. */
-export type AdoptionDriftAssessmentResult = AdoptionDriftAssessment & {
-  readonly writer_effect: "NONE";
-};
+export type AdoptionDriftAssessmentResult = AdoptionDriftAssessment;
 
 const BASE_KNOWN_LIMITS = Object.freeze([
   "This is a deterministic dry-run assessment; it never mutates adoption state.",
@@ -441,8 +438,7 @@ function buildAssessment(input: {
   } satisfies Omit<AdoptionDriftAssessment, "assessment_digest">;
   return {
     ...unsigned,
-    assessment_digest: stableSha256({ ...unsigned, writer_effect: "NONE" as const }),
-    writer_effect: "NONE"
+    assessment_digest: stableSha256(unsigned)
   };
 }
 
@@ -459,18 +455,48 @@ function currentSelectionForEpoch(
   return state.records.find((record) => sameReference(record, selections[0]!));
 }
 
-function fallbackEpoch(
+function assertUniqueAdoptionReferences(state: EvidenceAdoptionState): void {
+  if (!Array.isArray(state.records) || !Array.isArray(state.selections)) {
+    fail("O6_EXACT_ADOPTION_REQUIRED");
+  }
+  const recordIds = new Set<string>();
+  const recordReferences = new Set<string>();
+  for (const record of state.records) {
+    const referenceKey = `${record.adoption_id}\u0000${record.adoption_digest}`;
+    if (recordIds.has(record.adoption_id) || recordReferences.has(referenceKey)) {
+      fail("O6_EXACT_ADOPTION_REQUIRED");
+    }
+    recordIds.add(record.adoption_id);
+    recordReferences.add(referenceKey);
+  }
+  const selectionIds = new Set<string>();
+  const selectionReferences = new Set<string>();
+  for (const selection of state.selections) {
+    const referenceKey = `${selection.adoption_id}\u0000${selection.adoption_digest}`;
+    if (selectionIds.has(selection.adoption_id) || selectionReferences.has(referenceKey)) {
+      fail("O6_EXACT_ADOPTION_REQUIRED");
+    }
+    selectionIds.add(selection.adoption_id);
+    selectionReferences.add(referenceKey);
+  }
+}
+
+function resolveExactAdoption(
   state: EvidenceAdoptionState,
   expectedAdoption: EvidenceAdoptionReference
-): EvidenceAdoptionEpoch {
-  const expectedId = state.records.find(
+): EvidenceAdoptionRecord {
+  const idMatches = state.records.filter(
     (record) => record.adoption_id === expectedAdoption.adoption_id
   );
-  const selected = state.selections[0];
-  const selectedRecord = selected
-    ? state.records.find((record) => sameReference(record, selected))
-    : undefined;
-  return (expectedId ?? selectedRecord ?? state.records[0])?.epoch ?? fail("O6_ADOPTION_NOT_FOUND");
+  const exactMatches = state.records.filter((record) => sameReference(record, expectedAdoption));
+  if (
+    idMatches.length !== 1 ||
+    exactMatches.length !== 1 ||
+    exactMatches[0]!.disposition !== "ADOPTED_FOR_FUTURE_ADMISSION"
+  ) {
+    fail("O6_EXACT_ADOPTION_REQUIRED");
+  }
+  return exactMatches[0]!;
 }
 
 /**
@@ -481,6 +507,7 @@ export function assessAdoptionDrift(
   input: AdoptionDriftAssessmentInput
 ): AdoptionDriftAssessmentResult {
   validateInput(input);
+  assertUniqueAdoptionReferences(input.state);
   assertEvidenceAdoptionState(input.state);
   if (
     input.record.tenant_id !== input.state.tenant_id ||
@@ -491,15 +518,12 @@ export function assessAdoptionDrift(
 
   const adoptionStateDigest = digestEvidenceAdoptionState(input.state);
   const operationsPolicyDigest = digestAdoptionOperationsPolicy();
-  const targetCandidate = input.state.records.find(
-    (record) => record.adoption_id === input.expected_adoption.adoption_id
-  );
-  const target =
-    targetCandidate && sameReference(targetCandidate, input.expected_adoption)
-      ? targetCandidate
-      : undefined;
-  const epoch = target?.epoch ?? fallbackEpoch(input.state, input.expected_adoption);
-  const outputAdoption = target ? { ...target } : { ...input.expected_adoption };
+  const target = resolveExactAdoption(input.state, input.expected_adoption);
+  const epoch = target.epoch;
+  const outputAdoption = {
+    adoption_digest: target.adoption_digest,
+    adoption_id: target.adoption_id
+  };
 
   const rebaseIssues: AdoptionDriftIssueCode[] = [];
   if (input.expected_adoption_state_digest !== adoptionStateDigest) {
@@ -523,21 +547,6 @@ export function assessAdoptionDrift(
       ],
       operations_policy_digest: operationsPolicyDigest,
       status: "REBASE_REQUIRED"
-    });
-  }
-
-  if (!target || target.disposition !== "ADOPTED_FOR_FUTURE_ADMISSION") {
-    return buildAssessment({
-      adoption: outputAdoption,
-      assessed_at: input.assessed_at,
-      adoption_state_digest: adoptionStateDigest,
-      epoch,
-      expected_selection: input.selection_requirement,
-      future_admission_impact: "BLOCKED",
-      issue_codes: ["ADOPTION_NOT_FOUND"],
-      known_limits: [...BASE_KNOWN_LIMITS, "The expected exact adoption record is unavailable."],
-      operations_policy_digest: operationsPolicyDigest,
-      status: "FUTURE_ADMISSION_BLOCKED"
     });
   }
 
