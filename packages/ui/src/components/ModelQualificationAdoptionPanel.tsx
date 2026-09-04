@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
+  AdoptionDriftAssessment,
+  AdoptionRollbackDryRun,
   EvidenceAdoptionDisposition,
+  ModelQualificationAdoptionOperationsAdminProjection,
+  ModelQualificationAdoptionOperationsTeacherProjection,
   ModelQualificationRunAdmissionSelection,
   ModelQualificationTeacherProjection
 } from "@simwar/shared-contracts";
@@ -29,6 +33,14 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
     context: string;
     data: ModelQualificationTeacherProjection;
   } | null>(null);
+  const [operations, setOperations] = useState<{
+    context: string;
+    data:
+      | ModelQualificationAdoptionOperationsTeacherProjection
+      | ModelQualificationAdoptionOperationsAdminProjection;
+  } | null>(null);
+  const [assessment, setAssessment] = useState<AdoptionDriftAssessment | null>(null);
+  const [rollbackDryRun, setRollbackDryRun] = useState<AdoptionRollbackDryRun | null>(null);
   const [qualificationId, setQualificationId] = useState("");
   const [proposalId, setProposalId] = useState("");
   const [note, setNote] = useState("");
@@ -51,6 +63,7 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
     "x-tenant-id": tenantId
   };
   const projection = loaded?.context === context ? loaded.data : null;
+  const operationsProjection = operations?.context === context ? operations.data : null;
   const state = projection?.evidence_adoption;
   const qualifications = projection?.qualifications ?? [];
   const selected = qualifications.filter((q) => q.qualification_id === qualificationId);
@@ -90,17 +103,40 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
     proposal && (state?.records ?? []).some((item) => item.proposal_id === proposal.proposal_id);
 
   async function load(generation: number) {
-    const response = await fetch(`${base}?courseId=${encodeURIComponent(courseId)}`, { headers });
-    const result = await response.json();
-    if (!response.ok)
-      throw new Error(`${result.code ?? response.status}: ${result.message ?? "读取失败"}`);
-    if (generation === epoch.current)
-      setLoaded({ context, data: result.data as ModelQualificationTeacherProjection });
+    const query = `courseId=${encodeURIComponent(courseId)}`;
+    const [projectionResponse, operationsResponse] = await Promise.all([
+      fetch(`${base}?${query}`, { headers }),
+      fetch(`${base}/adoption-operations?${query}`, { headers })
+    ]);
+    const projectionResult = await projectionResponse.json();
+    const operationsResult = await operationsResponse.json();
+    if (!projectionResponse.ok)
+      throw new Error(
+        `${projectionResult.code ?? projectionResponse.status}: ${projectionResult.message ?? "读取失败"}`
+      );
+    if (!operationsResponse.ok)
+      throw new Error(
+        `${operationsResult.code ?? operationsResponse.status}: ${operationsResult.message ?? "运营状态读取失败"}`
+      );
+    if (generation === epoch.current) {
+      setLoaded({ context, data: projectionResult.data as ModelQualificationTeacherProjection });
+      setOperations({
+        context,
+        data: operationsResult.data as
+          | ModelQualificationAdoptionOperationsTeacherProjection
+          | ModelQualificationAdoptionOperationsAdminProjection
+      });
+      setAssessment(operationsResult.data.current_assessment ?? null);
+      setRollbackDryRun(null);
+    }
   }
 
   useEffect(() => {
     const generation = ++epoch.current;
     setLoaded(null);
+    setOperations(null);
+    setAssessment(null);
+    setRollbackDryRun(null);
     setQualificationId("");
     setProposalId("");
     setPending(null);
@@ -204,6 +240,64 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
     }
   }
 
+  async function runOperations(action: "drift-assessments" | "rollback-dry-runs") {
+    if (inFlight.current || !operationsProjection?.current_adoption) return;
+    const currentRecord = (state?.records ?? []).filter(
+      (item) =>
+        item.adoption_id === operationsProjection.current_adoption?.adoption_id &&
+        item.adoption_digest === operationsProjection.current_adoption?.adoption_digest
+    );
+    if (currentRecord.length !== 1) {
+      setNotice("当前 exact adoption 无唯一记录，必须重新绑定后再评估");
+      return;
+    }
+    const predecessor = currentRecord[0]!.predecessor;
+    if (action === "rollback-dry-runs" && !predecessor) {
+      setNotice("NO_PREDECESSOR：没有可显式预演的历史采用前任");
+      return;
+    }
+    inFlight.current = true;
+    const generation = epoch.current;
+    setBusy(true);
+    try {
+      const response = await fetch(`${base}/adoption-operations/${action}`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          course_id: courseId,
+          expected_adoption_state_digest: operationsProjection.adoption_state_digest,
+          expected_operations_policy_digest: operationsProjection.operations_policy_digest,
+          assessed_at: new Date().toISOString(),
+          ...(action === "drift-assessments"
+            ? { expected_adoption: operationsProjection.current_adoption }
+            : {
+                current_adoption: operationsProjection.current_adoption,
+                predecessor_adoption: predecessor
+              })
+        })
+      });
+      const result = await response.json();
+      if (generation !== epoch.current) return;
+      if (!response.ok)
+        throw new Error(`${result.code ?? response.status}: ${result.message ?? "预演失败"}`);
+      if (action === "drift-assessments") setAssessment(result.data as AdoptionDriftAssessment);
+      else setRollbackDryRun(result.data as AdoptionRollbackDryRun);
+      setNotice(
+        action === "drift-assessments"
+          ? "健康评估完成；仅影响未来准入判断，不写入采用状态"
+          : "回退影响预演完成；rollback_applied=false"
+      );
+    } catch (error) {
+      if (generation === epoch.current)
+        setNotice(error instanceof Error ? error.message : "预演结果未知，请重新读取 exact 状态");
+    } finally {
+      if (generation === epoch.current) {
+        setBusy(false);
+        inFlight.current = false;
+      }
+    }
+  }
+
   const disabled = busy || Boolean(pending) || !projection;
   return (
     <section aria-label="governed multi-epoch evidence adoption" className="summary-panel">
@@ -211,6 +305,60 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
       <p>
         {tenantId} / {courseId} / {role} · Provider OFF · ADOPTION ≠ OFFICIAL TRUTH / Score / Rank
       </p>
+      <section aria-label="adoption drift operations and rollback dry run">
+        <h4>采用漂移运营与回退影响预演</h4>
+        <p>Dry-run only · Provider OFF · Advice ≠ Decision / Settlement / Truth · 不执行自动回退</p>
+        <div className="workspace-actions">
+          <button
+            type="button"
+            data-testid="assess-adoption-drift"
+            disabled={disabled || !operationsProjection?.current_adoption}
+            onClick={() => void runOperations("drift-assessments")}
+          >
+            评估当前采用健康
+          </button>
+          <button
+            type="button"
+            data-testid="preview-adoption-rollback"
+            disabled={disabled || !operationsProjection?.current_adoption}
+            onClick={() => void runOperations("rollback-dry-runs")}
+          >
+            预演 exact 前任回退影响
+          </button>
+        </div>
+        <p data-testid="adoption-operations-health">
+          health=
+          {assessment?.status ?? operationsProjection?.current_assessment?.status ?? "UNAVAILABLE"}
+          {" · "}future_admission=
+          {assessment?.future_admission_impact ??
+            operationsProjection?.current_assessment?.future_admission_impact ??
+            "UNKNOWN"}
+        </p>
+        {assessment && (
+          <details>
+            <summary>漂移、到期、权利、资格与重新资格影响</summary>
+            <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+              {JSON.stringify(assessment, null, 2)}
+            </pre>
+          </details>
+        )}
+        {rollbackDryRun && (
+          <details open>
+            <summary>exact predecessor rollback dry-run receipt</summary>
+            <p>
+              status={rollbackDryRun.status} · rollback_applied=
+              {String(rollbackDryRun.rollback_applied)} · adoption_mutation=
+              {String(rollbackDryRun.adoption_mutation)}
+            </p>
+            <pre
+              style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
+              data-testid="rollback-dry-run-receipt"
+            >
+              {JSON.stringify(rollbackDryRun, null, 2)}
+            </pre>
+          </details>
+        )}
+      </section>
       <p role="status" aria-live="polite">
         {notice}
       </p>

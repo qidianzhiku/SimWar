@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import type { ApiEnvelope, ModelQualificationStudentProjection } from "@simwar/shared-contracts";
+import type {
+  ApiEnvelope,
+  ModelQualificationAdoptionOperationsStudentProjection,
+  ModelQualificationStudentProjection
+} from "@simwar/shared-contracts";
 
 interface Props {
   apiBase: string;
@@ -17,34 +21,44 @@ export function ModelQualificationProjection({
   token
 }: Props) {
   const [projection, setProjection] = useState<ModelQualificationStudentProjection | null>(null);
+  const [operations, setOperations] =
+    useState<ModelQualificationAdoptionOperationsStudentProjection | null>(null);
   const contextIdentity = JSON.stringify([apiBase, courseId, qualificationId, tenantId, token]);
   const [projectionIdentity, setProjectionIdentity] = useState("");
   const [notice, setNotice] = useState("等待已绑定模型资格");
 
   useEffect(() => {
     setProjection(null);
+    setOperations(null);
     if (!courseId || !qualificationId || !token) {
       setProjection(null);
       setNotice("Teacher 绑定后，通过 modelQualificationId 查询已发布解释");
       return;
     }
     let active = true;
-    void fetch(
-      `${apiBase}/api/v1/bff/student/model-qualification?courseId=${encodeURIComponent(courseId)}&qualificationId=${encodeURIComponent(qualificationId)}`,
-      {
-        headers: {
-          authorization: `Bearer ${token}`,
-          "content-type": "application/json",
-          "x-tenant-id": tenantId
-        }
-      }
-    )
-      .then(async (response) => {
+    const headers = {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+      "x-tenant-id": tenantId
+    };
+    const query = `courseId=${encodeURIComponent(courseId)}&qualificationId=${encodeURIComponent(qualificationId)}`;
+    void Promise.all([
+      fetch(`${apiBase}/api/v1/bff/student/model-qualification?${query}`, { headers }),
+      fetch(`${apiBase}/api/v1/bff/student/model-qualification/adoption-operations?${query}`, {
+        headers
+      })
+    ])
+      .then(async ([projectionResponse, operationsResponse]) => {
         const envelope =
-          (await response.json()) as ApiEnvelope<ModelQualificationStudentProjection>;
-        if (!response.ok) throw new Error(`${envelope.code}: ${envelope.message}`);
+          (await projectionResponse.json()) as ApiEnvelope<ModelQualificationStudentProjection>;
+        const operationsEnvelope =
+          (await operationsResponse.json()) as ApiEnvelope<ModelQualificationAdoptionOperationsStudentProjection>;
+        if (!projectionResponse.ok) throw new Error(`${envelope.code}: ${envelope.message}`);
+        if (!operationsResponse.ok)
+          throw new Error(`${operationsEnvelope.code}: ${operationsEnvelope.message}`);
         if (active) {
           setProjection(envelope.data);
+          setOperations(operationsEnvelope.data);
           setProjectionIdentity(contextIdentity);
         }
       })
@@ -90,6 +104,25 @@ export function ModelQualificationProjection({
                 {projection.adoption.applicability} · Provider OFF · historical_non_overwrite=true
               </p>
               <p>采用状态只约束未来新 Run，不改变本 Run 的历史证据或任何正式分数、排名与结算。</p>
+            </section>
+          )}
+          {operations && (
+            <section aria-label="student safe adoption operations status">
+              <h3>采用健康与未来准入适用性</h3>
+              <p data-testid="student-adoption-operations-status">
+                applicability={operations.applicability} · freshness={operations.freshness} ·
+                requalification={operations.requalification_impact}
+              </p>
+              <p>
+                Provider OFF · advisory-only · rollback_applied=
+                {String(operations.rollback_applied)} · official_truth_write=
+                {String(operations.official_truth_write)}
+              </p>
+              <ul>
+                {operations.known_limits.map((limit) => (
+                  <li key={limit}>{limit}</li>
+                ))}
+              </ul>
             </section>
           )}
           <section aria-label="student safe requalification status">

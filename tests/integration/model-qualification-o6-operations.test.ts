@@ -8,14 +8,14 @@ import type {
   ModelQualificationAdoptionOperationsTeacherProjection
 } from "@simwar/shared-contracts";
 import {
-  DEFAULT_MODEL_QUALIFICATION_ADOPTION_OPERATIONS_POLICY,
+  MODEL_QUALIFICATION_ADOPTION_OPERATIONS_POLICY_V1,
   digestAdoptionOperationsPolicy,
   digestEvidenceAdoptionState
 } from "../../services/api/src/model-qualification-adoption-drift-assessment";
-import type {
-  ModelQualificationActor,
-  ModelQualificationScope,
-  ModelQualificationService
+import {
+  ModelQualificationService,
+  type ModelQualificationActor,
+  type ModelQualificationScope
 } from "../../services/api/src/model-qualification-service";
 import {
   EVIDENCE_ADOPTION_ADMIN,
@@ -23,8 +23,10 @@ import {
   EVIDENCE_ADOPTION_SCOPE,
   EVIDENCE_ADOPTION_STUDENT,
   EVIDENCE_ADOPTION_TEACHER,
+  ModelQualificationEvidenceAdoptionFakePersistence,
   adoptionReference,
-  createEvidenceAdoptionServiceFixture
+  createEvidenceAdoptionServiceFixture,
+  seedApprovedBoundChain
 } from "../helpers/model-qualification-evidence-adoption-fixtures";
 
 type O6Service = ModelQualificationService & {
@@ -66,11 +68,15 @@ function adopt(
   suffix: string,
   expected: EvidenceAdoptionReference | null
 ): EvidenceAdoptionRecord {
-  const proposal = service.requestEvidenceAdoption(EVIDENCE_ADOPTION_TEACHER, EVIDENCE_ADOPTION_SCOPE, {
-    command_id: `o6-${suffix}-request`,
-    qualification_id: qualificationId,
-    expected_adoption: expected
-  }).proposal;
+  const proposal = service.requestEvidenceAdoption(
+    EVIDENCE_ADOPTION_TEACHER,
+    EVIDENCE_ADOPTION_SCOPE,
+    {
+      command_id: `o6-${suffix}-request`,
+      qualification_id: qualificationId,
+      expected_adoption: expected
+    }
+  ).proposal;
   service.reviewEvidenceAdoption(EVIDENCE_ADOPTION_ADMIN, EVIDENCE_ADOPTION_SCOPE, {
     command_id: `o6-${suffix}-review`,
     proposal_id: proposal.proposal_id,
@@ -90,12 +96,21 @@ function adopt(
 
 describe("O6 model qualification adoption operations integration", () => {
   it("assesses the exact current adoption and previews only an eligible exact predecessor", async () => {
-    const fixture = createEvidenceAdoptionServiceFixture();
-    const service = fixture.service as O6Service;
-    const adoptedA = adopt(service, fixture.primary.qualificationA.qualification_id, "a", null);
+    const assessedAt = "2026-09-02T12:00:00.000Z";
+    const persistence = new ModelQualificationEvidenceAdoptionFakePersistence();
+    const service = new ModelQualificationService(
+      { now: () => assessedAt },
+      persistence
+    ) as O6Service;
+    const primary = seedApprovedBoundChain(
+      service,
+      EVIDENCE_ADOPTION_SCOPE,
+      EVIDENCE_ADOPTION_TEACHER
+    );
+    const adoptedA = adopt(service, primary.qualificationA.qualification_id, "a", null);
     const adoptedB = adopt(
       service,
-      fixture.primary.qualificationB.qualification_id,
+      primary.qualificationB.qualification_id,
       "b",
       adoptionReference(adoptedA)
     );
@@ -103,10 +118,10 @@ describe("O6 model qualification adoption operations integration", () => {
       EVIDENCE_ADOPTION_TEACHER,
       EVIDENCE_ADOPTION_SCOPE
     );
-    const serializedBefore = JSON.stringify(fixture.persistence.listRecords());
+    const serializedBefore = JSON.stringify(persistence.listRecords());
     const stateDigest = digestEvidenceAdoptionState(stateBefore);
     const policyDigest = digestAdoptionOperationsPolicy(
-      DEFAULT_MODEL_QUALIFICATION_ADOPTION_OPERATIONS_POLICY
+      MODEL_QUALIFICATION_ADOPTION_OPERATIONS_POLICY_V1
     );
 
     const assessment = await service.assessEvidenceAdoptionDrift(
@@ -116,7 +131,7 @@ describe("O6 model qualification adoption operations integration", () => {
         expected_adoption: adoptionReference(adoptedB),
         expected_adoption_state_digest: stateDigest,
         expected_operations_policy_digest: policyDigest,
-        assessed_at: EVIDENCE_ADOPTION_NOW
+        assessed_at: assessedAt
       }
     );
     expect(assessment).toMatchObject({
@@ -139,7 +154,7 @@ describe("O6 model qualification adoption operations integration", () => {
         predecessor_adoption: adoptionReference(adoptedA),
         expected_adoption_state_digest: stateDigest,
         expected_operations_policy_digest: policyDigest,
-        assessed_at: EVIDENCE_ADOPTION_NOW
+        assessed_at: assessedAt
       }
     );
     expect(rollback).toMatchObject({
@@ -156,17 +171,20 @@ describe("O6 model qualification adoption operations integration", () => {
       history_deleted: false,
       historical_receipt_rewritten: false
     });
-    expect(JSON.stringify(fixture.persistence.listRecords())).toBe(serializedBefore);
+    expect(JSON.stringify(persistence.listRecords())).toBe(serializedBefore);
   });
 
   it("fails closed on stale selectors, role/tenant violations, and concurrent adoption movement", async () => {
     const fixture = createEvidenceAdoptionServiceFixture();
     const service = fixture.service as O6Service;
     const adoptedA = adopt(service, fixture.primary.qualificationA.qualification_id, "a2", null);
-    const state = service.getEvidenceAdoptionState(EVIDENCE_ADOPTION_TEACHER, EVIDENCE_ADOPTION_SCOPE);
+    const state = service.getEvidenceAdoptionState(
+      EVIDENCE_ADOPTION_TEACHER,
+      EVIDENCE_ADOPTION_SCOPE
+    );
     const stateDigest = digestEvidenceAdoptionState(state);
     const policyDigest = digestAdoptionOperationsPolicy(
-      DEFAULT_MODEL_QUALIFICATION_ADOPTION_OPERATIONS_POLICY
+      MODEL_QUALIFICATION_ADOPTION_OPERATIONS_POLICY_V1
     );
     const staleStateDigest = "f".repeat(64);
 

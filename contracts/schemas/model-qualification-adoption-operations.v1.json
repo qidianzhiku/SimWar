@@ -115,6 +115,44 @@
         "dry_run_only": { "const": true }
       }
     },
+    "driftAssessmentRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "course_id",
+        "expected_adoption",
+        "expected_adoption_state_digest",
+        "expected_operations_policy_digest",
+        "assessed_at"
+      ],
+      "properties": {
+        "course_id": { "$ref": "#/$defs/nonEmptyString" },
+        "expected_adoption": { "$ref": "#/$defs/adoptionReference" },
+        "expected_adoption_state_digest": { "$ref": "#/$defs/digest" },
+        "expected_operations_policy_digest": { "$ref": "#/$defs/digest" },
+        "assessed_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "rollbackDryRunRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "course_id",
+        "current_adoption",
+        "predecessor_adoption",
+        "expected_adoption_state_digest",
+        "expected_operations_policy_digest",
+        "assessed_at"
+      ],
+      "properties": {
+        "course_id": { "$ref": "#/$defs/nonEmptyString" },
+        "current_adoption": { "$ref": "#/$defs/adoptionReference" },
+        "predecessor_adoption": { "$ref": "#/$defs/adoptionReference" },
+        "expected_adoption_state_digest": { "$ref": "#/$defs/digest" },
+        "expected_operations_policy_digest": { "$ref": "#/$defs/digest" },
+        "assessed_at": { "type": "string", "format": "date-time" }
+      }
+    },
     "driftIssueCode": {
       "enum": [
         "ADOPTION_NOT_FOUND",

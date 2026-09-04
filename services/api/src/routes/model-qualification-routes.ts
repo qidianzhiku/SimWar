@@ -1,5 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type {
+  AdoptionDriftAssessmentRequest,
+  AdoptionRollbackDryRunRequest,
   ApiEnvelope,
   CurrentUser,
   DisposeEvidenceAdoption,
@@ -74,6 +76,23 @@ function numberValue(value: unknown): number {
   return typeof value === "number" ? value : Number.NaN;
 }
 
+function exactAdoptionReference(value: unknown): { adoption_id: string; adoption_digest: string } {
+  if (
+    !isRecord(value) ||
+    Object.keys(value).length !== 2 ||
+    !Object.hasOwn(value, "adoption_id") ||
+    !Object.hasOwn(value, "adoption_digest")
+  ) {
+    throw new Error("EVIDENCE_ADOPTION_EXACT_REFERENCE_REQUIRED");
+  }
+  const adoption_id = stringValue(value.adoption_id);
+  const adoption_digest = stringValue(value.adoption_digest);
+  if (!adoption_id || !/^[a-f0-9]{64}$/.test(adoption_digest)) {
+    throw new Error("EVIDENCE_ADOPTION_EXACT_REFERENCE_REQUIRED");
+  }
+  return { adoption_id, adoption_digest };
+}
+
 function serviceActor(actor: CurrentUser): ModelQualificationActor {
   const role = actor.roles.find((candidate) =>
     ["student", "learner", "teacher", "tenant_admin"].includes(candidate)
@@ -125,6 +144,20 @@ function requalificationPreviewId(pathname: string, suffix: "review"): string | 
 
 export function isModelQualificationRoute(method: string | undefined, url: URL): boolean {
   if (
+    method === "GET" &&
+    /^\/api\/v1\/bff\/(teacher|admin|student)\/model-qualification\/adoption-operations$/.test(
+      url.pathname
+    )
+  )
+    return true;
+  if (
+    method === "POST" &&
+    /^\/api\/v1\/bff\/(teacher|admin)\/model-qualification\/adoption-operations\/(drift-assessments|rollback-dry-runs)$/.test(
+      url.pathname
+    )
+  )
+    return true;
+  if (
     method === "POST" &&
     /^\/api\/v1\/bff\/(teacher|admin)\/model-qualification\/evidence-adoptions\/(request|review|disposition)$/.test(
       url.pathname
@@ -166,6 +199,124 @@ export async function handleModelQualificationRoute(
 ): Promise<boolean> {
   if (!isModelQualificationRoute(request.method, url)) return false;
   const context = deps.createContext(request);
+
+  const operationsRoute = url.pathname.match(
+    /^\/api\/v1\/bff\/(teacher|admin|student)\/model-qualification\/adoption-operations(?:\/(drift-assessments|rollback-dry-runs))?$/
+  );
+  if (operationsRoute) {
+    const requestedRole = operationsRoute[1]!;
+    const action = operationsRoute[2];
+    const allowedRoles =
+      requestedRole === "admin"
+        ? ["tenant_admin"]
+        : requestedRole === "teacher"
+          ? ["teacher"]
+          : ["student", "learner"];
+    const actor = deps.requirePermission(context, "course:read");
+    if (actor.tenant_id !== context.tenantId || !deps.actorHasAnyRole(actor, allowedRoles)) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    const body =
+      request.method === "POST"
+        ? await deps.readJson<Record<string, unknown>>(request, { requiredObject: true })
+        : {};
+    if (!isRecord(body)) throw new Error("EVIDENCE_ADOPTION_OPERATIONS_INPUT_INVALID");
+    const courseId = resolveCourseId(body, url);
+    await assertCourse(deps, context, courseId);
+    const selectedScope = scope(context, courseId);
+    const selectedActor = serviceActor(actor);
+
+    if (requestedRole === "student") {
+      if (request.method !== "GET" || action) {
+        throw new Error("EVIDENCE_ADOPTION_OPERATIONS_ROLE_DENIED");
+      }
+      const visibleCourses = await deps.repository.courses.listCoursesForUser(
+        context.tenantId,
+        actor.user_id
+      );
+      if (!visibleCourses.some((course) => course.course_id === courseId)) {
+        throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+      }
+      const selectedQualificationId = stringValue(url.searchParams.get("qualificationId"));
+      if (!selectedQualificationId) {
+        throw new ModelQualificationError("MODEL_QUALIFICATION_NOT_FOUND");
+      }
+      send(
+        deps,
+        context,
+        response,
+        200,
+        await service.getStudentAdoptionOperationsProjection(
+          selectedActor,
+          selectedScope,
+          selectedQualificationId
+        )
+      );
+      return true;
+    }
+
+    if (request.method === "GET") {
+      send(
+        deps,
+        context,
+        response,
+        200,
+        await service.getAdoptionOperationsProjection(selectedActor, selectedScope)
+      );
+      return true;
+    }
+
+    const commonKeys = [
+      "course_id",
+      "expected_adoption_state_digest",
+      "expected_operations_policy_digest",
+      "assessed_at"
+    ];
+    const actionKeys =
+      action === "drift-assessments"
+        ? [...commonKeys, "expected_adoption"]
+        : [...commonKeys, "current_adoption", "predecessor_adoption"];
+    if (
+      Object.keys(body).length !== actionKeys.length ||
+      actionKeys.some((key) => !Object.hasOwn(body, key))
+    ) {
+      throw new Error("EVIDENCE_ADOPTION_OPERATIONS_INPUT_INVALID");
+    }
+    const common = {
+      expected_adoption_state_digest: stringValue(body.expected_adoption_state_digest),
+      expected_operations_policy_digest: stringValue(body.expected_operations_policy_digest),
+      assessed_at: stringValue(body.assessed_at)
+    };
+    if (action === "drift-assessments") {
+      const input: AdoptionDriftAssessmentRequest = {
+        ...common,
+        expected_adoption: exactAdoptionReference(body.expected_adoption)
+      };
+      send(
+        deps,
+        context,
+        response,
+        200,
+        await service.assessEvidenceAdoptionDrift(selectedActor, selectedScope, input)
+      );
+    } else if (action === "rollback-dry-runs") {
+      const input: AdoptionRollbackDryRunRequest = {
+        ...common,
+        current_adoption: exactAdoptionReference(body.current_adoption),
+        predecessor_adoption: exactAdoptionReference(body.predecessor_adoption)
+      };
+      send(
+        deps,
+        context,
+        response,
+        200,
+        await service.dryRunEvidenceAdoptionRollback(selectedActor, selectedScope, input)
+      );
+    } else {
+      throw new Error("EVIDENCE_ADOPTION_OPERATIONS_INPUT_INVALID");
+    }
+    return true;
+  }
 
   const adoptionRoute = url.pathname.match(
     /^\/api\/v1\/bff\/(teacher|admin)\/model-qualification\/(evidence-adoptions\/(request|review|disposition)|run-admissions\/([^/]+))$/

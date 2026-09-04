@@ -278,4 +278,94 @@ describe("exact evidence adoption UI", () => {
     expect(host.textContent).toContain("course_b");
     await act(async () => root.unmount());
   });
+
+  it("shows health and exact predecessor dry-run receipts without an apply control", async () => {
+    const current = { adoption_id: "adoption-b", adoption_digest: "b".repeat(64) };
+    const predecessor = { adoption_id: "adoption-a", adoption_digest: "a".repeat(64) };
+    const projection = {
+      ...empty,
+      evidence_adoption: {
+        tenant_id: props.tenantId,
+        course_id: props.courseId,
+        proposals: [],
+        reviews: [],
+        selections: [
+          {
+            ...current,
+            model_version_reference: {
+              model_version_id: "m",
+              version: "1",
+              content_digest: "c".repeat(64)
+            },
+            model_artifact_reference: {
+              artifact_id: "a",
+              version: "1",
+              content_digest: "d".repeat(64)
+            }
+          }
+        ],
+        records: [{ ...current, predecessor, proposal_id: "proposal-b" }],
+        command_receipts: []
+      }
+    };
+    const operations = {
+      operation_id: "MODEL_QUALIFICATION_ADOPTION_OPERATIONS_TEACHER_GET_V1",
+      current_adoption: current,
+      current_assessment: { status: "HEALTHY", future_admission_impact: "UNCHANGED" },
+      rollback_dry_run: null,
+      adoption_state_digest: "c".repeat(64),
+      operations_policy_digest: "d".repeat(64),
+      known_limits: [],
+      provider: "OFF",
+      advisory_only: true
+    };
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.includes("drift-assessments") && init?.method === "POST") {
+        return {
+          ok: true,
+          json: async () => ({
+            data: { ...operations.current_assessment, adoption_mutation: false }
+          })
+        };
+      }
+      if (url.includes("rollback-dry-runs") && init?.method === "POST") {
+        return {
+          ok: true,
+          json: async () => ({
+            data: {
+              status: "READY_WITH_LIMITS",
+              rollback_applied: false,
+              adoption_mutation: false,
+              current_adoption: current,
+              predecessor_adoption: predecessor
+            }
+          })
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({ data: url.includes("adoption-operations") ? operations : projection })
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () => root.render(<ModelQualificationAdoptionPanel {...props} />));
+    expect(host.textContent).toContain("health=HEALTHY");
+    expect(host.textContent).not.toContain("Apply");
+    expect(host.textContent).not.toContain("Automatic Rollback");
+    await act(async () => {
+      (host.querySelector('[data-testid="assess-adoption-drift"]') as HTMLButtonElement).click();
+    });
+    await act(async () => {
+      (
+        host.querySelector('[data-testid="preview-adoption-rollback"]') as HTMLButtonElement
+      ).click();
+    });
+    expect(host.textContent).toContain("status=READY_WITH_LIMITS");
+    expect(host.textContent).toContain("rollback_applied=false");
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(2);
+    await act(async () => root.unmount());
+  });
 });

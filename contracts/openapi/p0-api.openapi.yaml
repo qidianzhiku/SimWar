@@ -6503,6 +6503,181 @@ paths:
         "401": { description: Authentication required }
         "403": { description: Tenant administrator scope denied }
 
+  /api/v1/bff/teacher/model-qualification/adoption-operations:
+    get:
+      operationId: MODEL_QUALIFICATION_ADOPTION_OPERATIONS_TEACHER_GET_V1
+      summary: Read exact current adoption health and dry-run-only operating limits.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Teacher adoption operations projection; no adoption or official-truth mutation.
+          content:
+            application/json:
+              {
+                schema:
+                  {
+                    $ref: "#/components/schemas/ModelQualificationAdoptionOperationsTeacherEnvelope"
+                  }
+              }
+        "401": { description: Authentication required }
+        "403": { description: Teacher or course scope denied }
+  /api/v1/bff/teacher/model-qualification/adoption-operations/drift-assessments:
+    post:
+      operationId: MODEL_QUALIFICATION_ADOPTION_OPERATIONS_TEACHER_ASSESS_V1
+      summary: Assess one exact adoption against an exact state and policy digest.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            {
+              schema:
+                {
+                  $ref: "../schemas/model-qualification-adoption-operations.v1.json#/$defs/driftAssessmentRequest"
+                }
+            }
+      responses:
+        "200":
+          description: Deterministic non-writing drift assessment.
+          content:
+            application/json:
+              {
+                schema:
+                  { $ref: "#/components/schemas/ModelQualificationAdoptionDriftAssessmentEnvelope" }
+              }
+        "401": { description: Authentication required }
+        "403": { description: Teacher or course scope denied }
+        "409": { description: Exact state or policy digest changed; rebase required }
+  /api/v1/bff/teacher/model-qualification/adoption-operations/rollback-dry-runs:
+    post:
+      operationId: MODEL_QUALIFICATION_ADOPTION_OPERATIONS_TEACHER_ROLLBACK_DRY_RUN_V1
+      summary: Preview an exact historically adopted predecessor without applying rollback.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            {
+              schema:
+                {
+                  $ref: "../schemas/model-qualification-adoption-operations.v1.json#/$defs/rollbackDryRunRequest"
+                }
+            }
+      responses:
+        "200":
+          description: Deterministic dry-run receipt with rollback_applied=false.
+          content:
+            application/json:
+              {
+                schema:
+                  { $ref: "#/components/schemas/ModelQualificationAdoptionRollbackDryRunEnvelope" }
+              }
+        "401": { description: Authentication required }
+        "403": { description: Teacher or course scope denied }
+        "409": { description: Exact state or policy digest changed; rebase required }
+
+  /api/v1/bff/admin/model-qualification/adoption-operations:
+    get:
+      operationId: MODEL_QUALIFICATION_ADOPTION_OPERATIONS_ADMIN_GET_V1
+      summary: Read tenant-safe adoption operations, health and authority limits.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Admin adoption operations audit projection.
+          content:
+            application/json:
+              {
+                schema:
+                  { $ref: "#/components/schemas/ModelQualificationAdoptionOperationsAdminEnvelope" }
+              }
+        "401": { description: Authentication required }
+        "403": { description: Tenant administrator scope denied }
+  /api/v1/bff/admin/model-qualification/adoption-operations/drift-assessments:
+    post:
+      operationId: MODEL_QUALIFICATION_ADOPTION_OPERATIONS_ADMIN_ASSESS_V1
+      summary: Assess one exact adoption against an exact state and policy digest.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            {
+              schema:
+                {
+                  $ref: "../schemas/model-qualification-adoption-operations.v1.json#/$defs/driftAssessmentRequest"
+                }
+            }
+      responses:
+        "200":
+          description: Deterministic non-writing drift assessment.
+          content:
+            application/json:
+              {
+                schema:
+                  { $ref: "#/components/schemas/ModelQualificationAdoptionDriftAssessmentEnvelope" }
+              }
+        "401": { description: Authentication required }
+        "403": { description: Tenant administrator scope denied }
+        "409": { description: Exact state or policy digest changed; rebase required }
+  /api/v1/bff/admin/model-qualification/adoption-operations/rollback-dry-runs:
+    post:
+      operationId: MODEL_QUALIFICATION_ADOPTION_OPERATIONS_ADMIN_ROLLBACK_DRY_RUN_V1
+      summary: Preview an exact historically adopted predecessor without applying rollback.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            {
+              schema:
+                {
+                  $ref: "../schemas/model-qualification-adoption-operations.v1.json#/$defs/rollbackDryRunRequest"
+                }
+            }
+      responses:
+        "200":
+          description: Deterministic dry-run receipt with rollback_applied=false.
+          content:
+            application/json:
+              {
+                schema:
+                  { $ref: "#/components/schemas/ModelQualificationAdoptionRollbackDryRunEnvelope" }
+              }
+        "401": { description: Authentication required }
+        "403": { description: Tenant administrator scope denied }
+        "409": { description: Exact state or policy digest changed; rebase required }
+
+  /api/v1/bff/student/model-qualification/adoption-operations:
+    get:
+      operationId: MODEL_QUALIFICATION_ADOPTION_OPERATIONS_STUDENT_GET_V1
+      summary: Read role-safe adoption applicability, freshness and limits.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - {
+            name: qualificationId,
+            in: query,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+      responses:
+        "200":
+          description: Student-safe projection without exact evidence or rollback identities.
+          content:
+            application/json:
+              {
+                schema:
+                  {
+                    $ref: "#/components/schemas/ModelQualificationAdoptionOperationsStudentEnvelope"
+                  }
+              }
+        "401": { description: Authentication required }
+        "403": { description: Student or course scope denied }
+
   /api/v1/bff/student/model-qualification:
     get:
       operationId: MODEL_QUALIFICATION_STUDENT_PROJECTION_GET_V1
@@ -11202,6 +11377,66 @@ components:
       properties:
         code: { type: string }
         data: { $ref: "../schemas/model-qualification.v1.json#/$defs/studentProjection" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ModelQualificationAdoptionOperationsTeacherEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          {
+            $ref: "../schemas/model-qualification-adoption-operations.v1.json#/$defs/teacherProjection"
+          }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ModelQualificationAdoptionOperationsAdminEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          {
+            $ref: "../schemas/model-qualification-adoption-operations.v1.json#/$defs/adminProjection"
+          }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ModelQualificationAdoptionOperationsStudentEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          {
+            $ref: "../schemas/model-qualification-adoption-operations.v1.json#/$defs/studentProjection"
+          }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ModelQualificationAdoptionDriftAssessmentEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          {
+            $ref: "../schemas/model-qualification-adoption-operations.v1.json#/$defs/driftAssessment"
+          }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ModelQualificationAdoptionRollbackDryRunEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          {
+            $ref: "../schemas/model-qualification-adoption-operations.v1.json#/$defs/rollbackDryRun"
+          }
         message: { type: string }
         request_id: { type: string, minLength: 1 }
     ModelQualificationMutationEnvelope:
