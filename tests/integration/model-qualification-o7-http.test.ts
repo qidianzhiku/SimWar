@@ -83,6 +83,19 @@ describe("O7 governed rollback request and explicit re-adoption", () => {
       "b",
       adoptionReference(adoptedA)
     );
+    expect(
+      seedWriter.requestEvidenceAdoption(EVIDENCE_ADOPTION_TEACHER, EVIDENCE_ADOPTION_SCOPE, {
+        command_id: "o7-http-a-request",
+        qualification_id: chain.qualificationA.qualification_id,
+        expected_adoption: null
+      })
+    ).toMatchObject({
+      reused: true,
+      proposal: {
+        proposal_id: adoptedA.proposal_id,
+        proposal_digest: adoptedA.proposal_digest
+      }
+    });
     const stateBefore = seedWriter.getEvidenceAdoptionState(
       EVIDENCE_ADOPTION_TEACHER,
       EVIDENCE_ADOPTION_SCOPE
@@ -102,6 +115,27 @@ describe("O7 governed rollback request and explicit re-adoption", () => {
     expect(dryRun.status).toBe("READY_WITH_LIMITS");
 
     const exactRecordBeforeRequest = seedWriter.getRecordForScope(EVIDENCE_ADOPTION_SCOPE)!;
+    const afterPredecessorExpiryWriter = new ModelQualificationService(
+      { now: () => "2026-09-04T00:00:00.001Z" },
+      {
+        listRecords: () => [structuredClone(exactRecordBeforeRequest)],
+        commitRecord: () => {
+          throw new Error("EXPIRED_REQUEST_MUST_NOT_COMMIT");
+        }
+      }
+    );
+    await expect(
+      afterPredecessorExpiryWriter.requestGovernedRollback(
+        EVIDENCE_ADOPTION_TEACHER,
+        EVIDENCE_ADOPTION_SCOPE,
+        {
+          command_id: "o7-expired-predecessor-request",
+          dry_run: dryRun,
+          reason: "An old READY receipt must not survive request-time predecessor expiry."
+        }
+      )
+    ).rejects.toThrow(/ROLLBACK_PREDECESSOR_NOT_ELIGIBLE|ROLLBACK_REQUEST_INVALID/);
+
     const failingWriter = new ModelQualificationService(
       { now: () => assessedAt },
       {

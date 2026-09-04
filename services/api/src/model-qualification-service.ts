@@ -501,7 +501,7 @@ export class ModelQualificationService {
       (item) =>
         item.disposition === "ADOPTED_FOR_FUTURE_ADMISSION" && stable(item.epoch) === stable(epoch)
     );
-    if (matchingHistorical.length > 0) {
+    if (!retry && matchingHistorical.length > 0) {
       try {
         if (matchingHistorical.length === 1) {
           const current = state.selections.filter(
@@ -807,6 +807,38 @@ export class ModelQualificationService {
         });
         if (stable(freshDryRun) !== stable(input.dry_run)) {
           throw new Error("EVIDENCE_ADOPTION_REBASE_REQUIRED");
+        }
+
+        // The submitted O6 receipt is immutable evidence of what was previewed,
+        // not a lease on predecessor eligibility. Re-evaluate the same exact
+        // predecessor at the authoritative request clock before any request or
+        // linked proposal is appended.
+        const requestTimePredecessorAssessment = assessAdoptionDrift({
+          assessed_at: requestedAt,
+          expected_adoption: input.dry_run.predecessor_adoption,
+          expected_adoption_state_digest: input.dry_run.adoption_state_digest,
+          expected_operations_policy_digest: input.dry_run.operations_policy_digest,
+          record,
+          selection_requirement: "HISTORICAL_PREDECESSOR",
+          state
+        });
+        const requestTimeDryRun = runAdoptionRollbackDryRun({
+          assessed_at: requestedAt,
+          current_adoption: input.dry_run.current_adoption,
+          predecessor_adoption: input.dry_run.predecessor_adoption,
+          expected_adoption_state_digest: input.dry_run.adoption_state_digest,
+          expected_operations_policy_digest: input.dry_run.operations_policy_digest,
+          actual_adoption_state_digest: actualStateDigest,
+          actual_operations_policy_digest: actualPolicyDigest,
+          adoption_state: state,
+          predecessor_assessment: requestTimePredecessorAssessment
+        });
+        if (
+          requestTimeDryRun.status !== "READY_WITH_LIMITS" ||
+          !requestTimeDryRun.predecessor_currently_eligible ||
+          requestTimeDryRun.blockers.length > 0
+        ) {
+          throw new GovernedRollbackRequestError("ROLLBACK_PREDECESSOR_NOT_ELIGIBLE");
         }
 
         const candidate = createGovernedRollbackRequest({
