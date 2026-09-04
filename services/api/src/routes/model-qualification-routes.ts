@@ -5,6 +5,7 @@ import type {
   ApiEnvelope,
   CurrentUser,
   DisposeEvidenceAdoption,
+  GovernedRollbackRequestInput,
   PermissionKey,
   ValidationEnvironmentLaunch
 } from "@simwar/shared-contracts";
@@ -161,6 +162,13 @@ export function isModelQualificationRoute(method: string | undefined, url: URL):
   if (
     method === "POST" &&
     /^\/api\/v1\/bff\/(teacher|admin)\/model-qualification\/adoption-operations\/(drift-assessments|rollback-dry-runs)$/.test(
+      url.pathname
+    )
+  )
+    return true;
+  if (
+    method === "POST" &&
+    /^\/api\/v1\/bff\/(teacher|admin)\/model-qualification\/evidence-adoptions\/rollback-requests$/.test(
       url.pathname
     )
   )
@@ -324,6 +332,50 @@ export async function handleModelQualificationRoute(
     } else {
       throw new Error("EVIDENCE_ADOPTION_OPERATIONS_INPUT_INVALID");
     }
+    return true;
+  }
+
+  const rollbackRequestRoute = url.pathname.match(
+    /^\/api\/v1\/bff\/(teacher|admin)\/model-qualification\/evidence-adoptions\/rollback-requests$/
+  );
+  if (rollbackRequestRoute) {
+    const actor = deps.requirePermission(context, "course:read");
+    const role = rollbackRequestRoute[1] === "admin" ? "tenant_admin" : "teacher";
+    if (actor.tenant_id !== context.tenantId || !deps.actorHasAnyRole(actor, [role])) {
+      throw new Error("EVIDENCE_ADOPTION_ROLE_DENIED");
+    }
+    const body = await deps.readJson<Record<string, unknown>>(request, { requiredObject: true });
+    const requiredKeys = ["course_id", "command_id", "dry_run", "reason"];
+    if (
+      !isRecord(body) ||
+      Object.keys(body).length !== requiredKeys.length ||
+      requiredKeys.some((key) => !Object.hasOwn(body, key)) ||
+      !isRecord(body.dry_run)
+    ) {
+      throw new Error("EVIDENCE_ADOPTION_ROLLBACK_REQUEST_INVALID");
+    }
+    const courseId = resolveCourseId(body, url);
+    await assertCourse(deps, context, courseId);
+    const input: GovernedRollbackRequestInput = {
+      command_id: stringValue(body.command_id),
+      dry_run: body.dry_run as unknown as GovernedRollbackRequestInput["dry_run"],
+      reason: stringValue(body.reason)
+    };
+    send(
+      deps,
+      context,
+      response,
+      200,
+      await service.requestGovernedRollback(
+        {
+          actor_id: actor.user_id,
+          tenant_id: context.tenantId,
+          role
+        },
+        scope(context, courseId),
+        input
+      )
+    );
     return true;
   }
 

@@ -3,6 +3,7 @@ import type {
   EvidenceAdoptionReference,
   EvidenceAdoptionState
 } from "./model-qualification-evidence-adoption.js";
+import type { GovernedRollbackRequest } from "./model-qualification-governed-rollback.js";
 
 export const MODEL_QUALIFICATION_SCHEMA_VERSION = "model-qualification.v1" as const;
 export const MODEL_QUALIFICATION_AUTHORITY_ID = "SIMWAR-MODEL-QUALIFICATION-PLANE" as const;
@@ -95,6 +96,7 @@ export interface ModelQualificationAuthorityFlags {
 
 export interface ModelQualificationRecord {
   evidence_adoption?: EvidenceAdoptionState;
+  governed_rollback_requests?: readonly GovernedRollbackRequest[];
   calibration_datasets: readonly ModelQualificationCalibrationDataset[];
   course_id: string;
   qualifications: readonly ModelQualification[];
@@ -198,6 +200,7 @@ export interface ModelQualification {
 
 export interface ModelQualificationTeacherProjection {
   evidence_adoption?: EvidenceAdoptionState;
+  governed_rollback_requests?: readonly GovernedRollbackRequest[];
   calibration_datasets: readonly ModelQualificationCalibrationDataset[];
   known_limits: readonly string[];
   model_catalog: readonly ModelQualificationModelCatalogEntry[];

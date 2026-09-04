@@ -371,6 +371,76 @@
         }
       }
     },
+    "governedRollbackRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "rollback_request_id",
+        "rollback_request_digest",
+        "tenant_id",
+        "course_id",
+        "command_id",
+        "command_fingerprint",
+        "requested_by",
+        "requested_role",
+        "requested_at",
+        "reason",
+        "dry_run_id",
+        "dry_run_digest",
+        "current_adoption",
+        "predecessor_adoption",
+        "predecessor_epoch",
+        "adoption_state_digest",
+        "operations_policy_digest",
+        "linked_proposal",
+        "status",
+        "current_selection_changed",
+        "rollback_applied",
+        "adoption_mutation",
+        "official_truth_write",
+        "history_deleted",
+        "historical_receipt_rewritten",
+        "provider"
+      ],
+      "properties": {
+        "schema_version": { "const": "model-qualification-governed-rollback.v1" },
+        "rollback_request_id": { "type": "string", "minLength": 1 },
+        "rollback_request_digest": { "$ref": "#/$defs/digest" },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "course_id": { "type": "string", "minLength": 1 },
+        "command_id": { "type": "string", "minLength": 1 },
+        "command_fingerprint": { "$ref": "#/$defs/digest" },
+        "requested_by": { "type": "string", "minLength": 1 },
+        "requested_role": { "enum": ["teacher", "tenant_admin"] },
+        "requested_at": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T" },
+        "reason": { "type": "string", "minLength": 1 },
+        "dry_run_id": { "type": "string", "minLength": 1 },
+        "dry_run_digest": { "$ref": "#/$defs/digest" },
+        "current_adoption": { "$ref": "#/$defs/adoptionReference" },
+        "predecessor_adoption": { "$ref": "#/$defs/adoptionReference" },
+        "predecessor_epoch": { "$ref": "#/$defs/adoptionEpoch" },
+        "adoption_state_digest": { "$ref": "#/$defs/digest" },
+        "operations_policy_digest": { "$ref": "#/$defs/digest" },
+        "linked_proposal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["proposal_id", "proposal_digest"],
+          "properties": {
+            "proposal_id": { "type": "string", "minLength": 1 },
+            "proposal_digest": { "$ref": "#/$defs/digest" }
+          }
+        },
+        "status": { "const": "LINKED_PROPOSAL_PENDING_REVIEW" },
+        "current_selection_changed": { "const": false },
+        "rollback_applied": { "const": false },
+        "adoption_mutation": { "const": false },
+        "official_truth_write": { "const": false },
+        "history_deleted": { "const": false },
+        "historical_receipt_rewritten": { "const": false },
+        "provider": { "const": "OFF" }
+      }
+    },
     "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "modelVersionReference": {
       "type": "object",
@@ -743,6 +813,10 @@
         },
         "operation_id": { "const": "MODEL_QUALIFICATION_TEACHER_STUDIO_GET_V1" },
         "evidence_adoption": { "$ref": "#/$defs/adoptionState" },
+        "governed_rollback_requests": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/governedRollbackRequest" }
+        },
         "qualifications": { "type": "array", "items": { "$ref": "#/$defs/qualification" } },
         "requalification_previews": {
           "type": "array",
@@ -793,6 +867,10 @@
         },
         "operation_id": { "const": "MODEL_QUALIFICATION_ADMIN_AUDIT_GET_V1" },
         "evidence_adoption": { "$ref": "#/$defs/adoptionState" },
+        "governed_rollback_requests": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/governedRollbackRequest" }
+        },
         "qualifications": { "type": "array", "items": { "$ref": "#/$defs/qualification" } },
         "requalification_previews": {
           "type": "array",

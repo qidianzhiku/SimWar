@@ -11714,7 +11714,7 @@ export function createApiServer(
       ) {
         const status = /ROLE_DENIED|SCOPE/.test(error.message)
           ? 403
-          : /CONFLICT|IMMUTABLE|REBASE|IN_PROGRESS/.test(error.message)
+          : /CONFLICT|IMMUTABLE|REBASE|IN_PROGRESS|ROLLBACK_REQUEST_REQUIRED/.test(error.message)
             ? 409
             : /HISTORICAL_REFERENCE_UNAVAILABLE/.test(error.message)
               ? 404

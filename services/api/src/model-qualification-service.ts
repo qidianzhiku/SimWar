@@ -15,6 +15,17 @@ import {
   digestEvidenceAdoptionState
 } from "./model-qualification-adoption-drift-assessment.js";
 import { runAdoptionRollbackDryRun } from "./model-qualification-rollback-dry-run.js";
+import {
+  createGovernedRollbackRequest,
+  digestPersistedGovernedRollbackRequest,
+  GovernedRollbackRequestError,
+  isPersistedGovernedRollbackRequest
+} from "./model-qualification-governed-rollback-request.js";
+import {
+  classifyExplicitReadoptionTarget,
+  ExplicitReadoptionError,
+  predictExplicitReadoption
+} from "./model-qualification-explicit-readoption.js";
 import type {
   AdoptionDriftAssessment,
   AdoptionDriftAssessmentRequest,
@@ -24,6 +35,9 @@ import type {
   EvidenceAdoptionCommandContext,
   EvidenceAdoptionReference,
   EvidenceAdoptionState,
+  GovernedRollbackRequest,
+  GovernedRollbackRequestInput,
+  GovernedRollbackRequestReceipt,
   QualifiedRunAdmissionSnapshot,
   ReviewEvidenceAdoption,
   AuditLog,
@@ -145,6 +159,48 @@ function stable(value: unknown): string {
 
 function digest(value: unknown): string {
   return createHash("sha256").update(stable(value), "utf8").digest("hex");
+}
+
+function assertGovernedRollbackRequestIntegrity(record: ModelQualificationRecord): void {
+  const requests = record.governed_rollback_requests;
+  if (requests !== undefined && !Array.isArray(requests)) {
+    throw new Error("EVIDENCE_ADOPTION_STATE_INVALID");
+  }
+  if (requests === undefined) return;
+  if (requests.length === 0) return;
+  const state = record.evidence_adoption;
+  if (!state) throw new Error("EVIDENCE_ADOPTION_STATE_INVALID");
+  assertEvidenceAdoptionState(state);
+  const commandIds = new Set<string>();
+  const requestIds = new Set<string>();
+  for (const request of requests) {
+    if (
+      !isPersistedGovernedRollbackRequest(request) ||
+      request.tenant_id !== record.tenant_id ||
+      request.course_id !== record.course_id ||
+      commandIds.has(request.command_id) ||
+      requestIds.has(request.rollback_request_id)
+    ) {
+      throw new Error("EVIDENCE_ADOPTION_STATE_INVALID");
+    }
+    commandIds.add(request.command_id);
+    requestIds.add(request.rollback_request_id);
+    const proposals = state.proposals.filter(
+      (proposal) =>
+        proposal.proposal_id === request.linked_proposal.proposal_id &&
+        proposal.proposal_digest === request.linked_proposal.proposal_digest
+    );
+    if (proposals.length !== 1) throw new Error("EVIDENCE_ADOPTION_STATE_INVALID");
+    const proposal = proposals[0]!;
+    if (
+      stable(proposal.epoch) !== stable(request.predecessor_epoch) ||
+      stable(proposal.expected_adoption) !== stable(request.current_adoption) ||
+      proposal.requested_by !== request.requested_by ||
+      proposal.requested_at !== request.requested_at
+    ) {
+      throw new Error("EVIDENCE_ADOPTION_STATE_INVALID");
+    }
+  }
 }
 
 function sequenceFromId(value: string): number {
@@ -321,6 +377,24 @@ function rethrowAdoptionOperationsError(error: unknown): never {
   throw error;
 }
 
+function rethrowGovernedRollbackError(error: unknown): never {
+  if (error instanceof GovernedRollbackRequestError || error instanceof ExplicitReadoptionError) {
+    if (/ROLE/.test(error.message)) throw new Error("EVIDENCE_ADOPTION_ROLE_DENIED");
+    if (/SCOPE/.test(error.message)) throw new Error("EVIDENCE_ADOPTION_SCOPE_MISMATCH");
+    if (/REBASE|DIGEST|MOVED/.test(error.message)) {
+      throw new Error("EVIDENCE_ADOPTION_REBASE_REQUIRED");
+    }
+    if (/ROLLBACK_REQUEST_REQUIRED/.test(error.message)) {
+      throw new Error("EVIDENCE_ADOPTION_ROLLBACK_REQUEST_REQUIRED");
+    }
+    if (/CONFLICT/.test(error.message)) {
+      throw new Error("EVIDENCE_ADOPTION_IDEMPOTENCY_CONFLICT");
+    }
+    throw new Error("EVIDENCE_ADOPTION_ROLLBACK_REQUEST_INVALID");
+  }
+  throw error;
+}
+
 export class ModelQualificationService {
   private readonly admissionGuards = new Set<string>();
   readonly modelCatalog = [clone(MODEL_QUALIFICATION_MODEL_VERSION)] as const;
@@ -356,13 +430,15 @@ export class ModelQualificationService {
     scope: Pick<ModelQualificationScope, "tenant_id" | "course_id">
   ): ModelQualificationRecord | null {
     const record = this.records.get(this.key(scope.tenant_id, scope.course_id));
+    if (record) assertGovernedRollbackRequestIntegrity(record);
     return record ? clone(record) : null;
   }
 
   private adoptionContext(
     actor: ModelQualificationActor,
     scope: ModelQualificationScope,
-    commandId: string
+    commandId: string,
+    now?: string
   ): EvidenceAdoptionCommandContext {
     this.assertScope(actor, scope);
     if (actor.role !== "teacher" && actor.role !== "tenant_admin")
@@ -373,7 +449,7 @@ export class ModelQualificationService {
       actor_id: actor.actor_id,
       role: actor.role,
       command_id: commandId,
-      now: this.clock.now()
+      now: now ?? this.clock.now()
     };
   }
 
@@ -421,6 +497,42 @@ export class ModelQualificationService {
       context.now,
       retry
     );
+    const matchingHistorical = state.records.filter(
+      (item) =>
+        item.disposition === "ADOPTED_FOR_FUTURE_ADMISSION" && stable(item.epoch) === stable(epoch)
+    );
+    if (!retry && matchingHistorical.length > 0) {
+      try {
+        if (matchingHistorical.length === 1) {
+          const current = state.selections.filter(
+            (item) =>
+              stable(item.model_version_reference) === stable(epoch.model_version_reference) &&
+              stable(item.model_artifact_reference) === stable(epoch.model_artifact_reference)
+          );
+          if (current.length === 1) {
+            classifyExplicitReadoptionTarget({
+              tenant_id: scope.tenant_id,
+              course_id: scope.course_id,
+              adoption_state: state,
+              current_adoption: {
+                adoption_id: current[0]!.adoption_id,
+                adoption_digest: current[0]!.adoption_digest
+              },
+              target: {
+                adoption: {
+                  adoption_id: matchingHistorical[0]!.adoption_id,
+                  adoption_digest: matchingHistorical[0]!.adoption_digest
+                },
+                epoch
+              }
+            });
+          }
+        }
+      } catch (error) {
+        rethrowGovernedRollbackError(error);
+      }
+      throw new Error("EVIDENCE_ADOPTION_ROLLBACK_REQUEST_REQUIRED");
+    }
     const result = requestEvidenceAdoption(state, context, {
       epoch,
       expected_adoption: input.expected_adoption
@@ -620,6 +732,225 @@ export class ModelQualificationService {
       });
     } catch (error) {
       rethrowAdoptionOperationsError(error);
+    }
+  }
+
+  /**
+   * Atomically appends one immutable O7 request and its linked standard O5
+   * proposal under the existing course-scoped MAIN_MODEL_GOVERNANCE guard.
+   * Request creation never changes the current adoption selection.
+   */
+  async requestGovernedRollback(
+    actor: ModelQualificationActor,
+    scope: ModelQualificationScope,
+    input: GovernedRollbackRequestInput
+  ): Promise<GovernedRollbackRequestReceipt> {
+    try {
+      return await this.withEvidenceAdmission(actor, scope, async (record) => {
+        const state = this.validatedAdoptionState(record, scope);
+        const requestedAt = this.clock.now();
+        const retryCandidate = createGovernedRollbackRequest({
+          tenant_id: scope.tenant_id,
+          course_id: scope.course_id,
+          actor_id: actor.actor_id,
+          role: actor.role as "teacher" | "tenant_admin",
+          command_id: input.command_id,
+          requested_at: requestedAt,
+          reason: input.reason,
+          current_adoption: input.dry_run.current_adoption,
+          predecessor_adoption: input.dry_run.predecessor_adoption,
+          adoption_state_digest: input.dry_run.adoption_state_digest,
+          operations_policy_digest: input.dry_run.operations_policy_digest,
+          actual_adoption_state_digest: input.dry_run.adoption_state_digest,
+          actual_operations_policy_digest: input.dry_run.operations_policy_digest,
+          dry_run: input.dry_run
+        });
+        const existingRequests = (record.governed_rollback_requests ?? []).filter(
+          (item) => item.command_id === input.command_id
+        );
+        if (existingRequests.length > 1) throw new Error("EVIDENCE_ADOPTION_STATE_INVALID");
+        if (existingRequests.length === 1) {
+          const existing = existingRequests[0]!;
+          if (existing.command_fingerprint !== retryCandidate.request.idempotency_fingerprint) {
+            throw new Error("EVIDENCE_ADOPTION_IDEMPOTENCY_CONFLICT");
+          }
+          const proposals = state.proposals.filter(
+            (item) =>
+              item.proposal_id === existing.linked_proposal.proposal_id &&
+              item.proposal_digest === existing.linked_proposal.proposal_digest
+          );
+          if (proposals.length !== 1) throw new Error("EVIDENCE_ADOPTION_STATE_INVALID");
+          return { request: clone(existing), proposal: clone(proposals[0]!), reused: true };
+        }
+
+        const actualStateDigest = digestEvidenceAdoptionState(state);
+        const actualPolicyDigest = digestAdoptionOperationsPolicy();
+        const predecessorAssessment = assessAdoptionDrift({
+          assessed_at: input.dry_run.assessed_at,
+          expected_adoption: input.dry_run.predecessor_adoption,
+          expected_adoption_state_digest: input.dry_run.adoption_state_digest,
+          expected_operations_policy_digest: input.dry_run.operations_policy_digest,
+          record,
+          selection_requirement: "HISTORICAL_PREDECESSOR",
+          state
+        });
+        const freshDryRun = runAdoptionRollbackDryRun({
+          assessed_at: input.dry_run.assessed_at,
+          current_adoption: input.dry_run.current_adoption,
+          predecessor_adoption: input.dry_run.predecessor_adoption,
+          expected_adoption_state_digest: input.dry_run.adoption_state_digest,
+          expected_operations_policy_digest: input.dry_run.operations_policy_digest,
+          actual_adoption_state_digest: actualStateDigest,
+          actual_operations_policy_digest: actualPolicyDigest,
+          adoption_state: state,
+          predecessor_assessment: predecessorAssessment
+        });
+        if (stable(freshDryRun) !== stable(input.dry_run)) {
+          throw new Error("EVIDENCE_ADOPTION_REBASE_REQUIRED");
+        }
+
+        // The submitted O6 receipt is immutable evidence of what was previewed,
+        // not a lease on predecessor eligibility. Re-evaluate the same exact
+        // predecessor at the authoritative request clock before any request or
+        // linked proposal is appended.
+        const requestTimePredecessorAssessment = assessAdoptionDrift({
+          assessed_at: requestedAt,
+          expected_adoption: input.dry_run.predecessor_adoption,
+          expected_adoption_state_digest: input.dry_run.adoption_state_digest,
+          expected_operations_policy_digest: input.dry_run.operations_policy_digest,
+          record,
+          selection_requirement: "HISTORICAL_PREDECESSOR",
+          state
+        });
+        const requestTimeDryRun = runAdoptionRollbackDryRun({
+          assessed_at: requestedAt,
+          current_adoption: input.dry_run.current_adoption,
+          predecessor_adoption: input.dry_run.predecessor_adoption,
+          expected_adoption_state_digest: input.dry_run.adoption_state_digest,
+          expected_operations_policy_digest: input.dry_run.operations_policy_digest,
+          actual_adoption_state_digest: actualStateDigest,
+          actual_operations_policy_digest: actualPolicyDigest,
+          adoption_state: state,
+          predecessor_assessment: requestTimePredecessorAssessment
+        });
+        if (
+          requestTimeDryRun.status !== "READY_WITH_LIMITS" ||
+          !requestTimeDryRun.predecessor_currently_eligible ||
+          requestTimeDryRun.blockers.length > 0
+        ) {
+          throw new GovernedRollbackRequestError("ROLLBACK_PREDECESSOR_NOT_ELIGIBLE");
+        }
+
+        const candidate = createGovernedRollbackRequest({
+          tenant_id: scope.tenant_id,
+          course_id: scope.course_id,
+          actor_id: actor.actor_id,
+          role: actor.role as "teacher" | "tenant_admin",
+          command_id: input.command_id,
+          requested_at: requestedAt,
+          reason: input.reason,
+          current_adoption: input.dry_run.current_adoption,
+          predecessor_adoption: input.dry_run.predecessor_adoption,
+          adoption_state_digest: input.dry_run.adoption_state_digest,
+          operations_policy_digest: input.dry_run.operations_policy_digest,
+          actual_adoption_state_digest: actualStateDigest,
+          actual_operations_policy_digest: actualPolicyDigest,
+          dry_run: freshDryRun
+        });
+
+        predictExplicitReadoption({
+          tenant_id: scope.tenant_id,
+          course_id: scope.course_id,
+          adoption_state: state,
+          current_adoption: input.dry_run.current_adoption,
+          target: {
+            adoption: input.dry_run.predecessor_adoption,
+            epoch: candidate.request.predecessor_epoch
+          },
+          rollback_basis: {
+            tenant_id: scope.tenant_id,
+            course_id: scope.course_id,
+            current_adoption: input.dry_run.current_adoption,
+            target_adoption: input.dry_run.predecessor_adoption,
+            request_id: candidate.request.request_id,
+            request_digest: candidate.request.request_digest,
+            linked_proposal: {
+              proposal_id: candidate.proposal.proposal_id,
+              proposal_digest: candidate.proposal.proposal_digest,
+              expected_adoption: input.dry_run.current_adoption,
+              epoch: candidate.proposal.epoch
+            }
+          }
+        });
+
+        const context = this.adoptionContext(actor, scope, input.command_id, requestedAt);
+        const reduction = requestEvidenceAdoption(state, context, {
+          epoch: candidate.request.predecessor_epoch,
+          expected_adoption: input.dry_run.current_adoption
+        });
+        if (reduction.reused || stable(reduction.receipt) !== stable(candidate.proposal)) {
+          throw new Error("EVIDENCE_ADOPTION_STATE_INVALID");
+        }
+        if (stable(reduction.state.selections) !== stable(state.selections)) {
+          throw new Error("EVIDENCE_ADOPTION_STATE_INVALID");
+        }
+
+        const governedRequestBody: Omit<GovernedRollbackRequest, "rollback_request_digest"> = {
+          schema_version: "model-qualification-governed-rollback.v1",
+          rollback_request_id: candidate.request.request_id,
+          tenant_id: scope.tenant_id,
+          course_id: scope.course_id,
+          command_id: input.command_id,
+          command_fingerprint: candidate.request.idempotency_fingerprint,
+          requested_by: actor.actor_id,
+          requested_role: actor.role as "teacher" | "tenant_admin",
+          requested_at: candidate.request.requested_at,
+          reason: candidate.request.reason,
+          dry_run_id: candidate.request.dry_run_id,
+          dry_run_digest: candidate.request.dry_run_digest,
+          current_adoption: clone(candidate.request.current_adoption),
+          predecessor_adoption: clone(candidate.request.predecessor_adoption),
+          predecessor_epoch: clone(candidate.request.predecessor_epoch),
+          adoption_state_digest: candidate.request.adoption_state_digest,
+          operations_policy_digest: candidate.request.operations_policy_digest,
+          linked_proposal: {
+            proposal_id: reduction.receipt.proposal_id,
+            proposal_digest: reduction.receipt.proposal_digest
+          },
+          status: "LINKED_PROPOSAL_PENDING_REVIEW",
+          current_selection_changed: false,
+          rollback_applied: false,
+          adoption_mutation: false,
+          official_truth_write: false,
+          history_deleted: false,
+          historical_receipt_rewritten: false,
+          provider: "OFF"
+        };
+        const governedRequest: GovernedRollbackRequest = {
+          ...governedRequestBody,
+          rollback_request_digest: digestPersistedGovernedRollbackRequest(governedRequestBody)
+        };
+        const nextRecord = clone(record);
+        nextRecord.evidence_adoption = reduction.state;
+        nextRecord.governed_rollback_requests = [
+          ...(record.governed_rollback_requests ?? []),
+          governedRequest
+        ];
+        this.commit(
+          nextRecord,
+          actor,
+          "model_qualification.governed_rollback_request",
+          governedRequest.rollback_request_id,
+          { withinAdmissionGuard: true }
+        );
+        return {
+          request: clone(governedRequest),
+          proposal: clone(reduction.receipt),
+          reused: false
+        };
+      });
+    } catch (error) {
+      rethrowGovernedRollbackError(error);
     }
   }
 
@@ -869,6 +1200,9 @@ export class ModelQualificationService {
       calibration_datasets: clone(record.calibration_datasets),
       ...(record.evidence_adoption
         ? { evidence_adoption: this.validatedAdoptionState(record, scope) }
+        : {}),
+      ...(record.governed_rollback_requests
+        ? { governed_rollback_requests: clone(record.governed_rollback_requests) }
         : {}),
       known_limits: [...DEFAULT_MODEL_QUALIFICATION_LIMITS],
       model_catalog: clone(this.modelCatalog),
@@ -1305,16 +1639,18 @@ export class ModelQualificationService {
   }
 
   private recordOrEmpty(scope: ModelQualificationScope): ModelQualificationRecord {
-    return (
-      this.records.get(this.key(scope.tenant_id, scope.course_id)) ?? {
+    const record =
+      this.records.get(this.key(scope.tenant_id, scope.course_id)) ??
+      ({
         calibration_datasets: [],
         course_id: scope.course_id,
         qualifications: [],
         requalification_previews: [],
         source_packages: [],
         tenant_id: scope.tenant_id
-      }
-    );
+      } satisfies ModelQualificationRecord);
+    assertGovernedRollbackRequestIntegrity(record);
+    return record;
   }
 
   private mutableRecord(scope: ModelQualificationScope): ModelQualificationRecord {
@@ -1379,10 +1715,15 @@ export class ModelQualificationService {
     record: ModelQualificationRecord,
     actor: ModelQualificationActor,
     action: string,
-    resourceId: string
+    resourceId: string,
+    options: { withinAdmissionGuard?: boolean } = {}
   ): void {
-    if (this.admissionGuards.has(this.key(record.tenant_id, record.course_id)))
+    if (
+      this.admissionGuards.has(this.key(record.tenant_id, record.course_id)) &&
+      !options.withinAdmissionGuard
+    )
       throw new Error("EVIDENCE_ADOPTION_ADMISSION_IN_PROGRESS");
+    assertGovernedRollbackRequestIntegrity(record);
     const audit: AuditLog = {
       action,
       actor_id: actor.actor_id,

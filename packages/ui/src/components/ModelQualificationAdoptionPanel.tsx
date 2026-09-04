@@ -3,6 +3,7 @@ import type {
   AdoptionDriftAssessment,
   AdoptionRollbackDryRun,
   EvidenceAdoptionDisposition,
+  GovernedRollbackRequestReceipt,
   ModelQualificationAdoptionOperationsAdminProjection,
   ModelQualificationAdoptionOperationsTeacherProjection,
   ModelQualificationRunAdmissionSelection,
@@ -46,6 +47,8 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
   } | null>(null);
   const [assessment, setAssessment] = useState<AdoptionDriftAssessment | null>(null);
   const [rollbackDryRun, setRollbackDryRun] = useState<AdoptionRollbackDryRun | null>(null);
+  const [rollbackRequestReceipt, setRollbackRequestReceipt] =
+    useState<GovernedRollbackRequestReceipt | null>(null);
   const [qualificationId, setQualificationId] = useState("");
   const [proposalId, setProposalId] = useState("");
   const [note, setNote] = useState("");
@@ -74,6 +77,14 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
   const qualifications = projection?.qualifications ?? [];
   const selected = qualifications.filter((q) => q.qualification_id === qualificationId);
   const qualification = selected.length === 1 ? selected[0] : undefined;
+  const historicalTargets = qualification
+    ? (state?.records ?? []).filter(
+        (item) =>
+          item.epoch.qualification_id === qualification.qualification_id &&
+          item.disposition === "ADOPTED_FOR_FUTURE_ADMISSION"
+      )
+    : [];
+  const genericHistoricalBypass = historicalTargets.length > 0;
   const pointers = qualification
     ? (state?.selections ?? []).filter(
         (item) =>
@@ -114,6 +125,7 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
       setOperations(null);
       setAssessment(null);
       setRollbackDryRun(null);
+      setRollbackRequestReceipt(null);
     };
     const operationsUnavailable = (notice: string): ProjectionLoadResult => {
       clearOperations();
@@ -216,6 +228,7 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
     setOperations(null);
     setAssessment(null);
     setRollbackDryRun(null);
+    setRollbackRequestReceipt(null);
     setReauthenticationRequired(false);
     setQualificationId("");
     setProposalId("");
@@ -270,9 +283,20 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
         if (response.status < 500) setPending(null);
         throw new Error(`${result.code ?? response.status}: ${result.message ?? "采用命令失败"}`);
       }
+      // The mutation result is known. A projection refresh failure must use
+      // exact-context reload, never replay the already-successful mutation.
       setPending(null);
       if (result.data?.proposal?.proposal_id) setProposalId(result.data.proposal.proposal_id);
       const refreshed = await load(generation);
+      if (
+        generation === epoch.current &&
+        command.action === "rollback-requests" &&
+        refreshed.operationsAvailable &&
+        result.data?.request &&
+        result.data?.proposal
+      ) {
+        setRollbackRequestReceipt(result.data as GovernedRollbackRequestReceipt);
+      }
       if (generation === epoch.current)
         setNotice(
           refreshed.operationsAvailable
@@ -369,6 +393,7 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
         throw new Error(`${result.code ?? response.status}: ${result.message ?? "预演失败"}`);
       if (action === "drift-assessments") setAssessment(result.data as AdoptionDriftAssessment);
       else setRollbackDryRun(result.data as AdoptionRollbackDryRun);
+      setRollbackRequestReceipt(null);
       setNotice(
         action === "drift-assessments"
           ? "健康评估完成；仅影响未来准入判断，不写入采用状态"
@@ -445,6 +470,45 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
             </pre>
           </details>
         )}
+        <button
+          type="button"
+          data-testid="create-governed-rollback-request"
+          disabled={
+            disabled ||
+            rollbackDryRun?.status !== "READY_WITH_LIMITS" ||
+            rollbackDryRun.predecessor_currently_eligible !== true ||
+            !note.trim()
+          }
+          onClick={() =>
+            rollbackDryRun &&
+            command("rollback-requests", {
+              dry_run: rollbackDryRun,
+              reason: note
+            })
+          }
+        >
+          创建受治理回退请求
+        </button>
+        <p>请求 != 应用 · selection 保持 current · rollback_applied=false</p>
+        {rollbackRequestReceipt && (
+          <details open data-testid="governed-rollback-request-receipt">
+            <summary>Governed rollback request + linked O5 proposal</summary>
+            <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+              {JSON.stringify(rollbackRequestReceipt, null, 2)}
+            </pre>
+          </details>
+        )}
+        {(projection?.governed_rollback_requests?.length ?? 0) > 0 && (
+          <details>
+            <summary>受治理回退请求历史（只读）</summary>
+            <pre
+              data-testid="governed-rollback-request-history"
+              style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
+            >
+              {JSON.stringify(projection?.governed_rollback_requests ?? [], null, 2)}
+            </pre>
+          </details>
+        )}
       </section>
       <p role="status" aria-live="polite">
         {notice}
@@ -501,12 +565,19 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
           )}
         </pre>
       )}
+      {genericHistoricalBypass && (
+        <p role="alert">
+          EVIDENCE_ADOPTION_ROLLBACK_REQUEST_REQUIRED：历史 adopted lineage 只能从 exact O6 dry-run
+          创建受治理回退请求。
+        </p>
+      )}
       <button
         data-testid="request-evidence-adoption"
         type="button"
         disabled={
           disabled ||
           !qualification ||
+          genericHistoricalBypass ||
           pointers.length > 1 ||
           qualification.review.status !== "APPROVED" ||
           qualification.binding.status !== "BOUND"
