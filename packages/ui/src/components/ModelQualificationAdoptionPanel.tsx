@@ -102,33 +102,61 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
   const disposed =
     proposal && (state?.records ?? []).some((item) => item.proposal_id === proposal.proposal_id);
 
-  async function load(generation: number) {
+  async function load(generation: number): Promise<boolean> {
+    const clearOperations = () => {
+      if (generation !== epoch.current) return;
+      setOperations(null);
+      setAssessment(null);
+      setRollbackDryRun(null);
+    };
     const query = `courseId=${encodeURIComponent(courseId)}`;
-    const [projectionResponse, operationsResponse] = await Promise.all([
+    const [projectionOutcome, operationsOutcome] = await Promise.allSettled([
       fetch(`${base}?${query}`, { headers }),
       fetch(`${base}/adoption-operations?${query}`, { headers })
     ]);
+    if (projectionOutcome.status === "rejected") throw projectionOutcome.reason;
+    const projectionResponse = projectionOutcome.value;
     const projectionResult = await projectionResponse.json();
-    const operationsResult = await operationsResponse.json();
     if (!projectionResponse.ok)
       throw new Error(
         `${projectionResult.code ?? projectionResponse.status}: ${projectionResult.message ?? "读取失败"}`
       );
-    if (!operationsResponse.ok)
-      throw new Error(
-        `${operationsResult.code ?? operationsResponse.status}: ${operationsResult.message ?? "运营状态读取失败"}`
-      );
     if (generation === epoch.current) {
       setLoaded({ context, data: projectionResult.data as ModelQualificationTeacherProjection });
+    }
+    if (operationsOutcome.status === "rejected") {
+      clearOperations();
+      return false;
+    }
+    const operationsResponse = operationsOutcome.value;
+    let operationsResult: {
+      data?:
+        | ModelQualificationAdoptionOperationsTeacherProjection
+        | ModelQualificationAdoptionOperationsAdminProjection;
+    };
+    try {
+      operationsResult = await operationsResponse.json();
+    } catch {
+      clearOperations();
+      return false;
+    }
+    if (!operationsResponse.ok) {
+      clearOperations();
+      return false;
+    }
+    if (!operationsResult.data) {
+      clearOperations();
+      return false;
+    }
+    if (generation === epoch.current) {
       setOperations({
         context,
-        data: operationsResult.data as
-          | ModelQualificationAdoptionOperationsTeacherProjection
-          | ModelQualificationAdoptionOperationsAdminProjection
+        data: operationsResult.data
       });
       setAssessment(operationsResult.data.current_assessment ?? null);
       setRollbackDryRun(null);
     }
+    return true;
   }
 
   useEffect(() => {
@@ -150,8 +178,13 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
     setNotice("读取 exact adoption 状态");
     if (courseId && token)
       void load(generation)
-        .then(() => {
-          if (generation === epoch.current) setNotice("显式选择资格与采用候选；复核不会自动采用");
+        .then((operationsAvailable) => {
+          if (generation === epoch.current)
+            setNotice(
+              operationsAvailable
+                ? "显式选择资格与采用候选；复核不会自动采用"
+                : "O6 operations unavailable；既有采用投影保持只读可见"
+            );
         })
         .catch((error: unknown) => {
           if (generation === epoch.current)

@@ -40,11 +40,12 @@
     "modelArtifactReference": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["artifact_id", "version", "content_digest"],
+      "required": ["artifact_id", "content_digest", "format", "source_ref"],
       "properties": {
         "artifact_id": { "$ref": "#/$defs/nonEmptyString" },
-        "version": { "$ref": "#/$defs/nonEmptyString" },
-        "content_digest": { "$ref": "#/$defs/digest" }
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "format": { "$ref": "#/$defs/nonEmptyString" },
+        "source_ref": { "$ref": "#/$defs/nonEmptyString" }
       }
     },
     "epoch": {
@@ -157,6 +158,8 @@
       "enum": [
         "ADOPTION_NOT_FOUND",
         "ADOPTION_NOT_CURRENT",
+        "ADOPTION_EXPIRED",
+        "ADOPTION_NOT_EFFECTIVE",
         "ADOPTION_STATE_DIGEST_CHANGED",
         "OPERATIONS_POLICY_DIGEST_CHANGED",
         "SOURCE_EXPIRED",
@@ -232,6 +235,7 @@
             "CURRENT_ADOPTION_NOT_ACTIVE",
             "PREDECESSOR_NOT_FOUND",
             "PREDECESSOR_REFERENCE_MISMATCH",
+            "PREDECESSOR_ASSESSMENT_INVALID",
             "PREDECESSOR_NOT_HISTORICALLY_ADOPTED",
             "PREDECESSOR_NOT_CURRENTLY_ELIGIBLE"
           ]

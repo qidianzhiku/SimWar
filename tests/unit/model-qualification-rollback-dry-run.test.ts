@@ -5,6 +5,7 @@ import type {
   EvidenceAdoptionRecord,
   EvidenceAdoptionState
 } from "@simwar/shared-contracts";
+import { stableSha256 } from "../../services/api/src/model-qualification-adoption-drift-assessment";
 import {
   runAdoptionRollbackDryRun,
   type AdoptionRollbackDryRunInput
@@ -76,9 +77,9 @@ function createAssessment(
   history: AdoptionHistory,
   overrides: Partial<AdoptionDriftAssessment> = {}
 ): AdoptionDriftAssessment {
-  return {
+  const { assessment_digest: digestOverride, ...restOverrides } = overrides;
+  const body: Omit<AdoptionDriftAssessment, "assessment_digest"> = {
     assessment_id: "assessment-predecessor-a",
-    assessment_digest: "c".repeat(64),
     assessed_at: EVIDENCE_ADOPTION_NOW,
     adoption: adoptionReference(history.adoptionA),
     adoption_state_digest: STATE_DIGEST,
@@ -92,8 +93,9 @@ function createAssessment(
     advisory_only: true,
     adoption_mutation: false,
     official_truth_write: false,
-    ...overrides
+    ...restOverrides
   };
+  return { ...body, assessment_digest: digestOverride ?? stableSha256(body) };
 }
 
 function createInput(
@@ -275,6 +277,22 @@ describe("O6 adoption rollback dry-run leaf", () => {
 
     expect(result.status).toBe("BLOCKED");
     expect(result.blockers).toContain("PREDECESSOR_REFERENCE_MISMATCH");
+    expectDryRunSafety(result);
+  });
+
+  it("blocks a predecessor assessment whose signed deterministic body was tampered", () => {
+    const history = createAdoptedHistory();
+    const result = runAdoptionRollbackDryRun(
+      createInput(history, {
+        predecessor_assessment: createAssessment(history, {
+          assessment_digest: "0".repeat(64)
+        })
+      })
+    );
+
+    expect(result.status).toBe("BLOCKED");
+    expect(result.blockers).toContain("PREDECESSOR_ASSESSMENT_INVALID");
+    expect(result.predecessor_currently_eligible).toBe(false);
     expectDryRunSafety(result);
   });
 

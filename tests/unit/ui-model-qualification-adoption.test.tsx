@@ -368,4 +368,41 @@ describe("exact evidence adoption UI", () => {
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(2);
     await act(async () => root.unmount());
   });
+
+  it("keeps the existing adoption workspace visible when O6 operations are unavailable", async () => {
+    const baseProjection = {
+      ...empty,
+      qualifications: [
+        {
+          qualification_id: "qualification-o5-visible",
+          source_package_id: "source-o5-visible",
+          review: { status: "APPROVED" },
+          binding: { status: "BOUND" }
+        }
+      ]
+    };
+    const fetchMock = vi.fn(async (url: string) =>
+      url.includes("adoption-operations")
+        ? {
+            ok: false,
+            status: 503,
+            json: async () => ({ code: "O6_UNAVAILABLE", message: "operations unavailable" })
+          }
+        : { ok: true, status: 200, json: async () => ({ data: baseProjection }) }
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () => root.render(<ModelQualificationAdoptionPanel {...props} />));
+    expect(host.textContent).toContain("尚无明确采用记录");
+    expect(host.textContent).toContain("qualification-o5-visible");
+    expect(host.textContent).toContain("O6 operations unavailable");
+    expect(host.textContent).toContain("health=UNAVAILABLE");
+    expect(
+      (host.querySelector('[data-testid="assess-adoption-drift"]') as HTMLButtonElement).disabled
+    ).toBe(true);
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(0);
+    await act(async () => root.unmount());
+  });
 });

@@ -8,7 +8,9 @@ import type {
   EvidenceAdoptionRecord,
   ModelQualificationAdoptionOperationsAdminProjection,
   ModelQualificationAdoptionOperationsStudentProjection,
-  ModelQualificationAdoptionOperationsTeacherProjection
+  ModelQualificationAdoptionOperationsTeacherProjection,
+  ModelQualificationAdminProjection,
+  ModelQualificationTeacherProjection
 } from "@simwar/shared-contracts";
 import { createApiServer } from "../../services/api/src/server";
 import {
@@ -17,7 +19,7 @@ import {
 } from "../../services/api/src/model-qualification-adoption-drift-assessment";
 import { ModelQualificationService } from "../../services/api/src/model-qualification-service";
 import { createJsonModelQualificationPersistence } from "../../services/api/src/json-repository-adapter";
-import { createP1Store } from "../../services/api/src/store";
+import { createP1Store, setUserRoles } from "../../services/api/src/store";
 import {
   EVIDENCE_ADOPTION_ADMIN,
   EVIDENCE_ADOPTION_SCOPE,
@@ -89,6 +91,8 @@ describe("O6 real BFF adoption operations", () => {
     );
     const stateDigest = digestEvidenceAdoptionState(state);
     const policyDigest = digestAdoptionOperationsPolicy();
+    const multiRoleUser = store.users.find((user) => user.username === "student")!;
+    setUserRoles(store, multiRoleUser, ["learner", "teacher", "tenant_admin"]);
     const server = createApiServer(store);
     server.listen(0, "127.0.0.1");
     await once(server, "listening");
@@ -203,6 +207,40 @@ describe("O6 real BFF adoption operations", () => {
       expect(student.body.data).not.toHaveProperty("predecessor_adoption");
       expect(JSON.stringify(store.modelQualificationRecords)).toBe(immutableBefore);
 
+      const multiRoleTeacher = await request<ModelQualificationTeacherProjection>(
+        `/api/v1/bff/teacher/model-qualification?${query}`,
+        studentToken
+      );
+      const multiRoleAdmin = await request<ModelQualificationAdminProjection>(
+        `/api/v1/bff/admin/model-qualification?${query}`,
+        studentToken
+      );
+      expect(multiRoleTeacher.status).toBe(200);
+      expect(multiRoleTeacher.body.data.operation_id).toBe(
+        "MODEL_QUALIFICATION_TEACHER_STUDIO_GET_V1"
+      );
+      expect(multiRoleTeacher.body.data.security.role).toBe("teacher");
+      expect(multiRoleAdmin.status).toBe(200);
+      expect(multiRoleAdmin.body.data.operation_id).toBe("MODEL_QUALIFICATION_ADMIN_AUDIT_GET_V1");
+      expect(multiRoleAdmin.body.data.security.role).toBe("tenant_admin");
+
+      const multiRoleTeacherOperations =
+        await request<ModelQualificationAdoptionOperationsTeacherProjection>(
+          `/api/v1/bff/teacher/model-qualification/adoption-operations?${query}`,
+          studentToken
+        );
+      const multiRoleAdminOperations =
+        await request<ModelQualificationAdoptionOperationsAdminProjection>(
+          `/api/v1/bff/admin/model-qualification/adoption-operations?${query}`,
+          studentToken
+        );
+      expect(multiRoleTeacherOperations.body.data.operation_id).toBe(
+        "MODEL_QUALIFICATION_ADOPTION_OPERATIONS_TEACHER_GET_V1"
+      );
+      expect(multiRoleAdminOperations.body.data.operation_id).toBe(
+        "MODEL_QUALIFICATION_ADOPTION_OPERATIONS_ADMIN_GET_V1"
+      );
+
       const stale = await request<AdoptionDriftAssessment>(
         "/api/v1/bff/teacher/model-qualification/adoption-operations/drift-assessments",
         teacherToken,
@@ -216,6 +254,25 @@ describe("O6 real BFF adoption operations", () => {
       );
       expect(stale.status).toBe(200);
       expect(stale.body.data.status).toBe("REBASE_REQUIRED");
+
+      const missingExactAdoption = await request<unknown>(
+        "/api/v1/bff/teacher/model-qualification/adoption-operations/drift-assessments",
+        teacherToken,
+        {
+          course_id: EVIDENCE_ADOPTION_SCOPE.course_id,
+          expected_adoption: {
+            adoption_id: "missing-adoption",
+            adoption_digest: "0".repeat(64)
+          },
+          expected_adoption_state_digest: stateDigest,
+          expected_operations_policy_digest: policyDigest,
+          assessed_at: assessedAt
+        }
+      );
+      expect(missingExactAdoption.status).toBe(422);
+      expect(missingExactAdoption.body.code).toBe(
+        "MODEL_QUALIFICATION_ADOPTION_OPERATIONS_INVALID"
+      );
       expect(JSON.stringify(store.modelQualificationRecords)).toBe(immutableBefore);
     } finally {
       server.closeAllConnections();

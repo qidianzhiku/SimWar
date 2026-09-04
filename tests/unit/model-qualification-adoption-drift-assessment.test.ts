@@ -48,7 +48,8 @@ function adopt(
   fixture: EvidenceAdoptionServiceFixture,
   qualificationId: string,
   expectedAdoption: EvidenceAdoptionReference | null,
-  suffix: string
+  suffix: string,
+  expiresAt: string | null = null
 ): EvidenceAdoptionRecord {
   const { primary, service } = fixture;
   const record = service.getRecordForScope(primary.scope)!;
@@ -73,7 +74,7 @@ function adopt(
   const disposed = service.disposeEvidenceAdoption(EVIDENCE_ADOPTION_ADMIN, primary.scope, {
     command_id: `${suffix}-dispose`,
     disposition: "ADOPTED_FOR_FUTURE_ADMISSION",
-    expires_at: null,
+    expires_at: expiresAt,
     note: `${suffix} exact future admission adoption`,
     proposal_digest: requested.proposal.proposal_digest,
     proposal_id: requested.proposal.proposal_id
@@ -83,7 +84,7 @@ function adopt(
   return disposed.adoption;
 }
 
-function adoptedChain(): AdoptedChain {
+function adoptedChain(currentExpiresAt: string | null = null): AdoptedChain {
   const fixture = createEvidenceAdoptionServiceFixture();
   const predecessor = adopt(
     fixture,
@@ -95,7 +96,8 @@ function adoptedChain(): AdoptedChain {
     fixture,
     fixture.primary.qualificationB.qualification_id,
     reference(predecessor),
-    "o6-a1-b"
+    "o6-a1-b",
+    currentExpiresAt
   );
   const record = fixture.service.getRecordForScope(fixture.primary.scope)!;
   return {
@@ -481,6 +483,33 @@ describe("O6 adoption drift assessment domain", () => {
     expect(result).toMatchObject({
       future_admission_impact: "BLOCKED",
       issue_codes: ["SOURCE_EXPIRED"],
+      status: "FUTURE_ADMISSION_BLOCKED"
+    });
+  });
+
+  it("blocks an expired or not-yet-effective adoption record at the assessment clock", () => {
+    const expiredChain = adoptedChain("2026-09-05T00:00:00.000Z");
+    const expiredResult = assessAdoptionDrift(
+      inputFor(expiredChain, {
+        assessed_at: "2026-09-06T00:00:00.000Z"
+      })
+    );
+
+    const futureChain = adoptedChain();
+    const futureResult = assessAdoptionDrift(
+      inputFor(futureChain, {
+        assessed_at: "2026-09-03T11:59:59.000Z"
+      })
+    );
+
+    expect(expiredResult).toMatchObject({
+      future_admission_impact: "BLOCKED",
+      issue_codes: expect.arrayContaining(["ADOPTION_EXPIRED"]),
+      status: "FUTURE_ADMISSION_BLOCKED"
+    });
+    expect(futureResult).toMatchObject({
+      future_admission_impact: "BLOCKED",
+      issue_codes: expect.arrayContaining(["ADOPTION_NOT_EFFECTIVE"]),
       status: "FUTURE_ADMISSION_BLOCKED"
     });
   });

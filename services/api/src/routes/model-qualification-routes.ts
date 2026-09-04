@@ -93,10 +93,18 @@ function exactAdoptionReference(value: unknown): { adoption_id: string; adoption
   return { adoption_id, adoption_digest };
 }
 
-function serviceActor(actor: CurrentUser): ModelQualificationActor {
-  const role = actor.roles.find((candidate) =>
-    ["student", "learner", "teacher", "tenant_admin"].includes(candidate)
-  );
+export function serviceActor(
+  actor: CurrentUser,
+  requestedRole: "teacher" | "admin" | "student"
+): ModelQualificationActor {
+  const role =
+    requestedRole === "admin"
+      ? "tenant_admin"
+      : requestedRole === "student"
+        ? actor.roles.includes("student")
+          ? "student"
+          : "learner"
+        : "teacher";
   if (!role || !actor.tenant_id)
     throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
   return {
@@ -224,7 +232,7 @@ export async function handleModelQualificationRoute(
     const courseId = resolveCourseId(body, url);
     await assertCourse(deps, context, courseId);
     const selectedScope = scope(context, courseId);
-    const selectedActor = serviceActor(actor);
+    const selectedActor = serviceActor(actor, requestedRole as "teacher" | "admin" | "student");
 
     if (requestedRole === "student") {
       if (request.method !== "GET" || action) {
@@ -283,6 +291,7 @@ export async function handleModelQualificationRoute(
       throw new Error("EVIDENCE_ADOPTION_OPERATIONS_INPUT_INVALID");
     }
     const common = {
+      course_id: courseId,
       expected_adoption_state_digest: stringValue(body.expected_adoption_state_digest),
       expected_operations_policy_digest: stringValue(body.expected_operations_policy_digest),
       assessed_at: stringValue(body.assessed_at)
@@ -495,7 +504,7 @@ export async function handleModelQualificationRoute(
       context,
       response,
       200,
-      service.getTeacherProjection(serviceActor(actor), scope(context, courseId))
+      service.getTeacherProjection(serviceActor(actor, "teacher"), scope(context, courseId))
     );
     return true;
   }
@@ -512,7 +521,7 @@ export async function handleModelQualificationRoute(
       context,
       response,
       200,
-      service.getAdminProjection(serviceActor(actor), scope(context, courseId))
+      service.getAdminProjection(serviceActor(actor, "admin"), scope(context, courseId))
     );
     return true;
   }
@@ -541,7 +550,11 @@ export async function handleModelQualificationRoute(
       context,
       response,
       200,
-      service.getStudentProjection(serviceActor(actor), scope(context, courseId), qualification)
+      service.getStudentProjection(
+        serviceActor(actor, "student"),
+        scope(context, courseId),
+        qualification
+      )
     );
     return true;
   }
@@ -591,7 +604,7 @@ export async function handleModelQualificationRoute(
       context,
       response,
       201,
-      service.registerSourcePackage(serviceActor(actor), serviceScope, input)
+      service.registerSourcePackage(serviceActor(actor, "teacher"), serviceScope, input)
     );
     return true;
   }
@@ -608,7 +621,7 @@ export async function handleModelQualificationRoute(
       context,
       response,
       201,
-      service.createCalibrationDataset(serviceActor(actor), serviceScope, input)
+      service.createCalibrationDataset(serviceActor(actor, "teacher"), serviceScope, input)
     );
     return true;
   }
@@ -632,7 +645,7 @@ export async function handleModelQualificationRoute(
       context,
       response,
       201,
-      service.runQualification(serviceActor(actor), serviceScope, input)
+      service.runQualification(serviceActor(actor, "teacher"), serviceScope, input)
     );
     return true;
   }
@@ -645,7 +658,7 @@ export async function handleModelQualificationRoute(
       context,
       response,
       201,
-      service.createRequalificationPreview(serviceActor(actor), serviceScope, {
+      service.createRequalificationPreview(serviceActor(actor, "teacher"), serviceScope, {
         baseline_source_package_id: baselineSourcePackageId,
         candidate_source_package_id: candidateSourcePackageId
       })
@@ -664,7 +677,7 @@ export async function handleModelQualificationRoute(
       context,
       response,
       200,
-      service.reviewQualification(serviceActor(actor), serviceScope, reviewId, {
+      service.reviewQualification(serviceActor(actor, "teacher"), serviceScope, reviewId, {
         decision,
         note: stringValue(bodyRecord.note)
       })
@@ -679,7 +692,7 @@ export async function handleModelQualificationRoute(
       context,
       response,
       200,
-      service.bindQualification(serviceActor(actor), serviceScope, bindId)
+      service.bindQualification(serviceActor(actor, "teacher"), serviceScope, bindId)
     );
     return true;
   }
@@ -694,10 +707,15 @@ export async function handleModelQualificationRoute(
       context,
       response,
       200,
-      service.reviewRequalificationPreview(serviceActor(actor), serviceScope, previewId, {
-        decision: bodyRecord.decision,
-        note: stringValue(bodyRecord.note)
-      })
+      service.reviewRequalificationPreview(
+        serviceActor(actor, "teacher"),
+        serviceScope,
+        previewId,
+        {
+          decision: bodyRecord.decision,
+          note: stringValue(bodyRecord.note)
+        }
+      )
     );
     return true;
   }

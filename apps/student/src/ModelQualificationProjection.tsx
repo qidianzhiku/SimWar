@@ -26,10 +26,12 @@ export function ModelQualificationProjection({
   const contextIdentity = JSON.stringify([apiBase, courseId, qualificationId, tenantId, token]);
   const [projectionIdentity, setProjectionIdentity] = useState("");
   const [notice, setNotice] = useState("等待已绑定模型资格");
+  const [operationsNotice, setOperationsNotice] = useState("");
 
   useEffect(() => {
     setProjection(null);
     setOperations(null);
+    setOperationsNotice("");
     if (!courseId || !qualificationId || !token) {
       setProjection(null);
       setNotice("Teacher 绑定后，通过 modelQualificationId 查询已发布解释");
@@ -42,25 +44,40 @@ export function ModelQualificationProjection({
       "x-tenant-id": tenantId
     };
     const query = `courseId=${encodeURIComponent(courseId)}&qualificationId=${encodeURIComponent(qualificationId)}`;
-    void Promise.all([
+    void Promise.allSettled([
       fetch(`${apiBase}/api/v1/bff/student/model-qualification?${query}`, { headers }),
       fetch(`${apiBase}/api/v1/bff/student/model-qualification/adoption-operations?${query}`, {
         headers
       })
     ])
-      .then(async ([projectionResponse, operationsResponse]) => {
+      .then(async ([projectionOutcome, operationsOutcome]) => {
+        if (projectionOutcome.status === "rejected") throw projectionOutcome.reason;
+        const projectionResponse = projectionOutcome.value;
         const envelope =
           (await projectionResponse.json()) as ApiEnvelope<ModelQualificationStudentProjection>;
-        const operationsEnvelope =
-          (await operationsResponse.json()) as ApiEnvelope<ModelQualificationAdoptionOperationsStudentProjection>;
         if (!projectionResponse.ok) throw new Error(`${envelope.code}: ${envelope.message}`);
-        if (!operationsResponse.ok)
-          throw new Error(`${operationsEnvelope.code}: ${operationsEnvelope.message}`);
         if (active) {
           setProjection(envelope.data);
-          setOperations(operationsEnvelope.data);
           setProjectionIdentity(contextIdentity);
         }
+        if (operationsOutcome.status === "rejected") {
+          if (active) setOperationsNotice("O6 operations unavailable");
+          return;
+        }
+        const operationsResponse = operationsOutcome.value;
+        let operationsEnvelope: ApiEnvelope<ModelQualificationAdoptionOperationsStudentProjection>;
+        try {
+          operationsEnvelope =
+            (await operationsResponse.json()) as ApiEnvelope<ModelQualificationAdoptionOperationsStudentProjection>;
+        } catch {
+          if (active) setOperationsNotice("O6 operations unavailable");
+          return;
+        }
+        if (!operationsResponse.ok) {
+          if (active) setOperationsNotice("O6 operations unavailable");
+          return;
+        }
+        if (active) setOperations(operationsEnvelope.data);
       })
       .catch((error: unknown) => {
         if (active) setNotice(error instanceof Error ? error.message : "学生模型解释加载失败");
@@ -124,6 +141,11 @@ export function ModelQualificationProjection({
                 ))}
               </ul>
             </section>
+          )}
+          {operationsNotice && (
+            <p className="evidence-note" role="status">
+              {operationsNotice}；既有受治理模型解释保持可见
+            </p>
           )}
           <section aria-label="student safe requalification status">
             <h3>证据新鲜度与限制</h3>

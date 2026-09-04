@@ -256,6 +256,31 @@ function addIssue(issues: AdoptionDriftIssueCode[], issue: AdoptionDriftIssueCod
   if (!issues.includes(issue)) issues.push(issue);
 }
 
+function addAdoptionTimingIssues(
+  adoption: EvidenceAdoptionRecord,
+  assessedAtMs: number,
+  issues: AdoptionDriftIssueCode[]
+): void {
+  const decidedAtMs = Date.parse(adoption.decided_at);
+  if (
+    !isIsoTimestamp(adoption.decided_at) ||
+    !Number.isFinite(decidedAtMs) ||
+    decidedAtMs > assessedAtMs
+  ) {
+    addIssue(issues, "ADOPTION_NOT_EFFECTIVE");
+  }
+  if (adoption.expires_at !== null) {
+    const expiresAtMs = Date.parse(adoption.expires_at);
+    if (
+      !isIsoTimestamp(adoption.expires_at) ||
+      !Number.isFinite(expiresAtMs) ||
+      expiresAtMs <= assessedAtMs
+    ) {
+      addIssue(issues, "ADOPTION_EXPIRED");
+    }
+  }
+}
+
 function addSourceIssues(
   source: ModelQualificationSourcePackage,
   assessedAtMs: number,
@@ -570,7 +595,9 @@ export function assessAdoptionDrift(
   }
 
   const { dataset, qualification, source } = exactEvidence(input.record, target.epoch);
-  addSourceIssues(source, Date.parse(input.assessed_at), issues, knownLimits);
+  const assessedAtMs = Date.parse(input.assessed_at);
+  addAdoptionTimingIssues(target, assessedAtMs, issues);
+  addSourceIssues(source, assessedAtMs, issues, knownLimits);
   addDatasetIssues(dataset, issues);
   addQualificationIssues(qualification, issues);
   addRequalificationIssues(input.record, qualification, source, issues);

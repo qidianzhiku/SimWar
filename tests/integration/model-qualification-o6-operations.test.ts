@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type {
   AdoptionDriftAssessment,
   AdoptionRollbackDryRun,
+  CurrentUser,
   EvidenceAdoptionRecord,
   EvidenceAdoptionReference,
   ModelQualificationAdoptionOperationsStudentProjection,
@@ -17,6 +18,7 @@ import {
   type ModelQualificationActor,
   type ModelQualificationScope
 } from "../../services/api/src/model-qualification-service";
+import { serviceActor } from "../../services/api/src/routes/model-qualification-routes";
 import {
   EVIDENCE_ADOPTION_ADMIN,
   EVIDENCE_ADOPTION_NOW,
@@ -34,6 +36,7 @@ type O6Service = ModelQualificationService & {
     actor: ModelQualificationActor,
     scope: ModelQualificationScope,
     input: {
+      course_id: string;
       expected_adoption: EvidenceAdoptionReference;
       expected_adoption_state_digest: string;
       expected_operations_policy_digest: string;
@@ -44,6 +47,7 @@ type O6Service = ModelQualificationService & {
     actor: ModelQualificationActor,
     scope: ModelQualificationScope,
     input: {
+      course_id: string;
       current_adoption: EvidenceAdoptionReference;
       predecessor_adoption: EvidenceAdoptionReference;
       expected_adoption_state_digest: string;
@@ -95,6 +99,19 @@ function adopt(
 }
 
 describe("O6 model qualification adoption operations integration", () => {
+  it("binds a multi-role actor to the exact requested BFF role instead of role-array order", () => {
+    const actor: CurrentUser = {
+      user_id: "multi-role-user",
+      tenant_id: EVIDENCE_ADOPTION_SCOPE.tenant_id,
+      display_name: "Multi Role",
+      roles: ["learner", "teacher", "tenant_admin"]
+    };
+
+    expect(serviceActor(actor, "teacher").role).toBe("teacher");
+    expect(serviceActor(actor, "admin").role).toBe("tenant_admin");
+    expect(serviceActor(actor, "student").role).toBe("learner");
+  });
+
   it("assesses the exact current adoption and previews only an eligible exact predecessor", async () => {
     const assessedAt = "2026-09-02T12:00:00.000Z";
     const persistence = new ModelQualificationEvidenceAdoptionFakePersistence();
@@ -128,6 +145,7 @@ describe("O6 model qualification adoption operations integration", () => {
       EVIDENCE_ADOPTION_TEACHER,
       EVIDENCE_ADOPTION_SCOPE,
       {
+        course_id: EVIDENCE_ADOPTION_SCOPE.course_id,
         expected_adoption: adoptionReference(adoptedB),
         expected_adoption_state_digest: stateDigest,
         expected_operations_policy_digest: policyDigest,
@@ -150,6 +168,7 @@ describe("O6 model qualification adoption operations integration", () => {
       EVIDENCE_ADOPTION_ADMIN,
       EVIDENCE_ADOPTION_SCOPE,
       {
+        course_id: EVIDENCE_ADOPTION_SCOPE.course_id,
         current_adoption: adoptionReference(adoptedB),
         predecessor_adoption: adoptionReference(adoptedA),
         expected_adoption_state_digest: stateDigest,
@@ -190,6 +209,7 @@ describe("O6 model qualification adoption operations integration", () => {
 
     await expect(
       service.assessEvidenceAdoptionDrift(EVIDENCE_ADOPTION_TEACHER, EVIDENCE_ADOPTION_SCOPE, {
+        course_id: EVIDENCE_ADOPTION_SCOPE.course_id,
         expected_adoption: adoptionReference(adoptedA),
         expected_adoption_state_digest: staleStateDigest,
         expected_operations_policy_digest: policyDigest,

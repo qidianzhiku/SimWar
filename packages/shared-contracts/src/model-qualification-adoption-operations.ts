@@ -35,6 +35,8 @@ export type AdoptionDriftAssessmentStatus =
 export type AdoptionDriftIssueCode =
   | "ADOPTION_NOT_FOUND"
   | "ADOPTION_NOT_CURRENT"
+  | "ADOPTION_EXPIRED"
+  | "ADOPTION_NOT_EFFECTIVE"
   | "ADOPTION_STATE_DIGEST_CHANGED"
   | "OPERATIONS_POLICY_DIGEST_CHANGED"
   | "SOURCE_EXPIRED"
@@ -70,6 +72,7 @@ export interface AdoptionDriftAssessment {
 }
 
 export interface AdoptionDriftAssessmentRequest {
+  readonly course_id: string;
   readonly expected_adoption: EvidenceAdoptionReference;
   readonly expected_adoption_state_digest: string;
   readonly expected_operations_policy_digest: string;
@@ -88,10 +91,12 @@ export type AdoptionRollbackDryRunBlocker =
   | "CURRENT_ADOPTION_NOT_ACTIVE"
   | "PREDECESSOR_NOT_FOUND"
   | "PREDECESSOR_REFERENCE_MISMATCH"
+  | "PREDECESSOR_ASSESSMENT_INVALID"
   | "PREDECESSOR_NOT_HISTORICALLY_ADOPTED"
   | "PREDECESSOR_NOT_CURRENTLY_ELIGIBLE";
 
 export interface AdoptionRollbackDryRunRequest {
+  readonly course_id: string;
   readonly current_adoption: EvidenceAdoptionReference;
   readonly predecessor_adoption: EvidenceAdoptionReference;
   readonly expected_adoption_state_digest: string;

@@ -66,4 +66,55 @@ describe("O6 Student-safe adoption operations UI", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     await act(async () => root.unmount());
   });
+
+  it("keeps the governed O5 explanation visible when the optional O6 projection is unavailable", async () => {
+    const fetchMock = vi.fn(async (url: string) =>
+      url.includes("adoption-operations")
+        ? {
+            ok: false,
+            status: 503,
+            json: async () => ({ code: "O6_UNAVAILABLE", message: "operations unavailable" })
+          }
+        : {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              code: "OK",
+              message: "ok",
+              request_id: "request-o5-student",
+              data: {
+                operation_id: "MODEL_QUALIFICATION_STUDENT_PROJECTION_GET_V1",
+                known_limits: [],
+                qualification: {
+                  model_version: "1.0.0",
+                  decision: "APPROVED",
+                  binding_status: "BOUND",
+                  explanation: ["Published role-safe explanation"]
+                }
+              }
+            })
+          }
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () =>
+      root.render(
+        <ModelQualificationProjection
+          apiBase="http://fixture"
+          courseId="course-a"
+          qualificationId="qualification-a"
+          tenantId="tenant-a"
+          token="student-token"
+        />
+      )
+    );
+    expect(host.textContent).toContain("Published role-safe explanation");
+    expect(host.textContent).toContain("O6 operations unavailable");
+    expect(host.querySelector('[data-testid="student-requalification-status"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="student-adoption-operations-status"]')).toBeNull();
+    expect(host.textContent).not.toContain("adoption_digest");
+    await act(async () => root.unmount());
+  });
 });

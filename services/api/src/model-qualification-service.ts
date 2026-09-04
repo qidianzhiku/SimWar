@@ -307,6 +307,7 @@ export class ModelQualificationError extends Error {
       | "MODEL_QUALIFICATION_BINDING_REQUIRED"
       | "MODEL_QUALIFICATION_REQUALIFICATION_INVALID"
       | "MODEL_QUALIFICATION_REQUALIFICATION_CONFLICT"
+      | "MODEL_QUALIFICATION_ADOPTION_OPERATIONS_INVALID"
   ) {
     super(code);
     this.name = "ModelQualificationError";
@@ -549,14 +550,30 @@ export class ModelQualificationService {
     scope: ModelQualificationScope,
     input: AdoptionDriftAssessmentRequest
   ): Promise<AdoptionDriftAssessment> {
-    return this.withEvidenceAdmission(actor, scope, async (record) =>
-      assessAdoptionDrift({
-        ...input,
-        record,
-        selection_requirement: "CURRENT",
-        state: this.validatedAdoptionState(record, scope)
-      })
-    );
+    if (input.course_id !== scope.course_id) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    const request = {
+      assessed_at: input.assessed_at,
+      expected_adoption: input.expected_adoption,
+      expected_adoption_state_digest: input.expected_adoption_state_digest,
+      expected_operations_policy_digest: input.expected_operations_policy_digest
+    };
+    try {
+      return await this.withEvidenceAdmission(actor, scope, async (record) =>
+        assessAdoptionDrift({
+          ...request,
+          record,
+          selection_requirement: "CURRENT",
+          state: this.validatedAdoptionState(record, scope)
+        })
+      );
+    } catch (error) {
+      if (error instanceof Error && /^O6_/.test(error.message)) {
+        throw new ModelQualificationError("MODEL_QUALIFICATION_ADOPTION_OPERATIONS_INVALID");
+      }
+      throw error;
+    }
   }
 
   /** Pure rollback impact preview. It never applies an adoption mutation. */
@@ -565,27 +582,44 @@ export class ModelQualificationService {
     scope: ModelQualificationScope,
     input: AdoptionRollbackDryRunRequest
   ): Promise<AdoptionRollbackDryRun> {
-    return this.withEvidenceAdmission(actor, scope, async (record) => {
-      const state = this.validatedAdoptionState(record, scope);
-      const actualStateDigest = digestEvidenceAdoptionState(state);
-      const actualPolicyDigest = digestAdoptionOperationsPolicy();
-      const predecessorAssessment = assessAdoptionDrift({
-        assessed_at: input.assessed_at,
-        expected_adoption: input.predecessor_adoption,
-        expected_adoption_state_digest: input.expected_adoption_state_digest,
-        expected_operations_policy_digest: input.expected_operations_policy_digest,
-        record,
-        selection_requirement: "HISTORICAL_PREDECESSOR",
-        state
+    if (input.course_id !== scope.course_id) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    const request = {
+      assessed_at: input.assessed_at,
+      current_adoption: input.current_adoption,
+      predecessor_adoption: input.predecessor_adoption,
+      expected_adoption_state_digest: input.expected_adoption_state_digest,
+      expected_operations_policy_digest: input.expected_operations_policy_digest
+    };
+    try {
+      return await this.withEvidenceAdmission(actor, scope, async (record) => {
+        const state = this.validatedAdoptionState(record, scope);
+        const actualStateDigest = digestEvidenceAdoptionState(state);
+        const actualPolicyDigest = digestAdoptionOperationsPolicy();
+        const predecessorAssessment = assessAdoptionDrift({
+          assessed_at: request.assessed_at,
+          expected_adoption: request.predecessor_adoption,
+          expected_adoption_state_digest: request.expected_adoption_state_digest,
+          expected_operations_policy_digest: request.expected_operations_policy_digest,
+          record,
+          selection_requirement: "HISTORICAL_PREDECESSOR",
+          state
+        });
+        return runAdoptionRollbackDryRun({
+          ...request,
+          actual_adoption_state_digest: actualStateDigest,
+          actual_operations_policy_digest: actualPolicyDigest,
+          adoption_state: state,
+          predecessor_assessment: predecessorAssessment
+        });
       });
-      return runAdoptionRollbackDryRun({
-        ...input,
-        actual_adoption_state_digest: actualStateDigest,
-        actual_operations_policy_digest: actualPolicyDigest,
-        adoption_state: state,
-        predecessor_assessment: predecessorAssessment
-      });
-    });
+    } catch (error) {
+      if (error instanceof Error && /^O6_/.test(error.message)) {
+        throw new ModelQualificationError("MODEL_QUALIFICATION_ADOPTION_OPERATIONS_INVALID");
+      }
+      throw error;
+    }
   }
 
   async getAdoptionOperationsProjection(

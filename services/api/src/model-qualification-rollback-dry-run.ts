@@ -10,12 +10,16 @@ import type {
   EvidenceAdoptionReference,
   EvidenceAdoptionState
 } from "@simwar/shared-contracts";
+import { stableSha256 } from "./model-qualification-adoption-drift-assessment.js";
 
 /**
  * Inputs are deliberately materialized by the caller. This leaf does not
  * read a store, discover a current record, or perform an adoption mutation.
  */
-export interface AdoptionRollbackDryRunInput extends AdoptionRollbackDryRunRequest {
+export interface AdoptionRollbackDryRunInput extends Omit<
+  AdoptionRollbackDryRunRequest,
+  "course_id"
+> {
   readonly adoption_state: EvidenceAdoptionState;
   readonly actual_adoption_state_digest: string;
   readonly actual_operations_policy_digest: string;
@@ -251,10 +255,14 @@ export function runAdoptionRollbackDryRun(
 
   if (predecessorRecord !== undefined) {
     const assessment = input.predecessor_assessment;
+    const { assessment_digest: assessmentDigest, ...assessmentBody } = assessment;
+    const assessmentDigestValid = stableSha256(assessmentBody) === assessmentDigest;
     const assessmentIdentityMatches =
       sameReference(assessment.adoption, input.predecessor_adoption) &&
       sameEpoch(assessment.epoch, predecessorRecord.epoch);
-    if (!assessmentIdentityMatches) {
+    if (!assessmentDigestValid) {
+      addBlocker("PREDECESSOR_ASSESSMENT_INVALID");
+    } else if (!assessmentIdentityMatches) {
       addBlocker("PREDECESSOR_REFERENCE_MISMATCH");
     } else {
       if (assessment.adoption_state_digest !== input.expected_adoption_state_digest) {

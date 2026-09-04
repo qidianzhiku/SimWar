@@ -6549,7 +6549,6 @@ paths:
               }
         "401": { description: Authentication required }
         "403": { description: Teacher or course scope denied }
-        "409": { description: Exact state or policy digest changed; rebase required }
   /api/v1/bff/teacher/model-qualification/adoption-operations/rollback-dry-runs:
     post:
       operationId: MODEL_QUALIFICATION_ADOPTION_OPERATIONS_TEACHER_ROLLBACK_DRY_RUN_V1
@@ -6576,7 +6575,6 @@ paths:
               }
         "401": { description: Authentication required }
         "403": { description: Teacher or course scope denied }
-        "409": { description: Exact state or policy digest changed; rebase required }
 
   /api/v1/bff/admin/model-qualification/adoption-operations:
     get:
@@ -6622,7 +6620,6 @@ paths:
               }
         "401": { description: Authentication required }
         "403": { description: Tenant administrator scope denied }
-        "409": { description: Exact state or policy digest changed; rebase required }
   /api/v1/bff/admin/model-qualification/adoption-operations/rollback-dry-runs:
     post:
       operationId: MODEL_QUALIFICATION_ADOPTION_OPERATIONS_ADMIN_ROLLBACK_DRY_RUN_V1
@@ -6649,7 +6646,6 @@ paths:
               }
         "401": { description: Authentication required }
         "403": { description: Tenant administrator scope denied }
-        "409": { description: Exact state or policy digest changed; rebase required }
 
   /api/v1/bff/student/model-qualification/adoption-operations:
     get:
