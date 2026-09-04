@@ -1,4 +1,5 @@
 import type {
+  QualifiedRunAdmissionSnapshot,
   AuditLog,
   Course,
   Decision,
@@ -82,9 +83,13 @@ export interface RepositoryFacade {
   };
 
   runs: {
+    getQualifiedRunAdmission(
+      tenantId: string,
+      runId: string
+    ): Promise<QualifiedRunAdmissionSnapshot | null>;
     getRun(tenantId: string, runId: string): Promise<Run | null>;
     listRunsForCourse(tenantId: string, courseId: string): Promise<Run[]>;
-    saveRun(run: Run): Promise<void>;
+    saveRun(run: Run, admission?: QualifiedRunAdmissionSnapshot): Promise<void>;
     deleteRun(tenantId: string, runId: string): Promise<void>;
   };
 
@@ -361,7 +366,9 @@ export function createRepositoryFacade(options: RepositoryFacadeOptions): Reposi
     runs: {
       getRun: (tenantId, runId) => ports.runs.getRun(tenantId, runId),
       listRunsForCourse: (tenantId, courseId) => ports.runs.listRunsForCourse(tenantId, courseId),
-      saveRun: (run) => ports.runs.saveRun(run),
+      getQualifiedRunAdmission: (tenantId, runId) =>
+        ports.runs.getQualifiedRunAdmission(tenantId, runId),
+      saveRun: (run, admission) => ports.runs.saveRun(run, admission),
       deleteRun: (tenantId, runId) => ports.runs.deleteRun(tenantId, runId)
     },
 

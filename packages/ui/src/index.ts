@@ -41,3 +41,4 @@ export type {
   D5ReceiptData,
   D5ReportSummary
 } from "./workbenches/D5ExportWorkbenchView.js";
+export { ModelQualificationAdoptionPanel } from "./components/ModelQualificationAdoptionPanel.js";

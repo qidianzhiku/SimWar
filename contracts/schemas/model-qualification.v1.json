@@ -8,6 +8,369 @@
     { "$ref": "#/$defs/studentProjection" }
   ],
   "$defs": {
+    "adoptionReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adoption_id", "adoption_digest"],
+      "properties": {
+        "adoption_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "adoption_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "adoptionEpoch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenant_id",
+        "course_id",
+        "source_package_id",
+        "source_content_digest",
+        "calibration_dataset_id",
+        "calibration_dataset_content_digest",
+        "qualification_id",
+        "qualification_content_digest",
+        "model_version_reference",
+        "model_artifact_reference",
+        "source_expires_at",
+        "epoch_digest"
+      ],
+      "properties": {
+        "tenant_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "course_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_package_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_content_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "calibration_dataset_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calibration_dataset_content_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "qualification_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "qualification_content_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "model_version_reference": {
+          "$ref": "#/$defs/modelVersionReference"
+        },
+        "model_artifact_reference": {
+          "$ref": "#/$defs/artifact"
+        },
+        "source_expires_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "epoch_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "adoptionProposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proposal_id",
+        "proposal_digest",
+        "epoch",
+        "expected_adoption",
+        "requested_by",
+        "requested_at"
+      ],
+      "properties": {
+        "proposal_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "proposal_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "epoch": {
+          "$ref": "#/$defs/adoptionEpoch"
+        },
+        "expected_adoption": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/adoptionReference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requested_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requested_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T"
+        }
+      }
+    },
+    "adoptionReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "review_id",
+        "review_digest",
+        "proposal_id",
+        "proposal_digest",
+        "decision",
+        "note",
+        "reviewed_by",
+        "reviewed_at"
+      ],
+      "properties": {
+        "review_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "review_digest": { "$ref": "#/$defs/digest" },
+        "proposal_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "proposal_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "decision": {
+          "enum": ["APPROVED", "REJECTED"]
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewed_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewed_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T"
+        }
+      }
+    },
+    "adoptionRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adoption_id",
+        "adoption_digest",
+        "proposal_id",
+        "proposal_digest",
+        "review_id",
+        "review_digest",
+        "epoch",
+        "predecessor",
+        "disposition",
+        "expires_at",
+        "note",
+        "decided_by",
+        "decided_at",
+        "official_truth_write",
+        "provider"
+      ],
+      "properties": {
+        "adoption_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "adoption_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "proposal_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "proposal_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "review_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "review_digest": { "$ref": "#/$defs/digest" },
+        "epoch": {
+          "$ref": "#/$defs/adoptionEpoch"
+        },
+        "predecessor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/adoptionReference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "disposition": {
+          "enum": [
+            "ADOPTED_FOR_FUTURE_ADMISSION",
+            "DEFERRED_WITH_EXPIRY",
+            "REJECTED_CANDIDATE",
+            "REBASE_REQUIRED"
+          ]
+        },
+        "expires_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decided_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decided_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T"
+        },
+        "official_truth_write": {
+          "const": false
+        },
+        "provider": {
+          "const": "OFF"
+        }
+      }
+    },
+    "adoptionSelection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model_version_reference",
+        "model_artifact_reference",
+        "adoption_id",
+        "adoption_digest"
+      ],
+      "properties": {
+        "model_version_reference": {
+          "$ref": "#/$defs/modelVersionReference"
+        },
+        "model_artifact_reference": {
+          "$ref": "#/$defs/artifact"
+        },
+        "adoption_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "adoption_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "adoptionCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command_id", "command_fingerprint", "actor_id", "action", "entity_id"],
+      "properties": {
+        "command_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "command_fingerprint": {
+          "$ref": "#/$defs/digest"
+        },
+        "actor_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action": {
+          "enum": ["REQUEST", "REVIEW", "DISPOSE"]
+        },
+        "entity_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "adoptionState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenant_id",
+        "course_id",
+        "proposals",
+        "reviews",
+        "records",
+        "selections",
+        "commands"
+      ],
+      "properties": {
+        "tenant_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "course_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "proposals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/adoptionProposal"
+          }
+        },
+        "reviews": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/adoptionReview"
+          }
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/adoptionRecord"
+          }
+        },
+        "selections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/adoptionSelection"
+          }
+        },
+        "commands": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/adoptionCommand"
+          }
+        }
+      }
+    },
     "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "modelVersionReference": {
       "type": "object",
@@ -379,6 +742,7 @@
           "items": { "$ref": "#/$defs/catalogEntry" }
         },
         "operation_id": { "const": "MODEL_QUALIFICATION_TEACHER_STUDIO_GET_V1" },
+        "evidence_adoption": { "$ref": "#/$defs/adoptionState" },
         "qualifications": { "type": "array", "items": { "$ref": "#/$defs/qualification" } },
         "requalification_previews": {
           "type": "array",
@@ -428,6 +792,7 @@
           "items": { "$ref": "#/$defs/catalogEntry" }
         },
         "operation_id": { "const": "MODEL_QUALIFICATION_ADMIN_AUDIT_GET_V1" },
+        "evidence_adoption": { "$ref": "#/$defs/adoptionState" },
         "qualifications": { "type": "array", "items": { "$ref": "#/$defs/qualification" } },
         "requalification_previews": {
           "type": "array",
@@ -444,6 +809,31 @@
       "properties": {
         "known_limits": { "type": "array", "items": { "type": "string" } },
         "operation_id": { "const": "MODEL_QUALIFICATION_STUDENT_PROJECTION_GET_V1" },
+        "adoption": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "applicability",
+            "historical_non_overwrite",
+            "provider",
+            "official_truth_write",
+            "known_limits"
+          ],
+          "properties": {
+            "applicability": {
+              "enum": [
+                "ADOPTED_FOR_FUTURE_ADMISSION",
+                "HISTORICAL_ONLY",
+                "NOT_ADOPTED",
+                "UNAVAILABLE"
+              ]
+            },
+            "historical_non_overwrite": { "const": true },
+            "provider": { "const": "OFF" },
+            "official_truth_write": { "const": false },
+            "known_limits": { "type": "array", "items": { "type": "string" } }
+          }
+        },
         "qualification": {
           "type": "object",
           "additionalProperties": false,

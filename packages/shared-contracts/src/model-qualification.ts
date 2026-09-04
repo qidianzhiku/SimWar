@@ -1,4 +1,8 @@
 import type { ModelArtifactReference, ModelVersionReference } from "./model-governance.js";
+import type {
+  EvidenceAdoptionReference,
+  EvidenceAdoptionState
+} from "./model-qualification-evidence-adoption.js";
 
 export const MODEL_QUALIFICATION_SCHEMA_VERSION = "model-qualification.v1" as const;
 export const MODEL_QUALIFICATION_AUTHORITY_ID = "SIMWAR-MODEL-QUALIFICATION-PLANE" as const;
@@ -90,12 +94,28 @@ export interface ModelQualificationAuthorityFlags {
 }
 
 export interface ModelQualificationRecord {
+  evidence_adoption?: EvidenceAdoptionState;
   calibration_datasets: readonly ModelQualificationCalibrationDataset[];
   course_id: string;
   qualifications: readonly ModelQualification[];
   requalification_previews?: readonly ModelQualificationRequalificationPreview[];
   source_packages: readonly ModelQualificationSourcePackage[];
   tenant_id: string;
+}
+
+/**
+ * Client-provided selector for a server-authoritative qualified Run admission.
+ * It identifies an already adopted evidence epoch but does not grant admission
+ * by itself; the server revalidates every reference before the existing Run
+ * writer is entered.
+ */
+export interface ModelQualificationRunAdmissionSelection {
+  readonly adoption: EvidenceAdoptionReference;
+  readonly calibration_dataset_id: string;
+  readonly model_artifact_reference: ModelArtifactReference;
+  readonly model_version_reference: ModelVersionReference;
+  readonly qualification_id: string;
+  readonly source_package_id: string;
 }
 
 export interface ModelQualificationEvidenceIdentity {
@@ -177,6 +197,7 @@ export interface ModelQualification {
 }
 
 export interface ModelQualificationTeacherProjection {
+  evidence_adoption?: EvidenceAdoptionState;
   calibration_datasets: readonly ModelQualificationCalibrationDataset[];
   known_limits: readonly string[];
   model_catalog: readonly ModelQualificationModelCatalogEntry[];
@@ -207,6 +228,17 @@ export interface ModelQualificationAdminProjection extends Omit<
 }
 
 export interface ModelQualificationStudentProjection {
+  adoption?: {
+    applicability:
+      | "ADOPTED_FOR_FUTURE_ADMISSION"
+      | "HISTORICAL_ONLY"
+      | "NOT_ADOPTED"
+      | "UNAVAILABLE";
+    historical_non_overwrite: true;
+    provider: "OFF";
+    official_truth_write: false;
+    known_limits: readonly string[];
+  };
   known_limits: readonly string[];
   operation_id: "MODEL_QUALIFICATION_STUDENT_PROJECTION_GET_V1";
   qualification: {

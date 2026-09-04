@@ -42,6 +42,7 @@ import type {
   TeacherFormalCourseBindingPreviewDto,
   TeacherFormalScenarioPackageCatalogCandidateDto,
   TeacherFormalScenarioPackageCatalogDto,
+  ModelQualificationRunAdmissionSelection,
   W3OfficialConsequenceContext
 } from "@simwar/shared-contracts";
 import {
@@ -99,6 +100,10 @@ const RegionalTransferWorkbench = lazy(() =>
 );
 import { GoldenJourneyWorkbench } from "./features/GoldenJourneyWorkbench";
 import { TeachingClosureWorkspace } from "./TeachingClosureWorkspace";
+import {
+  buildTeacherQualifiedRunAdmission,
+  resolveExactTeacherCoursePackage
+} from "./qualified-run-admission-selection";
 import { TeacherDebriefAdvisor } from "./TeacherDebriefAdvisor";
 import { W3OfficialConsequenceLearningWorkbench } from "./W3OfficialConsequenceLearningWorkbench";
 import { W4EnterpriseStateWorkbench } from "./W4EnterpriseStateWorkbench";
@@ -694,6 +699,8 @@ export function App() {
   const [formalCourseTitle, setFormalCourseTitle] = useState("");
   const [formalCoursePublished, setFormalCoursePublished] = useState(false);
   const [formalRunSeed, setFormalRunSeed] = useState("20260729");
+  const [qualifiedRunAdmissionSelection, setQualifiedRunAdmissionSelection] =
+    useState<ModelQualificationRunAdmissionSelection | null>(null);
   const [coursePackageList, setCoursePackageList] = useState<TeacherCoursePackageListState>({
     phase: "IDLE"
   });
@@ -827,6 +834,10 @@ export function App() {
   const latestRun = courseRuns.at(-1);
   const latestRound = latestRun ? getRunRound(state!, latestRun.run_id) : undefined;
   const selectedRun = state ? selectVisibleRun(state, selectedRunId, selectedCourseId) : undefined;
+  const qualificationCourseId = selectedRun?.course_id ?? selectedCourseId;
+  useEffect(() => {
+    setQualifiedRunAdmissionSelection(null);
+  }, [login.tenantId, qualificationCourseId]);
   const selectedRunRounds = selectedRun
     ? getTeacherRunRounds(state?.rounds ?? [], selectedRun.run_id, login.tenantId || undefined)
     : [];
@@ -1901,9 +1912,40 @@ export function App() {
     setBusy(true);
     try {
       const auth = { token: session.access_token, tenantId: login.tenantId };
+      const coursePackage =
+        qualifiedRunAdmissionSelection && coursePackageList.phase === "READY"
+          ? resolveExactTeacherCoursePackage(coursePackageList.packages, {
+              parameter_set_id:
+                state?.courses.find((course) => course.course_id === selectedCourseId)
+                  ?.parameter_set_id ?? "",
+              scenario_package_id:
+                state?.courses.find((course) => course.course_id === selectedCourseId)
+                  ?.scenario_package_id ?? "",
+              tenant_id: login.tenantId
+            })
+          : null;
+      if (qualifiedRunAdmissionSelection && !coursePackage) {
+        setNotice("当前课程没有唯一 exact CoursePackage，已拒绝发送不完整准入选择");
+        return;
+      }
       const created = await apiRequest<{ run: Run; round: Round }>(
         `/api/v1/courses/${selectedCourseId}/runs`,
-        { ...auth, body: { formal_runtime_seed: Number(formalRunSeed) }, method: "POST" }
+        {
+          ...auth,
+          body: {
+            ...(qualifiedRunAdmissionSelection && coursePackage
+              ? {
+                  qualified_run_admission: buildTeacherQualifiedRunAdmission(
+                    selectedCourseId,
+                    coursePackage,
+                    qualifiedRunAdmissionSelection
+                  )
+                }
+              : {}),
+            formal_runtime_seed: Number(formalRunSeed)
+          },
+          method: "POST"
+        }
       );
       if (!isCurrentTeacherContext(requestIdentity)) return;
       selectedRunIdRef.current = created.run.run_id;
@@ -1946,9 +1988,39 @@ export function App() {
       beginTeacherActionIdentity("course-run-create", session, login.tenantId);
     if (!isCurrentTeacherContext(requestIdentity)) return;
     const auth = { token: session.access_token, tenantId: login.tenantId };
+    const coursePackage =
+      qualifiedRunAdmissionSelection && coursePackageList.phase === "READY"
+        ? resolveExactTeacherCoursePackage(coursePackageList.packages, {
+            parameter_set_id:
+              state?.courses.find((course) => course.course_id === courseId)?.parameter_set_id ??
+              "",
+            scenario_package_id:
+              state?.courses.find((course) => course.course_id === courseId)?.scenario_package_id ??
+              "",
+            tenant_id: login.tenantId
+          })
+        : null;
+    if (qualifiedRunAdmissionSelection && !coursePackage) {
+      setNotice("当前课程没有唯一 exact CoursePackage，已拒绝发送不完整准入选择");
+      setBusy(false);
+      return;
+    }
     const created = await apiRequest<{ run: Run; round: Round }>(
       `/api/v1/courses/${courseId}/runs`,
-      { ...auth, method: "POST" }
+      {
+        ...auth,
+        body:
+          qualifiedRunAdmissionSelection && coursePackage
+            ? {
+                qualified_run_admission: buildTeacherQualifiedRunAdmission(
+                  courseId,
+                  coursePackage,
+                  qualifiedRunAdmissionSelection
+                )
+              }
+            : undefined,
+        method: "POST"
+      }
     );
     if (!isCurrentTeacherContext(requestIdentity)) return;
     selectedRunIdRef.current = created.run.run_id;
@@ -2498,6 +2570,7 @@ export function App() {
             <ModelQualificationWorkbench
               apiBase={API_BASE}
               courseId={selectedRun?.course_id ?? selectedCourseId}
+              onRunAdmissionSelectionChange={setQualifiedRunAdmissionSelection}
               tenantId={login.tenantId}
               token={session.access_token}
             />

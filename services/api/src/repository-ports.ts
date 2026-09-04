@@ -1,4 +1,5 @@
 import type {
+  QualifiedRunAdmissionSnapshot,
   AuditLog,
   Course,
   Decision,
@@ -140,11 +141,15 @@ export interface TeamRepositoryPort {
 }
 
 export interface RunRepositoryPort {
+  getQualifiedRunAdmission(
+    tenantId: RepositoryId,
+    runId: RepositoryId
+  ): Promise<QualifiedRunAdmissionSnapshot | null>;
   getRun(tenantId: RepositoryId, runId: RepositoryId): Promise<Run | null>;
 
   listRunsForCourse(tenantId: RepositoryId, courseId: RepositoryId): Promise<Run[]>;
 
-  saveRun(run: Run): Promise<void>;
+  saveRun(run: Run, admission?: QualifiedRunAdmissionSnapshot): Promise<void>;
 
   deleteRun(tenantId: RepositoryId, runId: RepositoryId): Promise<void>;
 }

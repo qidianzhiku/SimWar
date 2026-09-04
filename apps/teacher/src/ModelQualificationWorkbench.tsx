@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ApiEnvelope, ModelQualificationTeacherProjection } from "@simwar/shared-contracts";
+import type {
+  ApiEnvelope,
+  ModelQualificationRunAdmissionSelection,
+  ModelQualificationTeacherProjection
+} from "@simwar/shared-contracts";
 import {
   calibrationDatasetIdentity,
   hasExactModelQualificationEvidence,
@@ -17,6 +21,9 @@ import {
 interface Props {
   apiBase: string;
   courseId?: string | null;
+  onRunAdmissionSelectionChange?: (
+    selection: ModelQualificationRunAdmissionSelection | null
+  ) => void;
   tenantId: string;
   token: string;
 }
@@ -51,7 +58,13 @@ function findByKey<T>(
   return key ? entries.find((entry) => identity(entry) === key) : undefined;
 }
 
-export function ModelQualificationWorkbench({ apiBase, courseId, tenantId, token }: Props) {
+export function ModelQualificationWorkbench({
+  apiBase,
+  courseId,
+  onRunAdmissionSelectionChange,
+  tenantId,
+  token
+}: Props) {
   const [projection, setProjection] = useState<ModelQualificationTeacherProjection | null>(null);
   const [fetchState, setFetchState] = useState<ModelQualificationFetchState>("idle");
   const [selection, setSelection] = useState<ModelQualificationEvidenceSelection | null>(null);
@@ -103,8 +116,9 @@ export function ModelQualificationWorkbench({ apiBase, courseId, tenantId, token
     setResolution(null);
     setBaselineSourceId("");
     setCandidateSourceId("");
+    onRunAdmissionSelectionChange?.(null);
     void refresh();
-  }, [courseId, refresh, tenantId, token]);
+  }, [courseId, onRunAdmissionSelectionChange, refresh, tenantId, token]);
 
   const handleSelectionChange = useCallback(
     (
@@ -215,6 +229,16 @@ export function ModelQualificationWorkbench({ apiBase, courseId, tenantId, token
         onSelectionChange={handleSelectionChange}
         projection={projection}
       />
+      {courseId && (
+        <ModelQualificationAdoptionPanel
+          apiBase={apiBase}
+          courseId={courseId}
+          {...(onRunAdmissionSelectionChange ? { onRunAdmissionSelectionChange } : {})}
+          tenantId={tenantId}
+          token={token}
+          role="teacher"
+        />
+      )}
       {projection ? (
         <>
           <div className="summary-grid">
@@ -466,3 +490,4 @@ export function ModelQualificationWorkbench({ apiBase, courseId, tenantId, token
 }
 
 export default ModelQualificationWorkbench;
+import { ModelQualificationAdoptionPanel } from "@simwar/ui";

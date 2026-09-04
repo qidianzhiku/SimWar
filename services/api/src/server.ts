@@ -1,5 +1,8 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { fileURLToPath } from "node:url";
+import { publicRun } from "./qualified-run-admission-snapshot.js";
+import { createAdoptedFormalBoundRunWithinAdmission } from "./formal-bound-run-creation-service.js";
+import { parseQualifiedRunAdmission } from "./routes/validation-environment-launch-routes.js";
 import type {
   ActorRole,
   AdminState,
@@ -563,6 +566,7 @@ interface CourseCreateBody {
 }
 
 interface RunCreateBody {
+  qualified_run_admission?: unknown;
   formal_runtime_binding?: FormalRunCreateBody;
   formal_runtime_seed?: unknown;
 }
@@ -6890,6 +6894,10 @@ async function routeRequest(
 
   if (
     await handleModelQualificationRoute(runtime.modelQualification, request, response, url, {
+      getLegacyAdmissionLaunch: async (tenantId, launchId) =>
+        runtime.validationEnvironmentLaunch
+          ? await runtime.validationEnvironmentLaunch.get(tenantId, launchId)
+          : null,
       actorHasAnyRole: (actor, roles) => actorHasAnyRole(actor, roles as ActorRole[]),
       createContext: (incoming) => createContext(runtime, incoming),
       createEnvelope: (context, data, message) =>
@@ -8874,15 +8882,15 @@ async function routeRequest(
           : undefined;
       const courseFactorySourceEvidence = courseFactorySourceEvidenceBinding?.source_evidence;
       const decisionContext = {
-          activity_id: "activity_consequence",
-          course_id: courseId,
-          role_key: workspace.context.role_key,
-          round_id: round.round_id,
-          round_no: round.round_no,
-          run_id: runId,
-          team_id: teamId,
-          tenant_id: actor.tenant_id
-        } as const;
+        activity_id: "activity_consequence",
+        course_id: courseId,
+        role_key: workspace.context.role_key,
+        round_id: round.round_id,
+        round_no: round.round_no,
+        run_id: runId,
+        team_id: teamId,
+        tenant_id: actor.tenant_id
+      } as const;
       const decisionContextEvidence = await runtime.resolveStudentDecisionContextEvidence({
         actor: {
           roles: authenticatedActor.roles,
@@ -10232,7 +10240,9 @@ async function routeRequest(
 
   if (request.method === "GET" && url.pathname === "/api/v1/demo-state") {
     const actor = requireActor(context);
-    const tenantRuns = store.runs.filter((run) => run.tenant_id === context.tenantId);
+    const tenantRuns = store.runs
+      .filter((run) => run.tenant_id === context.tenantId)
+      .map(publicRun);
     const tenantTeams = store.teams.filter((team) => team.tenant_id === context.tenantId);
     const visibleTeams = canReadClassroomScope(actor)
       ? tenantTeams
@@ -10558,7 +10568,7 @@ async function routeRequest(
           actor,
           auditLogs: store.auditLogs.filter((log) => log.tenant_id === tenant.tenant_id),
           courses: store.courses.filter((course) => course.tenant_id === tenant.tenant_id),
-          runs: store.runs.filter((run) => run.tenant_id === tenant.tenant_id),
+          runs: store.runs.filter((run) => run.tenant_id === tenant.tenant_id).map(publicRun),
           teams: store.teams.filter((team) => team.tenant_id === tenant.tenant_id),
           tenant
         })
@@ -11006,149 +11016,224 @@ async function routeRequest(
     const [, courseId] = matchPath(url.pathname, /^\/api\/v1\/courses\/([^/]+)\/runs$/);
     const course = await getCourseForRead(runtime, context, courseId ?? "");
     const body = await readJson<RunCreateBody>(request);
-
-    if (course.status !== "published" && course.status !== "active") {
-      throw new HttpError(409, "RUN-409-001", "course must be published before creating run");
-    }
-
-    const courseBinding = runtime.formalCourseAuthorityBindingStore.getForCourse(
-      context.tenantId,
-      course.course_id
-    );
-    const formalRequest = courseBinding
-      ? body.formal_runtime_binding !== undefined || body.formal_runtime_seed === undefined
-        ? null
-        : {
-            engine_reference: courseBinding.engine_reference,
-            parameter_set_reference: courseBinding.parameter_set_reference,
-            scenario_package_reference: courseBinding.scenario_package_reference,
-            seed: requireBodySeed(body.formal_runtime_seed)
-          }
-      : body.formal_runtime_binding === undefined
-        ? null
-        : parseFormalRunCreateBody(body.formal_runtime_binding);
-    let formalBindingPersisted = false;
-    let run: Run;
-    let round: Round;
-
-    if (
-      courseBinding &&
-      (body.formal_runtime_binding !== undefined || body.formal_runtime_seed === undefined)
-    ) {
-      throw new HttpError(
-        422,
-        "RUN-422-002",
-        "formal Course binding requires an explicit runtime seed without override references"
-      );
-    }
-    if (!courseBinding && body.formal_runtime_seed !== undefined) {
-      throw new HttpError(422, "RUN-422-002", "formal runtime binding is invalid");
-    }
-
-    if (formalRequest) {
-      if (!runtime.formalRunBindingAuthorities) {
-        throw new HttpError(409, "RUN-409-002", "formal runtime binding authority is unavailable");
-      }
-      if (
-        formalRequest.parameter_set_reference.parameter_set_id !== course.parameter_set_id ||
-        formalRequest.scenario_package_reference.scenario_package_id !==
-          course.scenario_package_id ||
-        formalRequest.scenario_package_reference.tenant_id !== context.tenantId
-      ) {
-        throw new HttpError(422, "RUN-422-002", "formal runtime binding does not match course");
-      }
-
-      run = {
+    await runtime.modelQualification.withScopedEvidenceAdmission(
+      { tenant_id: context.tenantId },
+      {
+        activity_id: "model-qualification-studio",
         course_id: course.course_id,
-        parameter_set_id: course.parameter_set_id,
-        run_id: nextId(store, "run", "run"),
-        scenario_package_id: course.scenario_package_id,
-        seed: formalRequest.seed,
-        status: "active",
         tenant_id: context.tenantId
-      };
-      try {
-        round = {
-          round_id: nextId(store, "round", "round"),
-          round_no: 1,
-          run_id: run.run_id,
-          status: "draft",
-          tenant_id: context.tenantId
-        };
-        const inheritedBinding = courseBinding ?? {
-          engine_reference: formalRequest.engine_reference,
-          parameter_set_reference: formalRequest.parameter_set_reference,
-          scenario_package_reference: formalRequest.scenario_package_reference
-        };
-        await createFormalBoundRun({
-          authorities: runtime.formalRunBindingAuthorities,
-          bindingStore: runtime.formalRunRuntimeBindingStore,
-          courseBinding: inheritedBinding,
-          persistence: {
-            deleteRound: runtime.repositoryProvider.facade.rounds.deleteRound,
-            deleteRun: runtime.repositoryProvider.facade.runs.deleteRun,
-            saveRound: runtime.repositoryProvider.facade.rounds.saveRound,
-            saveRun: runtime.repositoryProvider.facade.runs.saveRun
-          },
-          round,
-          run
-        });
-        formalBindingPersisted = true;
-      } catch {
-        throw new HttpError(422, "RUN-422-002", "formal runtime binding is invalid");
-      }
-    } else {
-      const parameterSet =
-        runtime.repositoryProvider.mode === "postgres"
-          ? await runtime.repositoryProvider.facade.parameterSets.getParameterSet(
+      },
+      async (governedRecord, admissionNow) => {
+        if (governedRecord.evidence_adoption && body.qualified_run_admission === undefined)
+          throw new Error("QUALIFIED_RUN_ADMISSION_ADOPTION_REQUIRED");
+
+        if (course.status !== "published" && course.status !== "active") {
+          throw new HttpError(409, "RUN-409-001", "course must be published before creating run");
+        }
+
+        const courseBinding = runtime.formalCourseAuthorityBindingStore.getForCourse(
+          context.tenantId,
+          course.course_id
+        );
+        const formalRequest = courseBinding
+          ? body.formal_runtime_binding !== undefined || body.formal_runtime_seed === undefined
+            ? null
+            : {
+                engine_reference: courseBinding.engine_reference,
+                parameter_set_reference: courseBinding.parameter_set_reference,
+                scenario_package_reference: courseBinding.scenario_package_reference,
+                seed: requireBodySeed(body.formal_runtime_seed)
+              }
+          : body.formal_runtime_binding === undefined
+            ? null
+            : parseFormalRunCreateBody(body.formal_runtime_binding);
+        let formalBindingPersisted = false;
+        let run: Run;
+        let round: Round;
+
+        if (
+          courseBinding &&
+          (body.formal_runtime_binding !== undefined || body.formal_runtime_seed === undefined)
+        ) {
+          throw new HttpError(
+            422,
+            "RUN-422-002",
+            "formal Course binding requires an explicit runtime seed without override references"
+          );
+        }
+        if (!courseBinding && body.formal_runtime_seed !== undefined) {
+          throw new HttpError(422, "RUN-422-002", "formal runtime binding is invalid");
+        }
+        if (body.qualified_run_admission !== undefined && !formalRequest)
+          throw new Error("QUALIFIED_RUN_ADMISSION_BINDING_REQUIRED");
+
+        if (formalRequest) {
+          if (!runtime.formalRunBindingAuthorities) {
+            throw new HttpError(
+              409,
+              "RUN-409-002",
+              "formal runtime binding authority is unavailable"
+            );
+          }
+          if (
+            formalRequest.parameter_set_reference.parameter_set_id !== course.parameter_set_id ||
+            formalRequest.scenario_package_reference.scenario_package_id !==
+              course.scenario_package_id ||
+            formalRequest.scenario_package_reference.tenant_id !== context.tenantId
+          ) {
+            throw new HttpError(422, "RUN-422-002", "formal runtime binding does not match course");
+          }
+
+          run = {
+            course_id: course.course_id,
+            parameter_set_id: course.parameter_set_id,
+            run_id: nextId(store, "run", "run"),
+            scenario_package_id: course.scenario_package_id,
+            seed: formalRequest.seed,
+            status: "active",
+            tenant_id: context.tenantId
+          };
+          try {
+            round = {
+              round_id: nextId(store, "round", "round"),
+              round_no: 1,
+              run_id: run.run_id,
+              status: "draft",
+              tenant_id: context.tenantId
+            };
+            const inheritedBinding = courseBinding ?? {
+              engine_reference: formalRequest.engine_reference,
+              parameter_set_reference: formalRequest.parameter_set_reference,
+              scenario_package_reference: formalRequest.scenario_package_reference
+            };
+            const creation = {
+              authorities: runtime.formalRunBindingAuthorities,
+              bindingStore: runtime.formalRunRuntimeBindingStore,
+              courseBinding: inheritedBinding,
+              persistence: {
+                deleteRound: runtime.repositoryProvider.facade.rounds.deleteRound,
+                deleteRun: runtime.repositoryProvider.facade.runs.deleteRun,
+                saveRound: runtime.repositoryProvider.facade.rounds.saveRound,
+                saveRun: runtime.repositoryProvider.facade.runs.saveRun
+              },
+              round,
+              run
+            };
+            if (body.qualified_run_admission !== undefined) {
+              const selected = parseQualifiedRunAdmission(body.qualified_run_admission);
+              if (selected.course_id !== course.course_id)
+                throw new Error("QUALIFIED_RUN_ADMISSION_SCOPE_MISMATCH");
+              if (!selected.adoption) throw new Error("QUALIFIED_RUN_ADMISSION_ADOPTION_REQUIRED");
+              if (!actor.roles.includes("teacher") && !actor.roles.includes("tenant_admin"))
+                throw new Error("EVIDENCE_ADOPTION_ROLE_DENIED");
+              const [coursePackage, parameter, scenario] = await Promise.all([
+                runtime.coursePackageQueries.getByReference(
+                  context.tenantId,
+                  selected.course_package_reference
+                ),
+                runtime.formalRunBindingAuthorities.parameterSets.getByReference(
+                  context.tenantId,
+                  formalRequest.parameter_set_reference
+                ),
+                runtime.formalRunBindingAuthorities.scenarios.getByReference(
+                  context.tenantId,
+                  formalRequest.scenario_package_reference
+                )
+              ]);
+              const models = runtime.modelQualification.modelCatalog.filter(
+                (item) =>
+                  item.model_version_reference.model_version_id ===
+                    selected.model_version_reference.model_version_id &&
+                  item.model_version_reference.version ===
+                    selected.model_version_reference.version &&
+                  item.model_version_reference.content_digest ===
+                    selected.model_version_reference.content_digest
+              );
+              await createAdoptedFormalBoundRunWithinAdmission(
+                {
+                  ...creation,
+                  adoption: selected.adoption,
+                  admission: {
+                    admission: {
+                      ...selected,
+                      tenant_id: context.tenantId,
+                      parameter_set_reference: formalRequest.parameter_set_reference,
+                      scenario_package_reference: formalRequest.scenario_package_reference
+                    },
+                    calibration_dataset:
+                      governedRecord?.calibration_datasets.find(
+                        (item) => item.calibration_dataset_id === selected.calibration_dataset_id
+                      ) ?? null,
+                    course_package: coursePackage,
+                    model: models.length === 1 ? models[0]! : null,
+                    now: admissionNow(),
+                    parameter_set: parameter,
+                    qualification_record: governedRecord,
+                    scenario_package: scenario
+                  }
+                },
+                governedRecord,
+                admissionNow
+              );
+            } else await createFormalBoundRun(creation);
+            formalBindingPersisted = true;
+          } catch (error) {
+            if (
+              error instanceof Error &&
+              /^(EVIDENCE_ADOPTION_|QUALIFIED_RUN_ADMISSION_)/.test(error.message)
+            )
+              throw error;
+            throw new HttpError(422, "RUN-422-002", "formal runtime binding is invalid");
+          }
+        } else {
+          const parameterSet =
+            await runtime.repositoryProvider.facade.parameterSets.getParameterSet(
               context.tenantId,
               course.parameter_set_id
-            )
-          : store.parameterSets.find(
-              (candidate) =>
-                candidate.parameter_set_id === course.parameter_set_id &&
-                candidate.tenant_id === context.tenantId
             );
-      if (!parameterSet || parameterSet.status !== "approved") {
-        throw new HttpError(422, "RUN-422-001", "approved parameter set is required");
-      }
+          if (!parameterSet || parameterSet.status !== "approved") {
+            throw new HttpError(422, "RUN-422-001", "approved parameter set is required");
+          }
 
-      run = {
-        run_id: nextId(store, "run", "run"),
-        tenant_id: context.tenantId,
-        course_id: course.course_id,
-        scenario_package_id: course.scenario_package_id,
-        parameter_set_id: course.parameter_set_id,
-        seed: parameterSet.seed,
-        status: "active" as const
-      };
-      round = {
-        round_id: nextId(store, "round", "round"),
-        tenant_id: context.tenantId,
-        run_id: run.run_id,
-        round_no: 1,
-        status: "draft" as const
-      };
-    }
-    if (!formalBindingPersisted) {
-      await runtime.repositoryProvider.facade.runs.saveRun(run);
-      await runtime.repositoryProvider.facade.rounds.saveRound(round);
-    }
-    await appendAudit(runtime, {
-      actor,
-      action: "run.create",
-      resourceType: "run",
-      resourceId: run.run_id,
-      requestId: context.requestId,
-      after: clonePublic({
-        ...run,
-        ...createSyntheticRunCreationAuditMarker(
-          runtime.repositoryProvider.mode,
-          runtime.securityConfig.environment
-        )
-      })
-    });
-    sendJson(response, 201, createEnvelope(context, { run, round }));
+          run = {
+            run_id: nextId(store, "run", "run"),
+            tenant_id: context.tenantId,
+            course_id: course.course_id,
+            scenario_package_id: course.scenario_package_id,
+            parameter_set_id: course.parameter_set_id,
+            seed: parameterSet.seed,
+            status: "active" as const
+          };
+          round = {
+            round_id: nextId(store, "round", "round"),
+            tenant_id: context.tenantId,
+            run_id: run.run_id,
+            round_no: 1,
+            status: "draft" as const
+          };
+        }
+        if (!formalBindingPersisted) {
+          await runtime.repositoryProvider.facade.runs.saveRun(run);
+          await runtime.repositoryProvider.facade.rounds.saveRound(round);
+        }
+        await appendAudit(runtime, {
+          actor,
+          action: "run.create",
+          resourceType: "run",
+          resourceId: run.run_id,
+          requestId: context.requestId,
+          after: clonePublic({
+            ...run,
+            ...createSyntheticRunCreationAuditMarker(
+              runtime.repositoryProvider.mode,
+              runtime.securityConfig.environment
+            )
+          })
+        });
+        sendJson(response, 201, createEnvelope(context, { run, round }));
+      },
+      { allowMissingRecord: true }
+    );
     return;
   }
 
@@ -11621,6 +11706,22 @@ export function createApiServer(
         return;
       }
 
+      if (
+        error instanceof Error &&
+        /^(?:EVIDENCE_ADOPTION_[A-Z_]+|QUALIFIED_RUN_ADMISSION_[A-Z_]+|HISTORICAL_REFERENCE_UNAVAILABLE)$/.test(
+          error.message
+        )
+      ) {
+        const status = /ROLE_DENIED|SCOPE/.test(error.message)
+          ? 403
+          : /CONFLICT|IMMUTABLE|REBASE|IN_PROGRESS/.test(error.message)
+            ? 409
+            : /HISTORICAL_REFERENCE_UNAVAILABLE/.test(error.message)
+              ? 404
+              : 422;
+        sendError(response, fallbackContext, new HttpError(status, error.message, error.message));
+        return;
+      }
       if (error instanceof ModelQualificationError) {
         const statusCode =
           error.code === "MODEL_QUALIFICATION_SCOPE_CONFLICT"
@@ -11634,7 +11735,7 @@ export function createApiServer(
                 ? 409
                 : error.code === "MODEL_QUALIFICATION_REQUALIFICATION_CONFLICT"
                   ? 409
-                : 422;
+                  : 422;
         sendError(response, fallbackContext, new HttpError(statusCode, error.code, error.message));
         return;
       }

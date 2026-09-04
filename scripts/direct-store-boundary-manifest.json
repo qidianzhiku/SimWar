@@ -732,20 +732,6 @@
       "evidence": "services/api/src/server.ts:1184 routeRequest store.counters.team"
     },
     {
-      "id": "direct-store-services-api-src-server-routerequest-056",
-      "file": "services/api/src/server.ts",
-      "symbol": "routeRequest",
-      "accessKind": "read",
-      "expression": "store.parameterSets.find",
-      "occurrence": 2,
-      "runtimeClass": "active runtime",
-      "businessArea": "teacher",
-      "boundaryStatus": "approved exception",
-      "justification": "Approved legacy routeRequest read access to store.parameterSets.find; frozen by P1-003A so future facade migration can remove it without silent expansion.",
-      "followUp": "Relates to #114",
-      "evidence": "services/api/src/server.ts:1217 routeRequest store.parameterSets.find"
-    },
-    {
       "id": "direct-store-services-api-src-server-routerequest-059",
       "file": "services/api/src/server.ts",
       "symbol": "routeRequest",

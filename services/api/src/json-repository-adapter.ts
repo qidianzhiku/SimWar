@@ -1,3 +1,9 @@
+import {
+  publicRun,
+  preserveQualifiedRunAdmissionSnapshot,
+  assertQualifiedRunAdmissionSnapshot,
+  type StoredQualifiedRun
+} from "./qualified-run-admission-snapshot.js";
 import type {
   AuditLog,
   Course,
@@ -339,7 +345,7 @@ export function createJsonRoleWorkflowRepositoryPort(
           inWorkflow(candidate)
         ),
         round,
-        run,
+        run: run ? publicRun(run) : null,
         sections: store.roleDecisionSections.filter((candidate) => inWorkflow(candidate)),
         team
       });
@@ -1227,28 +1233,45 @@ export function createJsonRepositoryPorts(
     },
 
     runs: {
+      async getQualifiedRunAdmission(tenantId, runId) {
+        const run = store.runs.find(
+          (item) => item.tenant_id === tenantId && item.run_id === runId
+        ) as StoredQualifiedRun | undefined;
+        if (!run?.qualified_admission_snapshot) return null;
+        assertQualifiedRunAdmissionSnapshot(run, run.qualified_admission_snapshot);
+        return structuredClone(run.qualified_admission_snapshot);
+      },
       async getRun(tenantId, runId): Promise<Run | null> {
-        return (
-          store.runs.find(
-            (candidate) => candidate.tenant_id === tenantId && candidate.run_id === runId
-          ) ?? null
+        const run = store.runs.find(
+          (candidate) => candidate.tenant_id === tenantId && candidate.run_id === runId
         );
+        return run ? publicRun(run) : null;
       },
 
       async listRunsForCourse(tenantId, courseId): Promise<Run[]> {
-        return store.runs.filter((run) => run.tenant_id === tenantId && run.course_id === courseId);
+        return store.runs
+          .filter((run) => run.tenant_id === tenantId && run.course_id === courseId)
+          .map(publicRun);
       },
 
-      async saveRun(run): Promise<void> {
+      async saveRun(run, admission): Promise<void> {
         const index = store.runs.findIndex(
           (candidate) => candidate.tenant_id === run.tenant_id && candidate.run_id === run.run_id
         );
+        const previous = store.runs[index] as StoredQualifiedRun | undefined;
+        const next = preserveQualifiedRunAdmissionSnapshot(run, previous, admission);
         if (index >= 0) {
-          store.runs[index] = run;
+          store.runs[index] = next;
         } else {
-          store.runs.push(run);
+          store.runs.push(next);
         }
-        store.persist();
+        try {
+          store.persist();
+        } catch (error) {
+          if (index >= 0 && previous) store.runs[index] = previous;
+          else store.runs.pop();
+          throw error;
+        }
       },
 
       async deleteRun(tenantId, runId): Promise<void> {

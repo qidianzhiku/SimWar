@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ModelQualificationAdoptionPanel } from "@simwar/ui";
 import type { ApiEnvelope, ModelQualificationAdminProjection } from "@simwar/shared-contracts";
 
 interface Props {
@@ -46,6 +47,13 @@ export function ModelQualificationAuditPanel({ apiBase, courseId, tenantId, toke
         </div>
         <strong className="summary-badge">{courseId}</strong>
       </div>
+      <ModelQualificationAdoptionPanel
+        apiBase={apiBase}
+        courseId={courseId}
+        tenantId={tenantId}
+        token={token}
+        role="admin"
+      />
       {projection ? (
         <>
           <div className="summary-grid">

@@ -17,9 +17,12 @@ export function ModelQualificationProjection({
   token
 }: Props) {
   const [projection, setProjection] = useState<ModelQualificationStudentProjection | null>(null);
+  const contextIdentity = JSON.stringify([apiBase, courseId, qualificationId, tenantId, token]);
+  const [projectionIdentity, setProjectionIdentity] = useState("");
   const [notice, setNotice] = useState("等待已绑定模型资格");
 
   useEffect(() => {
+    setProjection(null);
     if (!courseId || !qualificationId || !token) {
       setProjection(null);
       setNotice("Teacher 绑定后，通过 modelQualificationId 查询已发布解释");
@@ -40,7 +43,10 @@ export function ModelQualificationProjection({
         const envelope =
           (await response.json()) as ApiEnvelope<ModelQualificationStudentProjection>;
         if (!response.ok) throw new Error(`${envelope.code}: ${envelope.message}`);
-        if (active) setProjection(envelope.data);
+        if (active) {
+          setProjection(envelope.data);
+          setProjectionIdentity(contextIdentity);
+        }
       })
       .catch((error: unknown) => {
         if (active) setNotice(error instanceof Error ? error.message : "学生模型解释加载失败");
@@ -48,7 +54,7 @@ export function ModelQualificationProjection({
     return () => {
       active = false;
     };
-  }, [apiBase, courseId, qualificationId, tenantId, token]);
+  }, [apiBase, courseId, qualificationId, tenantId, token, contextIdentity]);
 
   return (
     <section className="panel" aria-label="student role-safe model qualification explanation">
@@ -56,7 +62,7 @@ export function ModelQualificationProjection({
         <h2>受治理模型解释</h2>
         <span>ROLE_SAFE_STUDENT</span>
       </div>
-      {projection ? (
+      {projection && projectionIdentity === contextIdentity ? (
         <>
           <div className="status-grid">
             <div>
@@ -77,6 +83,15 @@ export function ModelQualificationProjection({
               <li key={item}>{item}</li>
             ))}
           </ul>
+          {projection.adoption && (
+            <section aria-label="student safe evidence adoption status">
+              <h3>未来准入采用状态</h3>
+              <p>
+                {projection.adoption.applicability} · Provider OFF · historical_non_overwrite=true
+              </p>
+              <p>采用状态只约束未来新 Run，不改变本 Run 的历史证据或任何正式分数、排名与结算。</p>
+            </section>
+          )}
           <section aria-label="student safe requalification status">
             <h3>证据新鲜度与限制</h3>
             <p data-testid="student-requalification-status">

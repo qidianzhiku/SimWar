@@ -5791,6 +5791,526 @@ paths:
               { schema: { $ref: "#/components/schemas/ModelQualificationTeacherEnvelope" } }
         "401": { description: Authentication required }
         "403": { description: Teacher or course scope denied }
+  /api/v1/bff/teacher/model-qualification/evidence-adoptions/request:
+    post:
+      {
+        "operationId": "MODEL_QUALIFICATION_TEACHER_ADOPTION_REQUEST_V1",
+        "summary": "Explicit scoped evidence adoption; separate review and disposition, no official truth write.",
+        "security": [{ "SessionBearer": [] }],
+        "requestBody":
+          {
+            "required": true,
+            "content":
+              {
+                "application/json":
+                  { "schema": { "$ref": "#/components/schemas/EvidenceAdoptionRequest" } }
+              }
+          },
+        "responses":
+          {
+            "200":
+              {
+                "description": "Immutable command receipt; retries reuse the exact command.",
+                "content":
+                  {
+                    "application/json":
+                      {
+                        "schema":
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["code", "data", "message", "request_id"],
+                            "properties":
+                              {
+                                "code": { "type": "string" },
+                                "data":
+                                  {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["proposal", "reused"],
+                                    "properties":
+                                      {
+                                        "proposal":
+                                          {
+                                            "$ref": "../schemas/model-qualification.v1.json#/$defs/adoptionProposal"
+                                          },
+                                        "reused": { "type": "boolean" }
+                                      }
+                                  },
+                                "message": { "type": "string" },
+                                "request_id": { "type": "string", "minLength": 1 }
+                              }
+                          }
+                      }
+                  }
+              },
+            "401": { "description": "Authentication required" },
+            "403": { "description": "Role or tenant/course scope denied" },
+            "409": { "description": "Command or immutable predecessor conflict" },
+            "422": { "description": "Invalid or ineligible exact evidence" }
+          }
+      }
+  /api/v1/bff/teacher/model-qualification/evidence-adoptions/review:
+    post:
+      {
+        "operationId": "MODEL_QUALIFICATION_TEACHER_ADOPTION_REVIEW_V1",
+        "summary": "Explicit scoped evidence adoption; separate review and disposition, no official truth write.",
+        "security": [{ "SessionBearer": [] }],
+        "requestBody":
+          {
+            "required": true,
+            "content":
+              {
+                "application/json":
+                  { "schema": { "$ref": "#/components/schemas/EvidenceAdoptionReviewRequest" } }
+              }
+          },
+        "responses":
+          {
+            "200":
+              {
+                "description": "Immutable command receipt; retries reuse the exact command.",
+                "content":
+                  {
+                    "application/json":
+                      {
+                        "schema":
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["code", "data", "message", "request_id"],
+                            "properties":
+                              {
+                                "code": { "type": "string" },
+                                "data":
+                                  {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["review", "reused"],
+                                    "properties":
+                                      {
+                                        "review":
+                                          {
+                                            "$ref": "../schemas/model-qualification.v1.json#/$defs/adoptionReview"
+                                          },
+                                        "reused": { "type": "boolean" }
+                                      }
+                                  },
+                                "message": { "type": "string" },
+                                "request_id": { "type": "string", "minLength": 1 }
+                              }
+                          }
+                      }
+                  }
+              },
+            "401": { "description": "Authentication required" },
+            "403": { "description": "Role or tenant/course scope denied" },
+            "409": { "description": "Command or immutable predecessor conflict" },
+            "422": { "description": "Invalid or ineligible exact evidence" }
+          }
+      }
+  /api/v1/bff/teacher/model-qualification/evidence-adoptions/disposition:
+    post:
+      {
+        "operationId": "MODEL_QUALIFICATION_TEACHER_ADOPTION_DISPOSITION_V1",
+        "summary": "Explicit scoped evidence adoption; separate review and disposition, no official truth write.",
+        "security": [{ "SessionBearer": [] }],
+        "requestBody":
+          {
+            "required": true,
+            "content":
+              {
+                "application/json":
+                  {
+                    "schema": { "$ref": "#/components/schemas/EvidenceAdoptionDispositionRequest" }
+                  }
+              }
+          },
+        "responses":
+          {
+            "200":
+              {
+                "description": "Immutable command receipt; retries reuse the exact command.",
+                "content":
+                  {
+                    "application/json":
+                      {
+                        "schema":
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["code", "data", "message", "request_id"],
+                            "properties":
+                              {
+                                "code": { "type": "string" },
+                                "data":
+                                  {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["adoption", "reused"],
+                                    "properties":
+                                      {
+                                        "adoption":
+                                          {
+                                            "$ref": "../schemas/model-qualification.v1.json#/$defs/adoptionRecord"
+                                          },
+                                        "reused": { "type": "boolean" }
+                                      }
+                                  },
+                                "message": { "type": "string" },
+                                "request_id": { "type": "string", "minLength": 1 }
+                              }
+                          }
+                      }
+                  }
+              },
+            "401": { "description": "Authentication required" },
+            "403": { "description": "Role or tenant/course scope denied" },
+            "409": { "description": "Command or immutable predecessor conflict" },
+            "422": { "description": "Invalid or ineligible exact evidence" }
+          }
+      }
+  /api/v1/bff/teacher/model-qualification/run-admissions/{runId}:
+    get:
+      {
+        "operationId": "MODEL_QUALIFICATION_TEACHER_HISTORICAL_ADMISSION_GET_V1",
+        "summary": "Read the original Run admission only; no current-adoption fallback or historical backfill.",
+        "security": [{ "SessionBearer": [] }],
+        "parameters":
+          [
+            {
+              "name": "runId",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "string", "minLength": 1 }
+            },
+            {
+              "name": "courseId",
+              "in": "query",
+              "required": true,
+              "schema": { "type": "string", "minLength": 1 }
+            },
+            {
+              "name": "launchId",
+              "in": "query",
+              "required": false,
+              "schema": { "type": "string", "minLength": 1 },
+              "description": "Explicit original W025 launch id for legacy v1 receipts only."
+            }
+          ],
+        "responses":
+          {
+            "200":
+              {
+                "description": "Original immutable historical receipt.",
+                "content":
+                  {
+                    "application/json":
+                      {
+                        "schema":
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["code", "data", "message", "request_id"],
+                            "properties":
+                              {
+                                "code": { "type": "string" },
+                                "data":
+                                  {
+                                    "oneOf":
+                                      [
+                                        {
+                                          "$ref": "#/components/schemas/QualifiedRunAdmissionSnapshot"
+                                        },
+                                        {
+                                          "type": "object",
+                                          "additionalProperties": false,
+                                          "required": ["historical_schema", "run_id", "admission"],
+                                          "properties":
+                                            {
+                                              "historical_schema":
+                                                { "const": "qualified-run-admission.v1" },
+                                              "run_id": { "type": "string", "minLength": 1 },
+                                              "admission":
+                                                {
+                                                  "$ref": "#/components/schemas/QualifiedRunAdmissionReceipt"
+                                                }
+                                            }
+                                        }
+                                      ]
+                                  },
+                                "message": { "type": "string" },
+                                "request_id": { "type": "string", "minLength": 1 }
+                              }
+                          }
+                      }
+                  }
+              },
+            "401": { "description": "Authentication required" },
+            "403": { "description": "Role or scope denied" },
+            "404": { "description": "Original historical reference unavailable; no fallback" }
+          }
+      }
+  /api/v1/bff/admin/model-qualification/evidence-adoptions/request:
+    post:
+      {
+        "operationId": "MODEL_QUALIFICATION_ADMIN_ADOPTION_REQUEST_V1",
+        "summary": "Explicit scoped evidence adoption; separate review and disposition, no official truth write.",
+        "security": [{ "SessionBearer": [] }],
+        "requestBody":
+          {
+            "required": true,
+            "content":
+              {
+                "application/json":
+                  { "schema": { "$ref": "#/components/schemas/EvidenceAdoptionRequest" } }
+              }
+          },
+        "responses":
+          {
+            "200":
+              {
+                "description": "Immutable command receipt; retries reuse the exact command.",
+                "content":
+                  {
+                    "application/json":
+                      {
+                        "schema":
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["code", "data", "message", "request_id"],
+                            "properties":
+                              {
+                                "code": { "type": "string" },
+                                "data":
+                                  {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["proposal", "reused"],
+                                    "properties":
+                                      {
+                                        "proposal":
+                                          {
+                                            "$ref": "../schemas/model-qualification.v1.json#/$defs/adoptionProposal"
+                                          },
+                                        "reused": { "type": "boolean" }
+                                      }
+                                  },
+                                "message": { "type": "string" },
+                                "request_id": { "type": "string", "minLength": 1 }
+                              }
+                          }
+                      }
+                  }
+              },
+            "401": { "description": "Authentication required" },
+            "403": { "description": "Role or tenant/course scope denied" },
+            "409": { "description": "Command or immutable predecessor conflict" },
+            "422": { "description": "Invalid or ineligible exact evidence" }
+          }
+      }
+  /api/v1/bff/admin/model-qualification/evidence-adoptions/review:
+    post:
+      {
+        "operationId": "MODEL_QUALIFICATION_ADMIN_ADOPTION_REVIEW_V1",
+        "summary": "Explicit scoped evidence adoption; separate review and disposition, no official truth write.",
+        "security": [{ "SessionBearer": [] }],
+        "requestBody":
+          {
+            "required": true,
+            "content":
+              {
+                "application/json":
+                  { "schema": { "$ref": "#/components/schemas/EvidenceAdoptionReviewRequest" } }
+              }
+          },
+        "responses":
+          {
+            "200":
+              {
+                "description": "Immutable command receipt; retries reuse the exact command.",
+                "content":
+                  {
+                    "application/json":
+                      {
+                        "schema":
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["code", "data", "message", "request_id"],
+                            "properties":
+                              {
+                                "code": { "type": "string" },
+                                "data":
+                                  {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["review", "reused"],
+                                    "properties":
+                                      {
+                                        "review":
+                                          {
+                                            "$ref": "../schemas/model-qualification.v1.json#/$defs/adoptionReview"
+                                          },
+                                        "reused": { "type": "boolean" }
+                                      }
+                                  },
+                                "message": { "type": "string" },
+                                "request_id": { "type": "string", "minLength": 1 }
+                              }
+                          }
+                      }
+                  }
+              },
+            "401": { "description": "Authentication required" },
+            "403": { "description": "Role or tenant/course scope denied" },
+            "409": { "description": "Command or immutable predecessor conflict" },
+            "422": { "description": "Invalid or ineligible exact evidence" }
+          }
+      }
+  /api/v1/bff/admin/model-qualification/evidence-adoptions/disposition:
+    post:
+      {
+        "operationId": "MODEL_QUALIFICATION_ADMIN_ADOPTION_DISPOSITION_V1",
+        "summary": "Explicit scoped evidence adoption; separate review and disposition, no official truth write.",
+        "security": [{ "SessionBearer": [] }],
+        "requestBody":
+          {
+            "required": true,
+            "content":
+              {
+                "application/json":
+                  {
+                    "schema": { "$ref": "#/components/schemas/EvidenceAdoptionDispositionRequest" }
+                  }
+              }
+          },
+        "responses":
+          {
+            "200":
+              {
+                "description": "Immutable command receipt; retries reuse the exact command.",
+                "content":
+                  {
+                    "application/json":
+                      {
+                        "schema":
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["code", "data", "message", "request_id"],
+                            "properties":
+                              {
+                                "code": { "type": "string" },
+                                "data":
+                                  {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["adoption", "reused"],
+                                    "properties":
+                                      {
+                                        "adoption":
+                                          {
+                                            "$ref": "../schemas/model-qualification.v1.json#/$defs/adoptionRecord"
+                                          },
+                                        "reused": { "type": "boolean" }
+                                      }
+                                  },
+                                "message": { "type": "string" },
+                                "request_id": { "type": "string", "minLength": 1 }
+                              }
+                          }
+                      }
+                  }
+              },
+            "401": { "description": "Authentication required" },
+            "403": { "description": "Role or tenant/course scope denied" },
+            "409": { "description": "Command or immutable predecessor conflict" },
+            "422": { "description": "Invalid or ineligible exact evidence" }
+          }
+      }
+  /api/v1/bff/admin/model-qualification/run-admissions/{runId}:
+    get:
+      {
+        "operationId": "MODEL_QUALIFICATION_ADMIN_HISTORICAL_ADMISSION_GET_V1",
+        "summary": "Read the original Run admission only; no current-adoption fallback or historical backfill.",
+        "security": [{ "SessionBearer": [] }],
+        "parameters":
+          [
+            {
+              "name": "runId",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "string", "minLength": 1 }
+            },
+            {
+              "name": "courseId",
+              "in": "query",
+              "required": true,
+              "schema": { "type": "string", "minLength": 1 }
+            },
+            {
+              "name": "launchId",
+              "in": "query",
+              "required": false,
+              "schema": { "type": "string", "minLength": 1 },
+              "description": "Explicit original W025 launch id for legacy v1 receipts only."
+            }
+          ],
+        "responses":
+          {
+            "200":
+              {
+                "description": "Original immutable historical receipt.",
+                "content":
+                  {
+                    "application/json":
+                      {
+                        "schema":
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["code", "data", "message", "request_id"],
+                            "properties":
+                              {
+                                "code": { "type": "string" },
+                                "data":
+                                  {
+                                    "oneOf":
+                                      [
+                                        {
+                                          "$ref": "#/components/schemas/QualifiedRunAdmissionSnapshot"
+                                        },
+                                        {
+                                          "type": "object",
+                                          "additionalProperties": false,
+                                          "required": ["historical_schema", "run_id", "admission"],
+                                          "properties":
+                                            {
+                                              "historical_schema":
+                                                { "const": "qualified-run-admission.v1" },
+                                              "run_id": { "type": "string", "minLength": 1 },
+                                              "admission":
+                                                {
+                                                  "$ref": "#/components/schemas/QualifiedRunAdmissionReceipt"
+                                                }
+                                            }
+                                        }
+                                      ]
+                                  },
+                                "message": { "type": "string" },
+                                "request_id": { "type": "string", "minLength": 1 }
+                              }
+                          }
+                      }
+                  }
+              },
+            "401": { "description": "Authentication required" },
+            "403": { "description": "Role or scope denied" },
+            "404": { "description": "Original historical reference unavailable; no fallback" }
+          }
+      }
   /api/v1/bff/teacher/model-qualification/source-packages:
     post:
       operationId: MODEL_QUALIFICATION_SOURCE_PACKAGE_REGISTER_V1
@@ -7656,6 +8176,8 @@ components:
       type: object
       additionalProperties: false
       properties:
+        qualified_run_admission:
+          $ref: "#/components/schemas/AdoptedQualifiedRunAdmissionRequest"
         formal_runtime_seed:
           type: integer
           minimum: 0
@@ -7780,6 +8302,186 @@ components:
           minLength: 1
           description: Optional redundant source tenant identifier. When present, it must equal source_tenant_id.
         version: { type: string, minLength: 1 }
+    AdoptedQualifiedRunAdmissionRequest:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required":
+          [
+            "course_id",
+            "course_package_reference",
+            "source_package_id",
+            "calibration_dataset_id",
+            "qualification_id",
+            "model_version_reference",
+            "model_artifact_reference",
+            "adoption"
+          ],
+        "properties":
+          {
+            "course_id": { "type": "string", "minLength": 1 },
+            "course_package_reference":
+              { "$ref": "#/components/schemas/CoursePackageVersionReferenceInput" },
+            "source_package_id": { "type": "string", "minLength": 1 },
+            "calibration_dataset_id": { "type": "string", "minLength": 1 },
+            "qualification_id": { "type": "string", "minLength": 1 },
+            "model_version_reference":
+              { "$ref": "../schemas/model-qualification.v1.json#/$defs/modelVersionReference" },
+            "model_artifact_reference":
+              { "$ref": "../schemas/model-qualification.v1.json#/$defs/artifact" },
+            "adoption":
+              { "$ref": "../schemas/model-qualification.v1.json#/$defs/adoptionReference" }
+          }
+      }
+    AdoptedQualifiedRunAdmissionReceipt:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required":
+          [
+            "course_id",
+            "course_package_reference",
+            "source_package_id",
+            "calibration_dataset_id",
+            "qualification_id",
+            "model_version_reference",
+            "model_artifact_reference",
+            "adoption",
+            "qualification_content_digest",
+            "tenant_id",
+            "parameter_set_reference",
+            "scenario_package_reference",
+            "official_truth_write",
+            "provider",
+            "writer_effect",
+            "status",
+            "schema_version",
+            "evidence_epoch",
+            "admitted_at"
+          ],
+        "properties":
+          {
+            "course_id": { "type": "string", "minLength": 1 },
+            "course_package_reference":
+              { "$ref": "#/components/schemas/CoursePackageVersionReferenceInput" },
+            "source_package_id": { "type": "string", "minLength": 1 },
+            "calibration_dataset_id": { "type": "string", "minLength": 1 },
+            "qualification_id": { "type": "string", "minLength": 1 },
+            "model_version_reference":
+              { "$ref": "../schemas/model-qualification.v1.json#/$defs/modelVersionReference" },
+            "model_artifact_reference":
+              { "$ref": "../schemas/model-qualification.v1.json#/$defs/artifact" },
+            "adoption":
+              { "$ref": "../schemas/model-qualification.v1.json#/$defs/adoptionReference" },
+            "qualification_content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            "tenant_id": { "type": "string", "minLength": 1 },
+            "parameter_set_reference":
+              { "$ref": "#/components/schemas/FormalParameterSetBindingReferenceInput" },
+            "scenario_package_reference":
+              { "$ref": "#/components/schemas/FormalScenarioPackageReferenceInput" },
+            "official_truth_write": { "type": "boolean", "const": false },
+            "provider": { "enum": ["OFF"] },
+            "writer_effect": { "enum": ["NONE"] },
+            "status": { "enum": ["ADMITTED"] },
+            "schema_version": { "const": "qualified-run-admission.v2" },
+            "evidence_epoch":
+              { "$ref": "../schemas/model-qualification.v1.json#/$defs/adoptionEpoch" },
+            "admitted_at": { "type": "string", "format": "date-time" }
+          }
+      }
+    QualifiedRunAdmissionSnapshot:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required":
+          [
+            "snapshot_schema_version",
+            "tenant_id",
+            "course_id",
+            "run_id",
+            "admission",
+            "snapshot_digest"
+          ],
+        "properties":
+          {
+            "snapshot_schema_version": { "const": "qualified-run-admission-snapshot.v1" },
+            "tenant_id": { "type": "string", "minLength": 1 },
+            "course_id": { "type": "string", "minLength": 1 },
+            "run_id": { "type": "string", "minLength": 1 },
+            "admission": { "$ref": "#/components/schemas/AdoptedQualifiedRunAdmissionReceipt" },
+            "snapshot_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+          }
+      }
+    EvidenceAdoptionRequest:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["course_id", "command_id", "qualification_id", "expected_adoption"],
+        "properties":
+          {
+            "course_id": { "type": "string", "minLength": 1 },
+            "command_id": { "type": "string", "minLength": 1 },
+            "qualification_id": { "type": "string", "minLength": 1 },
+            "expected_adoption":
+              {
+                "oneOf":
+                  [
+                    { "type": "null" },
+                    { "$ref": "../schemas/model-qualification.v1.json#/$defs/adoptionReference" }
+                  ]
+              }
+          }
+      }
+    EvidenceAdoptionReviewRequest:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required":
+          ["course_id", "command_id", "proposal_id", "proposal_digest", "decision", "note"],
+        "properties":
+          {
+            "course_id": { "type": "string", "minLength": 1 },
+            "command_id": { "type": "string", "minLength": 1 },
+            "proposal_id": { "type": "string", "minLength": 1 },
+            "proposal_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            "decision": { "enum": ["APPROVED", "REJECTED"] },
+            "note": { "type": "string", "minLength": 1 }
+          }
+      }
+    EvidenceAdoptionDispositionRequest:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required":
+          [
+            "course_id",
+            "command_id",
+            "proposal_id",
+            "proposal_digest",
+            "disposition",
+            "expires_at",
+            "note"
+          ],
+        "properties":
+          {
+            "course_id": { "type": "string", "minLength": 1 },
+            "command_id": { "type": "string", "minLength": 1 },
+            "proposal_id": { "type": "string", "minLength": 1 },
+            "proposal_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            "disposition":
+              {
+                "enum":
+                  [
+                    "ADOPTED_FOR_FUTURE_ADMISSION",
+                    "DEFERRED_WITH_EXPIRY",
+                    "REJECTED_CANDIDATE",
+                    "REBASE_REQUIRED"
+                  ]
+              },
+            "expires_at": { "type": ["string", "null"], "format": "date-time" },
+            "note": { "type": "string", "minLength": 1 }
+          }
+      }
     QualifiedRunAdmissionRequest:
       type: object
       additionalProperties: false
@@ -7906,7 +8608,7 @@ components:
         course_package_reference:
           { $ref: "#/components/schemas/CoursePackageVersionReferenceInput" }
         qualified_run_admission:
-          $ref: "#/components/schemas/QualifiedRunAdmissionRequest"
+          $ref: "#/components/schemas/AdoptedQualifiedRunAdmissionRequest"
         course_title: { type: string, minLength: 1 }
         source_product_merge_sha: { type: string, pattern: "^[a-f0-9]{40}$" }
         cohort_template_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
@@ -7976,7 +8678,9 @@ components:
           }
         version: { type: integer, minimum: 0 }
         qualified_run_admission_receipt:
-          $ref: "#/components/schemas/QualifiedRunAdmissionReceipt"
+          oneOf:
+            - $ref: "#/components/schemas/QualifiedRunAdmissionReceipt"
+            - $ref: "#/components/schemas/AdoptedQualifiedRunAdmissionReceipt"
     ValidationEnvironmentLaunchEnvelope:
       type: object
       additionalProperties: false

@@ -1,4 +1,13 @@
-import type { FormalRunRuntimeBinding, Round, Run } from "@simwar/shared-contracts";
+import type {
+  EvidenceAdoptionReference,
+  FormalRunRuntimeBinding,
+  ModelQualificationRecord,
+  QualifiedRunAdmissionSnapshot,
+  Round,
+  Run
+} from "@simwar/shared-contracts";
+import { resolveAdoptedRunAdmission } from "./model-qualification-adopted-run-admission.js";
+import { createQualifiedRunAdmissionSnapshot } from "./qualified-run-admission-snapshot.js";
 import {
   createFormalRunRuntimeBinding,
   type FormalRunBindingAuthorityPorts
@@ -16,10 +25,15 @@ export interface FormalBoundRunPersistence {
   deleteRound(tenantId: string, roundId: string): Promise<void>;
   deleteRun(tenantId: string, runId: string): Promise<void>;
   saveRound(round: Round): Promise<void>;
-  saveRun(run: Run): Promise<void>;
+  saveRun(run: Run, admission?: QualifiedRunAdmissionSnapshot): Promise<void>;
 }
 
 export interface CreateFormalBoundRunInput {
+  /**
+   * Runs after the formal binding append, while the existing writer can still
+   * compensate its Run, Round, and binding if the adjacent command fails.
+   */
+  afterFormalBindingAppend?: () => void | Promise<void>;
   authorities: FormalRunBindingAuthorityPorts;
   bindingStore: FormalRunRuntimeBindingPort;
   courseBinding: Pick<
@@ -32,6 +46,8 @@ export interface CreateFormalBoundRunInput {
 }
 
 export async function createFormalBoundRun(input: CreateFormalBoundRunInput): Promise<void> {
+  if (input.afterFormalBindingAppend && !input.bindingStore.removeAfterFailedCreation)
+    throw new Error("FORMAL_RUN_BINDING_COMPENSATION_REQUIRED");
   const binding = await createFormalRunRuntimeBinding({
     authorities: input.authorities,
     engine_reference: input.courseBinding.engine_reference,
@@ -49,19 +65,39 @@ export async function createFormalBoundRun(input: CreateFormalBoundRunInput): Pr
 
   let runPersisted = false;
   let roundPersisted = false;
+  let bindingPersisted = false;
   try {
     await input.persistence.saveRun(input.run);
     runPersisted = true;
     await input.persistence.saveRound(input.round);
     roundPersisted = true;
     await input.bindingStore.append(binding);
+    bindingPersisted = true;
+    await input.afterFormalBindingAppend?.();
   } catch (error) {
+    let compensationError: unknown;
+    if (bindingPersisted) {
+      try {
+        await input.bindingStore.removeAfterFailedCreation?.(binding);
+      } catch (rollbackError) {
+        compensationError = rollbackError;
+      }
+    }
     if (roundPersisted) {
-      await input.persistence.deleteRound(input.round.tenant_id, input.round.round_id);
+      try {
+        await input.persistence.deleteRound(input.round.tenant_id, input.round.round_id);
+      } catch (rollbackError) {
+        compensationError ??= rollbackError;
+      }
     }
     if (runPersisted) {
-      await input.persistence.deleteRun(input.run.tenant_id, input.run.run_id);
+      try {
+        await input.persistence.deleteRun(input.run.tenant_id, input.run.run_id);
+      } catch (rollbackError) {
+        compensationError ??= rollbackError;
+      }
     }
+    if (compensationError) throw new Error("FORMAL_BOUND_RUN_COMPENSATION_FAILED");
     throw error;
   }
 }
@@ -81,6 +117,79 @@ export async function createQualifiedFormalBoundRun(
   const receipt = resolveQualifiedRunAdmission(input.admission);
   await createFormalBoundRun(input);
   return receipt;
+}
+
+export interface CreateAdoptedFormalBoundRunInput extends CreateQualifiedFormalBoundRunInput {
+  adoption: EvidenceAdoptionReference;
+  withAdmissionGuard<T>(
+    operation: (record: ModelQualificationRecord, now: () => string) => Promise<T>
+  ): Promise<T>;
+}
+
+export type CreateAdoptedFormalBoundRunWithinAdmissionInput = Omit<
+  CreateAdoptedFormalBoundRunInput,
+  "withAdmissionGuard"
+>;
+
+function assertAdoptedFormalBoundRunInput(
+  input: CreateAdoptedFormalBoundRunWithinAdmissionInput
+): void {
+  if (!input.adoption?.adoption_id || !input.adoption.adoption_digest)
+    throw new Error("QUALIFIED_RUN_ADMISSION_ADOPTION_REQUIRED");
+  const identity = input.admission.admission;
+  if (
+    input.run.tenant_id !== identity.tenant_id ||
+    input.run.course_id !== identity.course_id ||
+    input.round.tenant_id !== input.run.tenant_id ||
+    input.round.run_id !== input.run.run_id
+  ) {
+    throw new Error("QUALIFIED_RUN_ADMISSION_SCOPE_MISMATCH");
+  }
+}
+
+/**
+ * Execute the adopted admission after the caller has acquired the existing
+ * course-scoped authority guard. This keeps the guard acquisition exactly
+ * once across the full admission-to-Run write transaction.
+ */
+export async function createAdoptedFormalBoundRunWithinAdmission(
+  input: CreateAdoptedFormalBoundRunWithinAdmissionInput,
+  record: ModelQualificationRecord,
+  now: () => string
+): Promise<QualifiedRunAdmissionSnapshot> {
+  assertAdoptedFormalBoundRunInput(input);
+  const validate = () =>
+    resolveAdoptedRunAdmission(
+      { ...input.admission, qualification_record: record, now: now() },
+      input.adoption
+    );
+  validate();
+  let snapshot: QualifiedRunAdmissionSnapshot | undefined;
+  await createFormalBoundRun({
+    ...input,
+    persistence: {
+      ...input.persistence,
+      saveRun: async (run) => {
+        snapshot = createQualifiedRunAdmissionSnapshot(run, validate());
+        await input.persistence.saveRun(run, snapshot);
+      }
+    }
+  });
+  if (!snapshot) throw new Error("QUALIFIED_RUN_ADMISSION_SNAPSHOT_MISSING");
+  return snapshot;
+}
+
+/** O5 extends the existing Run writer, never the formal binding/hash shape. */
+export async function createAdoptedFormalBoundRun(
+  input: CreateAdoptedFormalBoundRunInput
+): Promise<QualifiedRunAdmissionSnapshot> {
+  const { withAdmissionGuard, ...core } = input;
+  assertAdoptedFormalBoundRunInput(core);
+  if (typeof withAdmissionGuard !== "function")
+    throw new Error("QUALIFIED_RUN_ADMISSION_GUARD_REQUIRED");
+  return withAdmissionGuard((record, now) =>
+    createAdoptedFormalBoundRunWithinAdmission(core, record, now)
+  );
 }
 
 export interface EnsureFormalRunRuntimeBindingInput {
