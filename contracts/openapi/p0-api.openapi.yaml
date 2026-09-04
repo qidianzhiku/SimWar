@@ -6579,6 +6579,35 @@ paths:
         "403": { description: Teacher or course scope denied }
         "422": { description: Request or exact rollback operations identity is invalid }
 
+  /api/v1/bff/teacher/model-qualification/evidence-adoptions/rollback-requests:
+    post:
+      operationId: MODEL_QUALIFICATION_GOVERNED_ROLLBACK_TEACHER_REQUEST_V1
+      summary: Create a governed rollback request and linked evidence-adoption proposal.
+      description: The request is not rollback apply. It retains the current selection until the linked proposal completes the existing review and explicit disposition path.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            {
+              schema:
+                {
+                  $ref: "../schemas/model-qualification-governed-rollback.v1.json#/$defs/requestInput"
+                }
+            }
+      responses:
+        "200":
+          description: Immutable rollback-request and linked-proposal receipt; current selection unchanged.
+          content:
+            application/json:
+              {
+                schema: { $ref: "#/components/schemas/ModelQualificationGovernedRollbackEnvelope" }
+              }
+        "401": { description: Authentication required }
+        "403": { description: Teacher or course scope denied }
+        "409": { description: "Command, state, policy, adoption or historical-lineage conflict" }
+        "422": { description: Dry-run is not ready or the governed rollback request is invalid }
+
   /api/v1/bff/admin/model-qualification/adoption-operations:
     get:
       operationId: MODEL_QUALIFICATION_ADOPTION_OPERATIONS_ADMIN_GET_V1
@@ -6652,6 +6681,35 @@ paths:
         "401": { description: Authentication required }
         "403": { description: Tenant administrator scope denied }
         "422": { description: Request or exact rollback operations identity is invalid }
+
+  /api/v1/bff/admin/model-qualification/evidence-adoptions/rollback-requests:
+    post:
+      operationId: MODEL_QUALIFICATION_GOVERNED_ROLLBACK_ADMIN_REQUEST_V1
+      summary: Create a tenant-scoped governed rollback request and linked adoption proposal.
+      description: The request is not rollback apply. It retains the current selection until the linked proposal completes the existing review and explicit disposition path.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            {
+              schema:
+                {
+                  $ref: "../schemas/model-qualification-governed-rollback.v1.json#/$defs/requestInput"
+                }
+            }
+      responses:
+        "200":
+          description: Immutable rollback-request and linked-proposal receipt; current selection unchanged.
+          content:
+            application/json:
+              {
+                schema: { $ref: "#/components/schemas/ModelQualificationGovernedRollbackEnvelope" }
+              }
+        "401": { description: Authentication required }
+        "403": { description: Tenant administrator scope denied }
+        "409": { description: "Command, state, policy, adoption or historical-lineage conflict" }
+        "422": { description: Dry-run is not ready or the governed rollback request is invalid }
 
   /api/v1/bff/student/model-qualification/adoption-operations:
     get:
@@ -11441,6 +11499,15 @@ components:
           {
             $ref: "../schemas/model-qualification-adoption-operations.v1.json#/$defs/rollbackDryRun"
           }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ModelQualificationGovernedRollbackEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/model-qualification-governed-rollback.v1.json#/$defs/receipt" }
         message: { type: string }
         request_id: { type: string, minLength: 1 }
     ModelQualificationMutationEnvelope:

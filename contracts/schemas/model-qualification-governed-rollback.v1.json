@@ -1,0 +1,240 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/model-qualification-governed-rollback.v1.json",
+  "title": "SimWar Model Qualification Governed Rollback Request",
+  "oneOf": [
+    { "$ref": "#/$defs/requestInput" },
+    { "$ref": "#/$defs/governedRollbackRequest" },
+    { "$ref": "#/$defs/receipt" }
+  ],
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "adoptionReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adoption_id", "adoption_digest"],
+      "properties": {
+        "adoption_id": { "$ref": "#/$defs/nonEmptyString" },
+        "adoption_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "modelVersionReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model_version_id", "version", "content_digest"],
+      "properties": {
+        "model_version_id": { "$ref": "#/$defs/nonEmptyString" },
+        "version": { "$ref": "#/$defs/nonEmptyString" },
+        "content_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "modelArtifactReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "content_digest", "format", "source_ref"],
+      "properties": {
+        "artifact_id": { "$ref": "#/$defs/nonEmptyString" },
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "format": { "$ref": "#/$defs/nonEmptyString" },
+        "source_ref": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "epoch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenant_id",
+        "course_id",
+        "source_package_id",
+        "source_content_digest",
+        "calibration_dataset_id",
+        "calibration_dataset_content_digest",
+        "qualification_id",
+        "qualification_content_digest",
+        "model_version_reference",
+        "model_artifact_reference",
+        "source_expires_at",
+        "epoch_digest"
+      ],
+      "properties": {
+        "tenant_id": { "$ref": "#/$defs/nonEmptyString" },
+        "course_id": { "$ref": "#/$defs/nonEmptyString" },
+        "source_package_id": { "$ref": "#/$defs/nonEmptyString" },
+        "source_content_digest": { "$ref": "#/$defs/digest" },
+        "calibration_dataset_id": { "$ref": "#/$defs/nonEmptyString" },
+        "calibration_dataset_content_digest": { "$ref": "#/$defs/digest" },
+        "qualification_id": { "$ref": "#/$defs/nonEmptyString" },
+        "qualification_content_digest": { "$ref": "#/$defs/digest" },
+        "model_version_reference": { "$ref": "#/$defs/modelVersionReference" },
+        "model_artifact_reference": { "$ref": "#/$defs/modelArtifactReference" },
+        "source_expires_at": {
+          "oneOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }]
+        },
+        "epoch_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "rollbackDryRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dry_run_id",
+        "dry_run_digest",
+        "assessed_at",
+        "current_adoption",
+        "predecessor_adoption",
+        "predecessor_epoch",
+        "adoption_state_digest",
+        "operations_policy_digest",
+        "status",
+        "predecessor_currently_eligible",
+        "future_admission_impact",
+        "blockers",
+        "known_limits",
+        "provider",
+        "advisory_only",
+        "rollback_applied",
+        "adoption_mutation",
+        "official_truth_write",
+        "history_deleted",
+        "historical_receipt_rewritten"
+      ],
+      "properties": {
+        "dry_run_id": { "$ref": "#/$defs/nonEmptyString" },
+        "dry_run_digest": { "$ref": "#/$defs/digest" },
+        "assessed_at": { "type": "string", "format": "date-time" },
+        "current_adoption": { "$ref": "#/$defs/adoptionReference" },
+        "predecessor_adoption": { "$ref": "#/$defs/adoptionReference" },
+        "predecessor_epoch": { "$ref": "#/$defs/epoch" },
+        "adoption_state_digest": { "$ref": "#/$defs/digest" },
+        "operations_policy_digest": { "$ref": "#/$defs/digest" },
+        "status": { "const": "READY_WITH_LIMITS" },
+        "predecessor_currently_eligible": { "const": true },
+        "future_admission_impact": { "const": "WOULD_SELECT_EXACT_PREDECESSOR" },
+        "blockers": { "type": "array", "maxItems": 0 },
+        "known_limits": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        },
+        "provider": { "const": "OFF" },
+        "advisory_only": { "const": true },
+        "rollback_applied": { "const": false },
+        "adoption_mutation": { "const": false },
+        "official_truth_write": { "const": false },
+        "history_deleted": { "const": false },
+        "historical_receipt_rewritten": { "const": false }
+      }
+    },
+    "requestInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["course_id", "command_id", "dry_run", "reason"],
+      "properties": {
+        "course_id": { "$ref": "#/$defs/nonEmptyString" },
+        "command_id": { "$ref": "#/$defs/nonEmptyString" },
+        "dry_run": { "$ref": "#/$defs/rollbackDryRun" },
+        "reason": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "proposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proposal_id",
+        "proposal_digest",
+        "epoch",
+        "expected_adoption",
+        "requested_by",
+        "requested_at"
+      ],
+      "properties": {
+        "proposal_id": { "$ref": "#/$defs/nonEmptyString" },
+        "proposal_digest": { "$ref": "#/$defs/digest" },
+        "epoch": { "$ref": "#/$defs/epoch" },
+        "expected_adoption": { "$ref": "#/$defs/adoptionReference" },
+        "requested_by": { "$ref": "#/$defs/nonEmptyString" },
+        "requested_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "governedRollbackRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "rollback_request_id",
+        "rollback_request_digest",
+        "tenant_id",
+        "course_id",
+        "command_id",
+        "command_fingerprint",
+        "requested_by",
+        "requested_role",
+        "requested_at",
+        "reason",
+        "dry_run_id",
+        "dry_run_digest",
+        "current_adoption",
+        "predecessor_adoption",
+        "predecessor_epoch",
+        "adoption_state_digest",
+        "operations_policy_digest",
+        "linked_proposal",
+        "status",
+        "current_selection_changed",
+        "rollback_applied",
+        "adoption_mutation",
+        "official_truth_write",
+        "history_deleted",
+        "historical_receipt_rewritten",
+        "provider"
+      ],
+      "properties": {
+        "schema_version": { "const": "model-qualification-governed-rollback.v1" },
+        "rollback_request_id": { "$ref": "#/$defs/nonEmptyString" },
+        "rollback_request_digest": { "$ref": "#/$defs/digest" },
+        "tenant_id": { "$ref": "#/$defs/nonEmptyString" },
+        "course_id": { "$ref": "#/$defs/nonEmptyString" },
+        "command_id": { "$ref": "#/$defs/nonEmptyString" },
+        "command_fingerprint": { "$ref": "#/$defs/digest" },
+        "requested_by": { "$ref": "#/$defs/nonEmptyString" },
+        "requested_role": { "enum": ["teacher", "tenant_admin"] },
+        "requested_at": { "type": "string", "format": "date-time" },
+        "reason": { "$ref": "#/$defs/nonEmptyString" },
+        "dry_run_id": { "$ref": "#/$defs/nonEmptyString" },
+        "dry_run_digest": { "$ref": "#/$defs/digest" },
+        "current_adoption": { "$ref": "#/$defs/adoptionReference" },
+        "predecessor_adoption": { "$ref": "#/$defs/adoptionReference" },
+        "predecessor_epoch": { "$ref": "#/$defs/epoch" },
+        "adoption_state_digest": { "$ref": "#/$defs/digest" },
+        "operations_policy_digest": { "$ref": "#/$defs/digest" },
+        "linked_proposal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["proposal_id", "proposal_digest"],
+          "properties": {
+            "proposal_id": { "$ref": "#/$defs/nonEmptyString" },
+            "proposal_digest": { "$ref": "#/$defs/digest" }
+          }
+        },
+        "status": { "const": "LINKED_PROPOSAL_PENDING_REVIEW" },
+        "current_selection_changed": { "const": false },
+        "rollback_applied": { "const": false },
+        "adoption_mutation": { "const": false },
+        "official_truth_write": { "const": false },
+        "history_deleted": { "const": false },
+        "historical_receipt_rewritten": { "const": false },
+        "provider": { "const": "OFF" }
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request", "proposal", "reused"],
+      "properties": {
+        "request": { "$ref": "#/$defs/governedRollbackRequest" },
+        "proposal": { "$ref": "#/$defs/proposal" },
+        "reused": { "type": "boolean" }
+      }
+    }
+  }
+}

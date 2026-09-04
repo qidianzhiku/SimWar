@@ -2,8 +2,10 @@ import type {
   AdoptionRollbackDryRun,
   EvidenceAdoptionEpoch,
   EvidenceAdoptionProposal,
-  EvidenceAdoptionReference
+  EvidenceAdoptionReference,
+  GovernedRollbackRequest as PersistedGovernedRollbackRequest
 } from "@simwar/shared-contracts";
+import { MODEL_QUALIFICATION_GOVERNED_ROLLBACK_SCHEMA_VERSION } from "@simwar/shared-contracts";
 import { stableSha256 } from "./model-qualification-adoption-drift-assessment.js";
 
 export type GovernedRollbackRequesterRole = "teacher" | "tenant_admin";
@@ -147,6 +149,36 @@ const DRY_RUN_KEYS = [
   "history_deleted",
   "historical_receipt_rewritten"
 ] as const;
+const PERSISTED_REQUEST_KEYS = [
+  "schema_version",
+  "rollback_request_id",
+  "rollback_request_digest",
+  "tenant_id",
+  "course_id",
+  "command_id",
+  "command_fingerprint",
+  "requested_by",
+  "requested_role",
+  "requested_at",
+  "reason",
+  "dry_run_id",
+  "dry_run_digest",
+  "current_adoption",
+  "predecessor_adoption",
+  "predecessor_epoch",
+  "adoption_state_digest",
+  "operations_policy_digest",
+  "linked_proposal",
+  "status",
+  "current_selection_changed",
+  "rollback_applied",
+  "adoption_mutation",
+  "official_truth_write",
+  "history_deleted",
+  "historical_receipt_rewritten",
+  "provider"
+] as const;
+const LINKED_PROPOSAL_KEYS = ["proposal_id", "proposal_digest"] as const;
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/u;
 const RESERVED_SELECTOR_PATTERN =
   /(?:^|[._:-])(?:any|current|default|fallback|first|last|latest|newest|next|unresolved)(?:$|[._:-])/iu;
@@ -270,7 +302,7 @@ function isEpochShape(value: unknown): value is EvidenceAdoptionEpoch {
 }
 
 function hasValidEpochDigest(epoch: EvidenceAdoptionEpoch): boolean {
-  const { epoch_digest: _ignoredDigest, ...body } = epoch;
+  const body = Object.fromEntries(Object.entries(epoch).filter(([key]) => key !== "epoch_digest"));
   return stableSha256(body) === epoch.epoch_digest;
 }
 
@@ -310,7 +342,9 @@ function isDryRunShape(value: unknown): value is AdoptionRollbackDryRun {
 }
 
 function hasValidDryRunDigest(dryRun: AdoptionRollbackDryRun): boolean {
-  const { dry_run_digest: _ignoredDigest, ...body } = dryRun;
+  const body = Object.fromEntries(
+    Object.entries(dryRun).filter(([key]) => key !== "dry_run_digest")
+  );
   return stableSha256(body) === dryRun.dry_run_digest;
 }
 
@@ -320,6 +354,88 @@ function validateDryRun(value: unknown): asserts value is AdoptionRollbackDryRun
     fail("ROLLBACK_REQUEST_DIGEST_CONFLICT");
   }
   if (!hasValidDryRunDigest(value)) fail("ROLLBACK_REQUEST_DIGEST_CONFLICT");
+}
+
+/** SHA-256 over the canonical public request body, excluding only its own digest field. */
+export function digestPersistedGovernedRollbackRequest(
+  request:
+    | PersistedGovernedRollbackRequest
+    | Omit<PersistedGovernedRollbackRequest, "rollback_request_digest">
+): string {
+  const body = Object.fromEntries(
+    Object.entries(request).filter(([key]) => key !== "rollback_request_digest")
+  );
+  return stableSha256(body);
+}
+
+function fingerprintPersistedGovernedRollbackRequest(
+  request: PersistedGovernedRollbackRequest
+): string {
+  return stableSha256({
+    action: "GOVERNED_ROLLBACK_REQUEST",
+    actor_id: request.requested_by,
+    role: request.requested_role,
+    command_id: request.command_id,
+    tenant_id: request.tenant_id,
+    course_id: request.course_id,
+    reason: request.reason,
+    current_adoption: request.current_adoption,
+    predecessor_adoption: request.predecessor_adoption,
+    dry_run_id: request.dry_run_id,
+    dry_run_digest: request.dry_run_digest,
+    adoption_state_digest: request.adoption_state_digest,
+    operations_policy_digest: request.operations_policy_digest,
+    predecessor_epoch: request.predecessor_epoch,
+    linked_proposal_id: request.linked_proposal.proposal_id
+  });
+}
+
+/** Strict runtime validation for immutable O7 receipts loaded from persistence. */
+export function isPersistedGovernedRollbackRequest(
+  value: unknown
+): value is PersistedGovernedRollbackRequest {
+  if (
+    !hasExactKeys(value, PERSISTED_REQUEST_KEYS) ||
+    value.schema_version !== MODEL_QUALIFICATION_GOVERNED_ROLLBACK_SCHEMA_VERSION ||
+    !isExactIdentifier(value.rollback_request_id) ||
+    !isDigest(value.rollback_request_digest) ||
+    !isExactIdentifier(value.tenant_id) ||
+    !isExactIdentifier(value.course_id) ||
+    !isExactIdentifier(value.command_id) ||
+    !isDigest(value.command_fingerprint) ||
+    !isExactIdentifier(value.requested_by) ||
+    (value.requested_role !== "teacher" && value.requested_role !== "tenant_admin") ||
+    !isIsoTimestamp(value.requested_at) ||
+    !isNonBlankText(value.reason) ||
+    !isExactIdentifier(value.dry_run_id) ||
+    !isDigest(value.dry_run_digest) ||
+    !isReference(value.current_adoption) ||
+    !isReference(value.predecessor_adoption) ||
+    !isEpochShape(value.predecessor_epoch) ||
+    !hasValidEpochDigest(value.predecessor_epoch) ||
+    !isDigest(value.adoption_state_digest) ||
+    !isDigest(value.operations_policy_digest) ||
+    !hasExactKeys(value.linked_proposal, LINKED_PROPOSAL_KEYS) ||
+    !isExactIdentifier(value.linked_proposal.proposal_id) ||
+    !isDigest(value.linked_proposal.proposal_digest) ||
+    value.status !== "LINKED_PROPOSAL_PENDING_REVIEW" ||
+    value.current_selection_changed !== false ||
+    value.rollback_applied !== false ||
+    value.adoption_mutation !== false ||
+    value.official_truth_write !== false ||
+    value.history_deleted !== false ||
+    value.historical_receipt_rewritten !== false ||
+    value.provider !== "OFF"
+  ) {
+    return false;
+  }
+  const request = value as unknown as PersistedGovernedRollbackRequest;
+  const fingerprint = fingerprintPersistedGovernedRollbackRequest(request);
+  return (
+    digestPersistedGovernedRollbackRequest(request) === request.rollback_request_digest &&
+    fingerprint === request.command_fingerprint &&
+    request.rollback_request_id === `rollback_request_${fingerprint}`
+  );
 }
 
 function validateInput(input: GovernedRollbackRequestInput): void {
@@ -423,6 +539,7 @@ function buildCandidate(input: GovernedRollbackRequestInput): GovernedRollbackRe
   const idempotencyFingerprint = stableSha256({
     action: "GOVERNED_ROLLBACK_REQUEST",
     actor_id: input.actor_id,
+    role: input.role,
     command_id: input.command_id,
     tenant_id: input.tenant_id,
     course_id: input.course_id,

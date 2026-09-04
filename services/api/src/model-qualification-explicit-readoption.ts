@@ -11,8 +11,7 @@ const DIGEST_PATTERN = /^[a-f0-9]{64}$/u;
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/u;
 const RESERVED_SELECTOR_PATTERN =
   /(?:^|[._:-])(?:any|current|default|fallback|first|last|latest|newest|next|unresolved)(?:$|[._:-])/iu;
-const ISO_TIMESTAMP_PATTERN =
-  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?Z$/u;
+const ISO_TIMESTAMP_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?Z$/u;
 
 const EPOCH_BODY_KEYS = [
   "tenant_id",
@@ -195,10 +194,7 @@ export interface ExplicitReadoptionPrediction {
   readonly target_adoption: EvidenceAdoptionReference;
   readonly target_epoch: EvidenceAdoptionEpoch;
   readonly proposal_input: Pick<RequestEvidenceAdoption, "epoch" | "expected_adoption">;
-  readonly linked_o5_proposal_input: Pick<
-    RequestEvidenceAdoption,
-    "epoch" | "expected_adoption"
-  >;
+  readonly linked_o5_proposal_input: Pick<RequestEvidenceAdoption, "epoch" | "expected_adoption">;
   readonly predicted_adoption: ExplicitReadoptionPredictedAdoption;
   readonly future_run: {
     readonly adoption: EvidenceAdoptionReference;
@@ -430,7 +426,10 @@ function validateReference(
   return true;
 }
 
-function optionalCandidate<T>(value: T | undefined): { readonly present: boolean; readonly value: T } {
+function optionalCandidate<T>(value: T | undefined): {
+  readonly present: boolean;
+  readonly value: T;
+} {
   return { present: value !== undefined, value: value as T };
 }
 
@@ -492,7 +491,8 @@ function validateRecord(value: unknown): EvidenceAdoptionRecord {
     EXPLICIT_READOPTION_ERROR_CODES.STATE_INVALID,
     EXPLICIT_READOPTION_ERROR_CODES.STATE_INVALID
   );
-  if (value.predecessor !== null) validateReference(value.predecessor, EXPLICIT_READOPTION_ERROR_CODES.STATE_INVALID);
+  if (value.predecessor !== null)
+    validateReference(value.predecessor, EXPLICIT_READOPTION_ERROR_CODES.STATE_INVALID);
   const record = value as unknown as EvidenceAdoptionRecord;
   if (digest(withoutKey(value, "adoption_digest")) !== record.adoption_digest) {
     fail(EXPLICIT_READOPTION_ERROR_CODES.STATE_INVALID);
@@ -508,13 +508,27 @@ function validateSelection(value: unknown): void {
   ) {
     fail(EXPLICIT_READOPTION_ERROR_CODES.STATE_INVALID);
   }
-  validateModelVersion(value.model_version_reference, EXPLICIT_READOPTION_ERROR_CODES.STATE_INVALID);
-  validateModelArtifact(value.model_artifact_reference, EXPLICIT_READOPTION_ERROR_CODES.STATE_INVALID);
+  validateModelVersion(
+    value.model_version_reference,
+    EXPLICIT_READOPTION_ERROR_CODES.STATE_INVALID
+  );
+  validateModelArtifact(
+    value.model_artifact_reference,
+    EXPLICIT_READOPTION_ERROR_CODES.STATE_INVALID
+  );
 }
 
 function validateState(value: unknown): StateIndex {
   if (
-    !hasExactKeys(value, ["tenant_id", "course_id", "proposals", "reviews", "records", "selections", "commands"]) ||
+    !hasExactKeys(value, [
+      "tenant_id",
+      "course_id",
+      "proposals",
+      "reviews",
+      "records",
+      "selections",
+      "commands"
+    ]) ||
     !isExactIdentifier((value as Record<string, unknown>).tenant_id) ||
     !isExactIdentifier((value as Record<string, unknown>).course_id)
   ) {
@@ -537,7 +551,8 @@ function validateState(value: unknown): StateIndex {
     if (record.epoch.tenant_id !== state.tenant_id || record.epoch.course_id !== state.course_id) {
       fail(EXPLICIT_READOPTION_ERROR_CODES.SCOPE_CONFLICT);
     }
-    if (recordsById.has(record.adoption_id)) fail(EXPLICIT_READOPTION_ERROR_CODES.AMBIGUOUS_HISTORY);
+    if (recordsById.has(record.adoption_id))
+      fail(EXPLICIT_READOPTION_ERROR_CODES.AMBIGUOUS_HISTORY);
     recordsById.set(record.adoption_id, record);
   }
 
@@ -548,8 +563,14 @@ function validateState(value: unknown): StateIndex {
       !predecessor ||
       !sameReference(predecessor, record.predecessor) ||
       predecessor.disposition !== "ADOPTED_FOR_FUTURE_ADMISSION" ||
-      !sameModelVersion(predecessor.epoch.model_version_reference, record.epoch.model_version_reference) ||
-      !sameModelArtifact(predecessor.epoch.model_artifact_reference, record.epoch.model_artifact_reference) ||
+      !sameModelVersion(
+        predecessor.epoch.model_version_reference,
+        record.epoch.model_version_reference
+      ) ||
+      !sameModelArtifact(
+        predecessor.epoch.model_artifact_reference,
+        record.epoch.model_artifact_reference
+      ) ||
       predecessor.adoption_id === record.adoption_id
     ) {
       fail(EXPLICIT_READOPTION_ERROR_CODES.STATE_INVALID);
@@ -594,7 +615,9 @@ function equalOrFail<T>(
   return first.value;
 }
 
-function normalizeInput(input: ExplicitReadoptionClassificationInput): NormalizedClassificationInput {
+function normalizeInput(
+  input: ExplicitReadoptionClassificationInput
+): NormalizedClassificationInput {
   if (!isPlainRecord(input)) fail(EXPLICIT_READOPTION_ERROR_CODES.INPUT_INVALID);
   if (!isExactIdentifier(input.tenant_id) || !isExactIdentifier(input.course_id)) {
     fail(EXPLICIT_READOPTION_ERROR_CODES.INPUT_INVALID);
@@ -627,7 +650,10 @@ function normalizeInput(input: ExplicitReadoptionClassificationInput): Normalize
   );
   const targetAdoption = equalOrFail(
     [
-      { present: input.target !== undefined && input.target.adoption !== undefined, value: input.target?.adoption },
+      {
+        present: input.target !== undefined && input.target.adoption !== undefined,
+        value: input.target?.adoption
+      },
       { present: input.target_adoption !== undefined, value: input.target_adoption },
       { present: input.target_reference !== undefined, value: input.target_reference }
     ],
@@ -635,7 +661,10 @@ function normalizeInput(input: ExplicitReadoptionClassificationInput): Normalize
     EXPLICIT_READOPTION_ERROR_CODES.INPUT_INVALID
   );
   const validatedState = validateState(state);
-  if (validatedState.state.tenant_id !== input.tenant_id || validatedState.state.course_id !== input.course_id) {
+  if (
+    validatedState.state.tenant_id !== input.tenant_id ||
+    validatedState.state.course_id !== input.course_id
+  ) {
     fail(EXPLICIT_READOPTION_ERROR_CODES.SCOPE_CONFLICT);
   }
   const epoch = validateEpoch(
@@ -652,7 +681,7 @@ function normalizeInput(input: ExplicitReadoptionClassificationInput): Normalize
   return {
     adoption_state: validatedState.state,
     course_id: input.course_id,
-    current_adoption: current,
+    current_adoption: current as EvidenceAdoptionReference,
     target: { adoption: targetAdoption ?? null, epoch },
     tenant_id: input.tenant_id
   };
@@ -697,7 +726,9 @@ function targetRecordFor(
     }
     return record;
   }
-  const matches = [...index.recordsById.values()].filter((record) => sameEpoch(record.epoch, target.epoch));
+  const matches = [...index.recordsById.values()].filter((record) =>
+    sameEpoch(record.epoch, target.epoch)
+  );
   if (matches.length > 1) fail(EXPLICIT_READOPTION_ERROR_CODES.AMBIGUOUS_HISTORY);
   return matches[0];
 }
@@ -785,7 +816,9 @@ function normalizeBasis(value: ExplicitReadoptionRollbackBasis): NormalizedRollb
       optionalCandidate(value.predecessor_adoption as EvidenceAdoptionReference | undefined),
       optionalCandidate(value.target as EvidenceAdoptionReference | undefined),
       optionalCandidate(nestedRequest?.target_adoption as EvidenceAdoptionReference | undefined),
-      optionalCandidate(nestedRequest?.predecessor_adoption as EvidenceAdoptionReference | undefined)
+      optionalCandidate(
+        nestedRequest?.predecessor_adoption as EvidenceAdoptionReference | undefined
+      )
     ],
     EXPLICIT_READOPTION_ERROR_CODES.ROLLBACK_BASIS_TARGET_CONFLICT,
     EXPLICIT_READOPTION_ERROR_CODES.ROLLBACK_BASIS_INVALID
@@ -850,7 +883,12 @@ function normalizeBasis(value: ExplicitReadoptionRollbackBasis): NormalizedRollb
   if (linkedProposal) {
     let expectedAdoption: EvidenceAdoptionReference | undefined;
     if (linkedProposal.expected_adoption !== undefined) {
-      if (!validateReference(linkedProposal.expected_adoption, EXPLICIT_READOPTION_ERROR_CODES.LINKED_PROPOSAL_CONFLICT)) {
+      if (
+        !validateReference(
+          linkedProposal.expected_adoption,
+          EXPLICIT_READOPTION_ERROR_CODES.LINKED_PROPOSAL_CONFLICT
+        )
+      ) {
         fail(EXPLICIT_READOPTION_ERROR_CODES.LINKED_PROPOSAL_CONFLICT);
       }
       expectedAdoption = linkedProposal.expected_adoption;
@@ -862,7 +900,9 @@ function normalizeBasis(value: ExplicitReadoptionRollbackBasis): NormalizedRollb
       proposal_digest: proposalDigest,
       proposal_id: proposalId,
       ...(expectedAdoption !== undefined ? { expected_adoption: expectedAdoption } : {}),
-      ...(linkedProposal.epoch !== undefined ? { epoch: linkedProposal.epoch as EvidenceAdoptionEpoch } : {})
+      ...(linkedProposal.epoch !== undefined
+        ? { epoch: linkedProposal.epoch as EvidenceAdoptionEpoch }
+        : {})
     };
   }
   return {
@@ -878,8 +918,14 @@ function normalizeBasis(value: ExplicitReadoptionRollbackBasis): NormalizedRollb
   };
 }
 
-function rollbackBasisFor(input: ExplicitReadoptionPredictionInput): ExplicitReadoptionRollbackBasis | null {
-  const candidates = [input.rollback_basis, input.rollback_request, input.governed_rollback_request].filter(
+function rollbackBasisFor(
+  input: ExplicitReadoptionPredictionInput
+): ExplicitReadoptionRollbackBasis | null {
+  const candidates = [
+    input.rollback_basis,
+    input.rollback_request,
+    input.governed_rollback_request
+  ].filter(
     (candidate): candidate is ExplicitReadoptionRollbackBasis | null => candidate !== undefined
   );
   if (candidates.length === 0 || candidates[0] === null) return null;

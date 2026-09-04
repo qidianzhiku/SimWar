@@ -137,7 +137,10 @@ function resignDryRun(
   dryRun: AdoptionRollbackDryRun,
   changes: Partial<AdoptionRollbackDryRun>
 ): AdoptionRollbackDryRun {
-  const { dry_run_digest: _ignoredDigest, ...body } = { ...dryRun, ...changes };
+  const unsigned = { ...dryRun, ...changes };
+  const body = Object.fromEntries(
+    Object.entries(unsigned).filter(([key]) => key !== "dry_run_digest")
+  ) as Omit<AdoptionRollbackDryRun, "dry_run_digest">;
   return { ...body, dry_run_digest: stableSha256(body) };
 }
 

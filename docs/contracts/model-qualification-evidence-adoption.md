@@ -149,3 +149,68 @@ zero. Each run must use an independent store under the controlled temporary
 `simwar-playwright/<mission>/playwright-store.json` root. O6 browser and focused
 axe evidence does not prove Human Validation, full WCAG conformance, Pilot,
 Production, Release, Provider activation, or durable database activation.
+
+## O7 governed rollback request and explicit re-adoption
+
+O7 converts an exact O6 `READY_WITH_LIMITS` predecessor dry-run into one
+immutable `GovernedRollbackRequest` and one linked, standard O5 evidence-adoption
+proposal. Both records are committed through the existing
+`MAIN_MODEL_GOVERNANCE` authority in one boundary. Request creation keeps the
+current selection unchanged and never applies rollback:
+
+```text
+ROLLBACK_DRY_RUN != ROLLBACK_REQUEST
+ROLLBACK_REQUEST != ADOPTION_PROPOSAL
+ADOPTION_PROPOSAL != REVIEW
+REVIEW != ADOPTION
+READOPTION != HISTORICAL_REWRITE
+READOPTION != FORMAL_ROLLBACK
+READOPTION != SIMULATION_TRUTH
+REQUEST_CREATION_WRITES_CURRENT_SELECTION=false
+rollback_applied=false
+```
+
+Suppose A is an exact historically adopted predecessor and B is the current
+adoption. A governed request based on an exact B-to-A dry-run creates a linked
+proposal for A, but B remains selected. The existing O5 review and explicit
+`ADOPTED_FOR_FUTURE_ADMISSION` disposition may later create C. C has a new
+adoption id and digest, points to B as its predecessor, and may reuse A's exact
+evidence epoch. Future admissions select C; historical runs admitted under A or
+B keep their original immutable receipts.
+
+The generic O5 request path remains valid for genuinely new evidence epochs. A
+generic request targeting an epoch already present in historical adopted
+lineage fails closed with `EVIDENCE_ADOPTION_ROLLBACK_REQUEST_REQUIRED` (the
+canonical `ROLLBACK_REQUEST_REQUIRED` family) unless a valid governed rollback
+basis is used. No latest/current/default/first/last/newest-timestamp fallback is
+permitted.
+
+Teacher and Admin can create the governed request only from an exact-context,
+still-current O6 receipt. The server reauthenticates tenant/course/role, dry-run
+identity and digest, adoption-state digest, operations-policy digest, current
+selection, exact predecessor and current predecessor eligibility. Student has no
+rollback-request mutation route or privileged request/review/disposition
+controls. The immutable public `rollback_request_digest` is SHA-256 over the
+canonical persisted request body excluding only the digest field itself, so a
+reader can independently verify the receipt. Persisted requests must also match
+their command fingerprint, fingerprint-derived request id, one linked proposal,
+and exact tenant/course lineage before reuse or projection. Recomputing only the
+public digest after persisted payload drift therefore fails closed.
+Transport-unknown retries retain and reuse the same command and payload;
+same-command payload or role drift conflicts. Once mutation success is known, the
+pending command is cleared. A subsequent projection-refresh failure clears
+unverified UI receipts and requires explicit exact-context reload; it must not
+replay the known-successful mutation.
+
+Run the O7-focused validation from a clean checkout after building shared
+prerequisites:
+
+```powershell
+npx vitest run tests/unit/model-qualification-governed-rollback-request.test.ts tests/unit/model-qualification-explicit-readoption.test.ts tests/integration/model-qualification-o7-http.test.ts tests/contract/model-qualification-governed-rollback-openapi.test.ts
+npm run test:contract
+npm run test:e2e:ui:o7
+```
+
+O7 remains Provider OFF and adds no new Writer, Store, Registry, truth engine,
+settlement authority, automatic rollback, formal rollback, Human Validation,
+Pilot, Production or Release claim.

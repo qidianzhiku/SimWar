@@ -122,12 +122,7 @@ function adopt(
 
 function createHistory(): AdoptionHistory {
   const first = adopt(emptyEvidenceAdoptionState(TENANT_ID, COURSE_ID), epoch("A"), "a");
-  const second = adopt(
-    first.state,
-    epoch("B"),
-    "b",
-    adoptionReference(first.record)
-  );
+  const second = adopt(first.state, epoch("B"), "b", adoptionReference(first.record));
   return { adoptionA: first.record, adoptionB: second.record, state: second.state };
 }
 
@@ -305,10 +300,7 @@ describe("O7 explicit readoption transition pure domain", () => {
   it("rejects wrong scope, stale current digest, and a moved current selection", () => {
     const history = createHistory();
     expectReadoptionError(
-      () =>
-        classifyExplicitReadoptionTarget(
-          input(history, { tenant_id: "other-tenant" })
-        ),
+      () => classifyExplicitReadoptionTarget(input(history, { tenant_id: "other-tenant" })),
       EXPLICIT_READOPTION_ERROR_CODES.SCOPE_CONFLICT
     );
     expectReadoptionError(
@@ -324,12 +316,7 @@ describe("O7 explicit readoption transition pure domain", () => {
       EXPLICIT_READOPTION_ERROR_CODES.CURRENT_ADOPTION_DIGEST_MISMATCH
     );
 
-    const third = adopt(
-      history.state,
-      epoch("C"),
-      "c",
-      adoptionReference(history.adoptionB)
-    );
+    const third = adopt(history.state, epoch("C"), "c", adoptionReference(history.adoptionB));
     expectReadoptionError(
       () =>
         classifyExplicitReadoptionTarget(
@@ -368,12 +355,7 @@ describe("O7 explicit readoption transition pure domain", () => {
 
   it("requires the exact immediate predecessor and rejects current-identity reuse", () => {
     const history = createHistory();
-    const third = adopt(
-      history.state,
-      epoch("C"),
-      "c",
-      adoptionReference(history.adoptionB)
-    );
+    const third = adopt(history.state, epoch("C"), "c", adoptionReference(history.adoptionB));
     const grandparentInput = input(
       {
         adoptionA: history.adoptionA,
@@ -444,8 +426,11 @@ describe("O7 explicit readoption transition pure domain", () => {
       EXPLICIT_READOPTION_ERROR_CODES.ROLLBACK_BASIS_TARGET_CONFLICT
     );
 
-    const { linked_proposal_digest: _proposalDigest, linked_proposal_id: _proposalId, ...withoutProposal } =
-      basis(history);
+    const {
+      linked_proposal_digest: _proposalDigest,
+      linked_proposal_id: _proposalId,
+      ...withoutProposal
+    } = basis(history);
     void _proposalDigest;
     void _proposalId;
     expectReadoptionError(
