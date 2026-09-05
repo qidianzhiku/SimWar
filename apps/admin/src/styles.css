@@ -256,7 +256,6 @@ body {
 
 .o10-changeset-heading {
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
 }
@@ -285,17 +284,6 @@ body {
   min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;
-}
-
-.o10-changeset code,
-.o10-changeset strong {
-  color: #ffffff;
-}
-
-.o10-firewall,
-.o10-recovery-note {
-  margin: 0;
-  color: #e5f3ff;
 }
 
 .o10-handoff-list {
