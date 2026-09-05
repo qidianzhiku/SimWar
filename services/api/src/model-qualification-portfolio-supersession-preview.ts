@@ -44,6 +44,8 @@ export interface ModelQualificationPortfolioCourse {
 export interface ModelQualificationPortfolio {
   readonly courses: readonly ModelQualificationPortfolioCourse[];
   readonly portfolio_id: string;
+  /** Canonical O9 portfolio digest supplied by the integrator when available. */
+  readonly portfolio_state_digest?: string;
   readonly tenant_id: string;
 }
 
@@ -194,6 +196,9 @@ function normalizePortfolio(portfolio: ModelQualificationPortfolio): ModelQualif
         )
       ),
     portfolio_id: portfolio.portfolio_id,
+    ...(portfolio.portfolio_state_digest
+      ? { portfolio_state_digest: portfolio.portfolio_state_digest }
+      : {}),
     tenant_id: portfolio.tenant_id
   };
 }
@@ -209,6 +214,7 @@ export function digestModelQualificationPortfolioCourseState(
 export function digestModelQualificationPortfolioState(
   portfolio: ModelQualificationPortfolio
 ): string {
+  if (isDigest(portfolio.portfolio_state_digest)) return portfolio.portfolio_state_digest;
   return stableSha256(normalizePortfolio(portfolio));
 }
 
@@ -248,6 +254,7 @@ function validPortfolio(value: unknown): value is ModelQualificationPortfolio {
     isPlainRecord(value) &&
     isNonBlankString(value.portfolio_id) &&
     isNonBlankString(value.tenant_id) &&
+    (value.portfolio_state_digest === undefined || isDigest(value.portfolio_state_digest)) &&
     Array.isArray(value.courses) &&
     value.courses.every((course) => validCourse(course))
   );

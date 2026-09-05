@@ -127,6 +127,7 @@ export interface ModelQualificationCoursePortfolio {
   readonly settlement_write: false;
   readonly writes_formal_truth: false;
   readonly writer_effect: "NONE";
+  readonly tenant_id: string;
 }
 
 const PORTFOLIO_KNOWN_LIMITS = Object.freeze([
@@ -1131,6 +1132,7 @@ export function buildModelQualificationCoursePortfolio(
     score_write: false,
     schema_version: MODEL_QUALIFICATION_COURSE_PORTFOLIO_SCHEMA_VERSION,
     settlement_write: false,
+    tenant_id: tenantId,
     writes_formal_truth: false,
     writer_effect: "NONE"
   };

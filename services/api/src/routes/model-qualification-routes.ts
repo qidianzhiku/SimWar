@@ -131,6 +131,18 @@ async function assertCourse(
   }
 }
 
+async function canonicalTenantCourses(
+  deps: ModelQualificationRouteDependencies,
+  context: ModelQualificationRouteContext
+): Promise<readonly { course_id: string; tenant_id: string; title: string }[]> {
+  const courses = await deps.repository.courses.listCoursesForTenant(context.tenantId);
+  return courses.map(({ course_id, tenant_id, title }) => ({
+    course_id,
+    tenant_id,
+    title
+  }));
+}
+
 function send<TData>(
   deps: ModelQualificationRouteDependencies,
   context: ModelQualificationRouteContext,
@@ -158,6 +170,9 @@ export function isModelQualificationRoute(method: string | undefined, url: URL):
       url.pathname
     )
   )
+    return true;
+  if (method === "GET" && url.pathname === `${ADMIN_PREFIX}/course-portfolio`) return true;
+  if (method === "POST" && url.pathname === `${ADMIN_PREFIX}/course-portfolio/supersession-preview`)
     return true;
   if (
     method === "POST" &&
@@ -227,6 +242,55 @@ export async function handleModelQualificationRoute(
 ): Promise<boolean> {
   if (!isModelQualificationRoute(request.method, url)) return false;
   const context = deps.createContext(request);
+
+  if (request.method === "GET" && url.pathname === `${ADMIN_PREFIX}/course-portfolio`) {
+    const actor = deps.requirePermission(context, "course:read");
+    if (actor.tenant_id !== context.tenantId || !deps.actorHasAnyRole(actor, ["tenant_admin"])) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    send(
+      deps,
+      context,
+      response,
+      200,
+      service.getCoursePortfolio(
+        serviceActor(actor, "admin"),
+        await canonicalTenantCourses(deps, context)
+      )
+    );
+    return true;
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname === `${ADMIN_PREFIX}/course-portfolio/supersession-preview`
+  ) {
+    const actor = deps.requirePermission(context, "course:read");
+    if (actor.tenant_id !== context.tenantId || !deps.actorHasAnyRole(actor, ["tenant_admin"])) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    const body = await deps.readJson<Record<string, unknown>>(request, { requiredObject: true });
+    if (!isRecord(body) || !Array.isArray(body.course_ids)) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    const courseIds = stringArray(body.course_ids);
+    if (courseIds.length !== body.course_ids.length) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    send(
+      deps,
+      context,
+      response,
+      200,
+      service.getCoursePortfolioSupersessionPreview(
+        serviceActor(actor, "admin"),
+        await canonicalTenantCourses(deps, context),
+        courseIds,
+        stringValue(body.expected_portfolio_state_digest)
+      )
+    );
+    return true;
+  }
 
   const outcomeRoute = url.pathname.match(
     /^\/api\/v1\/bff\/(teacher|admin)\/model-qualification\/evidence-adoptions\/rollback-requests\/([^/]+)\/outcome$/
