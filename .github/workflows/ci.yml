@@ -216,6 +216,15 @@ jobs:
           expected_diff_base=$(node -e 'const fs=require("node:fs"); const receipt=JSON.parse(fs.readFileSync("docs/design/ui-refoundation/figma-p1-visual-delta.json","utf8")); process.stdout.write(receipt.base_sha);')
           if [ "$PR4_BASE_SHA" = "$expected_diff_base" ]; then
             expected_diff_args=(--expected-diff-receipt "$GITHUB_WORKSPACE/docs/design/ui-refoundation/figma-p1-visual-delta.json")
+          elif [ -f docs/design/ui-refoundation/o9-visual-delta.json ]; then
+            expected_o9_base=$(node -e 'const fs=require("node:fs"); const receipt=JSON.parse(fs.readFileSync("docs/design/ui-refoundation/o9-visual-delta.json","utf8")); process.stdout.write(receipt.base_sha);')
+            expected_o9_mission=$(node -e 'const fs=require("node:fs"); const receipt=JSON.parse(fs.readFileSync("docs/design/ui-refoundation/o9-visual-delta.json","utf8")); process.stdout.write(receipt.mission_id);')
+            expected_o9_design_status=$(node -e 'const fs=require("node:fs"); const receipt=JSON.parse(fs.readFileSync("docs/design/ui-refoundation/o9-visual-delta.json","utf8")); process.stdout.write(receipt.design_source_status);')
+            if [ "$PR4_BASE_SHA" = "$expected_o9_base" ] && [ "$expected_o9_mission" = "MAIN-MQR-O9-COURSE-PORTFOLIO-ADOPTION-OPERATIONS-AND-SUPERSESSION" ] && [ "$expected_o9_design_status" = "TARGET_UNRESOLVED" ] && [[ "${GITHUB_HEAD_REF:-}" == codex/main-mqr-o9-* ]]; then
+              expected_diff_args=(--expected-diff-receipt "$GITHUB_WORKSPACE/docs/design/ui-refoundation/o9-visual-delta.json")
+            else
+              echo "O9 visual receipt is not bound to this base, mission, design status, and head branch; using the ordinary frozen pixel threshold."
+            fi
           elif [ -f docs/design/ui-refoundation/r3-visual-delta.json ]; then
             expected_r3_base=$(node -e 'const fs=require("node:fs"); const receipt=JSON.parse(fs.readFileSync("docs/design/ui-refoundation/r3-visual-delta.json","utf8")); process.stdout.write(receipt.base_sha);')
             expected_r3_mission=$(node -e 'const fs=require("node:fs"); const receipt=JSON.parse(fs.readFileSync("docs/design/ui-refoundation/r3-visual-delta.json","utf8")); process.stdout.write(receipt.mission_id);')

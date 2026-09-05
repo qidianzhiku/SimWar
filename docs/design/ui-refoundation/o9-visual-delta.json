@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "mission_id": "MAIN-MQR-O9-COURSE-PORTFOLIO-ADOPTION-OPERATIONS-AND-SUPERSESSION",
+  "change_id": "o9-course-portfolio-navigation-delta",
+  "change_type": "governed-course-portfolio-navigation-delta",
+  "design_source_status": "TARGET_UNRESOLVED",
+  "base_sha": "535fb0df52d13541fee06544e8740fa91c47c386",
+  "affected_surfaces": [
+    "admin-admin-tenants-entitlements-ready",
+    "enterprise-admin-enterprise-course-factory-ready"
+  ],
+  "accepted_roles": {
+    "admin": { "max_diff_pixel_ratio": 0.1 },
+    "enterprise": { "max_diff_pixel_ratio": 0.1 }
+  },
+  "source_paths": [
+    "apps/admin/src/App.tsx",
+    "apps/admin/src/AdminDeliveryTrustWorkspace.tsx",
+    "apps/admin/src/ModelQualificationCoursePortfolioPanel.tsx"
+  ],
+  "rationale": "O9 adds a tenant-admin-only course portfolio navigation entry and query-only panel. The design target remains unresolved, so this is a code-bound visual delta disposition rather than a Figma parity or accessibility waiver. Only the two declared legacy Admin surfaces may record the observed navigation shift; all other surfaces remain under the frozen global threshold."
+}
