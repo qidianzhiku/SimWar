@@ -173,6 +173,7 @@ export function ModelQualificationCoursePortfolioPanel({
   const [status, setStatus] = useState<"loading" | "ready" | "empty" | "error">("loading");
   const [message, setMessage] = useState("");
   const requestEpoch = useRef(0);
+  const readinessRequestEpoch = useRef(0);
   const requestContext = useRef({ apiBase, tenantId, token });
   const selectionContext = useRef({
     courseIds: selectedCourseIds,
@@ -208,6 +209,12 @@ export function ModelQualificationCoursePortfolioPanel({
     setChangeSet(null);
     setReadiness(null);
     setReadinessLoading(true);
+    const readinessEpoch = ++readinessRequestEpoch.current;
+    const isReadinessCurrent = () =>
+      readinessRequestEpoch.current === readinessEpoch &&
+      requestContext.current.apiBase === context.apiBase &&
+      requestContext.current.tenantId === context.tenantId &&
+      requestContext.current.token === context.token;
     try {
       const response = await fetch(
         endpoint(apiBase, "/api/v1/bff/admin/model-qualification/course-portfolio"),
@@ -236,7 +243,7 @@ export function ModelQualificationCoursePortfolioPanel({
           "课程组合已读取，但模型治理就绪度暂时无法读取；请重试以获得 exact W4/MQR 对照。 "
         );
       } finally {
-        if (isCurrent()) setReadinessLoading(false);
+        if (isReadinessCurrent()) setReadinessLoading(false);
       }
     } catch {
       if (!isCurrent()) return;

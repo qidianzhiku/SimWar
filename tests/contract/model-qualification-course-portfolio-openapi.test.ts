@@ -104,11 +104,9 @@ describe("SP-O2 strategic portfolio model governance readiness contract", () => 
       )
     );
     const ajv = new Ajv2020({ allErrors: true, strict: false });
-    ajv.addSchema(schema);
-    const validate = ajv.getSchema(`${schema.$id}#/$defs/adminProjection`);
-    expect(validate).toBeDefined();
+    const validate = ajv.compile(schema);
     expect(
-      validate!({
+      validate({
         role: "admin",
         visibility: "TENANT_GOVERNANCE_DETAIL",
         tenant_id: "tenant-1",
@@ -148,5 +146,16 @@ describe("SP-O2 strategic portfolio model governance readiness contract", () => 
         writer_effect: "NONE"
       })
     ).toBe(true);
+  });
+
+  it("rejects arbitrary values when the readiness schema is compiled as a standalone root", () => {
+    const schema = JSON.parse(
+      readFileSync(
+        "contracts/schemas/strategic-portfolio-model-governance-readiness.v1.json",
+        "utf8"
+      )
+    );
+    const validate = new Ajv2020({ allErrors: true, strict: false }).compile(schema);
+    expect(validate({})).toBe(false);
   });
 });

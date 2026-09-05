@@ -94,6 +94,25 @@ const changeSet = {
   handoffs: []
 };
 
+const readiness = {
+  role: "admin" as const,
+  visibility: "TENANT_GOVERNANCE_DETAIL" as const,
+  tenant_id: "tenant_demo",
+  readiness_policy_digest: "c".repeat(64),
+  portfolio_state_digest: "a".repeat(64),
+  readiness_digest: "d".repeat(64),
+  readiness_status: "READY" as const,
+  entries: [],
+  known_limits: [],
+  derived: true as const,
+  query_only: true as const,
+  no_new_writer: true as const,
+  no_new_store: true as const,
+  no_new_registry: true as const,
+  provider: "OFF" as const,
+  writer_effect: "NONE" as const
+};
+
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
 });
@@ -146,6 +165,40 @@ describe("O10 Admin portfolio request context", () => {
     await act(async () => pending.resolve(response(changeSet)));
 
     expect(host.textContent).not.toContain("逐课治理 handoff");
+    await act(async () => root.unmount());
+  });
+
+  it("clears readiness loading when selection changes while readiness is pending", async () => {
+    const readinessPending = deferred<ReturnType<typeof response<typeof readiness>>>();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) => {
+        if (url.endsWith("/course-portfolio")) return Promise.resolve(response(portfolio));
+        if (url.includes("/strategic-portfolio-readiness")) return readinessPending.promise;
+        throw new Error(`unexpected url: ${url}`);
+      })
+    );
+
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        <ModelQualificationCoursePortfolioPanel
+          apiBase="http://fixture"
+          tenantId="tenant_demo"
+          token="token-demo"
+        />
+      );
+    });
+
+    expect(host.textContent).toContain("正在读取 exact W4/MQR 就绪度");
+    await act(async () => {
+      (host.querySelector('input[type="checkbox"]') as HTMLInputElement).click();
+    });
+    await act(async () => readinessPending.resolve(response(readiness)));
+
+    expect(host.textContent).not.toContain("正在读取 exact W4/MQR 就绪度");
     await act(async () => root.unmount());
   });
 });

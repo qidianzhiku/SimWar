@@ -77,6 +77,14 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string") ? [...value] : [];
 }
 
+function expectedPortfolioStateDigest(url: URL): string | undefined {
+  const value = url.searchParams.get("portfolioStateDigest");
+  if (value !== null && !/^[a-f0-9]{64}$/u.test(value)) {
+    throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+  }
+  return value ?? undefined;
+}
+
 function numberValue(value: unknown): number {
   return typeof value === "number" ? value : Number.NaN;
 }
@@ -271,7 +279,7 @@ export async function handleModelQualificationRoute(
         serviceActor(actor, "admin"),
         await canonicalTenantCourses(deps, context),
         strategicPortfolios,
-        url.searchParams.get("portfolioStateDigest") ?? undefined
+        expectedPortfolioStateDigest(url)
       )
     );
     return true;

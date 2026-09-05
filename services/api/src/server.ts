@@ -6932,6 +6932,55 @@ async function routeRequest(
             scope
           );
         }
+        const canonicalCourses =
+          await runtime.repositoryProvider.facade.courses.listCoursesForTenant(actor.tenant_id);
+        for (const course of canonicalCourses) {
+          if (course.tenant_id !== actor.tenant_id) continue;
+          const runs = await runtime.repositoryProvider.facade.runs.listRunsForCourse(
+            actor.tenant_id,
+            course.course_id
+          );
+          for (const run of runs) {
+            if (run.tenant_id !== actor.tenant_id || run.course_id !== course.course_id) continue;
+            const [rounds, teams] = await Promise.all([
+              runtime.repositoryProvider.facade.rounds.listRoundsForRun(
+                actor.tenant_id,
+                run.run_id
+              ),
+              runtime.repositoryProvider.facade.teams.listTeamsForRun(actor.tenant_id, run.run_id)
+            ]);
+            for (const round of rounds) {
+              if (round.tenant_id !== actor.tenant_id || round.run_id !== run.run_id) continue;
+              for (const team of teams) {
+                if (team.tenant_id !== actor.tenant_id || team.course_id !== course.course_id) {
+                  continue;
+                }
+                const scope: W4ScopeContext = {
+                  actor_id: actor.user_id,
+                  activity_id: "w4-enterprise-state-strategic-evolution",
+                  course_id: course.course_id,
+                  role_key: "admin",
+                  round_id: round.round_id,
+                  round_no: round.round_no,
+                  run_id: run.run_id,
+                  team_id: team.team_id,
+                  tenant_id: actor.tenant_id
+                };
+                scopes.set(
+                  [
+                    scope.tenant_id,
+                    scope.course_id,
+                    scope.run_id,
+                    scope.team_id,
+                    scope.round_id,
+                    scope.round_no
+                  ].join("\u001f"),
+                  scope
+                );
+              }
+            }
+          }
+        }
         const projections = [];
         for (const scope of [...scopes.values()].sort((left, right) =>
           [left.course_id, left.run_id, left.team_id, left.round_no, left.round_id]

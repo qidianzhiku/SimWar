@@ -11616,10 +11616,7 @@ components:
       required: [code, data, message, request_id]
       properties:
         code: { type: string }
-        data:
-          {
-            $ref: "../schemas/strategic-portfolio-model-governance-readiness.v1.json#/$defs/adminProjection"
-          }
+        data: { $ref: "../schemas/strategic-portfolio-model-governance-readiness.v1.json" }
         message: { type: string }
         request_id: { type: string, minLength: 1 }
     ModelQualificationPortfolioSupersessionPreviewEnvelope:
