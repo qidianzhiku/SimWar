@@ -243,6 +243,89 @@ body {
   }
 }
 
+.o10-changeset {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding: 1.25rem;
+  border: 1px solid #6c9cc1;
+  border-radius: 1rem;
+  background: #0b1b2b;
+  color: #f3f8fc;
+}
+
+.o10-changeset-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.o10-changeset-heading h3 {
+  margin: 0.25rem 0 0;
+  color: #f3f8fc;
+}
+
+.o10-changeset .eyebrow {
+  color: #d7ecff;
+}
+
+.o10-changeset-identities {
+  display: grid;
+  grid-template-columns: minmax(7rem, 0.3fr) minmax(0, 1fr);
+  gap: 0.5rem 1rem;
+  margin: 0;
+}
+
+.o10-changeset-identities dt {
+  color: #d7ecff;
+}
+
+.o10-changeset-identities dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.o10-changeset code,
+.o10-changeset strong {
+  color: #ffffff;
+}
+
+.o10-firewall,
+.o10-recovery-note {
+  margin: 0;
+  color: #e5f3ff;
+}
+
+.o10-handoff-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.o10-handoff {
+  padding: 0.9rem 1rem;
+  border: 1px solid #6c9cc1;
+  border-radius: 0.75rem;
+}
+
+.o10-handoff > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.o10-handoff p,
+.o10-handoff small {
+  display: block;
+  margin: 0.4rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.o10-handoff small {
+  color: #d7ecff;
+}
+
 button,
 input,
 select {

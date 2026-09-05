@@ -144,12 +144,6 @@ export function digestPortfolioChangeSetPolicy(): string {
   return policyDigest();
 }
 
-function selectedCourseDigest(
-  selected: readonly PortfolioChangeSetCourseSelection[]
-): string {
-  return stableSha256(selected);
-}
-
 function statusForPreview(
   previewStatus: ModelQualificationPortfolioSupersessionPreview["status"]
 ): PortfolioChangeSetRequestStatus {

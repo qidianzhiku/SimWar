@@ -1,0 +1,251 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/model-qualification-portfolio-changeset.v1.json",
+  "title": "SimWar O10 Portfolio Supersession Changeset Request and Per-Course Handoff",
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "adoptionReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adoption_id", "adoption_digest"],
+      "properties": {
+        "adoption_id": { "$ref": "#/$defs/nonEmptyString" },
+        "adoption_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "courseSelection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["course_id", "tenant_id", "selected_course_state_digest", "current_adoption"],
+      "properties": {
+        "course_id": { "$ref": "#/$defs/nonEmptyString" },
+        "tenant_id": { "$ref": "#/$defs/nonEmptyString" },
+        "selected_course_state_digest": { "$ref": "#/$defs/digest" },
+        "current_adoption": {
+          "oneOf": [{ "$ref": "#/$defs/adoptionReference" }, { "type": "null" }]
+        }
+      }
+    },
+    "seam": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation_id", "method", "path", "query", "mutates"],
+      "properties": {
+        "operation_id": {
+          "enum": [
+            "MODEL_QUALIFICATION_ADMIN_AUDIT_GET_V1",
+            "MODEL_QUALIFICATION_ADOPTION_OPERATIONS_ADMIN_GET_V1",
+            "MODEL_QUALIFICATION_ADOPTION_OPERATIONS_ADMIN_ROLLBACK_DRY_RUN_V1"
+          ]
+        },
+        "method": { "enum": ["GET", "POST"] },
+        "path": { "$ref": "#/$defs/nonEmptyString" },
+        "query": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["courseId"],
+          "properties": { "courseId": { "$ref": "#/$defs/nonEmptyString" } }
+        },
+        "mutates": { "const": false }
+      }
+    },
+    "handoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "handoff_id",
+        "handoff_digest",
+        "request_id",
+        "request_digest",
+        "tenant_id",
+        "course_id",
+        "selected_course_state_digest",
+        "current_adoption",
+        "readiness",
+        "status",
+        "existing_governance_seam",
+        "handoff_executed",
+        "apply",
+        "bulk_apply",
+        "cross_course_transaction",
+        "writer_effect",
+        "official_truth_write",
+        "provider",
+        "known_limits"
+      ],
+      "properties": {
+        "schema_version": { "const": "model-qualification-per-course-governed-handoff.v1" },
+        "handoff_id": { "$ref": "#/$defs/nonEmptyString" },
+        "handoff_digest": { "$ref": "#/$defs/digest" },
+        "request_id": { "$ref": "#/$defs/nonEmptyString" },
+        "request_digest": { "$ref": "#/$defs/digest" },
+        "tenant_id": { "$ref": "#/$defs/nonEmptyString" },
+        "course_id": { "$ref": "#/$defs/nonEmptyString" },
+        "selected_course_state_digest": { "$ref": "#/$defs/digest" },
+        "current_adoption": {
+          "oneOf": [{ "$ref": "#/$defs/adoptionReference" }, { "type": "null" }]
+        },
+        "readiness": {
+          "enum": [
+            "KEEP_CURRENT",
+            "REVIEW_EXISTING",
+            "REQUALIFY_CURRENT",
+            "REQUEST_GOVERNED_ROLLBACK",
+            "REBASE_REQUIRED",
+            "BLOCKED",
+            "NO_ACTIONABLE_ADOPTION"
+          ]
+        },
+        "status": { "enum": ["AVAILABLE", "BLOCKED", "REBASE_REQUIRED", "NO_ACTION"] },
+        "existing_governance_seam": { "oneOf": [{ "$ref": "#/$defs/seam" }, { "type": "null" }] },
+        "handoff_executed": { "const": false },
+        "apply": { "const": false },
+        "bulk_apply": { "const": false },
+        "cross_course_transaction": { "const": false },
+        "writer_effect": { "const": "NONE" },
+        "official_truth_write": { "const": false },
+        "provider": { "const": "OFF" },
+        "known_limits": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } }
+      }
+    },
+    "readback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_digest",
+        "expected_portfolio_state_digest",
+        "current_portfolio_state_digest",
+        "request_persisted",
+        "handoff_executed",
+        "apply",
+        "bulk_apply",
+        "cross_course_transaction",
+        "writer_effect",
+        "formal_truth_write"
+      ],
+      "properties": {
+        "request_digest": { "$ref": "#/$defs/digest" },
+        "expected_portfolio_state_digest": { "$ref": "#/$defs/digest" },
+        "current_portfolio_state_digest": { "$ref": "#/$defs/digest" },
+        "request_persisted": { "const": false },
+        "handoff_executed": { "const": false },
+        "apply": { "const": false },
+        "bulk_apply": { "const": false },
+        "cross_course_transaction": { "const": false },
+        "writer_effect": { "const": "NONE" },
+        "formal_truth_write": { "const": false }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "request_id",
+        "request_digest",
+        "tenant_id",
+        "portfolio_id",
+        "preview_id",
+        "preview_digest",
+        "expected_portfolio_state_digest",
+        "current_portfolio_state_digest",
+        "changeset_policy_version",
+        "changeset_policy_digest",
+        "selected_course_ids",
+        "selected_courses",
+        "preview_status",
+        "status",
+        "requestable",
+        "derived",
+        "query_only",
+        "provider",
+        "writer_effect",
+        "request_persisted",
+        "handoff_executed",
+        "apply",
+        "bulk_apply",
+        "cross_course_transaction",
+        "official_truth_write",
+        "formal_truth_write",
+        "known_limits",
+        "readback"
+      ],
+      "properties": {
+        "schema_version": { "const": "model-qualification-portfolio-changeset.v1" },
+        "request_id": { "$ref": "#/$defs/nonEmptyString" },
+        "request_digest": { "$ref": "#/$defs/digest" },
+        "tenant_id": { "$ref": "#/$defs/nonEmptyString" },
+        "portfolio_id": { "$ref": "#/$defs/nonEmptyString" },
+        "preview_id": { "$ref": "#/$defs/nonEmptyString" },
+        "preview_digest": { "$ref": "#/$defs/digest" },
+        "expected_portfolio_state_digest": { "$ref": "#/$defs/digest" },
+        "current_portfolio_state_digest": { "$ref": "#/$defs/digest" },
+        "changeset_policy_version": {
+          "const": "model-qualification-portfolio-changeset-policy.v1"
+        },
+        "changeset_policy_digest": { "$ref": "#/$defs/digest" },
+        "selected_course_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        },
+        "selected_courses": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/courseSelection" }
+        },
+        "preview_status": {
+          "enum": [
+            "KEEP_CURRENT",
+            "REVIEW_EXISTING",
+            "REQUALIFY_CURRENT",
+            "REQUEST_GOVERNED_ROLLBACK",
+            "REBASE_REQUIRED",
+            "BLOCKED",
+            "NO_ACTIONABLE_ADOPTION"
+          ]
+        },
+        "status": { "enum": ["READY", "BLOCKED", "REBASE_REQUIRED"] },
+        "requestable": { "type": "boolean" },
+        "derived": { "const": true },
+        "query_only": { "const": true },
+        "provider": { "const": "OFF" },
+        "writer_effect": { "const": "NONE" },
+        "request_persisted": { "const": false },
+        "handoff_executed": { "const": false },
+        "apply": { "const": false },
+        "bulk_apply": { "const": false },
+        "cross_course_transaction": { "const": false },
+        "official_truth_write": { "const": false },
+        "formal_truth_write": { "const": false },
+        "known_limits": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "readback": { "$ref": "#/$defs/readback" }
+      }
+    },
+    "requestInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["course_ids", "expected_portfolio_state_digest"],
+      "properties": {
+        "course_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        },
+        "expected_portfolio_state_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "request", "handoffs"],
+      "properties": {
+        "schema_version": { "const": "model-qualification-portfolio-changeset-response.v1" },
+        "request": { "$ref": "#/$defs/request" },
+        "handoffs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/handoff" } }
+      }
+    }
+  }
+}

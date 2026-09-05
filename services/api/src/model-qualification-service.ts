@@ -41,6 +41,15 @@ import {
   type ModelQualificationPortfolioCourseState,
   type ModelQualificationPortfolioSupersessionPreview
 } from "./model-qualification-portfolio-supersession-preview.js";
+import {
+  buildPortfolioChangeSetRequest,
+  digestPortfolioChangeSetPolicy,
+  type PortfolioChangeSetRequestEnvelope
+} from "./model-qualification-portfolio-changeset-request.js";
+import {
+  buildPerCourseGovernedHandoffs,
+  type PerCourseGovernedHandoff
+} from "./model-qualification-per-course-governed-handoff.js";
 import type {
   AdoptionDriftAssessment,
   AdoptionDriftAssessmentRequest,
@@ -94,6 +103,11 @@ export interface ModelQualificationScope {
   activity_id: string;
   course_id: string;
   tenant_id: string;
+}
+
+export interface ModelQualificationPortfolioChangeSetQuery {
+  readonly request: PortfolioChangeSetRequestEnvelope;
+  readonly handoffs: readonly PerCourseGovernedHandoff[];
 }
 
 export interface ModelQualificationClock {
@@ -612,6 +626,45 @@ export class ModelQualificationService {
       portfolio: portfolioForPreview,
       selected_course_identities: selectedCourseIdentities
     });
+  }
+
+  /**
+   * Compile the exact O9 portfolio and preview into an O10 query-only
+   * changeset request plus per-course handoff descriptions. The server binds
+   * the current versioned policy digest; no caller-supplied "latest" value or
+   * mutation command is accepted.
+   */
+  getCoursePortfolioChangeSetRequest(
+    actor: ModelQualificationActor,
+    authorizedCourses: readonly ModelQualificationAuthorizedCourse[],
+    selectedCourseIds: readonly string[],
+    expectedPortfolioStateDigest: string
+  ): ModelQualificationPortfolioChangeSetQuery {
+    const portfolio = this.getCoursePortfolio(actor, authorizedCourses);
+    const preview = this.getCoursePortfolioSupersessionPreview(
+      actor,
+      authorizedCourses,
+      selectedCourseIds,
+      expectedPortfolioStateDigest
+    );
+    const request = buildPortfolioChangeSetRequest({
+      portfolio,
+      preview,
+      expected_portfolio_state_digest: expectedPortfolioStateDigest,
+      expected_changeset_policy_digest: digestPortfolioChangeSetPolicy()
+    });
+    return {
+      request,
+      handoffs: buildPerCourseGovernedHandoffs(
+        {
+          request_id: request.request_id,
+          request_digest: request.request_digest,
+          tenant_id: request.tenant_id,
+          status: request.status
+        },
+        preview.course_previews
+      )
+    };
   }
 
   private adoptionContext(

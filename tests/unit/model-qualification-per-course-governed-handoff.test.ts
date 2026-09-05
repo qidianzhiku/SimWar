@@ -60,17 +60,15 @@ describe("O10 per-course governed handoff leaf", () => {
   });
 
   it("converts a stale or blocked request into an explicit non-action state", () => {
-    const stale = buildPerCourseGovernedHandoffs(
-      { ...REQUEST, status: "REBASE_REQUIRED" },
-      [course("course-a", "KEEP_CURRENT")]
-    )[0]!;
+    const stale = buildPerCourseGovernedHandoffs({ ...REQUEST, status: "REBASE_REQUIRED" }, [
+      course("course-a", "KEEP_CURRENT")
+    ])[0]!;
     expect(stale.status).toBe("REBASE_REQUIRED");
     expect(stale.existing_governance_seam).toBeNull();
 
-    const blocked = buildPerCourseGovernedHandoffs(
-      { ...REQUEST, status: "BLOCKED" },
-      [course("course-a", "REVIEW_EXISTING")]
-    )[0]!;
+    const blocked = buildPerCourseGovernedHandoffs({ ...REQUEST, status: "BLOCKED" }, [
+      course("course-a", "REVIEW_EXISTING")
+    ])[0]!;
     expect(blocked.status).toBe("BLOCKED");
     expect(blocked.existing_governance_seam).toBeNull();
 

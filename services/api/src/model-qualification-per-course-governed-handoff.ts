@@ -80,15 +80,6 @@ function clone<T>(value: T): T {
   return structuredClone(value);
 }
 
-function sameAdoption(
-  left: ModelQualificationPortfolioAdoptionIdentity | null,
-  right: ModelQualificationPortfolioAdoptionIdentity | null
-): boolean {
-  return left === null || right === null
-    ? left === right
-    : left.adoption_id === right.adoption_id && left.adoption_digest === right.adoption_digest;
-}
-
 function seamFor(
   readiness: PerCourseHandoffReadiness,
   courseId: string

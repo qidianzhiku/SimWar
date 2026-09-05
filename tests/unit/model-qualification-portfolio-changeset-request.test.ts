@@ -4,8 +4,7 @@ import {
   buildModelQualificationPortfolioSupersessionPreview,
   digestModelQualificationPortfolioCourseState,
   digestModelQualificationPortfolioState,
-  type ModelQualificationPortfolio,
-  type ModelQualificationPortfolioCourse
+  type ModelQualificationPortfolio
 } from "../../services/api/src/model-qualification-portfolio-supersession-preview";
 import {
   buildPortfolioChangeSetRequest,

@@ -41,6 +41,66 @@ type Preview = {
   query_only: true;
   derived: true;
 };
+type ChangeSetHandoff = {
+  handoff_id: string;
+  handoff_digest: string;
+  course_id: string;
+  readiness: string;
+  status: "AVAILABLE" | "BLOCKED" | "REBASE_REQUIRED" | "NO_ACTION";
+  existing_governance_seam: {
+    operation_id: string;
+    method: "GET" | "POST";
+    path: string;
+    query: { courseId: string };
+    mutates: false;
+  } | null;
+  handoff_executed: false;
+  apply: false;
+  known_limits: string[];
+};
+type ChangeSetRequest = {
+  request_id: string;
+  request_digest: string;
+  status: "READY" | "BLOCKED" | "REBASE_REQUIRED";
+  requestable: boolean;
+  portfolio_id: string;
+  preview_id: string;
+  preview_digest: string;
+  expected_portfolio_state_digest: string;
+  current_portfolio_state_digest: string;
+  changeset_policy_version: string;
+  changeset_policy_digest: string;
+  selected_course_ids: string[];
+  selected_courses: Array<{
+    course_id: string;
+    tenant_id: string;
+    selected_course_state_digest: string;
+    current_adoption: AdoptionReference | null;
+  }>;
+  request_persisted: false;
+  handoff_executed: false;
+  apply: false;
+  bulk_apply: false;
+  cross_course_transaction: false;
+  writer_effect: "NONE";
+  provider: "OFF";
+  known_limits: string[];
+  readback: {
+    request_digest: string;
+    request_persisted: false;
+    handoff_executed: false;
+    apply: false;
+    bulk_apply: false;
+    cross_course_transaction: false;
+    writer_effect: "NONE";
+    formal_truth_write: false;
+  };
+};
+type ChangeSet = {
+  schema_version: string;
+  request: ChangeSetRequest;
+  handoffs: ChangeSetHandoff[];
+};
 
 interface Envelope<T> {
   data: T;
@@ -69,6 +129,7 @@ export function ModelQualificationCoursePortfolioPanel({
 }: ModelQualificationCoursePortfolioPanelProps) {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
+  const [changeSet, setChangeSet] = useState<ChangeSet | null>(null);
   const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "empty" | "error">("loading");
   const [message, setMessage] = useState("");
@@ -87,6 +148,7 @@ export function ModelQualificationCoursePortfolioPanel({
     setStatus("loading");
     setMessage("");
     setPreview(null);
+    setChangeSet(null);
     try {
       const response = await fetch(
         endpoint(apiBase, "/api/v1/bff/admin/model-qualification/course-portfolio"),
@@ -114,6 +176,7 @@ export function ModelQualificationCoursePortfolioPanel({
         : [...current, courseId].sort((left, right) => left.localeCompare(right))
     );
     setPreview(null);
+    setChangeSet(null);
   };
 
   const previewSelection = async () => {
@@ -137,11 +200,44 @@ export function ModelQualificationCoursePortfolioPanel({
       );
       const next = await readEnvelope<Preview>(response);
       setPreview(next);
+      setChangeSet(null);
       if (next.status === "REBASE_REQUIRED") {
         setMessage("组合状态已变化，请重新加载后再查看精确预览。");
       }
     } catch {
       setMessage("预览读取失败；未执行任何组合或治理变更，请重试。");
+    }
+  };
+
+  const compileChangeSet = async () => {
+    if (!portfolio || selectedCourseIds.length === 0 || !preview) return;
+    setMessage("");
+    setChangeSet(null);
+    try {
+      const response = await fetch(
+        endpoint(
+          apiBase,
+          "/api/v1/bff/admin/model-qualification/course-portfolio/changeset-request"
+        ),
+        {
+          ...requestInit,
+          method: "POST",
+          headers: { ...requestInit.headers, "content-type": "application/json" },
+          body: JSON.stringify({
+            course_ids: selectedCourseIds,
+            expected_portfolio_state_digest: portfolio.portfolio_state_digest
+          })
+        }
+      );
+      const next = await readEnvelope<ChangeSet>(response);
+      setChangeSet(next);
+      if (next.request.status === "REBASE_REQUIRED") {
+        setMessage("组合状态已变化；此 O10 请求已标记为 REBASE_REQUIRED，请重新读取后再编译。");
+      } else if (next.request.status === "BLOCKED") {
+        setMessage("组合请求存在阻塞项；未执行逐课 handoff 或任何变更。");
+      }
+    } catch {
+      setMessage("变更集请求读取失败；未执行任何组合或治理变更，请重试。");
     }
   };
 
@@ -248,6 +344,13 @@ export function ModelQualificationCoursePortfolioPanel({
             >
               生成选中课程的只读 Supersession Preview
             </button>
+            <button
+              type="button"
+              disabled={selectedCourseIds.length === 0 || !preview}
+              onClick={() => void compileChangeSet()}
+            >
+              编译 O10 逐课变更集请求（只读）
+            </button>
           </div>
           {preview ? (
             <section className="o9-preview" aria-live="polite" aria-label="Supersession Preview">
@@ -264,6 +367,67 @@ export function ModelQualificationCoursePortfolioPanel({
                   {course.reasons.length > 0 ? <small>{course.reasons.join("、")}</small> : null}
                 </div>
               ))}
+            </section>
+          ) : null}
+          {changeSet ? (
+            <section
+              className="o10-changeset"
+              aria-live="polite"
+              aria-label="O10 Portfolio ChangeSet Request"
+            >
+              <div className="o10-changeset-heading">
+                <div>
+                  <p className="eyebrow">O10 · Portfolio Supersession</p>
+                  <h3>逐课治理 handoff：{changeSet.request.status}</h3>
+                </div>
+                <span className="o9-query-badge">query-only · no apply · Provider OFF</span>
+              </div>
+              <dl className="o10-changeset-identities">
+                <dt>Request</dt>
+                <dd>
+                  <code>{changeSet.request.request_id}</code>
+                </dd>
+                <dt>Request digest</dt>
+                <dd>
+                  <code>{changeSet.request.request_digest}</code>
+                </dd>
+                <dt>Portfolio / Preview</dt>
+                <dd>
+                  <code>{changeSet.request.portfolio_id}</code> ·{" "}
+                  <code>{changeSet.request.preview_id}</code>
+                </dd>
+                <dt>Policy</dt>
+                <dd>
+                  <code>{changeSet.request.changeset_policy_version}</code> ·{" "}
+                  <code>{changeSet.request.changeset_policy_digest}</code>
+                </dd>
+              </dl>
+              <p className="o10-firewall" role="status">
+                request != approval · handoff != execution · apply=false · bulk_apply=false ·
+                cross_course_transaction=false
+              </p>
+              <div className="o10-handoff-list">
+                {changeSet.handoffs.map((handoff) => (
+                  <article className="o10-handoff" key={handoff.handoff_id}>
+                    <div>
+                      <strong>{handoff.course_id}</strong>
+                      <span>
+                        {handoff.readiness} · {handoff.status}
+                      </span>
+                    </div>
+                    <p>
+                      {handoff.existing_governance_seam
+                        ? `${handoff.existing_governance_seam.method} ${handoff.existing_governance_seam.operation_id}`
+                        : "没有可执行的现有逐课 seam"}
+                    </p>
+                    <small>handoff_executed=false · apply=false · {handoff.handoff_digest}</small>
+                  </article>
+                ))}
+              </div>
+              <p className="o10-recovery-note">
+                此结果是 exact source/readback 的候选请求，不会写入
+                adoption、rollback、requalification、Run 或正式真值；如状态变化，请重新读取组合。
+              </p>
             </section>
           ) : null}
           {message ? (
