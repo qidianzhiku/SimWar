@@ -6503,6 +6503,51 @@ paths:
         "401": { description: Authentication required }
         "403": { description: Tenant administrator scope denied }
 
+  /api/v1/bff/admin/model-qualification/course-portfolio:
+    get:
+      operationId: MODEL_QUALIFICATION_COURSE_PORTFOLIO_ADMIN_GET_V1
+      summary: Read a tenant-authorized, derived model qualification course portfolio.
+      description: Course Authority supplies membership; ModelQualification supplies exact per-course governance data. This endpoint is query-only and does not create courses, apply adoption, or write formal truth.
+      security: [{ SessionBearer: [] }]
+      responses:
+        "200":
+          description: Tenant-safe derived course portfolio.
+          content:
+            application/json:
+              { schema: { $ref: "#/components/schemas/ModelQualificationCoursePortfolioEnvelope" } }
+        "401": { description: Authentication required }
+        "403": { description: Tenant administrator scope denied }
+  /api/v1/bff/admin/model-qualification/course-portfolio/supersession-preview:
+    post:
+      operationId: MODEL_QUALIFICATION_COURSE_PORTFOLIO_SUPERSESSION_PREVIEW_ADMIN_POST_V1
+      summary: Preview exact selected courses against a portfolio state digest.
+      description: Derived query-only readiness preview. A stale portfolio digest returns REBASE_REQUIRED; no adoption, rollback, or formal truth mutation is performed.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            {
+              schema:
+                {
+                  $ref: "../schemas/model-qualification-course-portfolio.v1.json#/$defs/supersessionPreviewRequest"
+                }
+            }
+      responses:
+        "200":
+          description: Deterministic no-mutation supersession preview.
+          content:
+            application/json:
+              {
+                schema:
+                  {
+                    $ref: "#/components/schemas/ModelQualificationPortfolioSupersessionPreviewEnvelope"
+                  }
+              }
+        "401": { description: Authentication required }
+        "403": { description: Tenant administrator scope denied }
+        "409": { description: Portfolio or selected course identity conflict }
+
   /api/v1/bff/teacher/model-qualification/adoption-operations:
     get:
       operationId: MODEL_QUALIFICATION_ADOPTION_OPERATIONS_TEACHER_GET_V1
@@ -11500,6 +11545,27 @@ components:
       properties:
         code: { type: string }
         data: { $ref: "../schemas/model-qualification.v1.json#/$defs/adminProjection" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ModelQualificationCoursePortfolioEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/model-qualification-course-portfolio.v1.json#/$defs/portfolio" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ModelQualificationPortfolioSupersessionPreviewEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          {
+            $ref: "../schemas/model-qualification-course-portfolio.v1.json#/$defs/supersessionPreview"
+          }
         message: { type: string }
         request_id: { type: string, minLength: 1 }
     ModelQualificationStudentEnvelope:

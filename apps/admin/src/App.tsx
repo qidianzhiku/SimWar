@@ -57,6 +57,7 @@ const EnterpriseCourseFactoryWorkspace = lazy(() =>
   )
 );
 import { W4EnterprisePortfolioPanel } from "./W4EnterprisePortfolioPanel";
+import { ModelQualificationCoursePortfolioPanel } from "./ModelQualificationCoursePortfolioPanel";
 import { MarketWorldAuditPanel } from "./MarketWorldAuditPanel";
 import { ProjectLibraryAuditPanel } from "./ProjectLibraryAuditPanel";
 import { ProjectAwareLaunchAuditPanel } from "./ProjectAwareLaunchAuditPanel";
@@ -376,7 +377,10 @@ export function App() {
     ? isTenantAdmin
       ? ADMIN_NAVIGATION_ITEMS
       : hasAdminSummaryRole
-        ? ADMIN_NAVIGATION_ITEMS.filter((item) => item.id !== "admin-users-roles")
+        ? ADMIN_NAVIGATION_ITEMS.filter(
+            (item) =>
+              item.id !== "admin-users-roles" && item.id !== "admin-model-qualification-portfolio"
+          )
         : []
     : ADMIN_NAVIGATION_ITEMS.filter((item) =>
         ["admin-delivery-overview", "admin-audit-receipts", "admin-security-projection"].includes(
@@ -472,7 +476,8 @@ export function App() {
   }, [session]);
 
   const recoverAdminContext = session
-    ? () => void (session.user.roles.includes("platform_admin") ? refreshCoursePackages() : refresh())
+    ? () =>
+        void (session.user.roles.includes("platform_admin") ? refreshCoursePackages() : refresh())
     : undefined;
 
   function updateLogin(field: keyof LoginForm, value: string): void {
@@ -1612,6 +1617,14 @@ export function App() {
 
       {session && hasAdminSummaryRole ? (
         <W4EnterprisePortfolioPanel tenantId={login.tenantId} token={session.access_token} />
+      ) : null}
+
+      {session && isTenantAdmin ? (
+        <ModelQualificationCoursePortfolioPanel
+          apiBase={API_BASE}
+          tenantId={login.tenantId}
+          token={session.access_token}
+        />
       ) : null}
 
       {isTenantAdmin && state ? (

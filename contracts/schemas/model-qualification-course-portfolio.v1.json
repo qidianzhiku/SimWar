@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/model-qualification-course-portfolio.v1.json",
+  "title": "SimWar Model Qualification Course Portfolio and Supersession Preview",
+  "oneOf": [{ "$ref": "#/$defs/portfolio" }, { "$ref": "#/$defs/supersessionPreview" }],
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "adoptionReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adoption_id", "adoption_digest"],
+      "properties": {
+        "adoption_id": { "$ref": "#/$defs/nonEmptyString" },
+        "adoption_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "course": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["course_id", "tenant_id", "title"],
+      "properties": {
+        "course_id": { "$ref": "#/$defs/nonEmptyString" },
+        "tenant_id": { "$ref": "#/$defs/nonEmptyString" },
+        "title": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "qualificationIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "qualification_id"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "qualification_id": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "blocker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "course_id", "observed_tenant_id", "related_digests", "related_ids"],
+      "properties": {
+        "code": { "$ref": "#/$defs/nonEmptyString" },
+        "course_id": { "oneOf": [{ "$ref": "#/$defs/nonEmptyString" }, { "type": "null" }] },
+        "observed_tenant_id": {
+          "oneOf": [{ "$ref": "#/$defs/nonEmptyString" }, { "type": "null" }]
+        },
+        "related_digests": { "type": "array", "items": { "$ref": "#/$defs/digest" } },
+        "related_ids": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } }
+      }
+    },
+    "portfolioEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adoption_state_digest",
+        "blockers",
+        "course",
+        "current_adoption",
+        "current_adoption_candidates",
+        "current_adoption_epoch",
+        "known_limits",
+        "o8_outcomes",
+        "qualification",
+        "qualification_candidates",
+        "qualification_consistency",
+        "writer_effect"
+      ],
+      "properties": {
+        "adoption_state_digest": { "oneOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }] },
+        "blockers": { "type": "array", "items": { "$ref": "#/$defs/blocker" } },
+        "course": { "$ref": "#/$defs/course" },
+        "current_adoption": {
+          "oneOf": [{ "$ref": "#/$defs/adoptionReference" }, { "type": "null" }]
+        },
+        "current_adoption_candidates": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/adoptionReference" }
+        },
+        "current_adoption_epoch": {
+          "oneOf": [{ "type": "object", "additionalProperties": true }, { "type": "null" }]
+        },
+        "known_limits": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "o8_outcomes": {
+          "type": "array",
+          "items": { "type": "object", "additionalProperties": true }
+        },
+        "qualification": {
+          "oneOf": [{ "type": "object", "additionalProperties": true }, { "type": "null" }]
+        },
+        "qualification_candidates": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/qualificationIdentity" }
+        },
+        "qualification_consistency": {
+          "enum": ["CONSISTENT", "LIMITED", "BLOCKED", "INCONSISTENT"]
+        },
+        "writer_effect": { "const": "NONE" }
+      }
+    },
+    "portfolio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adoption_mutation",
+        "blockers",
+        "courses",
+        "derived",
+        "formal_truth_write",
+        "history_deleted",
+        "known_limits",
+        "no_new_registry",
+        "no_new_store",
+        "no_new_writer",
+        "official_truth_write",
+        "portfolio_state_digest",
+        "portfolio_status",
+        "provider",
+        "query_only",
+        "rank_write",
+        "rollback_applied",
+        "schema_version",
+        "score_write",
+        "settlement_write",
+        "tenant_id",
+        "writes_formal_truth",
+        "writer_effect"
+      ],
+      "properties": {
+        "adoption_mutation": { "const": false },
+        "blockers": { "type": "array", "items": { "$ref": "#/$defs/blocker" } },
+        "courses": { "type": "array", "items": { "$ref": "#/$defs/portfolioEntry" } },
+        "derived": { "const": true },
+        "formal_truth_write": { "const": false },
+        "history_deleted": { "const": false },
+        "known_limits": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "no_new_registry": { "const": true },
+        "no_new_store": { "const": true },
+        "no_new_writer": { "const": true },
+        "official_truth_write": { "const": false },
+        "portfolio_state_digest": { "$ref": "#/$defs/digest" },
+        "portfolio_status": { "enum": ["READY", "BLOCKED"] },
+        "provider": { "const": "OFF" },
+        "query_only": { "const": true },
+        "rank_write": { "const": false },
+        "rollback_applied": { "const": false },
+        "schema_version": { "const": "model-qualification-course-portfolio.v1" },
+        "score_write": { "const": false },
+        "settlement_write": { "const": false },
+        "tenant_id": { "$ref": "#/$defs/nonEmptyString" },
+        "writes_formal_truth": { "const": false },
+        "writer_effect": { "const": "NONE" }
+      }
+    },
+    "coursePreview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "course_id",
+        "current_adoption",
+        "current_course_state_digest",
+        "reasons",
+        "selected_course_state_digest",
+        "status"
+      ],
+      "properties": {
+        "course_id": { "$ref": "#/$defs/nonEmptyString" },
+        "current_adoption": {
+          "oneOf": [{ "$ref": "#/$defs/adoptionReference" }, { "type": "null" }]
+        },
+        "current_course_state_digest": { "$ref": "#/$defs/digest" },
+        "reasons": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "selected_course_state_digest": { "$ref": "#/$defs/digest" },
+        "status": {
+          "enum": [
+            "KEEP_CURRENT",
+            "REVIEW_EXISTING",
+            "REQUALIFY_CURRENT",
+            "REQUEST_GOVERNED_ROLLBACK",
+            "BLOCKED",
+            "NO_ACTIONABLE_ADOPTION"
+          ]
+        }
+      }
+    },
+    "supersessionPreview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "blockers",
+        "course_previews",
+        "current_portfolio_state_digest",
+        "derived",
+        "expected_portfolio_state_digest",
+        "portfolio_id",
+        "preview_applied",
+        "preview_digest",
+        "preview_id",
+        "query_only",
+        "selected_course_ids",
+        "status",
+        "tenant_id",
+        "writer_effect",
+        "writes_formal_truth"
+      ],
+      "properties": {
+        "blockers": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "course_previews": { "type": "array", "items": { "$ref": "#/$defs/coursePreview" } },
+        "current_portfolio_state_digest": { "$ref": "#/$defs/digest" },
+        "derived": { "const": true },
+        "expected_portfolio_state_digest": { "$ref": "#/$defs/digest" },
+        "portfolio_id": { "$ref": "#/$defs/nonEmptyString" },
+        "preview_applied": { "const": false },
+        "preview_digest": { "$ref": "#/$defs/digest" },
+        "preview_id": { "$ref": "#/$defs/nonEmptyString" },
+        "query_only": { "const": true },
+        "selected_course_ids": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "status": {
+          "enum": [
+            "KEEP_CURRENT",
+            "REVIEW_EXISTING",
+            "REQUALIFY_CURRENT",
+            "REQUEST_GOVERNED_ROLLBACK",
+            "REBASE_REQUIRED",
+            "BLOCKED",
+            "NO_ACTIONABLE_ADOPTION"
+          ]
+        },
+        "tenant_id": { "$ref": "#/$defs/nonEmptyString" },
+        "writer_effect": { "const": "NONE" },
+        "writes_formal_truth": { "const": false }
+      }
+    },
+    "supersessionPreviewRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["course_ids", "expected_portfolio_state_digest"],
+      "properties": {
+        "course_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        },
+        "expected_portfolio_state_digest": { "$ref": "#/$defs/digest" }
+      }
+    }
+  }
+}

@@ -487,6 +487,76 @@ describe("Product PR4 integration contracts", () => {
     }
   });
 
+  it("accepts only an O9-scoped visual delta on the declared admin surfaces", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "simwar-o9-visual-expected-delta-"));
+    try {
+      const baseline = join(fixture, "baseline");
+      const candidate = join(fixture, "candidate");
+      const diff = join(fixture, "diff");
+      const receipt = join(fixture, "o9-visual-delta.json");
+      mkdirSync(baseline);
+      mkdirSync(candidate);
+      writePng(join(baseline, "admin-admin-tenants-entitlements-ready-390x844.png"), blackPixelPng);
+      writePng(join(candidate, "admin-admin-tenants-entitlements-ready-390x844.png"), redPixelPng);
+      writeFileSync(
+        receipt,
+        JSON.stringify({
+          schema_version: 1,
+          mission_id: "MAIN-MQR-O9-COURSE-PORTFOLIO-ADOPTION-OPERATIONS-AND-SUPERSESSION",
+          change_id: "o9-course-portfolio-navigation-delta",
+          change_type: "governed-course-portfolio-navigation-delta",
+          design_source_status: "TARGET_UNRESOLVED",
+          base_sha: "base-sha",
+          affected_surfaces: ["admin-admin-tenants-entitlements-ready"],
+          accepted_roles: { admin: { max_diff_pixel_ratio: 1 } },
+          rationale:
+            "O9 adds a tenant-admin-only course portfolio navigation entry; only the declared admin surface may record this expected delta."
+        })
+      );
+
+      const output = join(fixture, "manifest.json");
+      const actualSha = execFileSync("git", ["rev-parse", "HEAD"], {
+        cwd: root,
+        encoding: "utf8"
+      }).trim();
+      const result = runNodeResult("scripts/assemble-pr4-visual-manifest.mjs", [
+        "--baseline",
+        baseline,
+        "--candidate",
+        candidate,
+        "--diff-root",
+        diff,
+        "--output",
+        output,
+        "--max-diff-pixel-ratio",
+        "0.01",
+        "--base-sha",
+        "base-sha",
+        "--head-sha",
+        actualSha,
+        "--expected-diff-receipt",
+        receipt
+      ]);
+
+      expect(result.status).toBe(0);
+      const manifest = JSON.parse(readFileSync(output, "utf8")) as {
+        status: string;
+        expected_visual_delta?: { mission_id: string; accepted_differences: unknown[] };
+        surfaces: Array<{ status: string }>;
+      };
+      expect(manifest).toMatchObject({
+        status: "passed",
+        expected_visual_delta: {
+          mission_id: "MAIN-MQR-O9-COURSE-PORTFOLIO-ADOPTION-OPERATIONS-AND-SUPERSESSION"
+        }
+      });
+      expect(manifest.expected_visual_delta?.accepted_differences).toHaveLength(1);
+      expect(manifest.surfaces[0]).toMatchObject({ status: "acceptable_difference" });
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
   it("marks missing visual pairs as not-ready and retains BASE/HEAD provenance", () => {
     const fixture = mkdtempSync(join(tmpdir(), "simwar-pr4-visual-missing-"));
     try {
@@ -818,6 +888,8 @@ describe("Product PR4 integration contracts", () => {
     expect(ciSource).toContain('cp "$PR4_EVIDENCE_ROOT/base-capture/candidate/"*.png');
     expect(ciSource).toContain("--expected-diff-receipt");
     expect(ciSource).toContain("docs/design/ui-refoundation/figma-p1-visual-delta.json");
+    expect(ciSource).toContain("docs/design/ui-refoundation/o9-visual-delta.json");
+    expect(ciSource).toContain("codex/main-mqr-o9-*");
     expect(ciSource).not.toContain("Assemble PR4 visual manifest");
     expect(ciSource).not.toContain("continue-on-error: true");
     expect(ciSource).toContain('status === "failed"');

@@ -29,6 +29,18 @@ import {
 } from "./model-qualification-explicit-readoption.js";
 import { resolveRollbackRequestOutcome } from "./model-qualification-rollback-request-resolution.js";
 import { assessReadoptionHistoricalConsistency } from "./model-qualification-readoption-historical-consistency.js";
+import {
+  buildModelQualificationCoursePortfolio,
+  type ModelQualificationAuthorizedCourse,
+  type ModelQualificationCoursePortfolio
+} from "./model-qualification-course-portfolio.js";
+import {
+  buildModelQualificationPortfolioSupersessionPreview,
+  digestModelQualificationPortfolioCourseState,
+  type ModelQualificationPortfolio,
+  type ModelQualificationPortfolioCourseState,
+  type ModelQualificationPortfolioSupersessionPreview
+} from "./model-qualification-portfolio-supersession-preview.js";
 import type {
   AdoptionDriftAssessment,
   AdoptionDriftAssessmentRequest,
@@ -479,6 +491,14 @@ export class ModelQualificationService {
   }
 
   /**
+   * Read-only governance records for derived projections. Returning clones
+   * keeps the existing MAIN_MODEL_GOVERNANCE writer as the sole mutator.
+   */
+  listRecords(): readonly ModelQualificationRecord[] {
+    return [...this.records.values()].map((record) => clone(record));
+  }
+
+  /**
    * Read one tenant/course-scoped qualification record for an existing
    * admission boundary. The returned value is cloned so this read cannot
    * mutate the sole model-governance writer's in-memory authority.
@@ -489,6 +509,109 @@ export class ModelQualificationService {
     const record = this.records.get(this.key(scope.tenant_id, scope.course_id));
     if (record) assertGovernedRollbackRequestIntegrity(record);
     return record ? clone(record) : null;
+  }
+
+  /**
+   * Build O9's tenant-scoped portfolio from the canonical Course Authority
+   * list supplied by the route. This is derived/query-only and never creates
+   * a course or writes governance/formal truth.
+   */
+  getCoursePortfolio(
+    actor: ModelQualificationActor,
+    authorizedCourses: readonly ModelQualificationAuthorizedCourse[]
+  ): ModelQualificationCoursePortfolio {
+    if (actor.role !== "tenant_admin") {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    if (authorizedCourses.some((course) => course.tenant_id !== actor.tenant_id)) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    return buildModelQualificationCoursePortfolio({
+      authorized_courses: authorizedCourses,
+      governance_records: this.listRecords().filter(
+        (record) => record.tenant_id === actor.tenant_id
+      ),
+      tenant_id: actor.tenant_id
+    });
+  }
+
+  /**
+   * Derive the O9 supersession preview from one exact portfolio snapshot and
+   * explicit course IDs. The route never supplies an implicit selector.
+   */
+  getCoursePortfolioSupersessionPreview(
+    actor: ModelQualificationActor,
+    authorizedCourses: readonly ModelQualificationAuthorizedCourse[],
+    selectedCourseIds: readonly string[],
+    expectedPortfolioStateDigest: string
+  ): ModelQualificationPortfolioSupersessionPreview {
+    const portfolio = this.getCoursePortfolio(actor, authorizedCourses);
+    const portfolioForPreview: ModelQualificationPortfolio = {
+      courses: portfolio.courses.map((entry) => {
+        const state: ModelQualificationPortfolioCourseState = {
+          blocked_reasons: entry.blockers.map((item) => item.code),
+          current_adoption: entry.current_adoption
+            ? {
+                adoption_digest: entry.current_adoption.adoption_digest,
+                adoption_id: entry.current_adoption.adoption_id
+              }
+            : null,
+          governed_rollback_available: entry.o8_outcomes.some(
+            (outcome) =>
+              outcome.current_effect !== "SUPERSEDED" &&
+              [
+                "PENDING_REVIEW",
+                "APPROVED_PENDING_DISPOSITION",
+                "READOPTED_FOR_FUTURE_ADMISSION"
+              ].includes(outcome.outcome_status)
+          ),
+          requalification_required:
+            entry.qualification_consistency !== "CONSISTENT" ||
+            entry.blockers.some((item) =>
+              /QUALIFICATION|REQUALIFICATION|CURRENT_ADOPTION_NOT_EFFECTIVE/u.test(item.code)
+            ),
+          review_required:
+            entry.qualification?.review.status !== "APPROVED" ||
+            entry.o8_outcomes.some((outcome) =>
+              ["PENDING_REVIEW", "APPROVED_PENDING_DISPOSITION"].includes(outcome.outcome_status)
+            )
+        };
+        return {
+          authorized: true,
+          course_id: entry.course.course_id,
+          state,
+          tenant_id: entry.course.tenant_id
+        };
+      }),
+      portfolio_id: `model-qualification-course-portfolio:${actor.tenant_id}`,
+      portfolio_state_digest: portfolio.portfolio_state_digest,
+      tenant_id: actor.tenant_id
+    };
+    const selectedCourseIdentities = selectedCourseIds.map((courseId) => {
+      const entry = portfolio.courses.find((candidate) => candidate.course.course_id === courseId);
+      if (!entry) {
+        return {
+          course_id: courseId,
+          course_state_digest: "0".repeat(64),
+          current_adoption: null,
+          tenant_id: actor.tenant_id
+        };
+      }
+      const state = portfolioForPreview.courses.find(
+        (candidate) => candidate.course_id === courseId
+      )!.state;
+      return {
+        course_id: courseId,
+        course_state_digest: digestModelQualificationPortfolioCourseState(state),
+        current_adoption: state.current_adoption,
+        tenant_id: actor.tenant_id
+      };
+    });
+    return buildModelQualificationPortfolioSupersessionPreview({
+      expected_portfolio_state_digest: expectedPortfolioStateDigest,
+      portfolio: portfolioForPreview,
+      selected_course_identities: selectedCourseIdentities
+    });
   }
 
   private adoptionContext(

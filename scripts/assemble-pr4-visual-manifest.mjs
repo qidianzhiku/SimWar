@@ -89,7 +89,10 @@ if (expectedDiffReceiptArg) {
   const isR3Delta =
     receipt.change_type === "cross-role-accessibility-recovery-convergence" &&
     receipt.mission_id === "R3-MAIN-UXR-O1";
-  if (!isFigmaDelta && !isR3Delta) {
+  const isO9Delta =
+    receipt.change_type === "governed-course-portfolio-navigation-delta" &&
+    receipt.mission_id === "MAIN-MQR-O9-COURSE-PORTFOLIO-ADOPTION-OPERATIONS-AND-SUPERSESSION";
+  if (!isFigmaDelta && !isR3Delta && !isO9Delta) {
     throw new Error("Expected visual-diff receipt has an unsupported change type or mission.");
   }
   if (isFigmaDelta && receipt?.figma_file_key !== "6ezOykmrZbMbFEYPfIkZ07") {
@@ -101,6 +104,26 @@ if (expectedDiffReceiptArg) {
     }
     if (receipt.affected_surfaces.length === 0) {
       throw new Error("R3 visual-diff receipt must declare at least one affected surface.");
+    }
+  }
+  if (isO9Delta) {
+    if (receipt.design_source_status !== "TARGET_UNRESOLVED") {
+      throw new Error("O9 visual-diff receipt must preserve TARGET_UNRESOLVED design status.");
+    }
+    if (!receipt.change_id || !Array.isArray(receipt.affected_surfaces)) {
+      throw new Error("O9 visual-diff receipt must declare change_id and affected_surfaces.");
+    }
+    if (
+      receipt.affected_surfaces.length === 0 ||
+      receipt.affected_surfaces.some(
+        (surface) =>
+          ![
+            "admin-admin-tenants-entitlements-ready",
+            "enterprise-admin-enterprise-course-factory-ready"
+          ].includes(surface)
+      )
+    ) {
+      throw new Error("O9 visual-diff receipt is limited to the declared Admin surfaces.");
     }
   }
   if (!receipt?.rationale || typeof receipt.rationale !== "string") {

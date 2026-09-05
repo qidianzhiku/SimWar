@@ -77,6 +77,172 @@ body {
   color: #53616b;
 }
 
+.o9-course-portfolio {
+  margin-top: 18px;
+  max-width: 1180px;
+}
+
+.o9-course-portfolio .panel-title {
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.o9-query-badge {
+  background: #e8f0ed;
+  border: 1px solid #b8cec6;
+  border-radius: 999px;
+  color: #245c4a;
+  font-size: 12px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+/* The shared .panel-title span rule is intentionally muted for generic
+   headings. Keep this governance boundary badge on its accessible semantic
+   color so the query-only/provider-off disclosure remains legible. */
+.o9-course-portfolio .o9-query-badge {
+  color: #245c4a;
+}
+
+.o9-boundary,
+.o9-state-panel,
+.o9-recovery-message {
+  color: #53616b;
+  line-height: 1.55;
+}
+
+.o9-state-panel {
+  background: #fff;
+  border: 1px solid #d8dfe2;
+  border-radius: 8px;
+  margin: 12px 0;
+  padding: 14px;
+}
+
+.o9-error {
+  color: #8b2626;
+}
+
+.o9-warning {
+  border-color: #d6c28a;
+}
+
+.o9-portfolio-summary {
+  align-items: center;
+  background: #edf2f3;
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin: 14px 0;
+  padding: 12px;
+}
+
+.o9-portfolio-summary code,
+.o9-preview code,
+.o9-course-card small {
+  overflow-wrap: anywhere;
+}
+
+.o9-course-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  min-width: 0;
+}
+
+.o9-course-card {
+  min-width: 0;
+}
+
+.o9-course-select {
+  align-items: flex-start;
+  display: flex;
+  gap: 10px;
+}
+
+.o9-course-select span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.o9-course-select small {
+  color: #69737c;
+}
+
+.o9-course-card dl {
+  display: grid;
+  gap: 4px 12px;
+  grid-template-columns: minmax(100px, auto) 1fr;
+  margin: 16px 0 0;
+}
+
+.o9-course-card dt {
+  color: #69737c;
+  font-size: 12px;
+}
+
+.o9-course-card dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.o9-blockers {
+  color: #8b2626;
+  font-size: 12px;
+  padding-left: 18px;
+}
+
+.o9-outcome-note {
+  color: #53616b;
+  font-size: 12px;
+}
+
+.o9-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.o9-preview {
+  background: #f8faf9;
+  border: 1px solid #b8cec6;
+  border-radius: 8px;
+  margin-top: 18px;
+  min-width: 0;
+  padding: 16px;
+}
+
+.o9-preview p {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.o9-preview-row {
+  align-items: baseline;
+  border-top: 1px solid #d8dfe2;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(130px, 0.7fr) minmax(170px, 1fr) 2fr;
+  padding: 10px 0;
+}
+
+.o9-preview-row small {
+  color: #69737c;
+}
+
+@media (max-width: 640px) {
+  .o9-query-badge {
+    white-space: normal;
+  }
+
+  .o9-preview-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 button,
 input,
 select {
