@@ -25,11 +25,56 @@ describe("O9 model qualification course portfolio contract", () => {
     const schema = JSON.parse(
       readFileSync("contracts/schemas/model-qualification-course-portfolio.v1.json", "utf8")
     );
-    expect(() => new Ajv2020({ allErrors: true, strict: false }).compile(schema)).not.toThrow();
+    const validate = new Ajv2020({ allErrors: true, strict: false }).compile(schema);
     expect(schema.$defs.portfolio.properties.derived.const).toBe(true);
     expect(schema.$defs.portfolio.properties.query_only.const).toBe(true);
     expect(schema.$defs.portfolio.properties.provider.const).toBe("OFF");
     expect(schema.$defs.supersessionPreview.properties.preview_applied.const).toBe(false);
+
+    expect(
+      validate({
+        adoption_mutation: false,
+        blockers: [],
+        courses: [
+          {
+            adoption_state_digest: null,
+            blockers: [],
+            course: { course_id: "course-1", tenant_id: "tenant-1", title: "Course" },
+            current_adoption: null,
+            current_adoption_candidates: [],
+            current_adoption_epoch: null,
+            known_limits: ["bounded"],
+            o8_outcomes: [],
+            qualification: null,
+            qualification_candidates: [
+              { content_digest: "a".repeat(64), qualification_id: "qualification-1" }
+            ],
+            qualification_consistency: "BLOCKED",
+            writer_effect: "NONE"
+          }
+        ],
+        derived: true,
+        formal_truth_write: false,
+        history_deleted: false,
+        known_limits: ["bounded"],
+        no_new_registry: true,
+        no_new_store: true,
+        no_new_writer: true,
+        official_truth_write: false,
+        portfolio_state_digest: "b".repeat(64),
+        portfolio_status: "BLOCKED",
+        provider: "OFF",
+        query_only: true,
+        rank_write: false,
+        rollback_applied: false,
+        schema_version: "model-qualification-course-portfolio.v1",
+        score_write: false,
+        settlement_write: false,
+        tenant_id: "tenant-1",
+        writes_formal_truth: false,
+        writer_effect: "NONE"
+      })
+    ).toBe(true);
   });
 
   it("documents Course Authority membership and stale-digest rebase semantics", () => {

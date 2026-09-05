@@ -528,7 +528,9 @@ export class ModelQualificationService {
     }
     return buildModelQualificationCoursePortfolio({
       authorized_courses: authorizedCourses,
-      governance_records: this.listRecords(),
+      governance_records: this.listRecords().filter(
+        (record) => record.tenant_id === actor.tenant_id
+      ),
       tenant_id: actor.tenant_id
     });
   }

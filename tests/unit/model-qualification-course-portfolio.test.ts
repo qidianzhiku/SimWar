@@ -6,6 +6,8 @@ import {
 } from "../../services/api/src/model-qualification-course-portfolio";
 import {
   EVIDENCE_ADOPTION_ADMIN,
+  EVIDENCE_ADOPTION_FOREIGN_SCOPE,
+  EVIDENCE_ADOPTION_FOREIGN_TEACHER,
   EVIDENCE_ADOPTION_OTHER_SCOPE,
   EVIDENCE_ADOPTION_OTHER_TEACHER,
   EVIDENCE_ADOPTION_SCOPE,
@@ -87,6 +89,22 @@ function input(
 }
 
 describe("O9 model qualification course portfolio query leaf", () => {
+  it("filters governance records to the requesting tenant before building the projection", () => {
+    const fixture = adoptedPrimaryFixture();
+    seedApprovedBoundChain(
+      fixture.service,
+      EVIDENCE_ADOPTION_FOREIGN_SCOPE,
+      EVIDENCE_ADOPTION_FOREIGN_TEACHER
+    );
+
+    const result = fixture.service.getCoursePortfolio(EVIDENCE_ADOPTION_ADMIN, [
+      course("course_demo", "tenant_demo", "Canonical course")
+    ]);
+
+    expect(result.blockers).toEqual([]);
+    expect(JSON.stringify(result)).not.toContain("tenant_foreign");
+  });
+
   it("projects only canonical tenant courses and binds exact qualification/adoption identity", () => {
     const fixture = adoptedPrimaryFixture();
     const secondary = seedApprovedBoundChain(

@@ -25,6 +25,15 @@
         "title": { "$ref": "#/$defs/nonEmptyString" }
       }
     },
+    "qualificationIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "qualification_id"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "qualification_id": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
     "blocker": {
       "type": "object",
       "additionalProperties": false,
@@ -80,7 +89,7 @@
         },
         "qualification_candidates": {
           "type": "array",
-          "items": { "type": "object", "additionalProperties": false }
+          "items": { "$ref": "#/$defs/qualificationIdentity" }
         },
         "qualification_consistency": {
           "enum": ["CONSISTENT", "LIMITED", "BLOCKED", "INCONSISTENT"]
