@@ -54,6 +54,7 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
     context: string;
     data: readonly ModelQualificationRollbackOutcomeResolution[];
   } | null>(null);
+  const [rollbackOutcomeError, setRollbackOutcomeError] = useState<string | null>(null);
   const [qualificationId, setQualificationId] = useState("");
   const [proposalId, setProposalId] = useState("");
   const [note, setNote] = useState("");
@@ -136,12 +137,21 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
     };
     const operationsUnavailable = (notice: string): ProjectionLoadResult => {
       clearOperations();
+      setRollbackOutcomeError(null);
       if (generation === epoch.current) setReauthenticationRequired(true);
       return { operationsAvailable: false, retryRequired: true, notice };
+    };
+    const outcomesUnavailable = (notice: string): ProjectionLoadResult => {
+      if (generation === epoch.current) {
+        setRollbackOutcomes(null);
+        setRollbackOutcomeError(notice);
+      }
+      return { operationsAvailable: true, retryRequired: true, notice };
     };
     if (generation === epoch.current) {
       setLoaded(null);
       clearOperations();
+      setRollbackOutcomeError(null);
     }
     const query = `courseId=${encodeURIComponent(courseId)}`;
     let projectionData: ModelQualificationTeacherProjection;
@@ -226,12 +236,13 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
         })
       );
     } catch (error) {
-      return operationsUnavailable(
+      return outcomesUnavailable(
         error instanceof Error ? error.message : "回退请求 outcome 读取失败"
       );
     }
     if (generation === epoch.current) {
       setRollbackOutcomes({ context, data: outcomeResults });
+      setRollbackOutcomeError(null);
     }
     return { operationsAvailable: true, retryRequired: false };
   }
@@ -245,9 +256,10 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
       const result = await load(generation);
       if (generation === epoch.current)
         setNotice(
-          result.operationsAvailable
-            ? "显式选择资格与采用候选；复核不会自动采用"
-            : (result.notice ?? "O6 operations unavailable；既有采用投影保持只读可见")
+          result.notice ??
+            (result.operationsAvailable
+              ? "显式选择资格与采用候选；复核不会自动采用"
+              : "O6 operations unavailable；既有采用投影保持只读可见")
         );
     } catch (error) {
       if (generation === epoch.current)
@@ -268,6 +280,7 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
     setRollbackDryRun(null);
     setRollbackRequestReceipt(null);
     setRollbackOutcomes(null);
+    setRollbackOutcomeError(null);
     setReauthenticationRequired(false);
     setQualificationId("");
     setProposalId("");
@@ -285,9 +298,10 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
         .then((result) => {
           if (generation === epoch.current)
             setNotice(
-              result.operationsAvailable
-                ? "显式选择资格与采用候选；复核不会自动采用"
-                : (result.notice ?? "O6 operations unavailable；既有采用投影保持只读可见")
+              result.notice ??
+                (result.operationsAvailable
+                  ? "显式选择资格与采用候选；复核不会自动采用"
+                  : "O6 operations unavailable；既有采用投影保持只读可见")
             );
         })
         .catch((error: unknown) => {
@@ -547,6 +561,22 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
               {JSON.stringify(projection?.governed_rollback_requests ?? [], null, 2)}
             </pre>
           </details>
+        )}
+        {rollbackOutcomeError && (
+          <>
+            <p role="status" data-testid="rollback-outcome-read-error">
+              O8 outcome 读取失败：{rollbackOutcomeError}；O6 既有控制仍保持可用，请重新读取 exact
+              状态。
+            </p>
+            <button
+              type="button"
+              data-testid="reload-rollback-outcomes"
+              disabled={busy}
+              onClick={() => void reloadProjection()}
+            >
+              重新读取回退请求结果
+            </button>
+          </>
         )}
         {rollbackOutcomeData.length > 0 && (
           <section

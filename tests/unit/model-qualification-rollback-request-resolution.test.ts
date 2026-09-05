@@ -167,6 +167,51 @@ describe("O8 rollback request outcome resolution", () => {
     expect(resolutionFor(approved).outcome_status).toBe("APPROVED_PENDING_DISPOSITION");
   });
 
+  it("keeps the current effect on the existing adoption for deferred and rejected candidates", async () => {
+    for (const [disposition, expectedStatus] of [
+      ["DEFERRED_WITH_EXPIRY", "DEFERRED_WITH_EXPIRY"],
+      ["REJECTED_CANDIDATE", "REJECTED_CANDIDATE"]
+    ] as const) {
+      const fixture = buildRequestFixture();
+      const receipt = await fixture.service.requestGovernedRollback(
+        EVIDENCE_ADOPTION_TEACHER,
+        EVIDENCE_ADOPTION_SCOPE,
+        {
+          command_id: `o8-outcome-${disposition.toLowerCase()}`,
+          dry_run: await fixture.dryRun,
+          reason: `Record ${disposition}.`
+        }
+      );
+      await fixture.service.reviewEvidenceAdoption(
+        EVIDENCE_ADOPTION_ADMIN,
+        EVIDENCE_ADOPTION_SCOPE,
+        {
+          command_id: `o8-outcome-${disposition.toLowerCase()}-review`,
+          proposal_id: receipt.proposal.proposal_id,
+          proposal_digest: receipt.proposal.proposal_digest,
+          decision: "APPROVED",
+          note: "Approved for disposition."
+        }
+      );
+      await fixture.service.disposeEvidenceAdoption(
+        EVIDENCE_ADOPTION_ADMIN,
+        EVIDENCE_ADOPTION_SCOPE,
+        {
+          command_id: `o8-outcome-${disposition.toLowerCase()}-dispose`,
+          proposal_id: receipt.proposal.proposal_id,
+          proposal_digest: receipt.proposal.proposal_digest,
+          disposition,
+          expires_at: disposition === "DEFERRED_WITH_EXPIRY" ? "2026-09-10T00:00:00.000Z" : null,
+          note: "Keep the current adoption selected."
+        }
+      );
+
+      const resolution = resolutionFor(fixture);
+      expect(resolution.outcome_status).toBe(expectedStatus);
+      expect(resolution.current_effect).toBe("CURRENT");
+    }
+  });
+
   it("derives readoption C and marks it superseded when later selection D is current", async () => {
     const fixture = buildRequestFixture();
     const receipt = await fixture.service.requestGovernedRollback(

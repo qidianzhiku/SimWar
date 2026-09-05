@@ -125,12 +125,13 @@ function currentEffect(
   disposition: EvidenceAdoptionRecord | null,
   state: EvidenceAdoptionState
 ): RollbackRequestCurrentEffect {
-  const resulting = disposition
-    ? {
-        adoption_id: disposition.adoption_id,
-        adoption_digest: disposition.adoption_digest
-      }
-    : null;
+  const resulting =
+    disposition?.disposition === "ADOPTED_FOR_FUTURE_ADMISSION"
+      ? {
+          adoption_id: disposition.adoption_id,
+          adoption_digest: disposition.adoption_digest
+        }
+      : null;
   if (resulting) {
     if (state.selections.some((selection) => sameReference(selection, resulting))) return "CURRENT";
     return state.selections.length > 0 ? "SUPERSEDED" : "NOT_APPLICABLE";
@@ -150,12 +151,13 @@ function buildResolution(
   historicalConsistency: RollbackRequestConsistencyStatus,
   knownLimits: readonly string[]
 ): RollbackRequestOutcomeResolution {
-  const resultingAdoption = disposition
-    ? {
-        adoption_id: disposition.adoption_id,
-        adoption_digest: disposition.adoption_digest
-      }
-    : null;
+  const resultingAdoption =
+    disposition?.disposition === "ADOPTED_FOR_FUTURE_ADMISSION"
+      ? {
+          adoption_id: disposition.adoption_id,
+          adoption_digest: disposition.adoption_digest
+        }
+      : null;
   const body: Omit<RollbackRequestOutcomeResolution, "resolution_digest"> = {
     resolution_id: `rollback_outcome_${input.request.rollback_request_id}`,
     tenant_id: input.tenant_id,

@@ -12,7 +12,8 @@ import { deriveEvidenceAdoptionEpoch } from "./model-qualification-adopted-run-a
 import {
   assessAdoptionDrift,
   digestAdoptionOperationsPolicy,
-  digestEvidenceAdoptionState
+  digestEvidenceAdoptionState,
+  stableSha256
 } from "./model-qualification-adoption-drift-assessment.js";
 import { runAdoptionRollbackDryRun } from "./model-qualification-rollback-dry-run.js";
 import {
@@ -166,6 +167,55 @@ function stable(value: unknown): string {
 
 function digest(value: unknown): string {
   return createHash("sha256").update(stable(value), "utf8").digest("hex");
+}
+
+function liveQualificationConsistency(
+  record: ModelQualificationRecord,
+  state: EvidenceAdoptionState,
+  request: GovernedRollbackRequest,
+  now: string
+): ModelQualificationRollbackOutcomeResolution["qualification_consistency"] {
+  const requestRecord = state.records.find(
+    (candidate) =>
+      candidate.adoption_id === request.current_adoption.adoption_id &&
+      candidate.adoption_digest === request.current_adoption.adoption_digest
+  );
+  if (!requestRecord) return "BLOCKED";
+  const currentSelections = state.selections.filter(
+    (selection) =>
+      stable(selection.model_version_reference) ===
+        stable(requestRecord.epoch.model_version_reference) &&
+      stable(selection.model_artifact_reference) ===
+        stable(requestRecord.epoch.model_artifact_reference)
+  );
+  if (currentSelections.length !== 1) return "BLOCKED";
+  try {
+    const assessment = assessAdoptionDrift({
+      assessed_at: now,
+      expected_adoption: {
+        adoption_id: currentSelections[0]!.adoption_id,
+        adoption_digest: currentSelections[0]!.adoption_digest
+      },
+      expected_adoption_state_digest: digestEvidenceAdoptionState(state),
+      expected_operations_policy_digest: digestAdoptionOperationsPolicy(),
+      record,
+      selection_requirement: "CURRENT",
+      state
+    });
+    if (assessment.status === "HEALTHY") return "CONSISTENT";
+    if (assessment.status === "REVIEW_REQUIRED") return "LIMITED";
+    return "BLOCKED";
+  } catch {
+    return "BLOCKED";
+  }
+}
+
+function withResolutionDigest(
+  resolution: ModelQualificationRollbackOutcomeResolution
+): ModelQualificationRollbackOutcomeResolution {
+  const body: Record<string, unknown> = { ...resolution };
+  delete body.resolution_digest;
+  return { ...resolution, resolution_digest: stableSha256(body) };
 }
 
 function assertGovernedRollbackRequestIntegrity(record: ModelQualificationRecord): void {
@@ -1043,7 +1093,7 @@ export class ModelQualificationService {
     if (actor.role !== "teacher" && actor.role !== "tenant_admin") {
       throw new Error("EVIDENCE_ADOPTION_ROLE_DENIED");
     }
-    return this.withEvidenceAdmission(actor, scope, async (record) => {
+    return this.withEvidenceAdmission(actor, scope, async (record, now) => {
       const state = this.validatedAdoptionState(record, scope);
       const request = (record.governed_rollback_requests ?? []).find(
         (candidate) => candidate.rollback_request_id === rollbackRequestId
@@ -1067,6 +1117,12 @@ export class ModelQualificationService {
             adoption_state: state
           })
         : null;
+      const currentQualificationConsistency = liveQualificationConsistency(
+        record,
+        state,
+        request,
+        now()
+      );
       const source = historical
         ? {
             outcome_status:
@@ -1074,7 +1130,7 @@ export class ModelQualificationService {
                 ? ("REBASE_REQUIRED" as const)
                 : historical.outcome_status,
             current_effect: historical.current_effect,
-            qualification_consistency: historical.qualification_consistency,
+            qualification_consistency: currentQualificationConsistency,
             historical_consistency: historical.historical_consistency,
             resulting_adoption: historical.resulting_adoption,
             known_limits: historical.known_limits
@@ -1082,7 +1138,7 @@ export class ModelQualificationService {
         : {
             outcome_status: resolved.outcome_status,
             current_effect: resolved.current_effect,
-            qualification_consistency: resolved.qualification_consistency,
+            qualification_consistency: currentQualificationConsistency,
             historical_consistency: resolved.historical_consistency,
             resulting_adoption: resolved.resulting_adoption,
             known_limits: resolved.known_limits
@@ -1103,7 +1159,7 @@ export class ModelQualificationService {
         known_limits: [...source.known_limits],
         visibility: "TEACHER_ADMIN_DETAIL"
       };
-      return clone(outcome);
+      return clone(withResolutionDigest(outcome));
     });
   }
 
@@ -1115,7 +1171,7 @@ export class ModelQualificationService {
     if (actor.role !== "student" && actor.role !== "learner") {
       throw new Error("EVIDENCE_ADOPTION_ROLE_DENIED");
     }
-    return this.withScopedEvidenceAdmission(actor, scope, async (record) => {
+    return this.withScopedEvidenceAdmission(actor, scope, async (record, now) => {
       const state = this.validatedAdoptionState(record, scope);
       return (record.governed_rollback_requests ?? []).map((request) => {
         const resolved = resolveRollbackRequestOutcome({
@@ -1125,11 +1181,17 @@ export class ModelQualificationService {
           adoption_state: state
         });
         const consistency = resolved.historical_consistency;
+        const qualificationConsistency = liveQualificationConsistency(
+          record,
+          state,
+          request,
+          now()
+        );
         return {
           schema_version: MODEL_QUALIFICATION_ROLLBACK_OUTCOME_SCHEMA_VERSION,
           operation_id: "MODEL_QUALIFICATION_ROLLBACK_OUTCOME_STUDENT_GET_V1" as const,
           applicability: resolved.current_effect,
-          qualification_consistency: resolved.qualification_consistency,
+          qualification_consistency: qualificationConsistency,
           historical_consistency: consistency,
           known_limits: [
             "Role-safe aggregate status only; rollback request, proposal, adoption identities and governance reasons are hidden.",

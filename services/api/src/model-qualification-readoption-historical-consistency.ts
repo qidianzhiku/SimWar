@@ -315,7 +315,8 @@ export function assessReadoptionHistoricalConsistency(
     );
   }
 
-  const result = resultingReference(record);
+  const result =
+    record?.disposition === "ADOPTED_FOR_FUTURE_ADMISSION" ? resultingReference(record) : null;
   if (record.disposition !== "ADOPTED_FOR_FUTURE_ADMISSION") {
     return base(
       input,

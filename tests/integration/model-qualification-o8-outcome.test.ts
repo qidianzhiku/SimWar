@@ -9,6 +9,7 @@ import {
   seedApprovedBoundChain
 } from "../helpers/model-qualification-evidence-adoption-fixtures";
 import { ModelQualificationService } from "../../services/api/src/model-qualification-service";
+import { stableSha256 } from "../../services/api/src/model-qualification-adoption-drift-assessment";
 import {
   digestAdoptionOperationsPolicy,
   digestEvidenceAdoptionState
@@ -79,6 +80,29 @@ async function createRollbackRequest(fixture: ReturnType<typeof createFixture>) 
   );
 }
 
+async function readoptRollbackRequest(
+  fixture: ReturnType<typeof createFixture>,
+  existingRequest?: Awaited<ReturnType<typeof createRollbackRequest>>
+) {
+  const request = existingRequest ?? (await createRollbackRequest(fixture));
+  await fixture.service.reviewEvidenceAdoption(EVIDENCE_ADOPTION_ADMIN, EVIDENCE_ADOPTION_SCOPE, {
+    command_id: "o8-integration-rollback-review",
+    proposal_id: request.proposal.proposal_id,
+    proposal_digest: request.proposal.proposal_digest,
+    decision: "APPROVED",
+    note: "O8 explicit review"
+  });
+  await fixture.service.disposeEvidenceAdoption(EVIDENCE_ADOPTION_ADMIN, EVIDENCE_ADOPTION_SCOPE, {
+    command_id: "o8-integration-rollback-disposition",
+    proposal_id: request.proposal.proposal_id,
+    proposal_digest: request.proposal.proposal_digest,
+    disposition: "ADOPTED_FOR_FUTURE_ADMISSION",
+    expires_at: null,
+    note: "O8 explicit readoption"
+  });
+  return request;
+}
+
 describe("O8 rollback outcome service integration", () => {
   it("resolves the immutable request through pending and readopted outcomes", async () => {
     const fixture = createFixture();
@@ -98,25 +122,7 @@ describe("O8 rollback outcome service integration", () => {
       official_truth_write: false
     });
 
-    await fixture.service.reviewEvidenceAdoption(EVIDENCE_ADOPTION_ADMIN, EVIDENCE_ADOPTION_SCOPE, {
-      command_id: "o8-integration-rollback-review",
-      proposal_id: request.proposal.proposal_id,
-      proposal_digest: request.proposal.proposal_digest,
-      decision: "APPROVED",
-      note: "O8 explicit review"
-    });
-    await fixture.service.disposeEvidenceAdoption(
-      EVIDENCE_ADOPTION_ADMIN,
-      EVIDENCE_ADOPTION_SCOPE,
-      {
-        command_id: "o8-integration-rollback-disposition",
-        proposal_id: request.proposal.proposal_id,
-        proposal_digest: request.proposal.proposal_digest,
-        disposition: "ADOPTED_FOR_FUTURE_ADMISSION",
-        expires_at: null,
-        note: "O8 explicit readoption"
-      }
-    );
+    await readoptRollbackRequest(fixture, request);
 
     const resolved = await fixture.service.getRollbackRequestOutcome(
       EVIDENCE_ADOPTION_ADMIN,
@@ -128,6 +134,35 @@ describe("O8 rollback outcome service integration", () => {
     expect(resolved.disposition?.predecessor).toEqual(adoptionReference(fixture.adoptionB));
     expect(resolved.disposition?.epoch).toEqual(fixture.adoptionA.epoch);
     expect(resolved.request.status).toBe("LINKED_PROPOSAL_PENDING_REVIEW");
+
+    const { resolution_digest: digest, ...digestBody } = resolved;
+    expect(digest).toBe(stableSha256(digestBody));
+  });
+
+  it("reports live qualification degradation instead of stale consistent status", async () => {
+    const fixture = createFixture();
+    const request = await readoptRollbackRequest(fixture);
+    const record = fixture.service.getRecordForScope(EVIDENCE_ADOPTION_SCOPE)!;
+    const staleRecord = {
+      ...record,
+      qualifications: record.qualifications.map((qualification) =>
+        qualification.qualification_id === fixture.chain.qualificationA.qualification_id
+          ? { ...qualification, decision: "DRAFT" as const }
+          : qualification
+      )
+    };
+    const staleService = new ModelQualificationService(
+      { now: () => "2026-09-02T12:00:00.000Z" },
+      new ModelQualificationEvidenceAdoptionFakePersistence([staleRecord])
+    );
+
+    const resolved = await staleService.getRollbackRequestOutcome(
+      EVIDENCE_ADOPTION_ADMIN,
+      EVIDENCE_ADOPTION_SCOPE,
+      request.request.rollback_request_id
+    );
+    expect(resolved.outcome_status).toBe("READOPTED_FOR_FUTURE_ADMISSION");
+    expect(resolved.qualification_consistency).toBe("BLOCKED");
   });
 
   it("returns only aggregate-safe outcome fields to Student", async () => {
