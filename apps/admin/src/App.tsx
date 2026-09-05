@@ -377,7 +377,10 @@ export function App() {
     ? isTenantAdmin
       ? ADMIN_NAVIGATION_ITEMS
       : hasAdminSummaryRole
-        ? ADMIN_NAVIGATION_ITEMS.filter((item) => item.id !== "admin-users-roles")
+        ? ADMIN_NAVIGATION_ITEMS.filter(
+            (item) =>
+              item.id !== "admin-users-roles" && item.id !== "admin-model-qualification-portfolio"
+          )
         : []
     : ADMIN_NAVIGATION_ITEMS.filter((item) =>
         ["admin-delivery-overview", "admin-audit-receipts", "admin-security-projection"].includes(
@@ -1616,7 +1619,7 @@ export function App() {
         <W4EnterprisePortfolioPanel tenantId={login.tenantId} token={session.access_token} />
       ) : null}
 
-      {session && hasAdminSummaryRole ? (
+      {session && isTenantAdmin ? (
         <ModelQualificationCoursePortfolioPanel
           apiBase={API_BASE}
           tenantId={login.tenantId}

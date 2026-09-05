@@ -75,7 +75,7 @@ test("authenticated Admin exposes the task shell, server context, legacy landmar
       return { href, targetExists: Boolean(target) };
     })
   );
-  expect(renderedNavigationTargets.length).toBe(10);
+  expect(renderedNavigationTargets.length).toBe(11);
   expect(renderedNavigationTargets.every(({ targetExists }) => targetExists)).toBe(true);
 
   await expect(
@@ -258,6 +258,7 @@ test("Platform Admin navigation omits tenant-only locations and exposes only rea
 
   const navigation = page.getByRole("navigation", { name: "角色导航" });
   await expect(navigation.getByRole("link", { name: "用户、角色与范围" })).toHaveCount(0);
+  await expect(navigation.getByRole("link", { name: "模型资格课程组合" })).toHaveCount(0);
   await expect(navigation.getByRole("link")).toHaveCount(9);
   const renderedTargets = await navigation.locator("a").evaluateAll((links) =>
     links.map((link) => {
@@ -267,7 +268,11 @@ test("Platform Admin navigation omits tenant-only locations and exposes only rea
   );
   expect(renderedTargets.every(({ targetExists }) => targetExists)).toBe(true);
   expect(renderedTargets.some(({ href }) => href === "#admin-users-roles")).toBe(false);
+  expect(renderedTargets.some(({ href }) => href === "#admin-model-qualification-portfolio")).toBe(
+    false
+  );
   await expect(page.locator("#admin-users-roles")).toHaveCount(0);
+  await expect(page.locator("#admin-model-qualification-portfolio")).toHaveCount(0);
   await expect(page.locator('a[href="#admin-audit-events"]')).toHaveCount(0);
   await expect(page.getByText("当前角色无法查看租户审计事件。", { exact: true })).toBeVisible();
 });
