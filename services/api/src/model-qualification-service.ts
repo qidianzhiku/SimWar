@@ -26,6 +26,8 @@ import {
   ExplicitReadoptionError,
   predictExplicitReadoption
 } from "./model-qualification-explicit-readoption.js";
+import { resolveRollbackRequestOutcome } from "./model-qualification-rollback-request-resolution.js";
+import { assessReadoptionHistoricalConsistency } from "./model-qualification-readoption-historical-consistency.js";
 import type {
   AdoptionDriftAssessment,
   AdoptionDriftAssessmentRequest,
@@ -60,9 +62,14 @@ import type {
   ModelQualificationRequalificationStatus,
   ModelQualificationStudentProjection,
   ModelQualificationTeacherProjection,
-  ModelQualificationSourcePackage
+  ModelQualificationSourcePackage,
+  ModelQualificationRollbackOutcomeResolution,
+  ModelQualificationRollbackOutcomeStudentSummary
 } from "@simwar/shared-contracts";
-import { MODEL_QUALIFICATION_SOLE_WRITER } from "@simwar/shared-contracts";
+import {
+  MODEL_QUALIFICATION_ROLLBACK_OUTCOME_SCHEMA_VERSION,
+  MODEL_QUALIFICATION_SOLE_WRITER
+} from "@simwar/shared-contracts";
 
 export interface ModelQualificationActor {
   actor_id: string;
@@ -1021,6 +1028,122 @@ export class ModelQualificationService {
     } catch (error) {
       rethrowAdoptionOperationsError(error);
     }
+  }
+
+  /**
+   * Resolve one immutable O7 request through the existing O5 review and
+   * disposition records. This is a derived read and does not persist an O8
+   * outcome or change the current adoption selection.
+   */
+  async getRollbackRequestOutcome(
+    actor: ModelQualificationActor,
+    scope: ModelQualificationScope,
+    rollbackRequestId: string
+  ): Promise<ModelQualificationRollbackOutcomeResolution> {
+    if (actor.role !== "teacher" && actor.role !== "tenant_admin") {
+      throw new Error("EVIDENCE_ADOPTION_ROLE_DENIED");
+    }
+    return this.withEvidenceAdmission(actor, scope, async (record) => {
+      const state = this.validatedAdoptionState(record, scope);
+      const request = (record.governed_rollback_requests ?? []).find(
+        (candidate) => candidate.rollback_request_id === rollbackRequestId
+      );
+      if (!request) throw new ModelQualificationError("MODEL_QUALIFICATION_NOT_FOUND");
+      const resolved = resolveRollbackRequestOutcome({
+        tenant_id: scope.tenant_id,
+        course_id: scope.course_id,
+        request,
+        adoption_state: state
+      });
+      const historical = resolved.linked_proposal
+        ? assessReadoptionHistoricalConsistency({
+            tenant_id: scope.tenant_id,
+            course_id: scope.course_id,
+            current_adoption: request.current_adoption,
+            target_adoption: request.predecessor_adoption,
+            proposal: resolved.linked_proposal,
+            review: resolved.review,
+            disposition: resolved.disposition,
+            adoption_state: state
+          })
+        : null;
+      const source = historical
+        ? {
+            outcome_status:
+              historical.historical_consistency === "INCONSISTENT"
+                ? ("REBASE_REQUIRED" as const)
+                : historical.outcome_status,
+            current_effect: historical.current_effect,
+            qualification_consistency: historical.qualification_consistency,
+            historical_consistency: historical.historical_consistency,
+            resulting_adoption: historical.resulting_adoption,
+            known_limits: historical.known_limits
+          }
+        : {
+            outcome_status: resolved.outcome_status,
+            current_effect: resolved.current_effect,
+            qualification_consistency: resolved.qualification_consistency,
+            historical_consistency: resolved.historical_consistency,
+            resulting_adoption: resolved.resulting_adoption,
+            known_limits: resolved.known_limits
+          };
+      const outcome: ModelQualificationRollbackOutcomeResolution = {
+        ...resolved,
+        schema_version: MODEL_QUALIFICATION_ROLLBACK_OUTCOME_SCHEMA_VERSION,
+        outcome_status: source.outcome_status,
+        historical_outcome: {
+          ...resolved.historical_outcome,
+          status: source.outcome_status,
+          resulting_adoption: source.resulting_adoption
+        },
+        resulting_adoption: source.resulting_adoption,
+        current_effect: source.current_effect,
+        qualification_consistency: source.qualification_consistency,
+        historical_consistency: source.historical_consistency,
+        known_limits: [...source.known_limits],
+        visibility: "TEACHER_ADMIN_DETAIL"
+      };
+      return clone(outcome);
+    });
+  }
+
+  /** Student-safe aggregate summaries intentionally omit every governance ID. */
+  async getStudentRollbackOutcomeSummaries(
+    actor: ModelQualificationActor,
+    scope: ModelQualificationScope
+  ): Promise<readonly ModelQualificationRollbackOutcomeStudentSummary[]> {
+    if (actor.role !== "student" && actor.role !== "learner") {
+      throw new Error("EVIDENCE_ADOPTION_ROLE_DENIED");
+    }
+    return this.withScopedEvidenceAdmission(actor, scope, async (record) => {
+      const state = this.validatedAdoptionState(record, scope);
+      return (record.governed_rollback_requests ?? []).map((request) => {
+        const resolved = resolveRollbackRequestOutcome({
+          tenant_id: scope.tenant_id,
+          course_id: scope.course_id,
+          request,
+          adoption_state: state
+        });
+        const consistency = resolved.historical_consistency;
+        return {
+          schema_version: MODEL_QUALIFICATION_ROLLBACK_OUTCOME_SCHEMA_VERSION,
+          operation_id: "MODEL_QUALIFICATION_ROLLBACK_OUTCOME_STUDENT_GET_V1" as const,
+          applicability: resolved.current_effect,
+          qualification_consistency: resolved.qualification_consistency,
+          historical_consistency: consistency,
+          known_limits: [
+            "Role-safe aggregate status only; rollback request, proposal, adoption identities and governance reasons are hidden.",
+            "Historical outcome is separate from current effect and qualification consistency.",
+            "Provider OFF; this advisory-only projection never applies rollback or changes official truth."
+          ],
+          provider: "OFF" as const,
+          advisory_only: true as const,
+          rollback_applied: false as const,
+          official_truth_write: false as const,
+          visibility: "ROLE_SAFE_STUDENT" as const
+        };
+      });
+    });
   }
 
   async getStudentAdoptionOperationsProjection(

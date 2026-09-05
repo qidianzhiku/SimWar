@@ -7,7 +7,8 @@ import type {
   ModelQualificationAdoptionOperationsAdminProjection,
   ModelQualificationAdoptionOperationsTeacherProjection,
   ModelQualificationRunAdmissionSelection,
-  ModelQualificationTeacherProjection
+  ModelQualificationTeacherProjection,
+  ModelQualificationRollbackOutcomeResolution
 } from "@simwar/shared-contracts";
 
 export interface ModelQualificationAdoptionPanelProps {
@@ -49,6 +50,10 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
   const [rollbackDryRun, setRollbackDryRun] = useState<AdoptionRollbackDryRun | null>(null);
   const [rollbackRequestReceipt, setRollbackRequestReceipt] =
     useState<GovernedRollbackRequestReceipt | null>(null);
+  const [rollbackOutcomes, setRollbackOutcomes] = useState<{
+    context: string;
+    data: readonly ModelQualificationRollbackOutcomeResolution[];
+  } | null>(null);
   const [qualificationId, setQualificationId] = useState("");
   const [proposalId, setProposalId] = useState("");
   const [note, setNote] = useState("");
@@ -73,6 +78,7 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
   };
   const projection = loaded?.context === context ? loaded.data : null;
   const operationsProjection = operations?.context === context ? operations.data : null;
+  const rollbackOutcomeData = rollbackOutcomes?.context === context ? rollbackOutcomes.data : [];
   const state = projection?.evidence_adoption;
   const qualifications = projection?.qualifications ?? [];
   const selected = qualifications.filter((q) => q.qualification_id === qualificationId);
@@ -126,6 +132,7 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
       setAssessment(null);
       setRollbackDryRun(null);
       setRollbackRequestReceipt(null);
+      setRollbackOutcomes(null);
     };
     const operationsUnavailable = (notice: string): ProjectionLoadResult => {
       clearOperations();
@@ -195,6 +202,37 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
       setRollbackDryRun(null);
       setReauthenticationRequired(false);
     }
+    const rollbackRequests = projectionData.governed_rollback_requests ?? [];
+    let outcomeResults: ModelQualificationRollbackOutcomeResolution[];
+    try {
+      outcomeResults = await Promise.all(
+        rollbackRequests.map(async (request) => {
+          const response = await fetch(
+            `${base}/evidence-adoptions/rollback-requests/${encodeURIComponent(request.rollback_request_id)}/outcome?${query}`,
+            { headers }
+          );
+          let result: { data?: ModelQualificationRollbackOutcomeResolution };
+          try {
+            result = (await response.json()) as {
+              data?: ModelQualificationRollbackOutcomeResolution;
+            };
+          } catch {
+            throw new Error("回退请求 outcome 返回了非 JSON 响应");
+          }
+          if (!response.ok || !result.data) {
+            throw new Error(`${response.status}: 回退请求 outcome 读取失败`);
+          }
+          return result.data;
+        })
+      );
+    } catch (error) {
+      return operationsUnavailable(
+        error instanceof Error ? error.message : "回退请求 outcome 读取失败"
+      );
+    }
+    if (generation === epoch.current) {
+      setRollbackOutcomes({ context, data: outcomeResults });
+    }
     return { operationsAvailable: true, retryRequired: false };
   }
 
@@ -229,6 +267,7 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
     setAssessment(null);
     setRollbackDryRun(null);
     setRollbackRequestReceipt(null);
+    setRollbackOutcomes(null);
     setReauthenticationRequired(false);
     setQualificationId("");
     setProposalId("");
@@ -508,6 +547,45 @@ export function ModelQualificationAdoptionPanel(props: ModelQualificationAdoptio
               {JSON.stringify(projection?.governed_rollback_requests ?? [], null, 2)}
             </pre>
           </details>
+        )}
+        {rollbackOutcomeData.length > 0 && (
+          <section
+            aria-label="rollback request outcome timeline"
+            data-testid="rollback-outcome-timeline"
+          >
+            <h5>回退请求结果与历史一致性（只读）</h5>
+            {rollbackOutcomeData.map((outcome) => (
+              <details key={outcome.resolution_id} open>
+                <summary>
+                  {outcome.rollback_request_id} · {outcome.outcome_status}
+                </summary>
+                <p>
+                  historical_outcome={outcome.historical_outcome.status} · current_effect=
+                  {outcome.current_effect} · qualification_consistency=
+                  {outcome.qualification_consistency} · historical_consistency=
+                  {outcome.historical_consistency}
+                </p>
+                <p>
+                  request != application · rollback_applied={String(outcome.rollback_applied)} ·
+                  Provider={outcome.provider}
+                </p>
+                <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+                  {JSON.stringify(
+                    {
+                      request: outcome.request,
+                      linked_proposal: outcome.linked_proposal,
+                      review: outcome.review,
+                      disposition: outcome.disposition,
+                      resulting_adoption: outcome.resulting_adoption,
+                      known_limits: outcome.known_limits
+                    },
+                    null,
+                    2
+                  )}
+                </pre>
+              </details>
+            ))}
+          </section>
         )}
       </section>
       <p role="status" aria-live="polite">

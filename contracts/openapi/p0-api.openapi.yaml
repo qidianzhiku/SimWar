@@ -6608,6 +6608,31 @@ paths:
         "409": { description: "Command, state, policy, adoption or historical-lineage conflict" }
         "422": { description: Dry-run is not ready or the governed rollback request is invalid }
 
+  /api/v1/bff/teacher/model-qualification/evidence-adoptions/rollback-requests/{rollbackRequestId}/outcome:
+    get:
+      operationId: MODEL_QUALIFICATION_ROLLBACK_REQUEST_OUTCOME_TEACHER_GET_V1
+      summary: Read the derived outcome of one immutable governed rollback request.
+      description: Resolves the existing O7 request through the O5 proposal, review and disposition chain without writing an outcome or changing adoption.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - {
+            name: rollbackRequestId,
+            in: path,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Teacher-detail rollback request outcome timeline.
+          content:
+            application/json:
+              { schema: { $ref: "#/components/schemas/ModelQualificationRollbackOutcomeEnvelope" } }
+        "401": { description: Authentication required }
+        "403": { description: Teacher or course scope denied }
+        "404": { description: Rollback request not found }
+        "409": { description: Exact lineage or historical consistency conflict }
+
   /api/v1/bff/admin/model-qualification/adoption-operations:
     get:
       operationId: MODEL_QUALIFICATION_ADOPTION_OPERATIONS_ADMIN_GET_V1
@@ -6711,6 +6736,31 @@ paths:
         "409": { description: "Command, state, policy, adoption or historical-lineage conflict" }
         "422": { description: Dry-run is not ready or the governed rollback request is invalid }
 
+  /api/v1/bff/admin/model-qualification/evidence-adoptions/rollback-requests/{rollbackRequestId}/outcome:
+    get:
+      operationId: MODEL_QUALIFICATION_ROLLBACK_REQUEST_OUTCOME_ADMIN_GET_V1
+      summary: Read the derived outcome of one immutable governed rollback request.
+      description: Resolves the existing O7 request through the O5 proposal, review and disposition chain without writing an outcome or changing adoption.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - {
+            name: rollbackRequestId,
+            in: path,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Admin-detail rollback request outcome timeline.
+          content:
+            application/json:
+              { schema: { $ref: "#/components/schemas/ModelQualificationRollbackOutcomeEnvelope" } }
+        "401": { description: Authentication required }
+        "403": { description: Tenant administrator or course scope denied }
+        "404": { description: Rollback request not found }
+        "409": { description: Exact lineage or historical consistency conflict }
+
   /api/v1/bff/student/model-qualification/adoption-operations:
     get:
       operationId: MODEL_QUALIFICATION_ADOPTION_OPERATIONS_STUDENT_GET_V1
@@ -6739,6 +6789,26 @@ paths:
         "403": { description: Student or course scope denied }
         "404": { description: Qualification not found }
         "422": { description: Exact adoption source or operations identity is invalid }
+
+  /api/v1/bff/student/model-qualification/evidence-adoptions/rollback-outcomes:
+    get:
+      operationId: MODEL_QUALIFICATION_ROLLBACK_OUTCOME_STUDENT_GET_V1
+      summary: Read aggregate-safe rollback outcome consistency for a student.
+      description: Returns no rollback request, proposal, adoption identity or privileged governance reason.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Student-safe aggregate rollback outcome summaries.
+          content:
+            application/json:
+              {
+                schema:
+                  { $ref: "#/components/schemas/ModelQualificationRollbackOutcomeStudentEnvelope" }
+              }
+        "401": { description: Authentication required }
+        "403": { description: Student or course scope denied }
 
   /api/v1/bff/student/model-qualification:
     get:
@@ -11508,6 +11578,32 @@ components:
       properties:
         code: { type: string }
         data: { $ref: "../schemas/model-qualification-governed-rollback.v1.json#/$defs/receipt" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ModelQualificationRollbackOutcomeEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          {
+            $ref: "../schemas/model-qualification-rollback-outcome.v1.json#/$defs/outcomeResolution"
+          }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ModelQualificationRollbackOutcomeStudentEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          type: array
+          items:
+            {
+              $ref: "../schemas/model-qualification-rollback-outcome.v1.json#/$defs/studentSummary"
+            }
         message: { type: string }
         request_id: { type: string, minLength: 1 }
     ModelQualificationMutationEnvelope:

@@ -1,6 +1,7 @@
 export * from "./known-limits.js";
 export type * from "./model-qualification-evidence-adoption.js";
 export * from "./model-qualification-adoption-operations.js";
+export * from "./model-qualification-rollback-outcome.js";
 export * from "./model-qualification-governed-rollback.js";
 export type * from "./qualified-run-admission-snapshot.js";
 export * from "./learning-design.js";

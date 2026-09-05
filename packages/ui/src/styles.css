@@ -622,6 +622,22 @@
   overflow-wrap: anywhere;
 }
 
+:where(.sw-app-shell__main .summary-panel),
+:where(.sw-app-shell__main .summary-panel > *),
+:where(.sw-app-shell__main .summary-panel details),
+:where(.sw-app-shell__main .summary-panel summary),
+:where(.sw-app-shell__main .summary-panel pre) {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+:where(.sw-app-shell__main .summary-panel pre) {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .sw-app-shell__main .d4-known-limits,
 .sw-app-shell__main .d4-known-limits > * {
   box-sizing: border-box;

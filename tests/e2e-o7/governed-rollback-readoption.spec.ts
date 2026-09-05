@@ -8,6 +8,8 @@ import type {
   ModelQualification,
   ModelQualificationCalibrationDataset,
   ModelQualificationSourcePackage,
+  ModelQualificationRollbackOutcomeResolution,
+  ModelQualificationRollbackOutcomeStudentSummary,
   ModelQualificationTeacherProjection,
   Run
 } from "../../packages/shared-contracts/src";
@@ -239,6 +241,26 @@ test("real-BFF B to governed request and explicit C re-adoption preserves A/B hi
   expect(governed?.rollback_applied).toBe(false);
   expect(governed?.current_selection_changed).toBe(false);
 
+  const pendingOutcome = await api<ModelQualificationRollbackOutcomeResolution>(
+    request,
+    `${root}/evidence-adoptions/rollback-requests/${governed!.rollback_request_id}/outcome?courseId=${courseId}`,
+    teacher
+  );
+  expect(pendingOutcome.status).toBe(200);
+  expect(pendingOutcome.body.data).toMatchObject({
+    outcome_status: "PENDING_REVIEW",
+    immutable_request_status: "LINKED_PROPOSAL_PENDING_REVIEW",
+    rollback_request_id: governed!.rollback_request_id,
+    historical_consistency: "CONSISTENT",
+    current_effect: "CURRENT",
+    rollback_applied: false,
+    official_truth_write: false,
+    visibility: "TEACHER_ADMIN_DETAIL"
+  });
+  await expect(teacherPanel.getByTestId("rollback-outcome-timeline")).toContainText(
+    "PENDING_REVIEW"
+  );
+
   for (const width of [1440, 1280, 1024, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await teacherPanel.scrollIntoViewIfNeeded();
@@ -300,6 +322,43 @@ test("real-BFF B to governed request and explicit C re-adoption preserves A/B hi
   });
   expect(records.find((record) => record.adoption_id === adoptedA.adoption_id)).toEqual(adoptedA);
   expect(records.find((record) => record.adoption_id === adoptedB.adoption_id)).toEqual(adoptedB);
+
+  const readoptedOutcome = await api<ModelQualificationRollbackOutcomeResolution>(
+    request,
+    `${root}/evidence-adoptions/rollback-requests/${governed!.rollback_request_id}/outcome?courseId=${courseId}`,
+    teacher
+  );
+  expect(readoptedOutcome.status).toBe(200);
+  expect(readoptedOutcome.body.data).toMatchObject({
+    outcome_status: "READOPTED_FOR_FUTURE_ADMISSION",
+    immutable_request_status: "LINKED_PROPOSAL_PENDING_REVIEW",
+    resulting_adoption: {
+      adoption_id: adoptedC.adoption_id,
+      adoption_digest: adoptedC.adoption_digest
+    },
+    current_effect: "CURRENT",
+    rollback_applied: false,
+    adoption_mutation: false,
+    historical_receipt_rewritten: false
+  });
+
+  const studentOutcomes = await api<readonly ModelQualificationRollbackOutcomeStudentSummary[]>(
+    request,
+    "/api/v1/bff/student/model-qualification/evidence-adoptions/rollback-outcomes?courseId=" +
+      courseId,
+    await login(request, "student")
+  );
+  expect(studentOutcomes.status).toBe(200);
+  expect(studentOutcomes.body.data).toHaveLength(1);
+  expect(studentOutcomes.body.data[0]).toMatchObject({
+    applicability: "CURRENT",
+    visibility: "ROLE_SAFE_STUDENT",
+    provider: "OFF",
+    rollback_applied: false,
+    official_truth_write: false
+  });
+  expect(JSON.stringify(studentOutcomes.body.data)).not.toContain(governed!.rollback_request_id);
+  expect(JSON.stringify(studentOutcomes.body.data)).not.toContain(adoptedC.adoption_id);
 
   const packageResult = await api<CoursePackageVersionTeacherListDto>(
     request,
