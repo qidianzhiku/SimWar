@@ -50,6 +50,15 @@ import {
   buildPerCourseGovernedHandoffs,
   type PerCourseGovernedHandoff
 } from "./model-qualification-per-course-governed-handoff.js";
+import {
+  buildStrategicPortfolioModelGovernanceReadiness,
+  STRATEGIC_PORTFOLIO_MODEL_GOVERNANCE_READINESS_POLICY_DIGEST,
+  type StrategicPortfolioModelGovernanceReadiness
+} from "./strategic-portfolio-model-governance-readiness.js";
+import {
+  projectStrategicPortfolioModelGovernanceReadiness,
+  type StrategicPortfolioModelGovernanceRoleProjection
+} from "./strategic-portfolio-model-governance-role-projection.js";
 import type {
   AdoptionDriftAssessment,
   AdoptionDriftAssessmentRequest,
@@ -2024,6 +2033,67 @@ export class ModelQualificationService {
   ): ModelQualificationSourcePackage | undefined {
     return this.recordOrEmpty(scope).source_packages.find(
       (item) => item.source_package_id === sourceId
+    );
+  }
+
+  /**
+   * Join the canonical tenant Course Authority, W4 strategic portfolio
+   * projections, and existing model-governance records. The W4 projections
+   * are supplied by the existing W4 Enterprise State authority; this method
+   * only derives a read model and never persists a portfolio or readiness
+   * result.
+   */
+  getStrategicPortfolioModelGovernanceReadiness(
+    actor: ModelQualificationActor,
+    authorizedCourses: readonly ModelQualificationAuthorizedCourse[],
+    strategicPortfolios: Parameters<
+      typeof buildStrategicPortfolioModelGovernanceReadiness
+    >[0]["strategic_portfolios"],
+    expectedPortfolioStateDigest?: string
+  ): StrategicPortfolioModelGovernanceRoleProjection {
+    if (actor.role !== "tenant_admin") {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    const readiness: StrategicPortfolioModelGovernanceReadiness =
+      buildStrategicPortfolioModelGovernanceReadiness({
+        tenant_id: actor.tenant_id,
+        mqr_portfolio: this.getCoursePortfolio(actor, authorizedCourses),
+        strategic_portfolios: strategicPortfolios,
+        readiness_policy_digest: STRATEGIC_PORTFOLIO_MODEL_GOVERNANCE_READINESS_POLICY_DIGEST,
+        ...(expectedPortfolioStateDigest
+          ? { expected_portfolio_state_digest: expectedPortfolioStateDigest }
+          : {})
+      });
+    return projectStrategicPortfolioModelGovernanceReadiness(
+      {
+        tenant_id: readiness.tenant_id,
+        readiness_policy_digest: readiness.readiness_policy_digest,
+        portfolio_state_digest: readiness.portfolio_state_digest,
+        readiness_digest: readiness.readiness_digest,
+        readiness_status: readiness.readiness_status,
+        known_limits: readiness.known_limits,
+        entries: readiness.entries.map((entry) => ({
+          course: entry.course,
+          exact_scope: entry.exact_scope,
+          portfolio_id: entry.portfolio_id,
+          portfolio_digest: entry.portfolio_digest,
+          model_qualification_portfolio_state_digest:
+            entry.model_qualification_portfolio_state_digest,
+          adoption_state_digest: entry.adoption_state_digest,
+          current_adoption: entry.current_adoption,
+          qualification: entry.qualification
+            ? {
+                qualification_id: entry.qualification.qualification_id,
+                content_digest: entry.qualification.content_digest
+              }
+            : null,
+          blockers: entry.blockers,
+          known_limits: entry.known_limits,
+          readiness: entry.readiness,
+          readiness_digest: entry.readiness_digest
+        }))
+      },
+      "admin"
     );
   }
 

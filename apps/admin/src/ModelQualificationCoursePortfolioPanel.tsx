@@ -26,6 +26,43 @@ type Portfolio = {
   provider: "OFF";
   known_limits: string[];
 };
+type Readiness = {
+  role: "admin";
+  visibility: "TENANT_GOVERNANCE_DETAIL";
+  tenant_id: string;
+  readiness_policy_digest: string;
+  portfolio_state_digest: string;
+  readiness_digest: string;
+  readiness_status: "READY" | "BLOCKED" | "REBASE_REQUIRED";
+  entries: Array<{
+    course: { course_id: string; tenant_id: string; title: string };
+    exact_scope: {
+      tenant_id: string;
+      course_id: string;
+      run_id: string;
+      team_id: string;
+      round_no: number;
+    };
+    portfolio_id: string;
+    portfolio_digest: string;
+    model_qualification_portfolio_state_digest: string;
+    adoption_state_digest: string | null;
+    current_adoption: AdoptionReference | null;
+    qualification: { qualification_id: string; content_digest: string } | null;
+    blockers: string[];
+    known_limits: string[];
+    readiness: string;
+    readiness_digest: string;
+  }>;
+  known_limits: string[];
+  derived: true;
+  query_only: true;
+  no_new_writer: true;
+  no_new_store: true;
+  no_new_registry: true;
+  provider: "OFF";
+  writer_effect: "NONE";
+};
 type Preview = {
   status: string;
   blockers: string[];
@@ -128,6 +165,8 @@ export function ModelQualificationCoursePortfolioPanel({
   token
 }: ModelQualificationCoursePortfolioPanelProps) {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
+  const [readiness, setReadiness] = useState<Readiness | null>(null);
+  const [readinessLoading, setReadinessLoading] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [changeSet, setChangeSet] = useState<ChangeSet | null>(null);
   const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
@@ -167,6 +206,8 @@ export function ModelQualificationCoursePortfolioPanel({
     setMessage("");
     setPreview(null);
     setChangeSet(null);
+    setReadiness(null);
+    setReadinessLoading(true);
     try {
       const response = await fetch(
         endpoint(apiBase, "/api/v1/bff/admin/model-qualification/course-portfolio"),
@@ -177,11 +218,33 @@ export function ModelQualificationCoursePortfolioPanel({
       setPortfolio(next);
       setSelectedCourseIds(next.courses.slice(0, 1).map((entry) => entry.course.course_id));
       setStatus(next.courses.length === 0 ? "empty" : "ready");
+      try {
+        const readinessResponse = await fetch(
+          endpoint(
+            apiBase,
+            `/api/v1/bff/admin/model-qualification/strategic-portfolio-readiness?portfolioStateDigest=${encodeURIComponent(next.portfolio_state_digest)}`
+          ),
+          requestInit
+        );
+        const nextReadiness = await readEnvelope<Readiness>(readinessResponse);
+        if (!isCurrent()) return;
+        setReadiness(nextReadiness);
+      } catch {
+        if (!isCurrent()) return;
+        setReadiness(null);
+        setMessage(
+          "课程组合已读取，但模型治理就绪度暂时无法读取；请重试以获得 exact W4/MQR 对照。 "
+        );
+      } finally {
+        if (isCurrent()) setReadinessLoading(false);
+      }
     } catch {
       if (!isCurrent()) return;
       setPortfolio(null);
+      setReadiness(null);
       setStatus("error");
       setMessage("课程组合暂时无法读取，请保持当前租户范围后重试。");
+      setReadinessLoading(false);
     }
   }, [apiBase, requestInit]);
 
@@ -333,6 +396,64 @@ export function ModelQualificationCoursePortfolioPanel({
             <span>状态：{portfolio.portfolio_status}</span>
             <code>{portfolio.portfolio_state_digest}</code>
           </div>
+          <section className="o9-state-panel" aria-labelledby="o2-readiness-heading">
+            <div className="panel-title">
+              <div>
+                <p className="eyebrow">O2 · Strategic Portfolio × Model Governance</p>
+                <h3 id="o2-readiness-heading">模型治理就绪度连接</h3>
+              </div>
+              <span className="o9-query-badge">derived · query-only · Provider OFF</span>
+            </div>
+            {readinessLoading ? <p role="status">正在读取 exact W4/MQR 就绪度…</p> : null}
+            {readiness ? (
+              <>
+                <div className="o9-portfolio-summary" aria-label="模型治理就绪度摘要">
+                  <span>状态：{readiness.readiness_status}</span>
+                  <span>精确条目：{readiness.entries.length}</span>
+                  <code>{readiness.readiness_digest}</code>
+                </div>
+                {readiness.entries.length > 0 ? (
+                  <div className="o9-course-grid">
+                    {readiness.entries.map((entry) => (
+                      <article className="panel o9-course-card" key={entry.readiness_digest}>
+                        <strong>{entry.course.title}</strong>
+                        <small>
+                          {entry.course.course_id} · Run {entry.exact_scope.run_id} · Team{" "}
+                          {entry.exact_scope.team_id} · Round {entry.exact_scope.round_no}
+                        </small>
+                        <dl>
+                          <dt>就绪度</dt>
+                          <dd>{entry.readiness}</dd>
+                          <dt>Qualification</dt>
+                          <dd>{entry.qualification?.qualification_id ?? "未解析"}</dd>
+                          <dt>W4 Portfolio digest</dt>
+                          <dd>
+                            <code>{entry.portfolio_digest}</code>
+                          </dd>
+                        </dl>
+                        {entry.blockers.length > 0 ? (
+                          <ul className="o9-blockers">
+                            {entry.blockers.map((blocker) => (
+                              <li key={blocker}>{blocker}</li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="o9-boundary" role="status">
+                    当前没有可由 W4 Enterprise State 精确投影的战略组合；未使用
+                    latest/default/fallback 推断。
+                  </p>
+                )}
+                <p className="o9-boundary" role="note">
+                  仅提供逐课程治理可读性，不执行采纳、回退、重新资格、正式 Run、结算、评分或排名；W4
+                  与 Model Qualification 仍是各自唯一权威。
+                </p>
+              </>
+            ) : null}
+          </section>
           {portfolio.blockers.length > 0 ? (
             <div className="o9-state-panel o9-warning" role="status">
               组合存在 {portfolio.blockers.length} 个完整性限制；下方课程卡片保留具体原因。

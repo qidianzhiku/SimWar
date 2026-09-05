@@ -85,3 +85,68 @@ describe("O9 model qualification course portfolio contract", () => {
     expect(document).toContain("Student has no tenant portfolio");
   });
 });
+
+describe("SP-O2 strategic portfolio model governance readiness contract", () => {
+  it("publishes one tenant-admin derived readiness join route", () => {
+    expect(
+      openapi.paths["/api/v1/bff/admin/model-qualification/strategic-portfolio-readiness"]?.get
+    ).toBeDefined();
+    expect(
+      openapi.paths["/api/v1/bff/student/model-qualification/strategic-portfolio-readiness"]
+    ).toBeUndefined();
+  });
+
+  it("validates exact scope, digest, and no-mutation projection flags", () => {
+    const schema = JSON.parse(
+      readFileSync(
+        "contracts/schemas/strategic-portfolio-model-governance-readiness.v1.json",
+        "utf8"
+      )
+    );
+    const ajv = new Ajv2020({ allErrors: true, strict: false });
+    ajv.addSchema(schema);
+    const validate = ajv.getSchema(`${schema.$id}#/$defs/adminProjection`);
+    expect(validate).toBeDefined();
+    expect(
+      validate!({
+        role: "admin",
+        visibility: "TENANT_GOVERNANCE_DETAIL",
+        tenant_id: "tenant-1",
+        readiness_policy_digest: "a".repeat(64),
+        portfolio_state_digest: "b".repeat(64),
+        readiness_digest: "c".repeat(64),
+        readiness_status: "READY",
+        entries: [
+          {
+            course: { course_id: "course-1", tenant_id: "tenant-1", title: "Course" },
+            exact_scope: {
+              tenant_id: "tenant-1",
+              course_id: "course-1",
+              run_id: "run-1",
+              team_id: "team-1",
+              round_no: 1
+            },
+            portfolio_id: "w4-portfolio-1",
+            portfolio_digest: "d".repeat(64),
+            model_qualification_portfolio_state_digest: "b".repeat(64),
+            adoption_state_digest: null,
+            current_adoption: null,
+            qualification: null,
+            blockers: [],
+            known_limits: ["derived"],
+            readiness: "NO_QUALIFIED_MODEL",
+            readiness_digest: "e".repeat(64)
+          }
+        ],
+        known_limits: ["query-only"],
+        derived: true,
+        query_only: true,
+        no_new_writer: true,
+        no_new_store: true,
+        no_new_registry: true,
+        provider: "OFF",
+        writer_effect: "NONE"
+      })
+    ).toBe(true);
+  });
+});

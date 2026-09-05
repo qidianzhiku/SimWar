@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/strategic-portfolio-model-governance-readiness.v1.json",
+  "title": "SimWar Strategic Portfolio Model Governance Readiness",
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "readiness": {
+      "enum": [
+        "READY",
+        "REVIEW_REQUIRED",
+        "REQUALIFICATION_REQUIRED",
+        "ROLLBACK_CANDIDATE",
+        "REBASE_REQUIRED",
+        "BLOCKED",
+        "NO_QUALIFIED_MODEL"
+      ]
+    },
+    "course": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["course_id", "tenant_id", "title"],
+      "properties": {
+        "course_id": { "$ref": "#/$defs/nonEmptyString" },
+        "tenant_id": { "$ref": "#/$defs/nonEmptyString" },
+        "title": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "exactScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tenant_id", "course_id", "run_id", "team_id", "round_no"],
+      "properties": {
+        "tenant_id": { "$ref": "#/$defs/nonEmptyString" },
+        "course_id": { "$ref": "#/$defs/nonEmptyString" },
+        "run_id": { "$ref": "#/$defs/nonEmptyString" },
+        "team_id": { "$ref": "#/$defs/nonEmptyString" },
+        "round_no": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "adoption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adoption_id", "adoption_digest"],
+      "properties": {
+        "adoption_id": { "$ref": "#/$defs/nonEmptyString" },
+        "adoption_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["qualification_id", "content_digest"],
+      "properties": {
+        "qualification_id": { "$ref": "#/$defs/nonEmptyString" },
+        "content_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "course",
+        "exact_scope",
+        "portfolio_id",
+        "portfolio_digest",
+        "model_qualification_portfolio_state_digest",
+        "adoption_state_digest",
+        "current_adoption",
+        "qualification",
+        "blockers",
+        "known_limits",
+        "readiness",
+        "readiness_digest"
+      ],
+      "properties": {
+        "course": { "$ref": "#/$defs/course" },
+        "exact_scope": { "$ref": "#/$defs/exactScope" },
+        "portfolio_id": { "$ref": "#/$defs/nonEmptyString" },
+        "portfolio_digest": { "$ref": "#/$defs/digest" },
+        "model_qualification_portfolio_state_digest": { "$ref": "#/$defs/digest" },
+        "adoption_state_digest": {
+          "oneOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }]
+        },
+        "current_adoption": {
+          "oneOf": [{ "$ref": "#/$defs/adoption" }, { "type": "null" }]
+        },
+        "qualification": {
+          "oneOf": [{ "$ref": "#/$defs/qualification" }, { "type": "null" }]
+        },
+        "blockers": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "known_limits": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "readiness": { "$ref": "#/$defs/readiness" },
+        "readiness_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "adminProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "visibility",
+        "tenant_id",
+        "readiness_policy_digest",
+        "portfolio_state_digest",
+        "readiness_digest",
+        "readiness_status",
+        "entries",
+        "known_limits",
+        "derived",
+        "query_only",
+        "no_new_writer",
+        "no_new_store",
+        "no_new_registry",
+        "provider",
+        "writer_effect"
+      ],
+      "properties": {
+        "role": { "const": "admin" },
+        "visibility": { "const": "TENANT_GOVERNANCE_DETAIL" },
+        "tenant_id": { "$ref": "#/$defs/nonEmptyString" },
+        "readiness_policy_digest": { "$ref": "#/$defs/digest" },
+        "portfolio_state_digest": { "$ref": "#/$defs/digest" },
+        "readiness_digest": { "$ref": "#/$defs/digest" },
+        "readiness_status": { "enum": ["READY", "BLOCKED", "REBASE_REQUIRED"] },
+        "entries": { "type": "array", "items": { "$ref": "#/$defs/entry" } },
+        "known_limits": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "derived": { "const": true },
+        "query_only": { "const": true },
+        "no_new_writer": { "const": true },
+        "no_new_store": { "const": true },
+        "no_new_registry": { "const": true },
+        "provider": { "const": "OFF" },
+        "writer_effect": { "const": "NONE" }
+      }
+    }
+  }
+}

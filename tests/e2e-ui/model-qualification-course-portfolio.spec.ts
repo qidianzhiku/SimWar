@@ -26,7 +26,7 @@ for (const viewport of [
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     const targetRequests: Array<{ method: string; url: string }> = [];
     page.on("request", (request) => {
-      if (request.url().includes("/api/v1/bff/admin/model-qualification/course-portfolio")) {
+      if (request.url().includes("/api/v1/bff/admin/model-qualification/")) {
         targetRequests.push({ method: request.method(), url: request.url() });
       }
     });
@@ -35,7 +35,10 @@ for (const viewport of [
     await page.getByRole("link", { name: "模型资格课程组合" }).click();
     const panel = page.locator("#admin-model-qualification-portfolio");
     await expect(panel).toBeVisible();
-    await expect(panel.getByText("derived · query-only · Provider OFF")).toBeVisible();
+    await expect(panel.locator(".o9-query-badge").first()).toHaveText(
+      "derived · query-only · Provider OFF"
+    );
+    await expect(panel.getByRole("heading", { name: "模型治理就绪度连接" })).toBeVisible();
     await expect(panel.getByText("course_demo", { exact: true })).toBeVisible();
 
     await panel.getByRole("button", { name: /生成选中课程的只读 Supersession Preview/u }).click();
@@ -58,6 +61,9 @@ for (const viewport of [
     expect(targetRequests.length).toBeGreaterThanOrEqual(3);
     expect(targetRequests.every(({ url }) => !url.includes("student"))).toBe(true);
     expect(targetRequests.some(({ method }) => method === "GET")).toBe(true);
+    expect(targetRequests.some(({ url }) => url.includes("strategic-portfolio-readiness"))).toBe(
+      true
+    );
     expect(targetRequests.some(({ method }) => method === "POST")).toBe(true);
     expect(targetRequests.filter(({ method }) => method === "POST")).toHaveLength(2);
     expect(
