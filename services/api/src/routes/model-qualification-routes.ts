@@ -7,6 +7,7 @@ import type {
   DisposeEvidenceAdoption,
   GovernedRollbackRequestInput,
   PermissionKey,
+  W4StrategicPortfolioProjection,
   ValidationEnvironmentLaunch
 } from "@simwar/shared-contracts";
 import type { RepositoryFacade } from "../repository-facade.js";
@@ -36,6 +37,9 @@ interface ModelQualificationRouteDependencies {
     tenantId: string,
     launchId: string
   ): Promise<ValidationEnvironmentLaunch | null>;
+  getStrategicPortfolioProjections?(
+    actor: CurrentUser
+  ): Promise<readonly W4StrategicPortfolioProjection[]>;
   actorHasAnyRole(actor: CurrentUser, roles: readonly string[]): boolean;
   createContext(request: IncomingMessage): ModelQualificationRouteContext;
   createEnvelope<TData>(
@@ -71,6 +75,14 @@ function resolveCourseId(body: Record<string, unknown>, url: URL): string {
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string") ? [...value] : [];
+}
+
+function expectedPortfolioStateDigest(url: URL): string | undefined {
+  const value = url.searchParams.get("portfolioStateDigest");
+  if (value !== null && !/^[a-f0-9]{64}$/u.test(value)) {
+    throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+  }
+  return value ?? undefined;
 }
 
 function numberValue(value: unknown): number {
@@ -172,6 +184,8 @@ export function isModelQualificationRoute(method: string | undefined, url: URL):
   )
     return true;
   if (method === "GET" && url.pathname === `${ADMIN_PREFIX}/course-portfolio`) return true;
+  if (method === "GET" && url.pathname === `${ADMIN_PREFIX}/strategic-portfolio-readiness`)
+    return true;
   if (method === "POST" && url.pathname === `${ADMIN_PREFIX}/course-portfolio/changeset-request`)
     return true;
   if (method === "POST" && url.pathname === `${ADMIN_PREFIX}/course-portfolio/supersession-preview`)
@@ -244,6 +258,32 @@ export async function handleModelQualificationRoute(
 ): Promise<boolean> {
   if (!isModelQualificationRoute(request.method, url)) return false;
   const context = deps.createContext(request);
+
+  if (
+    request.method === "GET" &&
+    url.pathname === `${ADMIN_PREFIX}/strategic-portfolio-readiness`
+  ) {
+    const actor = deps.requirePermission(context, "course:read");
+    if (actor.tenant_id !== context.tenantId || !deps.actorHasAnyRole(actor, ["tenant_admin"])) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    const strategicPortfolios = deps.getStrategicPortfolioProjections
+      ? await deps.getStrategicPortfolioProjections(actor)
+      : [];
+    send(
+      deps,
+      context,
+      response,
+      200,
+      service.getStrategicPortfolioModelGovernanceReadiness(
+        serviceActor(actor, "admin"),
+        await canonicalTenantCourses(deps, context),
+        strategicPortfolios,
+        expectedPortfolioStateDigest(url)
+      )
+    );
+    return true;
+  }
 
   if (request.method === "GET" && url.pathname === `${ADMIN_PREFIX}/course-portfolio`) {
     const actor = deps.requirePermission(context, "course:read");

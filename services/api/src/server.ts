@@ -6904,6 +6904,115 @@ async function routeRequest(
         createEnvelope(context as RequestContext, data, message),
       readJson,
       repository: runtime.repositoryProvider.facade,
+      getStrategicPortfolioProjections: async (actor) => {
+        const snapshot = runtime.w4EnterpriseStateRepository.snapshot();
+        const scopes = new Map<string, W4ScopeContext>();
+        for (const state of snapshot.states) {
+          if (state.tenant_id !== actor.tenant_id || state.round_no < 1) continue;
+          const scope: W4ScopeContext = {
+            actor_id: actor.user_id,
+            activity_id: "w4-enterprise-state-strategic-evolution",
+            course_id: state.course_id,
+            role_key: "admin",
+            round_id: state.round_id,
+            round_no: state.round_no,
+            run_id: state.run_id,
+            team_id: state.team_id,
+            tenant_id: state.tenant_id
+          };
+          scopes.set(
+            [
+              scope.tenant_id,
+              scope.course_id,
+              scope.run_id,
+              scope.team_id,
+              scope.round_id,
+              scope.round_no
+            ].join("\u001f"),
+            scope
+          );
+        }
+        const canonicalCourses =
+          await runtime.repositoryProvider.facade.courses.listCoursesForTenant(actor.tenant_id);
+        for (const course of canonicalCourses) {
+          if (course.tenant_id !== actor.tenant_id) continue;
+          const runs = await runtime.repositoryProvider.facade.runs.listRunsForCourse(
+            actor.tenant_id,
+            course.course_id
+          );
+          for (const run of runs) {
+            if (run.tenant_id !== actor.tenant_id || run.course_id !== course.course_id) continue;
+            const [rounds, teams] = await Promise.all([
+              runtime.repositoryProvider.facade.rounds.listRoundsForRun(
+                actor.tenant_id,
+                run.run_id
+              ),
+              runtime.repositoryProvider.facade.teams.listTeamsForRun(actor.tenant_id, run.run_id)
+            ]);
+            for (const round of rounds) {
+              if (round.tenant_id !== actor.tenant_id || round.run_id !== run.run_id) continue;
+              for (const team of teams) {
+                if (team.tenant_id !== actor.tenant_id || team.course_id !== course.course_id) {
+                  continue;
+                }
+                const scope: W4ScopeContext = {
+                  actor_id: actor.user_id,
+                  activity_id: "w4-enterprise-state-strategic-evolution",
+                  course_id: course.course_id,
+                  role_key: "admin",
+                  round_id: round.round_id,
+                  round_no: round.round_no,
+                  run_id: run.run_id,
+                  team_id: team.team_id,
+                  tenant_id: actor.tenant_id
+                };
+                scopes.set(
+                  [
+                    scope.tenant_id,
+                    scope.course_id,
+                    scope.run_id,
+                    scope.team_id,
+                    scope.round_id,
+                    scope.round_no
+                  ].join("\u001f"),
+                  scope
+                );
+              }
+            }
+          }
+        }
+        const projections = [];
+        for (const scope of [...scopes.values()].sort((left, right) =>
+          [left.course_id, left.run_id, left.team_id, left.round_no, left.round_id]
+            .join("\u001f")
+            .localeCompare(
+              [right.course_id, right.run_id, right.team_id, right.round_no, right.round_id].join(
+                "\u001f"
+              )
+            )
+        )) {
+          try {
+            const projection = await runtime.w4EnterpriseStateService.getProjection(scope, {
+              allowEmptyRound: true
+            });
+            const strategicPortfolio = projection.strategic_portfolio;
+            if (
+              strategicPortfolio.portfolio_ref.tenant_id === actor.tenant_id &&
+              strategicPortfolio.exact_scope.tenant_id === actor.tenant_id &&
+              strategicPortfolio.exact_scope.course_id === scope.course_id &&
+              strategicPortfolio.exact_scope.run_id === scope.run_id &&
+              strategicPortfolio.exact_scope.team_id === scope.team_id &&
+              strategicPortfolio.exact_scope.round_no === scope.round_no
+            ) {
+              projections.push(strategicPortfolio);
+            }
+          } catch {
+            // A state without a valid W4 projection is not promoted into the
+            // derived join; no fallback or alternate authority is inferred.
+          }
+        }
+        return projections;
+      },
       requirePermission: (context, permission) =>
         requirePermission(context as RequestContext, permission),
       sendJson
