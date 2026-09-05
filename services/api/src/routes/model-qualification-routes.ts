@@ -172,6 +172,8 @@ export function isModelQualificationRoute(method: string | undefined, url: URL):
   )
     return true;
   if (method === "GET" && url.pathname === `${ADMIN_PREFIX}/course-portfolio`) return true;
+  if (method === "POST" && url.pathname === `${ADMIN_PREFIX}/course-portfolio/changeset-request`)
+    return true;
   if (method === "POST" && url.pathname === `${ADMIN_PREFIX}/course-portfolio/supersession-preview`)
     return true;
   if (
@@ -258,6 +260,40 @@ export async function handleModelQualificationRoute(
         await canonicalTenantCourses(deps, context)
       )
     );
+    return true;
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname === `${ADMIN_PREFIX}/course-portfolio/changeset-request`
+  ) {
+    const actor = deps.requirePermission(context, "course:read");
+    if (actor.tenant_id !== context.tenantId || !deps.actorHasAnyRole(actor, ["tenant_admin"])) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    const body = await deps.readJson<Record<string, unknown>>(request, { requiredObject: true });
+    if (
+      !isRecord(body) ||
+      Object.keys(body).length !== 2 ||
+      !Object.hasOwn(body, "course_ids") ||
+      !Object.hasOwn(body, "expected_portfolio_state_digest") ||
+      !Array.isArray(body.course_ids)
+    ) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    const courseIds = stringArray(body.course_ids);
+    if (courseIds.length !== body.course_ids.length || courseIds.length === 0) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    send(deps, context, response, 200, {
+      ...service.getCoursePortfolioChangeSetRequest(
+        serviceActor(actor, "admin"),
+        await canonicalTenantCourses(deps, context),
+        courseIds,
+        stringValue(body.expected_portfolio_state_digest)
+      ),
+      schema_version: "model-qualification-portfolio-changeset-response.v1"
+    });
     return true;
   }
 

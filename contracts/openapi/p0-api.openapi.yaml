@@ -6548,6 +6548,35 @@ paths:
         "403": { description: Tenant administrator scope denied }
         "409": { description: Portfolio or selected course identity conflict }
 
+  /api/v1/bff/admin/model-qualification/course-portfolio/changeset-request:
+    post:
+      operationId: MODEL_QUALIFICATION_COURSE_PORTFOLIO_CHANGESET_REQUEST_ADMIN_POST_V1
+      summary: Compile an exact O9 portfolio preview into a query-only O10 changeset request.
+      description: Binds the canonical tenant Course Authority, exact portfolio and preview digests, and current versioned policy. Returns per-course handoff descriptions only; it never persists or executes a request, apply, adoption, rollback, requalification, or cross-course transaction.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            {
+              schema:
+                {
+                  $ref: "../schemas/model-qualification-portfolio-changeset.v1.json#/$defs/requestInput"
+                }
+            }
+      responses:
+        "200":
+          description: Deterministic query-only changeset request and per-course handoffs.
+          content:
+            application/json:
+              {
+                schema:
+                  { $ref: "#/components/schemas/ModelQualificationPortfolioChangeSetEnvelope" }
+              }
+        "401": { description: Authentication required }
+        "403": { description: Tenant administrator scope denied }
+        "409": { description: "Portfolio, preview, selected identity, or policy conflict" }
+
   /api/v1/bff/teacher/model-qualification/adoption-operations:
     get:
       operationId: MODEL_QUALIFICATION_ADOPTION_OPERATIONS_TEACHER_GET_V1
@@ -11566,6 +11595,15 @@ components:
           {
             $ref: "../schemas/model-qualification-course-portfolio.v1.json#/$defs/supersessionPreview"
           }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ModelQualificationPortfolioChangeSetEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/model-qualification-portfolio-changeset.v1.json#/$defs/response" }
         message: { type: string }
         request_id: { type: string, minLength: 1 }
     ModelQualificationStudentEnvelope:

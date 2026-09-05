@@ -22,7 +22,7 @@ for (const viewport of [
   { name: "tablet-1024", width: 1024, height: 900 },
   { name: "mobile-390", width: 390, height: 844 }
 ]) {
-  test(`O9 Admin portfolio real-BFF journey ${viewport.name} @o9`, async ({ page }) => {
+  test(`O9/O10 Admin portfolio real-BFF journey ${viewport.name} @o10`, async ({ page }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     const targetRequests: Array<{ method: string; url: string }> = [];
     page.on("request", (request) => {
@@ -43,12 +43,26 @@ for (const viewport of [
     await expect(
       panel.getByText("preview_applied=false · 不写入治理或正式真值。", { exact: true })
     ).toBeVisible();
+    await panel.getByRole("button", { name: /编译 O10 逐课变更集请求（只读）/u }).click();
+    await expect(panel.getByRole("heading", { name: /逐课治理 handoff/u })).toBeVisible();
+    await expect(
+      panel.getByText(
+        "request != approval · handoff != execution · apply=false · bulk_apply=false · cross_course_transaction=false",
+        { exact: true }
+      )
+    ).toBeVisible();
+    await expect(
+      panel.getByText("handoff_executed=false · apply=false", { exact: false })
+    ).toBeVisible();
 
-    expect(targetRequests.length).toBeGreaterThanOrEqual(2);
+    expect(targetRequests.length).toBeGreaterThanOrEqual(3);
     expect(targetRequests.every(({ url }) => !url.includes("student"))).toBe(true);
     expect(targetRequests.some(({ method }) => method === "GET")).toBe(true);
     expect(targetRequests.some(({ method }) => method === "POST")).toBe(true);
-    expect(targetRequests.filter(({ method }) => method === "POST")).toHaveLength(1);
+    expect(targetRequests.filter(({ method }) => method === "POST")).toHaveLength(2);
+    expect(
+      targetRequests.some(({ url }) => url.endsWith("/course-portfolio/changeset-request"))
+    ).toBe(true);
 
     const overflow = await panel.evaluate((element) => ({
       clientWidth: element.clientWidth,

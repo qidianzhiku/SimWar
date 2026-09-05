@@ -33,6 +33,7 @@
     "test:e2e:ui:o6": "npm run build:test-prerequisites && npm run build -w @simwar/ui && playwright test --config playwright.o6.config.ts",
     "test:e2e:ui:o7": "npm run build:test-prerequisites && npm run build -w @simwar/ui && playwright test --config playwright.o7.config.ts",
     "test:e2e:ui:o9": "npm run build:test-prerequisites && npm run build -w @simwar/ui && playwright test tests/e2e-ui/model-qualification-course-portfolio.spec.ts --config playwright.config.ts",
+    "test:contract:o10": "npm run build:test-prerequisites && node scripts/check-contracts.mjs && vitest run tests/contract/model-qualification-portfolio-changeset-openapi.test.ts tests/integration/model-qualification-o10-http.test.ts",
     "test:e2e:ui:shanghai": "npm run build:test-prerequisites && npm run build -w @simwar/ui && playwright test tests/e2e-ui/shanghai-full-vertical.spec.ts --config playwright.config.ts",
     "test:w5:formal-rebase": "tsx --tsconfig scripts/tsconfig.w5-formal-rebase.json scripts/run-w5-formal-rebase.ts",
     "check:pr4:head": "node scripts/check-pr4-exact-head.mjs",
