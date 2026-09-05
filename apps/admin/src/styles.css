@@ -254,12 +254,6 @@ body {
   color: #f3f8fc;
 }
 
-.o10-changeset-heading {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
 .o10-changeset-heading h3 {
   margin: 0.25rem 0 0;
   color: #f3f8fc;
@@ -273,11 +267,6 @@ body {
   display: grid;
   grid-template-columns: minmax(7rem, 0.3fr) minmax(0, 1fr);
   gap: 0.5rem 1rem;
-  margin: 0;
-}
-
-.o10-changeset-identities dt {
-  color: #d7ecff;
 }
 
 .o10-changeset-identities dd {
@@ -300,7 +289,6 @@ body {
 .o10-handoff > div {
   display: flex;
   justify-content: space-between;
-  gap: 1rem;
 }
 
 .o10-handoff p,
@@ -308,10 +296,6 @@ body {
   display: block;
   margin: 0.4rem 0 0;
   overflow-wrap: anywhere;
-}
-
-.o10-handoff small {
-  color: #d7ecff;
 }
 
 button,
