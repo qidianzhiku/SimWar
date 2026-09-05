@@ -6517,6 +6517,31 @@ paths:
               { schema: { $ref: "#/components/schemas/ModelQualificationCoursePortfolioEnvelope" } }
         "401": { description: Authentication required }
         "403": { description: Tenant administrator scope denied }
+  /api/v1/bff/admin/model-qualification/strategic-portfolio-readiness:
+    get:
+      operationId: MODEL_QUALIFICATION_STRATEGIC_PORTFOLIO_READINESS_ADMIN_GET_V1
+      summary: Read the derived W4 strategic portfolio and model governance readiness join.
+      description: Course Authority supplies the tenant course set, W4 Enterprise State supplies strategic portfolio projections, and ModelQualification supplies exact governance identity. The endpoint is query-only, provider-off, and never creates or mutates a course, adoption, qualification, formal run, settlement truth, score, rank, or replay state.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - name: portfolioStateDigest
+          in: query
+          required: false
+          description: Optional exact Model Qualification portfolio digest expectation. A mismatch yields a derived REBASE_REQUIRED response.
+          schema: { type: string, pattern: "^[a-f0-9]{64}$" }
+      responses:
+        "200":
+          description: Tenant-safe derived strategic portfolio readiness projection.
+          content:
+            application/json:
+              {
+                schema:
+                  {
+                    $ref: "#/components/schemas/StrategicPortfolioModelGovernanceReadinessAdminEnvelope"
+                  }
+              }
+        "401": { description: Authentication required }
+        "403": { description: Tenant administrator scope denied }
   /api/v1/bff/admin/model-qualification/course-portfolio/supersession-preview:
     post:
       operationId: MODEL_QUALIFICATION_COURSE_PORTFOLIO_SUPERSESSION_PREVIEW_ADMIN_POST_V1
@@ -11583,6 +11608,18 @@ components:
       properties:
         code: { type: string }
         data: { $ref: "../schemas/model-qualification-course-portfolio.v1.json#/$defs/portfolio" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    StrategicPortfolioModelGovernanceReadinessAdminEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          {
+            $ref: "../schemas/strategic-portfolio-model-governance-readiness.v1.json#/$defs/adminProjection"
+          }
         message: { type: string }
         request_id: { type: string, minLength: 1 }
     ModelQualificationPortfolioSupersessionPreviewEnvelope:

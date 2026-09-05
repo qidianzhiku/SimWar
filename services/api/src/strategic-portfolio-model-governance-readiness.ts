@@ -1,8 +1,6 @@
-import type {
-  ModelQualification,
-  ModelQualificationCoursePortfolio,
-  W4StrategicPortfolioProjection
-} from "@simwar/shared-contracts";
+import type { W4StrategicPortfolioProjection } from "@simwar/shared-contracts";
+import type { ModelQualification } from "@simwar/shared-contracts";
+import type { ModelQualificationCoursePortfolio } from "./model-qualification-course-portfolio.js";
 import { stableSha256 } from "./model-qualification-adoption-drift-assessment.js";
 
 export const STRATEGIC_PORTFOLIO_MODEL_GOVERNANCE_READINESS_SCHEMA_VERSION =
@@ -141,32 +139,64 @@ function deriveReadiness(
   portfolio: W4StrategicPortfolioProjection,
   blockers: readonly string[]
 ): StrategicPortfolioModelGovernanceReadinessStatus {
-  if (blockers.some((code) => code === "READINESS_POLICY_DIGEST_INVALID" || code === "READINESS_POLICY_DIGEST_MISMATCH")) {
+  if (
+    blockers.some(
+      (code) =>
+        code === "READINESS_POLICY_DIGEST_INVALID" || code === "READINESS_POLICY_DIGEST_MISMATCH"
+    )
+  ) {
     return "BLOCKED";
   }
-  if (blockers.some((code) => code === "COURSE_NOT_IN_CANONICAL_AUTHORITY" || code === "W4_AUTHORITY_INVALID" || code === "W4_SCOPE_MISMATCH")) {
+  if (
+    blockers.some(
+      (code) =>
+        code === "COURSE_NOT_IN_CANONICAL_AUTHORITY" ||
+        code === "W4_AUTHORITY_INVALID" ||
+        code === "W4_SCOPE_MISMATCH"
+    )
+  ) {
     return "BLOCKED";
   }
   if (!entry.qualification || !entry.current_adoption) return "NO_QUALIFIED_MODEL";
   if (blockers.length > 0) {
-    if (blockers.some((code) => code === "PORTFOLIO_STATE_DIGEST_MISMATCH" || code === "W4_PORTFOLIO_DIGEST_MISMATCH")) {
+    if (
+      blockers.some(
+        (code) =>
+          code === "PORTFOLIO_STATE_DIGEST_MISMATCH" || code === "W4_PORTFOLIO_DIGEST_MISMATCH"
+      )
+    ) {
       return "REBASE_REQUIRED";
     }
-    if (blockers.some((code) => code.includes("QUALIFICATION") || code.includes("ADOPTION") || code.includes("EVIDENCE"))) {
-      return entry.qualification?.review.status === "APPROVED" ? "REQUALIFICATION_REQUIRED" : "REVIEW_REQUIRED";
+    if (
+      blockers.some(
+        (code) =>
+          code.includes("QUALIFICATION") || code.includes("ADOPTION") || code.includes("EVIDENCE")
+      )
+    ) {
+      return entry.qualification?.review.status === "APPROVED"
+        ? "REQUALIFICATION_REQUIRED"
+        : "REVIEW_REQUIRED";
     }
     return "BLOCKED";
   }
   if (entry.qualification_consistency !== "CONSISTENT") return "REQUALIFICATION_REQUIRED";
   if (portfolio.constraints.status === "BREACHED") return "BLOCKED";
   if (portfolio.constraints.status === "UNFUNDED") return "REVIEW_REQUIRED";
-  if (entry.o8_outcomes.some((outcome) => outcome.current_effect === "CURRENT" && outcome.outcome_status === "READOPTED_FOR_FUTURE_ADMISSION")) {
+  if (
+    entry.o8_outcomes.some(
+      (outcome) =>
+        outcome.current_effect === "CURRENT" &&
+        outcome.outcome_status === "READOPTED_FOR_FUTURE_ADMISSION"
+    )
+  ) {
     return "ROLLBACK_CANDIDATE";
   }
   return "READY";
 }
 
-function entryDigestBody(entry: Omit<StrategicPortfolioModelGovernanceReadinessEntry, "readiness_digest">) {
+function entryDigestBody(
+  entry: Omit<StrategicPortfolioModelGovernanceReadinessEntry, "readiness_digest">
+) {
   return {
     adoption_state_digest: entry.adoption_state_digest,
     blockers: entry.blockers,
@@ -195,11 +225,17 @@ export function buildStrategicPortfolioModelGovernanceReadiness(
   const globalBlockers: string[] = [];
   if (mqr.tenant_id !== tenantId) globalBlockers.push("MQR_TENANT_SCOPE_MISMATCH");
   if (mqr.portfolio_status !== "READY") globalBlockers.push("MQR_PORTFOLIO_BLOCKED");
-  if (!isDigest(input.readiness_policy_digest)) globalBlockers.push("READINESS_POLICY_DIGEST_INVALID");
-  if (input.readiness_policy_digest !== STRATEGIC_PORTFOLIO_MODEL_GOVERNANCE_READINESS_POLICY_DIGEST) {
+  if (!isDigest(input.readiness_policy_digest))
+    globalBlockers.push("READINESS_POLICY_DIGEST_INVALID");
+  if (
+    input.readiness_policy_digest !== STRATEGIC_PORTFOLIO_MODEL_GOVERNANCE_READINESS_POLICY_DIGEST
+  ) {
     globalBlockers.push("READINESS_POLICY_DIGEST_MISMATCH");
   }
-  if (input.expected_portfolio_state_digest && input.expected_portfolio_state_digest !== mqr.portfolio_state_digest) {
+  if (
+    input.expected_portfolio_state_digest &&
+    input.expected_portfolio_state_digest !== mqr.portfolio_state_digest
+  ) {
     globalBlockers.push("PORTFOLIO_STATE_DIGEST_MISMATCH");
   }
 
@@ -219,15 +255,28 @@ export function buildStrategicPortfolioModelGovernanceReadiness(
     ) {
       entryBlockers.push("W4_SCOPE_MISMATCH");
     }
-    if (portfolio.writer_authority !== "SOLE_W4_ENTERPRISE_STATE_SERVICE" || portfolio.persistence.official_state_authority !== "W4_ENTERPRISE_STATE_SERVICE") {
+    if (
+      portfolio.writer_authority !== "SOLE_W4_ENTERPRISE_STATE_SERVICE" ||
+      portfolio.persistence.official_state_authority !== "W4_ENTERPRISE_STATE_SERVICE"
+    ) {
       entryBlockers.push("W4_AUTHORITY_INVALID");
     }
-    const expectedW4Digest = expectedDigest(input.expected_strategic_portfolio_digests, portfolio.portfolio_id);
+    const expectedW4Digest = expectedDigest(
+      input.expected_strategic_portfolio_digests,
+      portfolio.portfolio_id
+    );
     if (expectedW4Digest === "__AMBIGUOUS__") entryBlockers.push("W4_PORTFOLIO_DIGEST_AMBIGUOUS");
-    else if (expectedW4Digest !== null && expectedW4Digest !== portfolio.portfolio_ref.portfolio_digest) entryBlockers.push("W4_PORTFOLIO_DIGEST_MISMATCH");
+    else if (
+      expectedW4Digest !== null &&
+      expectedW4Digest !== portfolio.portfolio_ref.portfolio_digest
+    )
+      entryBlockers.push("W4_PORTFOLIO_DIGEST_MISMATCH");
 
-    const courseEntry = mqr.courses.find((candidate) => candidate.course.course_id === scope.course_id);
-    if (!courseEntry || courseEntry.course.tenant_id !== tenantId) entryBlockers.push("COURSE_NOT_IN_CANONICAL_AUTHORITY");
+    const courseEntry = mqr.courses.find(
+      (candidate) => candidate.course.course_id === scope.course_id
+    );
+    if (!courseEntry || courseEntry.course.tenant_id !== tenantId)
+      entryBlockers.push("COURSE_NOT_IN_CANONICAL_AUTHORITY");
     const selected = courseEntry ?? {
       adoption_state_digest: null,
       blockers: [],
@@ -244,20 +293,32 @@ export function buildStrategicPortfolioModelGovernanceReadiness(
     };
     entryBlockers.push(...selected.blockers.map((blocker) => blocker.code));
     const blockers = uniqueSorted([...globalBlockers, ...entryBlockers]);
-    const readiness = globalBlockers.some((code) => code === "PORTFOLIO_STATE_DIGEST_MISMATCH") || blockers.some((code) => code === "W4_PORTFOLIO_DIGEST_MISMATCH")
-      ? "REBASE_REQUIRED"
-      : deriveReadiness(selected, portfolio, blockers);
+    const readiness =
+      globalBlockers.some((code) => code === "PORTFOLIO_STATE_DIGEST_MISMATCH") ||
+      blockers.some((code) => code === "W4_PORTFOLIO_DIGEST_MISMATCH")
+        ? "REBASE_REQUIRED"
+        : deriveReadiness(selected, portfolio, blockers);
     const base: Omit<StrategicPortfolioModelGovernanceReadinessEntry, "readiness_digest"> = {
-      current_adoption: selected.current_adoption ? structuredClone(selected.current_adoption) : null,
+      current_adoption: selected.current_adoption
+        ? structuredClone(selected.current_adoption)
+        : null,
       exact_scope: structuredClone(scope),
-      known_limits: uniqueSorted([...GLOBAL_LIMITS, ...selected.known_limits, ...portfolio.known_limits]),
+      known_limits: uniqueSorted([
+        ...GLOBAL_LIMITS,
+        ...selected.known_limits,
+        ...portfolio.known_limits
+      ]),
       model_qualification_portfolio_state_digest: mqr.portfolio_state_digest,
       portfolio_id: portfolio.portfolio_id,
       portfolio_digest: portfolio.portfolio_ref.portfolio_digest,
       blockers,
       qualification: qualificationIdentity(selected.qualification),
       readiness,
-      governance_handoff: { available: true, target: "MODEL_QUALIFICATION_GOVERNANCE", query_only: true },
+      governance_handoff: {
+        available: true,
+        target: "MODEL_QUALIFICATION_GOVERNANCE",
+        query_only: true
+      },
       adoption_state_digest: selected.adoption_state_digest,
       course: structuredClone(selected.course)
     };
@@ -266,11 +327,13 @@ export function buildStrategicPortfolioModelGovernanceReadiness(
 
   if (entries.length === 0) globalBlockers.push("W4_STRATEGIC_PORTFOLIO_MISSING");
   const blockers = uniqueSorted(globalBlockers);
-  const readinessStatus = blockers.some((code) => code.includes("DIGEST_MISMATCH")) || entries.some((entry) => entry.readiness === "REBASE_REQUIRED")
-    ? "REBASE_REQUIRED"
-    : blockers.length > 0 || entries.some((entry) => entry.readiness !== "READY")
-      ? "BLOCKED"
-      : "READY";
+  const readinessStatus =
+    blockers.some((code) => code.includes("DIGEST_MISMATCH")) ||
+    entries.some((entry) => entry.readiness === "REBASE_REQUIRED")
+      ? "REBASE_REQUIRED"
+      : blockers.length > 0 || entries.some((entry) => entry.readiness !== "READY")
+        ? "BLOCKED"
+        : "READY";
   const digestBody = {
     blockers,
     entries: entries.map(({ readiness_digest: _digest, ...entry }) => entry),
