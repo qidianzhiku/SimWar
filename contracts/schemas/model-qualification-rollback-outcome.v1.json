@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/model-qualification-rollback-outcome.v1.json",
+  "title": "SimWar Model Qualification Rollback Request Outcome Resolution",
+  "oneOf": [{ "$ref": "#/$defs/outcomeResolution" }, { "$ref": "#/$defs/studentSummary" }],
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "adoptionReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adoption_id", "adoption_digest"],
+      "properties": {
+        "adoption_id": { "$ref": "#/$defs/nonEmptyString" },
+        "adoption_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "proposalReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proposal_id", "proposal_digest"],
+      "properties": {
+        "proposal_id": { "$ref": "#/$defs/nonEmptyString" },
+        "proposal_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "outcomeStatus": {
+      "enum": [
+        "PENDING_REVIEW",
+        "REVIEW_REJECTED",
+        "APPROVED_PENDING_DISPOSITION",
+        "DEFERRED_WITH_EXPIRY",
+        "REJECTED_CANDIDATE",
+        "REBASE_REQUIRED",
+        "READOPTED_FOR_FUTURE_ADMISSION"
+      ]
+    },
+    "currentEffect": {
+      "enum": ["CURRENT", "SUPERSEDED", "NOT_APPLICABLE", "REBASE_REQUIRED"]
+    },
+    "consistency": {
+      "enum": ["CONSISTENT", "LIMITED", "BLOCKED", "INCONSISTENT"]
+    },
+    "proposal": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "proposal_id",
+        "proposal_digest",
+        "epoch",
+        "expected_adoption",
+        "requested_by",
+        "requested_at"
+      ],
+      "properties": {
+        "proposal_id": { "$ref": "#/$defs/nonEmptyString" },
+        "proposal_digest": { "$ref": "#/$defs/digest" },
+        "epoch": { "type": "object", "additionalProperties": true },
+        "expected_adoption": {
+          "oneOf": [{ "$ref": "#/$defs/adoptionReference" }, { "type": "null" }]
+        },
+        "requested_by": { "$ref": "#/$defs/nonEmptyString" },
+        "requested_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "schema_version",
+        "rollback_request_id",
+        "rollback_request_digest",
+        "tenant_id",
+        "course_id",
+        "current_adoption",
+        "predecessor_adoption",
+        "predecessor_epoch",
+        "linked_proposal",
+        "status",
+        "rollback_applied",
+        "adoption_mutation",
+        "official_truth_write",
+        "history_deleted",
+        "historical_receipt_rewritten",
+        "provider"
+      ],
+      "properties": {
+        "schema_version": { "const": "model-qualification-governed-rollback.v1" },
+        "rollback_request_id": { "$ref": "#/$defs/nonEmptyString" },
+        "rollback_request_digest": { "$ref": "#/$defs/digest" },
+        "tenant_id": { "$ref": "#/$defs/nonEmptyString" },
+        "course_id": { "$ref": "#/$defs/nonEmptyString" },
+        "current_adoption": { "$ref": "#/$defs/adoptionReference" },
+        "predecessor_adoption": { "$ref": "#/$defs/adoptionReference" },
+        "predecessor_epoch": { "type": "object", "additionalProperties": true },
+        "linked_proposal": { "$ref": "#/$defs/proposalReference" },
+        "status": { "const": "LINKED_PROPOSAL_PENDING_REVIEW" },
+        "rollback_applied": { "const": false },
+        "adoption_mutation": { "const": false },
+        "official_truth_write": { "const": false },
+        "history_deleted": { "const": false },
+        "historical_receipt_rewritten": { "const": false },
+        "provider": { "const": "OFF" }
+      }
+    },
+    "outcomeResolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "resolution_id",
+        "resolution_digest",
+        "tenant_id",
+        "course_id",
+        "rollback_request_id",
+        "rollback_request_digest",
+        "immutable_request_status",
+        "request",
+        "linked_proposal",
+        "review",
+        "disposition",
+        "resulting_adoption",
+        "outcome_status",
+        "historical_outcome",
+        "current_effect",
+        "qualification_consistency",
+        "historical_consistency",
+        "known_limits",
+        "provider",
+        "advisory_only",
+        "rollback_applied",
+        "adoption_mutation",
+        "official_truth_write",
+        "history_deleted",
+        "historical_receipt_rewritten",
+        "visibility"
+      ],
+      "properties": {
+        "schema_version": { "const": "model-qualification-rollback-outcome.v1" },
+        "resolution_id": { "$ref": "#/$defs/nonEmptyString" },
+        "resolution_digest": { "$ref": "#/$defs/digest" },
+        "tenant_id": { "$ref": "#/$defs/nonEmptyString" },
+        "course_id": { "$ref": "#/$defs/nonEmptyString" },
+        "rollback_request_id": { "$ref": "#/$defs/nonEmptyString" },
+        "rollback_request_digest": { "$ref": "#/$defs/digest" },
+        "immutable_request_status": { "const": "LINKED_PROPOSAL_PENDING_REVIEW" },
+        "request": { "$ref": "#/$defs/request" },
+        "linked_proposal": {
+          "oneOf": [{ "$ref": "#/$defs/proposal" }, { "type": "null" }]
+        },
+        "review": {
+          "oneOf": [{ "type": "object", "additionalProperties": true }, { "type": "null" }]
+        },
+        "disposition": {
+          "oneOf": [{ "type": "object", "additionalProperties": true }, { "type": "null" }]
+        },
+        "resulting_adoption": {
+          "oneOf": [{ "$ref": "#/$defs/adoptionReference" }, { "type": "null" }]
+        },
+        "outcome_status": { "$ref": "#/$defs/outcomeStatus" },
+        "historical_outcome": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "request_status", "resulting_adoption"],
+          "properties": {
+            "status": { "$ref": "#/$defs/outcomeStatus" },
+            "request_status": { "const": "LINKED_PROPOSAL_PENDING_REVIEW" },
+            "resulting_adoption": {
+              "oneOf": [{ "$ref": "#/$defs/adoptionReference" }, { "type": "null" }]
+            }
+          }
+        },
+        "current_effect": { "$ref": "#/$defs/currentEffect" },
+        "qualification_consistency": { "$ref": "#/$defs/consistency" },
+        "historical_consistency": { "$ref": "#/$defs/consistency" },
+        "known_limits": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        },
+        "provider": { "const": "OFF" },
+        "advisory_only": { "const": true },
+        "rollback_applied": { "const": false },
+        "adoption_mutation": { "const": false },
+        "official_truth_write": { "const": false },
+        "history_deleted": { "const": false },
+        "historical_receipt_rewritten": { "const": false },
+        "visibility": { "const": "TEACHER_ADMIN_DETAIL" }
+      }
+    },
+    "studentSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "operation_id",
+        "applicability",
+        "qualification_consistency",
+        "historical_consistency",
+        "known_limits",
+        "provider",
+        "advisory_only",
+        "rollback_applied",
+        "official_truth_write",
+        "visibility"
+      ],
+      "properties": {
+        "schema_version": { "const": "model-qualification-rollback-outcome.v1" },
+        "operation_id": { "const": "MODEL_QUALIFICATION_ROLLBACK_OUTCOME_STUDENT_GET_V1" },
+        "applicability": {
+          "enum": ["CURRENT", "SUPERSEDED", "NOT_APPLICABLE", "REBASE_REQUIRED", "UNKNOWN"]
+        },
+        "qualification_consistency": { "$ref": "#/$defs/consistency" },
+        "historical_consistency": { "$ref": "#/$defs/consistency" },
+        "known_limits": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        },
+        "provider": { "const": "OFF" },
+        "advisory_only": { "const": true },
+        "rollback_applied": { "const": false },
+        "official_truth_write": { "const": false },
+        "visibility": { "const": "ROLE_SAFE_STUDENT" }
+      }
+    }
+  }
+}

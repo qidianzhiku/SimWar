@@ -174,6 +174,18 @@ export function isModelQualificationRoute(method: string | undefined, url: URL):
   )
     return true;
   if (
+    method === "GET" &&
+    /^\/api\/v1\/bff\/(teacher|admin)\/model-qualification\/evidence-adoptions\/rollback-requests\/[^/]+\/outcome$/.test(
+      url.pathname
+    )
+  )
+    return true;
+  if (
+    method === "GET" &&
+    url.pathname === "/api/v1/bff/student/model-qualification/evidence-adoptions/rollback-outcomes"
+  )
+    return true;
+  if (
     method === "POST" &&
     /^\/api\/v1\/bff\/(teacher|admin)\/model-qualification\/evidence-adoptions\/(request|review|disposition)$/.test(
       url.pathname
@@ -215,6 +227,65 @@ export async function handleModelQualificationRoute(
 ): Promise<boolean> {
   if (!isModelQualificationRoute(request.method, url)) return false;
   const context = deps.createContext(request);
+
+  const outcomeRoute = url.pathname.match(
+    /^\/api\/v1\/bff\/(teacher|admin)\/model-qualification\/evidence-adoptions\/rollback-requests\/([^/]+)\/outcome$/
+  );
+  if (outcomeRoute) {
+    const actor = deps.requirePermission(context, "course:read");
+    const requestedRole = outcomeRoute[1]!;
+    const role = requestedRole === "admin" ? "tenant_admin" : "teacher";
+    if (actor.tenant_id !== context.tenantId || !deps.actorHasAnyRole(actor, [role])) {
+      throw new Error("EVIDENCE_ADOPTION_ROLE_DENIED");
+    }
+    const courseId = resolveCourseId({}, url);
+    await assertCourse(deps, context, courseId);
+    send(
+      deps,
+      context,
+      response,
+      200,
+      await service.getRollbackRequestOutcome(
+        serviceActor(actor, requestedRole as "teacher" | "admin"),
+        scope(context, courseId),
+        decodeURIComponent(outcomeRoute[2]!)
+      )
+    );
+    return true;
+  }
+
+  if (
+    request.method === "GET" &&
+    url.pathname === "/api/v1/bff/student/model-qualification/evidence-adoptions/rollback-outcomes"
+  ) {
+    const actor = deps.requirePermission(context, "course:read");
+    if (
+      actor.tenant_id !== context.tenantId ||
+      !deps.actorHasAnyRole(actor, ["student", "learner"])
+    ) {
+      throw new Error("EVIDENCE_ADOPTION_ROLE_DENIED");
+    }
+    const courseId = resolveCourseId({}, url);
+    await assertCourse(deps, context, courseId);
+    const visibleCourses = await deps.repository.courses.listCoursesForUser(
+      context.tenantId,
+      actor.user_id
+    );
+    if (!visibleCourses.some((course) => course.course_id === courseId)) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    send(
+      deps,
+      context,
+      response,
+      200,
+      await service.getStudentRollbackOutcomeSummaries(
+        serviceActor(actor, "student"),
+        scope(context, courseId)
+      )
+    );
+    return true;
+  }
 
   const operationsRoute = url.pathname.match(
     /^\/api\/v1\/bff\/(teacher|admin|student)\/model-qualification\/adoption-operations(?:\/(drift-assessments|rollback-dry-runs))?$/

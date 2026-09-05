@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type {
   ApiEnvelope,
   ModelQualificationAdoptionOperationsStudentProjection,
+  ModelQualificationRollbackOutcomeStudentSummary,
   ModelQualificationStudentProjection
 } from "@simwar/shared-contracts";
 
@@ -23,6 +24,9 @@ export function ModelQualificationProjection({
   const [projection, setProjection] = useState<ModelQualificationStudentProjection | null>(null);
   const [operations, setOperations] =
     useState<ModelQualificationAdoptionOperationsStudentProjection | null>(null);
+  const [rollbackOutcomes, setRollbackOutcomes] = useState<
+    readonly ModelQualificationRollbackOutcomeStudentSummary[]
+  >([]);
   const contextIdentity = JSON.stringify([apiBase, courseId, qualificationId, tenantId, token]);
   const [projectionIdentity, setProjectionIdentity] = useState("");
   const [notice, setNotice] = useState("等待已绑定模型资格");
@@ -31,9 +35,11 @@ export function ModelQualificationProjection({
   useEffect(() => {
     setProjection(null);
     setOperations(null);
+    setRollbackOutcomes([]);
     setOperationsNotice("");
     if (!courseId || !qualificationId || !token) {
       setProjection(null);
+      setRollbackOutcomes([]);
       setNotice("Teacher 绑定后，通过 modelQualificationId 查询已发布解释");
       return;
     }
@@ -48,9 +54,13 @@ export function ModelQualificationProjection({
       fetch(`${apiBase}/api/v1/bff/student/model-qualification?${query}`, { headers }),
       fetch(`${apiBase}/api/v1/bff/student/model-qualification/adoption-operations?${query}`, {
         headers
-      })
+      }),
+      fetch(
+        `${apiBase}/api/v1/bff/student/model-qualification/evidence-adoptions/rollback-outcomes?courseId=${encodeURIComponent(courseId)}`,
+        { headers }
+      )
     ])
-      .then(async ([projectionOutcome, operationsOutcome]) => {
+      .then(async ([projectionOutcome, operationsOutcome, rollbackOutcome]) => {
         if (projectionOutcome.status === "rejected") throw projectionOutcome.reason;
         const projectionResponse = projectionOutcome.value;
         const envelope =
@@ -78,6 +88,19 @@ export function ModelQualificationProjection({
           return;
         }
         if (active) setOperations(operationsEnvelope.data);
+        if (rollbackOutcome.status === "fulfilled") {
+          try {
+            const rollbackResponse = rollbackOutcome.value;
+            const rollbackEnvelope = (await rollbackResponse.json()) as ApiEnvelope<
+              readonly ModelQualificationRollbackOutcomeStudentSummary[]
+            >;
+            if (rollbackResponse.ok && active) setRollbackOutcomes(rollbackEnvelope.data);
+          } catch {
+            if (active) setOperationsNotice("O8 outcome unavailable");
+          }
+        } else if (active) {
+          setOperationsNotice("O8 outcome unavailable");
+        }
       })
       .catch((error: unknown) => {
         if (active) setNotice(error instanceof Error ? error.message : "学生模型解释加载失败");
@@ -146,6 +169,30 @@ export function ModelQualificationProjection({
             <p className="evidence-note" role="status">
               {operationsNotice}；既有受治理模型解释保持可见
             </p>
+          )}
+          {rollbackOutcomes.length > 0 && (
+            <section aria-label="student safe rollback outcome consistency">
+              <h3>回退历史一致性（角色安全摘要）</h3>
+              {rollbackOutcomes.map((outcome, index) => (
+                <div key={`${outcome.operation_id}-${index}`}>
+                  <p data-testid="student-rollback-outcome-status">
+                    applicability={outcome.applicability} · qualification_consistency=
+                    {outcome.qualification_consistency} · historical_consistency=
+                    {outcome.historical_consistency}
+                  </p>
+                  <p>
+                    Provider OFF · advisory-only · rollback_applied=
+                    {String(outcome.rollback_applied)} · official_truth_write=
+                    {String(outcome.official_truth_write)}
+                  </p>
+                  <ul>
+                    {outcome.known_limits.map((limit) => (
+                      <li key={limit}>{limit}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </section>
           )}
           <section aria-label="student safe requalification status">
             <h3>证据新鲜度与限制</h3>

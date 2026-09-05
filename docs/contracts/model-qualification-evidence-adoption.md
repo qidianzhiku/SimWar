@@ -214,3 +214,56 @@ npm run test:e2e:ui:o7
 O7 remains Provider OFF and adds no new Writer, Store, Registry, truth engine,
 settlement authority, automatic rollback, formal rollback, Human Validation,
 Pilot, Production or Release claim.
+
+## O8 rollback request outcome resolution and historical consistency
+
+O8 adds `RollbackRequestOutcomeResolution` as a derived, query-only view over
+the immutable O7 request and the existing O5 proposal, review, disposition and
+adoption records. It does not change the O7 request status, append an outcome
+record, apply rollback, or create a second lifecycle authority. The resolution
+keeps three predicates separate:
+
+```text
+OUTCOME != CURRENT_EFFECT != CONSISTENCY
+```
+
+The historical outcome is derived in the exact order `request -> linked
+proposal -> review -> disposition -> resulting adoption`. No review is
+`PENDING_REVIEW`, not rejection; an approved proposal without disposition is
+`APPROVED_PENDING_DISPOSITION`; an adopted result is
+`READOPTED_FOR_FUTURE_ADMISSION`. Later adoption D can make the current effect
+of C `SUPERSEDED`, and source expiry, rights degradation or unresolved
+requalification can reduce current qualification consistency, but none of
+those later facts may rewrite the historical outcome or an A/B admission
+receipt. Ambiguous or tampered linkage is `REBASE_REQUIRED` and
+`INCONSISTENT`, fail closed.
+
+Teacher and Admin read the exact detailed timeline through:
+
+- `GET /api/v1/bff/teacher/model-qualification/evidence-adoptions/rollback-requests/{rollbackRequestId}/outcome?courseId=...`
+- `GET /api/v1/bff/admin/model-qualification/evidence-adoptions/rollback-requests/{rollbackRequestId}/outcome?courseId=...`
+
+The Student route is aggregate-safe and contains no rollback request,
+proposal, adoption identity, digest, reason, or privileged mutation control:
+
+- `GET /api/v1/bff/student/model-qualification/evidence-adoptions/rollback-outcomes?courseId=...`
+
+It exposes only applicability, qualification consistency, historical
+consistency, known limits, `Provider=OFF`, advisory-only and non-write flags.
+The O8 schema is `model-qualification-rollback-outcome.v1.json`, and the
+public API response is versioned as
+`MODEL_QUALIFICATION_ROLLBACK_OUTCOME_STUDENT_GET_V1` for the role-safe
+projection. All O8 reads reuse the existing course-scoped admission guard and
+`MAIN_MODEL_GOVERNANCE` ownership; there is no outcome writer, outcome store,
+registry, automatic rollback, or formal truth mutation.
+
+O8-focused checks include:
+
+```powershell
+npx vitest run tests/unit/model-qualification-rollback-request-resolution.test.ts tests/unit/model-qualification-readoption-historical-consistency.test.ts tests/contract/model-qualification-rollback-outcome-openapi.test.ts
+npm run test:contract
+```
+
+The O8 resolution remains an advisory governance projection. It does not
+prove Human Validation, full WCAG conformance, Pilot, Production, Release,
+Provider activation or durable PostgreSQL application runtime activation.

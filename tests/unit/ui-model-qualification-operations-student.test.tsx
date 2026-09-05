@@ -63,7 +63,7 @@ describe("O6 Student-safe adoption operations UI", () => {
     expect(host.textContent).toContain("rollback_applied=false");
     expect(host.textContent).not.toContain("adoption_digest");
     expect(host.textContent).not.toContain("predecessor_adoption");
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     await act(async () => root.unmount());
   });
 
