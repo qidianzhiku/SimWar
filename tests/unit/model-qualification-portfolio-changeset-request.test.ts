@@ -137,6 +137,48 @@ describe("O10 portfolio changeset request compiler", () => {
     expect(result.requestable).toBe(false);
   });
 
+  it("preserves a course-disappearance rebase result without throwing", () => {
+    const fixture = portfolio();
+    const missingSource: ModelQualificationPortfolio = {
+      portfolio_id: fixture.preview.portfolio_id,
+      tenant_id: TENANT,
+      courses: []
+    };
+    const missingValue = {
+      ...fixture.value,
+      courses: [],
+      portfolio_state_digest: digestModelQualificationPortfolioState(missingSource)
+    } satisfies ModelQualificationCoursePortfolio;
+    const preview = buildModelQualificationPortfolioSupersessionPreview({
+      expected_portfolio_state_digest: fixture.value.portfolio_state_digest,
+      portfolio: missingSource,
+      selected_course_identities: [
+        {
+          course_id: "course-a",
+          tenant_id: TENANT,
+          course_state_digest: "0".repeat(64),
+          current_adoption: null
+        }
+      ]
+    });
+    expect(preview.status).toBe("REBASE_REQUIRED");
+    expect(preview.course_previews).toHaveLength(0);
+
+    const result = buildPortfolioChangeSetRequest({
+      portfolio: missingValue,
+      preview,
+      expected_portfolio_state_digest: fixture.value.portfolio_state_digest,
+      expected_changeset_policy_digest: digestPortfolioChangeSetPolicy()
+    });
+
+    expect(result).toMatchObject({
+      status: "REBASE_REQUIRED",
+      requestable: false,
+      selected_course_ids: ["course-a"],
+      selected_courses: []
+    });
+  });
+
   it("rejects a policy digest that is not the current versioned policy", () => {
     const fixture = portfolio();
     expect(() =>

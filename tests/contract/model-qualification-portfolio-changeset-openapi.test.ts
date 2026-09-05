@@ -44,6 +44,8 @@ describe("O10 portfolio changeset request contract", () => {
     expect(schema.$defs.request.properties?.request_persisted).toEqual({ const: false });
     expect(schema.$defs.request.properties?.bulk_apply).toEqual({ const: false });
     expect(schema.$defs.request.properties?.cross_course_transaction).toEqual({ const: false });
+    expect(schema.$defs.request.properties?.selected_courses).toMatchObject({ type: "array" });
+    expect(schema.$defs.response.properties?.handoffs).toMatchObject({ type: "array" });
     expect(schema.$defs.handoff.properties?.handoff_executed).toEqual({ const: false });
     expect(schema.$defs.handoff.properties?.official_truth_write).toEqual({ const: false });
   });

@@ -11,6 +11,12 @@ state digests, current adoption references, and the versioned O10 changeset
 policy digest. A stale O9 digest returns `status=REBASE_REQUIRED`; a blocked
 preview returns `status=BLOCKED`. Neither status executes a mutation.
 
+If a selected course disappears between the O9 portfolio read and the O10
+compilation read, the request preserves the caller's `selected_course_ids`,
+returns `status=REBASE_REQUIRED`, and omits the unavailable course identity and
+handoff. It never invents a course identity or returns a guessed fallback;
+the Admin must re-read the canonical Course Authority before retrying.
+
 The response also contains one `PerCourseGovernedHandoff` per selected course.
 Each available handoff points to an existing course-scoped O3-O8 inspection or
 dry-run seam. It does not invoke that seam. `handoff_executed`, `apply`,

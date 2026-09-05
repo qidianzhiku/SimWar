@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type AdoptionReference = { adoption_id: string; adoption_digest: string };
 type Blocker = { code: string; course_id: string | null; related_ids: string[] };
@@ -133,6 +133,17 @@ export function ModelQualificationCoursePortfolioPanel({
   const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "empty" | "error">("loading");
   const [message, setMessage] = useState("");
+  const requestEpoch = useRef(0);
+  const requestContext = useRef({ apiBase, tenantId, token });
+  const selectionContext = useRef({
+    courseIds: selectedCourseIds,
+    portfolioDigest: portfolio?.portfolio_state_digest ?? null
+  });
+  requestContext.current = { apiBase, tenantId, token };
+  selectionContext.current = {
+    courseIds: selectedCourseIds,
+    portfolioDigest: portfolio?.portfolio_state_digest ?? null
+  };
 
   const requestInit = useMemo(
     () => ({
@@ -145,6 +156,13 @@ export function ModelQualificationCoursePortfolioPanel({
   );
 
   const loadPortfolio = useCallback(async () => {
+    const epoch = ++requestEpoch.current;
+    const context = { apiBase, tenantId, token };
+    const isCurrent = () =>
+      requestEpoch.current === epoch &&
+      requestContext.current.apiBase === context.apiBase &&
+      requestContext.current.tenantId === context.tenantId &&
+      requestContext.current.token === context.token;
     setStatus("loading");
     setMessage("");
     setPreview(null);
@@ -155,10 +173,12 @@ export function ModelQualificationCoursePortfolioPanel({
         requestInit
       );
       const next = await readEnvelope<Portfolio>(response);
+      if (!isCurrent()) return;
       setPortfolio(next);
       setSelectedCourseIds(next.courses.slice(0, 1).map((entry) => entry.course.course_id));
       setStatus(next.courses.length === 0 ? "empty" : "ready");
     } catch {
+      if (!isCurrent()) return;
       setPortfolio(null);
       setStatus("error");
       setMessage("课程组合暂时无法读取，请保持当前租户范围后重试。");
@@ -170,6 +190,7 @@ export function ModelQualificationCoursePortfolioPanel({
   }, [loadPortfolio]);
 
   const toggleCourse = (courseId: string) => {
+    requestEpoch.current += 1;
     setSelectedCourseIds((current) =>
       current.includes(courseId)
         ? current.filter((id) => id !== courseId)
@@ -181,6 +202,18 @@ export function ModelQualificationCoursePortfolioPanel({
 
   const previewSelection = async () => {
     if (!portfolio || selectedCourseIds.length === 0) return;
+    const epoch = ++requestEpoch.current;
+    const context = { apiBase, tenantId, token };
+    const selectedCourseIdsAtRequest = [...selectedCourseIds];
+    const portfolioDigestAtRequest = portfolio.portfolio_state_digest;
+    const isCurrent = () =>
+      requestEpoch.current === epoch &&
+      requestContext.current.apiBase === context.apiBase &&
+      requestContext.current.tenantId === context.tenantId &&
+      requestContext.current.token === context.token &&
+      selectionContext.current.portfolioDigest === portfolioDigestAtRequest &&
+      JSON.stringify([...selectionContext.current.courseIds].sort()) ===
+        JSON.stringify([...selectedCourseIdsAtRequest].sort());
     setMessage("");
     try {
       const response = await fetch(
@@ -199,18 +232,32 @@ export function ModelQualificationCoursePortfolioPanel({
         }
       );
       const next = await readEnvelope<Preview>(response);
+      if (!isCurrent()) return;
       setPreview(next);
       setChangeSet(null);
       if (next.status === "REBASE_REQUIRED") {
         setMessage("组合状态已变化，请重新加载后再查看精确预览。");
       }
     } catch {
+      if (!isCurrent()) return;
       setMessage("预览读取失败；未执行任何组合或治理变更，请重试。");
     }
   };
 
   const compileChangeSet = async () => {
     if (!portfolio || selectedCourseIds.length === 0 || !preview) return;
+    const epoch = ++requestEpoch.current;
+    const context = { apiBase, tenantId, token };
+    const selectedCourseIdsAtRequest = [...selectedCourseIds];
+    const portfolioDigestAtRequest = portfolio.portfolio_state_digest;
+    const isCurrent = () =>
+      requestEpoch.current === epoch &&
+      requestContext.current.apiBase === context.apiBase &&
+      requestContext.current.tenantId === context.tenantId &&
+      requestContext.current.token === context.token &&
+      selectionContext.current.portfolioDigest === portfolioDigestAtRequest &&
+      JSON.stringify([...selectionContext.current.courseIds].sort()) ===
+        JSON.stringify([...selectedCourseIdsAtRequest].sort());
     setMessage("");
     setChangeSet(null);
     try {
@@ -230,6 +277,7 @@ export function ModelQualificationCoursePortfolioPanel({
         }
       );
       const next = await readEnvelope<ChangeSet>(response);
+      if (!isCurrent()) return;
       setChangeSet(next);
       if (next.request.status === "REBASE_REQUIRED") {
         setMessage("组合状态已变化；此 O10 请求已标记为 REBASE_REQUIRED，请重新读取后再编译。");
@@ -237,6 +285,7 @@ export function ModelQualificationCoursePortfolioPanel({
         setMessage("组合请求存在阻塞项；未执行逐课 handoff 或任何变更。");
       }
     } catch {
+      if (!isCurrent()) return;
       setMessage("变更集请求读取失败；未执行任何组合或治理变更，请重试。");
     }
   };

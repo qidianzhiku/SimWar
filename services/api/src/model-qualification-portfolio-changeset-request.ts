@@ -219,32 +219,34 @@ export function buildPortfolioChangeSetRequest(
     throw new PortfolioChangeSetRequestError("O10_CHANGESET_POLICY_DIGEST_CHANGED");
   }
   assertPreviewEnvelope(portfolio, preview, input.expected_portfolio_state_digest);
-
-  const selectedCourses = preview.selected_course_ids.map((courseId) => {
-    const entryMatches = portfolio.courses.filter(
-      (candidate) => candidate.course.course_id === courseId
-    );
-    const item = coursePreview(preview, courseId);
-    if (entryMatches.length !== 1 || !item) {
-      throw new PortfolioChangeSetRequestError("O10_SELECTED_COURSE_IDENTITY_MISMATCH");
-    }
-    const entry = entryMatches[0]!;
-    if (
-      entry.course.tenant_id !== portfolio.tenant_id ||
-      item.selected_course_state_digest !== item.current_course_state_digest ||
-      !sameAdoption(entry.current_adoption, item.current_adoption)
-    ) {
-      throw new PortfolioChangeSetRequestError("O10_SELECTED_COURSE_IDENTITY_MISMATCH");
-    }
-    return {
-      course_id: courseId,
-      tenant_id: portfolio.tenant_id,
-      selected_course_state_digest: item.selected_course_state_digest,
-      current_adoption: item.current_adoption ? clone(item.current_adoption) : null
-    } satisfies PortfolioChangeSetCourseSelection;
-  });
-
   const status = statusForPreview(preview.status);
+
+  const selectedCourses = preview.selected_course_ids
+    .map((courseId) => {
+      const entryMatches = portfolio.courses.filter(
+        (candidate) => candidate.course.course_id === courseId
+      );
+      const item = coursePreview(preview, courseId);
+      if (entryMatches.length !== 1 || !item) {
+        if (status === "REBASE_REQUIRED" && !item) return null;
+        throw new PortfolioChangeSetRequestError("O10_SELECTED_COURSE_IDENTITY_MISMATCH");
+      }
+      const entry = entryMatches[0]!;
+      if (
+        entry.course.tenant_id !== portfolio.tenant_id ||
+        item.selected_course_state_digest !== item.current_course_state_digest ||
+        !sameAdoption(entry.current_adoption, item.current_adoption)
+      ) {
+        throw new PortfolioChangeSetRequestError("O10_SELECTED_COURSE_IDENTITY_MISMATCH");
+      }
+      return {
+        course_id: courseId,
+        tenant_id: portfolio.tenant_id,
+        selected_course_state_digest: item.selected_course_state_digest,
+        current_adoption: item.current_adoption ? clone(item.current_adoption) : null
+      } satisfies PortfolioChangeSetCourseSelection;
+    })
+    .filter((course): course is PortfolioChangeSetCourseSelection => course !== null);
   const body = {
     schema_version: MODEL_QUALIFICATION_PORTFOLIO_CHANGESET_SCHEMA_VERSION,
     tenant_id: portfolio.tenant_id,
@@ -275,6 +277,7 @@ export function buildPortfolioChangeSetRequest(
       "This O10 envelope is a derived request candidate; it is not persisted and does not execute handoff or apply.",
       "Each course remains an independent handoff to an existing course-scoped governance seam; no cross-course transaction exists.",
       "Course membership and governance identity come from exact O9 source snapshots; stale digests require rebase.",
+      "A selected course that disappears before compilation is preserved in selected_course_ids with REBASE_REQUIRED and no guessed course identity; re-read the Course Authority before retrying.",
       "Provider is OFF; no adoption, rollback, requalification, Run, settlement, score, rank, or official truth is changed.",
       "No latest, current, default, fallback, first, last, or newest-timestamp selector is used."
     ] as const
