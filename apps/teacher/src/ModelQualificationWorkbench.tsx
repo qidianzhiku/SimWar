@@ -4,6 +4,7 @@ import type {
   ModelQualificationRunAdmissionSelection,
   ModelQualificationTeacherProjection
 } from "@simwar/shared-contracts";
+import { IndustryModelDiagnosticReadinessPanel, ModelQualificationAdoptionPanel } from "@simwar/ui";
 import {
   calibrationDatasetIdentity,
   hasExactModelQualificationEvidence,
@@ -21,6 +22,11 @@ import {
 interface Props {
   apiBase: string;
   courseId?: string | null;
+  runId?: string | null | undefined;
+  teamId?: string | null | undefined;
+  roundId?: string | null | undefined;
+  scenarioPackageId?: string | null | undefined;
+  parameterSetId?: string | null | undefined;
   onRunAdmissionSelectionChange?: (
     selection: ModelQualificationRunAdmissionSelection | null
   ) => void;
@@ -61,6 +67,11 @@ function findByKey<T>(
 export function ModelQualificationWorkbench({
   apiBase,
   courseId,
+  runId,
+  teamId,
+  roundId,
+  scenarioPackageId,
+  parameterSetId,
   onRunAdmissionSelectionChange,
   tenantId,
   token
@@ -485,9 +496,21 @@ export function ModelQualificationWorkbench({
           </section>
         </>
       ) : null}
+      <IndustryModelDiagnosticReadinessPanel
+        apiBase={apiBase}
+        courseId={courseId}
+        runId={runId}
+        teamId={teamId}
+        roundId={roundId}
+        scenarioPackageId={scenarioPackageId}
+        parameterSetId={parameterSetId}
+        qualificationId={resolution?.selected?.qualification.qualification_id}
+        tenantId={tenantId}
+        token={token}
+        role="teacher"
+      />
     </section>
   );
 }
 
 export default ModelQualificationWorkbench;
-import { ModelQualificationAdoptionPanel } from "@simwar/ui";

@@ -1,15 +1,32 @@
 import { useEffect, useState } from "react";
-import { ModelQualificationAdoptionPanel } from "@simwar/ui";
+import { IndustryModelDiagnosticReadinessPanel, ModelQualificationAdoptionPanel } from "@simwar/ui";
 import type { ApiEnvelope, ModelQualificationAdminProjection } from "@simwar/shared-contracts";
 
 interface Props {
   apiBase: string;
   courseId: string;
+  runId?: string | undefined;
+  teamId?: string | undefined;
+  roundId?: string | undefined;
+  scenarioPackageId?: string | undefined;
+  parameterSetId?: string | undefined;
+  qualificationId?: string | undefined;
   tenantId: string;
   token: string;
 }
 
-export function ModelQualificationAuditPanel({ apiBase, courseId, tenantId, token }: Props) {
+export function ModelQualificationAuditPanel({
+  apiBase,
+  courseId,
+  runId,
+  teamId,
+  roundId,
+  scenarioPackageId,
+  parameterSetId,
+  qualificationId,
+  tenantId,
+  token
+}: Props) {
   const [projection, setProjection] = useState<ModelQualificationAdminProjection | null>(null);
   const [notice, setNotice] = useState("正在读取模型资格审计");
 
@@ -50,6 +67,19 @@ export function ModelQualificationAuditPanel({ apiBase, courseId, tenantId, toke
       <ModelQualificationAdoptionPanel
         apiBase={apiBase}
         courseId={courseId}
+        tenantId={tenantId}
+        token={token}
+        role="admin"
+      />
+      <IndustryModelDiagnosticReadinessPanel
+        apiBase={apiBase}
+        courseId={courseId}
+        runId={runId}
+        teamId={teamId}
+        roundId={roundId}
+        scenarioPackageId={scenarioPackageId}
+        parameterSetId={parameterSetId}
+        qualificationId={qualificationId}
         tenantId={tenantId}
         token={token}
         role="admin"

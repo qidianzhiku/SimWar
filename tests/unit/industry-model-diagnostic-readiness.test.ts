@@ -78,10 +78,7 @@ describe("IM-O1 diagnostic readiness domain", () => {
       bound_context: input().context,
       diagnostic_evidence_digest: digest("d"),
       interpretation_policy_digest: digest("e"),
-      provability: [
-        { classification: "WANT_EVIDENCE" },
-        { classification: "CAN_EVIDENCE" }
-      ]
+      provability: [{ classification: "WANT_EVIDENCE" }, { classification: "CAN_EVIDENCE" }]
     });
     expect(first.readiness_digest).toMatch(/^[a-f0-9]{64}$/);
   });
@@ -99,9 +96,7 @@ describe("IM-O1 diagnostic readiness domain", () => {
     );
 
     expect(result.readiness_status).toBe("READY_WITH_LIMITS");
-    expect(result.provability).toEqual([
-      expect.objectContaining({ classification: "NOT_PROVEN" })
-    ]);
+    expect(result.provability).toEqual([expect.objectContaining({ classification: "NOT_PROVEN" })]);
     expect(result.known_limits).toEqual(
       expect.arrayContaining([
         "DIAGNOSTIC_PROVABILITY_NOT_ESTABLISHED",

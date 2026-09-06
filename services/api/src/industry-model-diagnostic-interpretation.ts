@@ -39,7 +39,7 @@ export interface DiagnosticInterpretationInput {
   readonly official_truth_write: false;
 }
 
-interface TeacherEntry extends DiagnosticEntry {}
+type TeacherEntry = DiagnosticEntry;
 
 export interface DiagnosticInterpretationResult {
   readonly status: DiagnosticInterpretationStatus;

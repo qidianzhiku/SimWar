@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { ModelArtifactReference, ModelVersionReference } from "@simwar/shared-contracts";
 
 export type IndustryDiagnosticClassification =
   | "WANT_EVIDENCE"
@@ -37,8 +38,8 @@ export interface IndustryDiagnosticProducerEvidence {
 
 export interface IndustryModelDiagnosticReadinessInput {
   readonly context: IndustryDiagnosticContext;
-  readonly model_version_reference: Record<string, string>;
-  readonly model_artifact_reference: Record<string, string>;
+  readonly model_version_reference: ModelVersionReference;
+  readonly model_artifact_reference: ModelArtifactReference;
   readonly qualification: {
     readonly qualification_id: string;
     readonly qualification_digest: string;
@@ -72,8 +73,8 @@ export interface IndustryModelDiagnosticReadiness {
   readonly readiness_status: IndustryDiagnosticReadinessStatus;
   readonly rebase_required: boolean;
   readonly bound_context: IndustryDiagnosticContext;
-  readonly model_version_reference: Record<string, string>;
-  readonly model_artifact_reference: Record<string, string>;
+  readonly model_version_reference: ModelVersionReference;
+  readonly model_artifact_reference: ModelArtifactReference;
   readonly qualification_id: string;
   readonly qualification_digest: string;
   readonly adoption: IndustryModelDiagnosticReadinessInput["adoption"];
@@ -105,7 +106,9 @@ function requireDigest(value: string, field: string): void {
   if (!/^[a-f0-9]{64}$/u.test(value)) throw new Error(`${field}_DIGEST_INVALID`);
 }
 
-function buildEntry(producer: IndustryDiagnosticProducerEvidence): IndustryDiagnosticProvabilityEntry {
+function buildEntry(
+  producer: IndustryDiagnosticProducerEvidence
+): IndustryDiagnosticProvabilityEntry {
   if (
     producer.candidate_classification === "REALIZED_REFERENCE" &&
     producer.authority_owner !== "SIMULATION_CORE" &&
@@ -138,7 +141,10 @@ export function buildIndustryModelDiagnosticReadiness(
   if (input.qualification.review_status !== "APPROVED")
     knownLimits.add("QUALIFICATION_REVIEW_NOT_APPROVED");
   if (input.qualification.binding_status !== "BOUND") knownLimits.add("QUALIFICATION_NOT_BOUND");
-  if (input.producers.length === 0 || provability.every((item) => item.classification === "NOT_PROVEN")) {
+  if (
+    input.producers.length === 0 ||
+    provability.every((item) => item.classification === "NOT_PROVEN")
+  ) {
     knownLimits.add("DIAGNOSTIC_PROVABILITY_NOT_ESTABLISHED");
     knownLimits.add("DIAGNOSTIC_PASS_IS_NOT_BUSINESS_TRUTH");
   }

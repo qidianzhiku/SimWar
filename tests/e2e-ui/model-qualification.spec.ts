@@ -59,7 +59,7 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
     teacher.access_token
   );
   expect(run.response.ok()).toBe(true);
-  const started = await apiPost(
+  const started = await apiPost<{ round_id: string }>(
     request,
     `/api/v1/runs/${run.body.data.run.run_id}/rounds/1/start`,
     teacher.access_token
@@ -113,6 +113,11 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
     await bindButton.click();
     await expect(workbench.getByRole("button", { name: "已绑定课程" })).toBeVisible();
   }
+  const teacherDiagnostic = page.getByRole("region", {
+    name: "Industry Model diagnostic readiness"
+  });
+  await expect(teacherDiagnostic.getByTestId("industry-diagnostic-readiness")).toBeVisible();
+  await expect(teacherDiagnostic.getByText("NOT_PROVEN", { exact: false })).toBeVisible();
 
   const teacherProjection = await request.get(
     `${apiBaseUrl}/api/v1/bff/teacher/model-qualification?courseId=course_demo`,
@@ -136,8 +141,21 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
   await expect(studentSurface).toBeVisible();
   await expect(studentSurface.getByText("ROLE_SAFE_STUDENT", { exact: false })).toBeVisible();
   await expect(studentSurface.getByText("source_ref", { exact: false })).toHaveCount(0);
+  const studentDiagnostic = page.getByRole("region", {
+    name: "Industry Model diagnostic readiness"
+  });
+  await expect(studentDiagnostic.getByTestId("industry-diagnostic-readiness")).toBeVisible();
+  await expect(studentDiagnostic.getByText("ROLE_SAFE_STUDENT", { exact: false })).toBeVisible();
 
-  await page.goto(`${adminBaseUrl}?courseId=course_demo`);
+  await page.goto(
+    `${adminBaseUrl}?courseId=course_demo&runId=${encodeURIComponent(
+      run.body.data.run.run_id
+    )}&roundId=${encodeURIComponent(started.body.data.round_id)}&teamId=team_alpha&scenarioPackageId=${encodeURIComponent(
+      run.body.data.run.scenario_package_id
+    )}&parameterSetId=${encodeURIComponent(
+      run.body.data.run.parameter_set_id
+    )}&qualificationId=${encodeURIComponent(qualificationId ?? "")}`
+  );
   await signIn(page, "admin");
   const adminSurface = page.getByRole("region", {
     name: "source-backed model qualification audit"
@@ -145,6 +163,11 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
   await expect(adminSurface).toBeVisible();
   await expect(adminSurface.getByText("MAIN_MODEL_GOVERNANCE", { exact: false })).toBeVisible();
   await expect(adminSurface.getByText("正式真值写入", { exact: true })).toBeVisible();
+  const adminDiagnostic = page.getByRole("region", {
+    name: "Industry Model diagnostic readiness"
+  });
+  await expect(adminDiagnostic.getByTestId("industry-diagnostic-readiness")).toBeVisible();
+  await expect(adminDiagnostic.getByText("NOT_PROVEN", { exact: false })).toBeVisible();
 
   await page.goto(`${teacherBaseUrl}?courseId=course_demo`);
   await signIn(page, "teacher");
