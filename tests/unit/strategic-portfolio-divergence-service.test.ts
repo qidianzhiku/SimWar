@@ -5,6 +5,7 @@ import type {
   W4ScopeContext,
   W4StrategicPortfolioProjection
 } from "@simwar/shared-contracts";
+import { isStrategicPortfolioDivergenceRequest } from "@simwar/shared-contracts";
 import {
   StrategicPortfolioDivergenceService,
   StrategicPortfolioDivergenceServiceError
@@ -241,17 +242,40 @@ describe("SP-O3 divergence service", () => {
 
     const forgedRound = request();
     forgedRound.exact_binding = { ...forgedRound.exact_binding, round_id: "round_forged" };
-    await expect(arranged.service.createCandidate(actor, forgedRound)).rejects.toMatchObject<
-      StrategicPortfolioDivergenceServiceError
-    >({ code: "SP_O3_INPUT_SCOPE_CONFLICT" });
+    await expect(
+      arranged.service.createCandidate(actor, forgedRound)
+    ).rejects.toMatchObject<StrategicPortfolioDivergenceServiceError>({
+      code: "SP_O3_INPUT_SCOPE_CONFLICT"
+    });
 
     const mismatchedSource = request();
     mismatchedSource.counterfactual.source_state_ref = {
       ...mismatchedSource.counterfactual.source_state_ref,
       round_id: "round_forged"
     };
-    await expect(arranged.service.createCandidate(actor, mismatchedSource)).rejects.toMatchObject<
-      StrategicPortfolioDivergenceServiceError
-    >({ code: "SP_O3_INPUT_SCOPE_CONFLICT" });
+    await expect(
+      arranged.service.createCandidate(actor, mismatchedSource)
+    ).rejects.toMatchObject<StrategicPortfolioDivergenceServiceError>({
+      code: "SP_O3_INPUT_SCOPE_CONFLICT"
+    });
+  });
+
+  it("translates a stale portfolio digest into the service rebase error", async () => {
+    const arranged = arrange();
+    const actor = { user_id: "teacher_1", tenant_id: scope.tenant_id, roles: ["teacher"] };
+    const stale = request();
+    stale.expected_portfolio_state_digest = "portfolio_digest_stale";
+
+    const rejection = arranged.service.createCandidate(actor, stale);
+    await expect(rejection).rejects.toBeInstanceOf(StrategicPortfolioDivergenceServiceError);
+    await expect(rejection).rejects.toMatchObject({ code: "SP_O3_REBASE_REQUIRED" });
+  });
+
+  it("rejects malformed counterfactual path entries at the request boundary", () => {
+    const malformed = request() as unknown as Record<string, unknown>;
+    const counterfactual = malformed.counterfactual as Record<string, unknown>;
+    counterfactual.paths = [{}, {}];
+
+    expect(isStrategicPortfolioDivergenceRequest(malformed)).toBe(false);
   });
 });

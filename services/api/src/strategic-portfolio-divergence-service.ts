@@ -10,6 +10,7 @@ import type {
 import { isStrategicPortfolioDivergenceRequest } from "@simwar/shared-contracts";
 import {
   createStrategicPortfolioDivergenceAnalysis,
+  StrategicPortfolioDivergenceAnalysisError,
   type StrategicPortfolioDivergenceEnvelope
 } from "./strategic-portfolio-divergence-analysis.js";
 import {
@@ -232,12 +233,20 @@ export class StrategicPortfolioDivergenceService {
     assertPortfolioScope(portfolio, request);
     const m4 = await this.dependencies.createM4Candidate(scope, request.counterfactual, "teacher");
     const paths = m4.paths as M4TeacherPathProjection[];
-    const envelope = createStrategicPortfolioDivergenceAnalysis({
-      baseline: portfolio,
-      paths,
-      divergence_policy_digest: request.divergence_policy_digest,
-      expected_portfolio_state_digest: request.expected_portfolio_state_digest
-    });
+    let envelope: StrategicPortfolioDivergenceEnvelope;
+    try {
+      envelope = createStrategicPortfolioDivergenceAnalysis({
+        baseline: portfolio,
+        paths,
+        divergence_policy_digest: request.divergence_policy_digest,
+        expected_portfolio_state_digest: request.expected_portfolio_state_digest
+      });
+    } catch (error) {
+      if (error instanceof StrategicPortfolioDivergenceAnalysisError) {
+        throw new StrategicPortfolioDivergenceServiceError(error.code, error.message);
+      }
+      throw error;
+    }
     const transfer = evaluateStrategicPortfolioDivergenceTransferPolicy({
       portfolio_state_digest: portfolio.portfolio_ref.portfolio_digest,
       expected_portfolio_state_digest: request.expected_portfolio_state_digest,

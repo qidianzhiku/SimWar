@@ -30,6 +30,20 @@ function exactId(value: unknown): value is string {
   );
 }
 
+function isCounterfactualPath(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const path = value as Record<string, unknown>;
+  return (
+    exactId(path.path_id) &&
+    typeof path.label === "string" &&
+    path.label.trim() === path.label &&
+    path.label.length > 0 &&
+    Array.isArray(path.decision_ids) &&
+    path.decision_ids.length > 0 &&
+    path.decision_ids.every(exactId)
+  );
+}
+
 export function isStrategicPortfolioDivergenceRequest(
   value: unknown
 ): value is StrategicPortfolioDivergenceRequest {
@@ -60,6 +74,7 @@ export function isStrategicPortfolioDivergenceRequest(
     Array.isArray(input.paths) &&
     input.paths.length >= 2 &&
     input.paths.length <= 3 &&
+    input.paths.every(isCounterfactualPath) &&
     Number.isSafeInteger(input.horizon_rounds) &&
     Number(input.horizon_rounds) >= 1 &&
     Number(input.horizon_rounds) <= 8 &&
