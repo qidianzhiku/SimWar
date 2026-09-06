@@ -5,6 +5,11 @@ const apiBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_API_PORT ??
 const adminBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_ADMIN_PORT ?? 3103}`;
 const tenantId = "tenant_demo";
 
+test.skip(
+  process.env.SIMWAR_PLAYWRIGHT_O3 !== "true",
+  "SP-O3 requires its isolated M4-backed real-BFF fixture and is enabled explicitly."
+);
+
 async function loginToken(
   request: APIRequestContext,
   username: "teacher" | "admin"
