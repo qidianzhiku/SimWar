@@ -203,6 +203,11 @@ jobs:
           mkdir -p "$PR4_EVIDENCE_ROOT/baseline"
           cp "$PR4_EVIDENCE_ROOT/base-capture/candidate/"*.png "$PR4_EVIDENCE_ROOT/baseline/"
       - run: npm run test:e2e:ui:core
+      - name: Run SP-O3 real-BFF browser journey with isolated M4 fixture
+        env:
+          SIMWAR_PLAYWRIGHT_M4: "true"
+          SIMWAR_PLAYWRIGHT_O3: "true"
+        run: npx playwright test tests/e2e-ui/strategic-portfolio-divergence.spec.ts --config playwright.config.ts
       - name: Run dedicated M2 real-BFF browser journey
         run: npm run test:e2e:ui:m2-p1
       - run: npm run test:e2e:ui:pr4

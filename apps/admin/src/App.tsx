@@ -58,6 +58,7 @@ const EnterpriseCourseFactoryWorkspace = lazy(() =>
 );
 import { W4EnterprisePortfolioPanel } from "./W4EnterprisePortfolioPanel";
 import { ModelQualificationCoursePortfolioPanel } from "./ModelQualificationCoursePortfolioPanel";
+import { StrategicPortfolioDivergencePanel } from "./StrategicPortfolioDivergencePanel";
 import { MarketWorldAuditPanel } from "./MarketWorldAuditPanel";
 import { ProjectLibraryAuditPanel } from "./ProjectLibraryAuditPanel";
 import { ProjectAwareLaunchAuditPanel } from "./ProjectAwareLaunchAuditPanel";
@@ -1621,6 +1622,14 @@ export function App() {
 
       {session && isTenantAdmin ? (
         <ModelQualificationCoursePortfolioPanel
+          apiBase={API_BASE}
+          tenantId={login.tenantId}
+          token={session.access_token}
+        />
+      ) : null}
+
+      {session && isTenantAdmin ? (
+        <StrategicPortfolioDivergencePanel
           apiBase={API_BASE}
           tenantId={login.tenantId}
           token={session.access_token}

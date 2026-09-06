@@ -1,0 +1,358 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/strategic-portfolio-divergence.v1.json",
+  "title": "SimWar Strategic Portfolio Divergence What-if and Transfer",
+  "type": "object",
+  "$defs": {
+    "exactBinding": {
+      "type": "object",
+      "required": ["tenant_id", "course_id", "run_id", "team_id", "round_id", "round_no"],
+      "properties": {
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "course_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "team_id": { "type": "string", "minLength": 1 },
+        "round_id": { "type": "string", "minLength": 1 },
+        "round_no": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "request": {
+      "type": "object",
+      "required": [
+        "discriminator",
+        "exact_binding",
+        "counterfactual",
+        "expected_portfolio_state_digest",
+        "divergence_policy_digest",
+        "idempotency_key"
+      ],
+      "properties": {
+        "discriminator": { "const": "strategic_portfolio_divergence_request" },
+        "exact_binding": { "$ref": "#/$defs/exactBinding" },
+        "counterfactual": {
+          "type": "object",
+          "required": [
+            "source_state_ref",
+            "source_outcome_id",
+            "paths",
+            "horizon_rounds",
+            "scenario_package_id",
+            "parameter_set_id",
+            "engine_id",
+            "plugin_ids",
+            "seed"
+          ],
+          "properties": {
+            "source_state_ref": {
+              "type": "object",
+              "required": [
+                "tenant_id",
+                "course_id",
+                "run_id",
+                "team_id",
+                "round_id",
+                "enterprise_state_id",
+                "version",
+                "state_digest"
+              ],
+              "properties": {
+                "tenant_id": { "type": "string", "minLength": 1 },
+                "course_id": { "type": "string", "minLength": 1 },
+                "run_id": { "type": "string", "minLength": 1 },
+                "team_id": { "type": "string", "minLength": 1 },
+                "round_id": { "type": "string", "minLength": 1 },
+                "enterprise_state_id": { "type": "string", "minLength": 1 },
+                "version": { "type": "integer", "minimum": 1 },
+                "state_digest": { "type": "string", "minLength": 1 }
+              },
+              "additionalProperties": false
+            },
+            "source_outcome_id": { "type": "string", "minLength": 1 },
+            "paths": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 3,
+              "items": {
+                "type": "object",
+                "required": ["path_id", "label", "decision_ids"],
+                "properties": {
+                  "path_id": { "type": "string", "minLength": 1 },
+                  "label": { "type": "string", "minLength": 1 },
+                  "decision_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+                },
+                "additionalProperties": false
+              }
+            },
+            "horizon_rounds": { "type": "integer", "minimum": 1, "maximum": 8 },
+            "scenario_package_id": { "type": "string", "minLength": 1 },
+            "parameter_set_id": { "type": "string", "minLength": 1 },
+            "engine_id": { "type": "string", "minLength": 1 },
+            "plugin_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "seed": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "expected_portfolio_state_digest": { "type": "string", "minLength": 1 },
+        "divergence_policy_digest": { "type": "string", "minLength": 1 },
+        "idempotency_key": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "dimensionEvidence": {
+      "type": "object",
+      "required": ["dimension", "status", "evidence_path_ids", "reason"],
+      "properties": {
+        "dimension": { "type": "string" },
+        "status": { "enum": ["PROVEN", "NOT_PROVEN"] },
+        "evidence_path_ids": { "type": "array", "items": { "type": "string" } },
+        "reason": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "teacherEnvelope": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "candidate_id",
+        "surface",
+        "exact_binding",
+        "envelope",
+        "transfer",
+        "authority",
+        "known_limits"
+      ],
+      "properties": {
+        "schema_version": { "const": "main-sp-o3-strategic-portfolio-divergence.v1" },
+        "candidate_id": { "type": "string", "minLength": 1 },
+        "surface": { "enum": ["teacher", "admin"] },
+        "exact_binding": { "$ref": "#/$defs/exactBinding" },
+        "envelope": {
+          "type": "object",
+          "required": [
+            "envelope_id",
+            "envelope_digest",
+            "exact_portfolio",
+            "official_baseline",
+            "non_official_paths",
+            "dimension_evidence",
+            "policy",
+            "known_limits"
+          ],
+          "properties": {
+            "envelope_id": { "type": "string" },
+            "envelope_digest": { "type": "string" },
+            "exact_portfolio": {
+              "type": "object",
+              "required": [
+                "portfolio_id",
+                "portfolio_digest",
+                "tenant_id",
+                "course_id",
+                "run_id",
+                "team_id",
+                "round_no"
+              ],
+              "properties": {
+                "portfolio_id": { "type": "string", "minLength": 1 },
+                "portfolio_digest": { "type": "string", "minLength": 1 },
+                "tenant_id": { "type": "string", "minLength": 1 },
+                "course_id": { "type": "string", "minLength": 1 },
+                "run_id": { "type": "string", "minLength": 1 },
+                "team_id": { "type": "string", "minLength": 1 },
+                "round_no": { "type": "integer", "minimum": 1 }
+              },
+              "additionalProperties": false
+            },
+            "official_baseline": {
+              "type": "object",
+              "required": [
+                "officiality",
+                "portfolio_digest",
+                "member_count",
+                "allocated_capital_principal",
+                "total_project_cost",
+                "known_limits"
+              ],
+              "properties": {
+                "officiality": { "const": "OFFICIAL" },
+                "portfolio_digest": { "type": "string", "minLength": 1 },
+                "member_count": { "type": "integer", "minimum": 0 },
+                "allocated_capital_principal": { "type": "number" },
+                "total_project_cost": { "type": "number" },
+                "known_limits": { "type": "array", "items": { "type": "string" } }
+              },
+              "additionalProperties": false
+            },
+            "non_official_paths": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 3,
+              "items": {
+                "type": "object",
+                "required": [
+                  "path_id",
+                  "label",
+                  "officiality",
+                  "path_digest",
+                  "changed_paths",
+                  "outcome_differential"
+                ],
+                "properties": {
+                  "path_id": { "type": "string", "minLength": 1 },
+                  "label": { "type": "string", "minLength": 1 },
+                  "officiality": { "const": "NON_OFFICIAL" },
+                  "path_digest": { "type": "string", "minLength": 1 },
+                  "changed_paths": { "type": "array", "items": { "type": "string" } },
+                  "outcome_differential": {
+                    "type": "object",
+                    "required": ["cash_delta", "capacity_delta", "project_count_delta"],
+                    "properties": {
+                      "cash_delta": { "type": "number" },
+                      "capacity_delta": { "type": "number" },
+                      "project_count_delta": { "type": "number" }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "dimension_evidence": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/dimensionEvidence" }
+            },
+            "policy": {
+              "type": "object",
+              "required": [
+                "divergence_policy_digest",
+                "no_winner_selection",
+                "no_score_or_rank",
+                "no_official_write",
+                "no_apply_to_baseline"
+              ],
+              "properties": {
+                "divergence_policy_digest": { "type": "string", "minLength": 1 },
+                "no_winner_selection": { "const": true },
+                "no_score_or_rank": { "const": true },
+                "no_official_write": { "const": true },
+                "no_apply_to_baseline": { "const": true }
+              },
+              "additionalProperties": false
+            },
+            "known_limits": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": false
+        },
+        "transfer": {
+          "type": "object",
+          "required": [
+            "status",
+            "transfer_digest",
+            "applies_to_next_round",
+            "official_write",
+            "settlement_write",
+            "score_or_rank_write",
+            "selected_path_id",
+            "known_limits"
+          ],
+          "properties": {
+            "status": { "enum": ["REFLECTION_ONLY", "REBASE_REQUIRED", "BLOCKED"] },
+            "transfer_digest": { "type": "string", "minLength": 1 },
+            "applies_to_next_round": { "const": false },
+            "official_write": { "const": false },
+            "settlement_write": { "const": false },
+            "score_or_rank_write": { "const": false },
+            "selected_path_id": { "type": "null" },
+            "known_limits": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": false
+        },
+        "authority": {
+          "type": "object",
+          "required": [
+            "runtime_authority",
+            "official_source",
+            "writer_authority",
+            "derived",
+            "query_only",
+            "provider",
+            "official_truth_write",
+            "settlement_write",
+            "score_write",
+            "rank_write"
+          ],
+          "properties": {
+            "runtime_authority": { "const": "JSON_INTERNAL_ONLY" },
+            "official_source": { "const": "W4_ENTERPRISE_STATE_SERVICE" },
+            "writer_authority": { "const": "SOLE_W4_ENTERPRISE_STATE_SERVICE" },
+            "derived": { "const": true },
+            "query_only": { "const": true },
+            "provider": { "const": "OFF" },
+            "official_truth_write": { "const": false },
+            "settlement_write": { "const": false },
+            "score_write": { "const": false },
+            "rank_write": { "const": false }
+          },
+          "additionalProperties": false
+        },
+        "known_limits": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "studentEnvelope": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "candidate_id",
+        "surface",
+        "role_safe",
+        "exact_context",
+        "reflection",
+        "transfer",
+        "known_limits",
+        "excluded_fields"
+      ],
+      "properties": {
+        "schema_version": { "const": "main-sp-o3-strategic-portfolio-divergence.v1" },
+        "candidate_id": { "type": "string", "minLength": 1 },
+        "surface": { "const": "student" },
+        "role_safe": { "const": true },
+        "exact_context": {
+          "type": "object",
+          "required": ["course_id", "run_id", "team_id", "round_no"],
+          "properties": {
+            "course_id": { "type": "string", "minLength": 1 },
+            "run_id": { "type": "string", "minLength": 1 },
+            "team_id": { "type": "string", "minLength": 1 },
+            "round_no": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        },
+        "reflection": {
+          "type": "object",
+          "required": ["status", "path_count", "proven_dimensions"],
+          "properties": {
+            "status": { "enum": ["AVAILABLE", "REBASE_REQUIRED"] },
+            "path_count": { "type": "integer", "minimum": 0 },
+            "proven_dimensions": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": false
+        },
+        "transfer": {
+          "type": "object",
+          "required": ["status", "advisory_only", "applies_to_next_round"],
+          "properties": {
+            "status": { "enum": ["REFLECTION_ONLY", "REBASE_REQUIRED", "BLOCKED"] },
+            "advisory_only": { "const": true },
+            "applies_to_next_round": { "const": false }
+          },
+          "additionalProperties": false
+        },
+        "known_limits": { "type": "array", "items": { "type": "string" } },
+        "excluded_fields": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    }
+  }
+}

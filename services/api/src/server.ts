@@ -172,6 +172,7 @@ import { handleM2P5DecisionLearningRoute } from "./routes/m2p5-decision-learning
 import { handleO4CrossRoundDynamicsRoute } from "./routes/o4-cross-round-dynamics-routes.js";
 import { handleW4EnterpriseStateRoute } from "./routes/w4-enterprise-state-routes.js";
 import { handleM4MultipathCounterfactualTransferRoute } from "./routes/m4-multipath-counterfactual-transfer-routes.js";
+import { handleStrategicPortfolioDivergenceRoute } from "./routes/strategic-portfolio-divergence-routes.js";
 import { handleValidationEnvironmentLaunchRoute } from "./routes/validation-environment-launch-routes.js";
 import { handleW5GovernedModelRoute } from "./routes/w5-governed-model-routes.js";
 import { handleShanghaiFullVerticalRoute } from "./routes/shanghai-full-vertical-routes.js";
@@ -191,6 +192,7 @@ import { handleOperatingWorldRoute } from "./routes/operating-world-routes.js";
 import { GovernedAdvisoryService } from "./w020-advisory-service.js";
 import { GSIStakeholderShadowPlaneService } from "./gsi-stakeholder-shadow-plane-service.js";
 import { ExecutiveStrategyLabService } from "./executive-strategy-lab-service.js";
+import { StrategicPortfolioDivergenceService } from "./strategic-portfolio-divergence-service.js";
 import { W3OfficialConsequenceLearningService } from "./w3-official-consequence-learning.js";
 import {
   createOperatingWorldConsequenceTrace,
@@ -467,6 +469,7 @@ interface ApiRuntime {
   governedAdvisory: GovernedAdvisoryService;
   gsiStakeholder: GSIStakeholderShadowPlaneService;
   executiveStrategyLab: ExecutiveStrategyLabService;
+  strategicPortfolioDivergence: StrategicPortfolioDivergenceService;
   validationSessions: ValidationSessionControlPlane;
   w027DecisionExperience: W027DecisionExperienceService;
   w3OfficialConsequence: W3OfficialConsequenceLearningService;
@@ -908,6 +911,13 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     createM4Candidate: (scope, input, surface) =>
       m4MultipathCounterfactualTransfer.create(scope, input, surface),
     roleWorkflow: repositoryProvider.ports.roleWorkflow
+  });
+  const strategicPortfolioDivergence = new StrategicPortfolioDivergenceService({
+    getPortfolio: async (scope) =>
+      (await w4EnterpriseStateService.getProjection(scope, { allowEmptyRound: true }))
+        .strategic_portfolio,
+    createM4Candidate: (scope, input, surface) =>
+      m4MultipathCounterfactualTransfer.create(scope, input, surface)
   });
   const validationSessions = new ValidationSessionControlPlane(repositoryProvider);
   const courseBlueprintBindingStore = new CourseBlueprintBindingStore(store);
@@ -1480,6 +1490,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     governedAdvisory,
     gsiStakeholder,
     executiveStrategyLab,
+    strategicPortfolioDivergence,
     validationSessions,
     ...(validationEnvironmentLaunch
       ? {
@@ -8096,6 +8107,26 @@ async function routeRequest(
     )
       return;
   }
+
+  if (
+    await handleStrategicPortfolioDivergenceRoute(
+      runtime.strategicPortfolioDivergence,
+      request,
+      response,
+      url,
+      { requestId: context.requestId, tenantId: context.tenantId },
+      {
+        readJson: (incoming) => readJson(incoming),
+        sendJson,
+        createEnvelope: (routeContext, payload, message) =>
+          createEnvelope(routeContext as RequestContext, payload, message),
+        requireTeacher: () => requireD4Teacher(context),
+        requireStudent: () => requireD4Student(context),
+        requireAdmin: () => requireD4Admin(context)
+      }
+    )
+  )
+    return;
 
   if (
     await handleExecutiveStrategyLabRoute(
