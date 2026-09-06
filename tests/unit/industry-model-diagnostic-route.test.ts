@@ -15,6 +15,13 @@ const actor = {
   permissions: ["course:read"]
 } as unknown as CurrentUser;
 
+const studentActor = {
+  user_id: "student_demo",
+  tenant_id: EVIDENCE_ADOPTION_SCOPE.tenant_id,
+  roles: ["student"],
+  permissions: ["course:read"]
+} as unknown as CurrentUser;
+
 function exactRepository(): RepositoryFacade {
   return {
     courses: {
@@ -165,6 +172,43 @@ describe("IM-O1 diagnostic readiness route", () => {
     };
     const url = new URL(
       `/api/v1/bff/teacher/model-qualification/diagnostic-readiness?courseId=course_demo&runId=run-exact&teamId=team-exact&roundId=round-exact&scenarioPackageId=forged-scenario&parameterSetId=parameter-exact&qualificationId=${fixture.primary.qualificationA.qualification_id}`,
+      "http://localhost"
+    );
+    await expect(
+      handleModelQualificationRoute(
+        fixture.service,
+        { method: "GET" } as IncomingMessage,
+        {} as ServerResponse,
+        url,
+        dependencies
+      )
+    ).rejects.toThrow("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+  });
+
+  it("rejects a student diagnostic for a team other than the enrolled team", async () => {
+    const fixture = createEvidenceAdoptionServiceFixture();
+    const repository = exactRepository();
+    repository.courses.listCoursesForUser = async () => [
+      {
+        course_id: "course_demo",
+        tenant_id: EVIDENCE_ADOPTION_SCOPE.tenant_id
+      } as never
+    ];
+    const dependencies = {
+      actorHasAnyRole: () => true,
+      createContext: () => ({
+        requestId: "request-student",
+        tenantId: studentActor.tenant_id,
+        actor: studentActor
+      }),
+      createEnvelope: (_context: unknown, data: unknown) => ({ data }),
+      readJson: async () => ({}),
+      repository,
+      requirePermission: () => studentActor,
+      sendJson: () => undefined
+    };
+    const url = new URL(
+      `/api/v1/bff/student/model-qualification/diagnostic-readiness?courseId=course_demo&runId=run-exact&teamId=team-other&roundId=round-exact&scenarioPackageId=scenario-exact&parameterSetId=parameter-exact&qualificationId=${fixture.primary.qualificationA.qualification_id}`,
       "http://localhost"
     );
     await expect(

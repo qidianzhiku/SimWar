@@ -143,6 +143,7 @@
         { "$ref": "#/$defs/base" },
         {
           "type": "object",
+          "unevaluatedProperties": false,
           "required": ["operation_id", "role", "student_summary"],
           "properties": {
             "operation_id": { "const": "INDUSTRY_MODEL_DIAGNOSTIC_STUDENT_GET_V1" },

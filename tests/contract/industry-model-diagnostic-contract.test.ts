@@ -38,6 +38,40 @@ describe("IM-O1 Industry Model diagnostic readiness contract", () => {
     expect(() => new Ajv2020({ allErrors: true, strict: false }).compile(schema)).not.toThrow();
   });
 
+  it("rejects privileged fields from the Student schema", () => {
+    const validate = new Ajv2020({ allErrors: true, strict: false }).compile(schema);
+    const fixture = createEvidenceAdoptionServiceFixture();
+    const student = fixture.service.getIndustryModelDiagnosticReadiness(
+      EVIDENCE_ADOPTION_STUDENT,
+      EVIDENCE_ADOPTION_SCOPE,
+      { ...exactContext, qualification_id: fixture.primary.qualificationA.qualification_id }
+    );
+    expect(validate({ ...student, qualification: { qualification_id: "private" } })).toBe(false);
+    expect(validate({ ...student, provability: [] })).toBe(false);
+  });
+
+  it("publishes diagnostic freshness parameters for all role routes", () => {
+    for (const role of ["teacher", "admin", "student"]) {
+      const parameters = openapi.paths[
+        `/api/v1/bff/${role}/model-qualification/diagnostic-readiness`
+      ]?.get?.parameters as Array<{ name?: string; in?: string; required?: boolean }> | undefined;
+      expect(parameters).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: "expectedDiagnosticEvidenceDigest",
+            in: "query",
+            required: false
+          }),
+          expect.objectContaining({
+            name: "expectedInterpretationPolicyDigest",
+            in: "query",
+            required: false
+          })
+        ])
+      );
+    }
+  });
+
   it("derives blocked NOT_PROVEN readiness from current producer evidence without inventing WANT/CAN", () => {
     const fixture = createEvidenceAdoptionServiceFixture();
     const input = {

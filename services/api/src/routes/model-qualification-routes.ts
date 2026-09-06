@@ -362,6 +362,19 @@ export async function handleModelQualificationRoute(
       if (!visibleCourses.some((course) => course.course_id === courseId)) {
         throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
       }
+      const enrolledTeam = await deps.repository.teams.getTeamForUser(
+        context.tenantId,
+        requiredContext.run_id,
+        actor.user_id
+      );
+      if (
+        !enrolledTeam ||
+        enrolledTeam.team_id !== requiredContext.team_id ||
+        enrolledTeam.tenant_id !== context.tenantId ||
+        enrolledTeam.course_id !== courseId
+      ) {
+        throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+      }
     }
     send(
       deps,

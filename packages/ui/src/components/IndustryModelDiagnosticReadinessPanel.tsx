@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ApiEnvelope, IndustryModelDiagnosticReadinessDto } from "@simwar/shared-contracts";
 
 export interface IndustryModelDiagnosticReadinessPanelProps {
@@ -16,6 +16,11 @@ export interface IndustryModelDiagnosticReadinessPanelProps {
 }
 
 type LoadState = "missing-context" | "loading" | "ready" | "error";
+
+type DiagnosticIdentity = {
+  diagnosticEvidenceDigest: string;
+  interpretationPolicyDigest: string;
+};
 
 function nonBlank(value: string | null | undefined): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -45,6 +50,7 @@ export function IndustryModelDiagnosticReadinessPanel(
   const [loadState, setLoadState] = useState<LoadState>("missing-context");
   const [errorMessage, setErrorMessage] = useState("");
   const [reloadNonce, setReloadNonce] = useState(0);
+  const lastIdentityRef = useRef<DiagnosticIdentity | null>(null);
   const contextKey = useMemo(
     () =>
       JSON.stringify([
@@ -101,6 +107,7 @@ export function IndustryModelDiagnosticReadinessPanel(
       setData(null);
       setLoadState("missing-context");
       setErrorMessage("");
+      lastIdentityRef.current = null;
       return;
     }
     const controller = new AbortController();
@@ -115,6 +122,11 @@ export function IndustryModelDiagnosticReadinessPanel(
       parameterSetId,
       qualificationId
     });
+    const lastIdentity = lastIdentityRef.current;
+    if (lastIdentity) {
+      query.set("expectedDiagnosticEvidenceDigest", lastIdentity.diagnosticEvidenceDigest);
+      query.set("expectedInterpretationPolicyDigest", lastIdentity.interpretationPolicyDigest);
+    }
     void fetch(
       `${apiBase}/api/v1/bff/${role}/model-qualification/diagnostic-readiness?${query.toString()}`,
       {
@@ -135,6 +147,16 @@ export function IndustryModelDiagnosticReadinessPanel(
         }
         if (!response.ok) throw new Error(`${envelope.code}: ${envelope.message}`);
         setData(envelope.data);
+        if (
+          envelope.data.diagnostic_evidence_digest &&
+          envelope.data.interpretation_policy_digest &&
+          envelope.data.readiness_status !== "REBASE_REQUIRED"
+        ) {
+          lastIdentityRef.current = {
+            diagnosticEvidenceDigest: envelope.data.diagnostic_evidence_digest,
+            interpretationPolicyDigest: envelope.data.interpretation_policy_digest
+          };
+        }
         setLoadState("ready");
       })
       .catch((error: unknown) => {

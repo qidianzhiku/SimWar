@@ -153,4 +153,35 @@ describe("IM-O1 diagnostic readiness consumer", () => {
     expect(host.textContent).not.toContain("diagnostic_evidence_digest");
     await act(async () => root.unmount());
   });
+
+  it("reuses the last diagnostic identities when an exact context reloads", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ code: "OK", message: "ok", request_id: "request-a", data: teacherData })
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () =>
+      root.render(<IndustryModelDiagnosticReadinessPanel {...exact} role="teacher" />)
+    );
+    await act(async () =>
+      root.render(
+        <IndustryModelDiagnosticReadinessPanel
+          {...exact}
+          qualificationId="qualification-b"
+          role="teacher"
+        />
+      )
+    );
+    const secondUrl = String(fetchMock.mock.calls[1]?.[0]);
+    expect(secondUrl).toContain(
+      `expectedDiagnosticEvidenceDigest=${teacherData.diagnostic_evidence_digest}`
+    );
+    expect(secondUrl).toContain(
+      `expectedInterpretationPolicyDigest=${teacherData.interpretation_policy_digest}`
+    );
+    await act(async () => root.unmount());
+  });
 });
