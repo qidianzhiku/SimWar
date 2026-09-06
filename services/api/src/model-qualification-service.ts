@@ -30,6 +30,11 @@ import {
 import { resolveRollbackRequestOutcome } from "./model-qualification-rollback-request-resolution.js";
 import { assessReadoptionHistoricalConsistency } from "./model-qualification-readoption-historical-consistency.js";
 import {
+  buildIndustryModelDiagnosticReadiness,
+  type IndustryModelDiagnosticReadinessInput
+} from "./industry-model-diagnostic-readiness.js";
+import { interpretIndustryModelDiagnostics } from "./industry-model-diagnostic-interpretation.js";
+import {
   buildModelQualificationCoursePortfolio,
   type ModelQualificationAuthorizedCourse,
   type ModelQualificationCoursePortfolio
@@ -95,7 +100,8 @@ import type {
   ModelQualificationTeacherProjection,
   ModelQualificationSourcePackage,
   ModelQualificationRollbackOutcomeResolution,
-  ModelQualificationRollbackOutcomeStudentSummary
+  ModelQualificationRollbackOutcomeStudentSummary,
+  IndustryModelDiagnosticReadinessDto
 } from "@simwar/shared-contracts";
 import {
   MODEL_QUALIFICATION_ROLLBACK_OUTCOME_SCHEMA_VERSION,
@@ -1662,6 +1668,205 @@ export class ModelQualificationService {
       },
       security: this.security(actor, scope),
       visibility: "ROLE_SAFE_STUDENT"
+    };
+  }
+
+  /**
+   * Derive the IM-O1 diagnostic readiness envelope from the existing
+   * ModelQualification authority.  This is query-only: it never registers a
+   * producer, mutates adoption, writes REALIZED, or creates a second store.
+   */
+  getIndustryModelDiagnosticReadiness(
+    actor: ModelQualificationActor,
+    scope: ModelQualificationScope,
+    input: {
+      readonly run_id: string;
+      readonly team_id: string;
+      readonly round_id: string;
+      readonly scenario_package_id: string;
+      readonly parameter_set_id: string;
+      readonly qualification_id: string;
+      readonly expected_diagnostic_evidence_digest?: string;
+      readonly expected_interpretation_policy_digest?: string;
+    }
+  ): IndustryModelDiagnosticReadinessDto {
+    this.assertScope(actor, scope);
+    if (
+      !input.run_id ||
+      !input.team_id ||
+      !input.round_id ||
+      !input.scenario_package_id ||
+      !input.parameter_set_id
+    ) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    const record = this.recordOrEmpty(scope);
+    const qualification = record.qualifications.find(
+      (item) => item.qualification_id === input.qualification_id
+    );
+    if (!qualification) throw new ModelQualificationError("MODEL_QUALIFICATION_NOT_FOUND");
+    const source = this.findSource(scope, qualification.source_package_id);
+    if (!source) throw new ModelQualificationError("MODEL_QUALIFICATION_SOURCE_NOT_FOUND");
+    const dataset = this.findDataset(scope, qualification.calibration_dataset_id);
+    if (!dataset || dataset.source_package_id !== source.source_package_id) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_DATASET_NOT_FOUND");
+    }
+    const model = this.modelCatalog.find((entry) =>
+      isExactModelReference(entry.model_version_reference, qualification.model_version_reference)
+    );
+    if (!model) throw new ModelQualificationError("MODEL_VERSION_REFERENCE_NOT_FOUND");
+    const diagnostics = deriveModelQualificationDiagnostics(source, dataset, model);
+    validateDiagnostics(diagnostics);
+    const state = record.evidence_adoption;
+    const currentAdoptions = state
+      ? state.records.filter(
+          (item) =>
+            item.disposition === "ADOPTED_FOR_FUTURE_ADMISSION" &&
+            item.epoch.qualification_id === qualification.qualification_id &&
+            state.selections.some(
+              (selection) =>
+                selection.adoption_id === item.adoption_id &&
+                selection.adoption_digest === item.adoption_digest
+            )
+        )
+      : [];
+    if (currentAdoptions.length > 1) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    const currentAdoption = currentAdoptions[0]
+      ? {
+          adoption_id: currentAdoptions[0].adoption_id,
+          adoption_digest: currentAdoptions[0].adoption_digest
+        }
+      : null;
+    const diagnosticEvidenceDigest = stableSha256({
+      dataset_content_digest: dataset.content_digest,
+      diagnostics,
+      model_version_reference: model.model_version_reference,
+      source_content_digest: source.content_digest
+    });
+    const interpretationPolicyDigest = stableSha256({
+      policy: "IM-O1-diagnostic-interpretation",
+      version: "1"
+    });
+    const identityMovements = [
+      ...(input.expected_diagnostic_evidence_digest &&
+      input.expected_diagnostic_evidence_digest !== diagnosticEvidenceDigest
+        ? ["diagnostic_evidence"]
+        : []),
+      ...(input.expected_interpretation_policy_digest &&
+      input.expected_interpretation_policy_digest !== interpretationPolicyDigest
+        ? ["interpretation_policy"]
+        : [])
+    ];
+    const producer: IndustryModelDiagnosticReadinessInput["producers"][number] = {
+      producer_id: "model-qualification-diagnostics",
+      current_source_path: "services/api/src/model-qualification-service.ts",
+      exact_symbol: "deriveModelQualificationDiagnostics",
+      contract: "ModelQualificationDiagnostics",
+      diagnostic_family: "qualification quality/drift/ood/sensitivity",
+      evidence_identity: diagnosticEvidenceDigest,
+      tests: ["tests/unit/model-qualification-service.test.ts"],
+      freshness: source.freshness_status,
+      authority_owner: "SIMWAR-MODEL-QUALIFICATION-PLANE",
+      candidate_classification: "NOT_PROVEN"
+    };
+    const readiness = buildIndustryModelDiagnosticReadiness({
+      context: {
+        tenant_id: scope.tenant_id,
+        course_id: scope.course_id,
+        run_id: input.run_id,
+        team_id: input.team_id,
+        round_id: input.round_id,
+        scenario_package_id: input.scenario_package_id,
+        parameter_set_id: input.parameter_set_id
+      },
+      model_version_reference: qualification.model_version_reference,
+      model_artifact_reference: qualification.artifact,
+      qualification: {
+        qualification_id: qualification.qualification_id,
+        qualification_digest: qualification.content_digest,
+        decision: qualification.decision,
+        review_status: qualification.review.status,
+        binding_status: qualification.binding.status
+      },
+      adoption: currentAdoption,
+      diagnostic_evidence_digest: diagnosticEvidenceDigest,
+      interpretation_policy_digest: interpretationPolicyDigest,
+      producers: [producer],
+      identity_movements: identityMovements,
+      official_truth_write: false,
+      provider_calls: 0
+    });
+    const interpretation = interpretIndustryModelDiagnostics({
+      context: {
+        tenant_id: scope.tenant_id,
+        course_id: scope.course_id,
+        run_id: input.run_id,
+        team_id: input.team_id,
+        round_id: input.round_id
+      },
+      readiness_status: readiness.readiness_status,
+      diagnostic_evidence_digest: diagnosticEvidenceDigest,
+      interpretation_policy_digest: interpretationPolicyDigest,
+      entries: readiness.provability.map((entry) => ({
+        producer_id: entry.producer_id,
+        diagnostic_family: entry.diagnostic_family,
+        classification: entry.classification,
+        status:
+          entry.classification === "NOT_PROVEN"
+            ? "WARN"
+            : qualification.decision === "APPROVED"
+              ? "PASS"
+              : "FAIL",
+        bounded_metrics: {},
+        provenance: { source_path: entry.source.path, symbol: entry.source.symbol },
+        known_limits: readiness.known_limits
+      })),
+      identity_movements: identityMovements,
+      provider: "OFF",
+      official_truth_write: false
+    });
+    const common = {
+      schema_version: "industry-model-diagnostic-readiness.v1" as const,
+      readiness_status: readiness.readiness_status,
+      rebase_required: readiness.rebase_required,
+      exact_context: readiness.bound_context,
+      known_limits: [
+        ...new Set([...readiness.known_limits, ...interpretation.known_limits])
+      ].sort(),
+      provider: "OFF" as const,
+      official_truth_write: false as const,
+      readiness_digest: readiness.readiness_digest
+    };
+    if (actor.role === "student" || actor.role === "learner") {
+      return {
+        ...common,
+        operation_id: "INDUSTRY_MODEL_DIAGNOSTIC_STUDENT_GET_V1",
+        role: "student",
+        student_summary: interpretation.student
+      };
+    }
+    return {
+      ...common,
+      operation_id:
+        actor.role === "tenant_admin"
+          ? "INDUSTRY_MODEL_DIAGNOSTIC_ADMIN_GET_V1"
+          : "INDUSTRY_MODEL_DIAGNOSTIC_TEACHER_GET_V1",
+      role: actor.role === "tenant_admin" ? "admin" : "teacher",
+      model_version_reference: qualification.model_version_reference,
+      model_artifact_reference: qualification.artifact,
+      qualification: {
+        qualification_id: qualification.qualification_id,
+        qualification_digest: qualification.content_digest,
+        decision: qualification.decision,
+        review_status: qualification.review.status,
+        binding_status: qualification.binding.status
+      },
+      adoption: currentAdoption,
+      diagnostic_evidence_digest: diagnosticEvidenceDigest,
+      interpretation_policy_digest: interpretationPolicyDigest,
+      provability: readiness.provability
     };
   }
 

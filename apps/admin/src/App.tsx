@@ -112,6 +112,26 @@ const OPERATING_WORLD_ROUND_NO =
         const value = new URLSearchParams(window.location.search).get("roundNo");
         return value ? Number(value) : undefined;
       })();
+const IM_DIAGNOSTIC_ROUND_ID =
+  typeof window === "undefined"
+    ? ""
+    : (new URLSearchParams(window.location.search).get("roundId") ?? "");
+const IM_DIAGNOSTIC_TEAM_ID =
+  typeof window === "undefined"
+    ? ""
+    : (new URLSearchParams(window.location.search).get("teamId") ?? "");
+const IM_DIAGNOSTIC_SCENARIO_PACKAGE_ID =
+  typeof window === "undefined"
+    ? ""
+    : (new URLSearchParams(window.location.search).get("scenarioPackageId") ?? "");
+const IM_DIAGNOSTIC_PARAMETER_SET_ID =
+  typeof window === "undefined"
+    ? ""
+    : (new URLSearchParams(window.location.search).get("parameterSetId") ?? "");
+const IM_DIAGNOSTIC_QUALIFICATION_ID =
+  typeof window === "undefined"
+    ? ""
+    : (new URLSearchParams(window.location.search).get("qualificationId") ?? "");
 
 const SHANGHAI_FULL_VERTICAL_DRAFT_ID =
   typeof window === "undefined"
@@ -1249,6 +1269,12 @@ export function App() {
             <ModelQualificationAuditPanel
               apiBase={API_BASE}
               courseId={W5_AUDIT_COURSE_ID}
+              runId={OPERATING_WORLD_RUN_ID}
+              teamId={IM_DIAGNOSTIC_TEAM_ID}
+              roundId={IM_DIAGNOSTIC_ROUND_ID}
+              scenarioPackageId={IM_DIAGNOSTIC_SCENARIO_PACKAGE_ID}
+              parameterSetId={IM_DIAGNOSTIC_PARAMETER_SET_ID}
+              qualificationId={IM_DIAGNOSTIC_QUALIFICATION_ID}
               tenantId={login.tenantId}
               token={session.access_token}
             />

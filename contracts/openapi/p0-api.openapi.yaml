@@ -6618,7 +6618,9 @@ paths:
           description: Exact-bound divergence evidence for Teacher.
           content:
             application/json:
-              { schema: { $ref: "#/components/schemas/StrategicPortfolioDivergenceTeacherEnvelope" } }
+              {
+                schema: { $ref: "#/components/schemas/StrategicPortfolioDivergenceTeacherEnvelope" }
+              }
         "401": { description: Authentication required }
         "403": { description: Teacher scope denied }
         "409": { description: Exact portfolio or idempotency conflict }
@@ -6636,7 +6638,9 @@ paths:
           description: Teacher comparison evidence.
           content:
             application/json:
-              { schema: { $ref: "#/components/schemas/StrategicPortfolioDivergenceTeacherEnvelope" } }
+              {
+                schema: { $ref: "#/components/schemas/StrategicPortfolioDivergenceTeacherEnvelope" }
+              }
         "401": { description: Authentication required }
         "403": { description: Teacher scope denied }
         "404": { description: Candidate not found in tenant scope }
@@ -6653,7 +6657,9 @@ paths:
           description: Admin comparison and provenance evidence.
           content:
             application/json:
-              { schema: { $ref: "#/components/schemas/StrategicPortfolioDivergenceTeacherEnvelope" } }
+              {
+                schema: { $ref: "#/components/schemas/StrategicPortfolioDivergenceTeacherEnvelope" }
+              }
         "401": { description: Authentication required }
         "403": { description: Tenant administrator scope denied }
         "404": { description: Candidate not found in tenant scope }
@@ -6671,7 +6677,9 @@ paths:
           description: Student-safe reflection and transfer boundary.
           content:
             application/json:
-              { schema: { $ref: "#/components/schemas/StrategicPortfolioDivergenceStudentEnvelope" } }
+              {
+                schema: { $ref: "#/components/schemas/StrategicPortfolioDivergenceStudentEnvelope" }
+              }
         "401": { description: Authentication required }
         "403": { description: Student team scope denied }
         "404": { description: Candidate not found in tenant scope }
@@ -7823,6 +7831,167 @@ paths:
         "401": { description: Authentication required }
         "403": { description: Tenant administrator scope denied }
         "404": { description: Receipt not found }
+
+  /api/v1/bff/teacher/model-qualification/diagnostic-readiness:
+    get:
+      operationId: INDUSTRY_MODEL_DIAGNOSTIC_TEACHER_GET_V1
+      summary: Read exact-context teacher Industry Model diagnostic readiness.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: runId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: teamId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: roundId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - {
+            name: scenarioPackageId,
+            in: query,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - {
+            name: parameterSetId,
+            in: query,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - {
+            name: qualificationId,
+            in: query,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - {
+            name: expectedDiagnosticEvidenceDigest,
+            in: query,
+            required: false,
+            schema: { type: string, pattern: "^[a-f0-9]{64}$" }
+          }
+        - {
+            name: expectedInterpretationPolicyDigest,
+            in: query,
+            required: false,
+            schema: { type: string, pattern: "^[a-f0-9]{64}$" }
+          }
+      responses:
+        "200":
+          {
+            description: Exact-context diagnostic readiness,
+            content:
+              {
+                application/json:
+                  {
+                    schema: { $ref: "#/components/schemas/IndustryModelDiagnosticTeacherEnvelope" }
+                  }
+              }
+          }
+        "401": { description: Authentication required }
+        "403": { description: Teacher or course scope denied }
+  /api/v1/bff/admin/model-qualification/diagnostic-readiness:
+    get:
+      operationId: INDUSTRY_MODEL_DIAGNOSTIC_ADMIN_GET_V1
+      summary: Read exact-context admin Industry Model diagnostic readiness.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: runId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: teamId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: roundId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - {
+            name: scenarioPackageId,
+            in: query,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - {
+            name: parameterSetId,
+            in: query,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - {
+            name: qualificationId,
+            in: query,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - {
+            name: expectedDiagnosticEvidenceDigest,
+            in: query,
+            required: false,
+            schema: { type: string, pattern: "^[a-f0-9]{64}$" }
+          }
+        - {
+            name: expectedInterpretationPolicyDigest,
+            in: query,
+            required: false,
+            schema: { type: string, pattern: "^[a-f0-9]{64}$" }
+          }
+      responses:
+        "200":
+          {
+            description: Exact-context diagnostic readiness,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/IndustryModelDiagnosticAdminEnvelope" } }
+              }
+          }
+        "401": { description: Authentication required }
+        "403": { description: Tenant administrator or course scope denied }
+  /api/v1/bff/student/model-qualification/diagnostic-readiness:
+    get:
+      operationId: INDUSTRY_MODEL_DIAGNOSTIC_STUDENT_GET_V1
+      summary: Read role-safe exact-context Industry Model diagnostic readiness.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: runId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: teamId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: roundId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - {
+            name: scenarioPackageId,
+            in: query,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - {
+            name: parameterSetId,
+            in: query,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - {
+            name: qualificationId,
+            in: query,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - {
+            name: expectedDiagnosticEvidenceDigest,
+            in: query,
+            required: false,
+            schema: { type: string, pattern: "^[a-f0-9]{64}$" }
+          }
+        - {
+            name: expectedInterpretationPolicyDigest,
+            in: query,
+            required: false,
+            schema: { type: string, pattern: "^[a-f0-9]{64}$" }
+          }
+      responses:
+        "200":
+          {
+            description: Student-safe diagnostic readiness,
+            content:
+              {
+                application/json:
+                  {
+                    schema: { $ref: "#/components/schemas/IndustryModelDiagnosticStudentEnvelope" }
+                  }
+              }
+          }
+        "401": { description: Authentication required }
+        "403": { description: Student course scope denied }
 
 components:
   securitySchemes:
@@ -11691,6 +11860,33 @@ components:
       properties:
         code: { type: string }
         data: { $ref: "../schemas/model-qualification.v1.json#/$defs/adminProjection" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    IndustryModelDiagnosticTeacherEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/industry-model-diagnostic.v1.json#/$defs/teacherOrAdmin" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    IndustryModelDiagnosticAdminEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/industry-model-diagnostic.v1.json#/$defs/teacherOrAdmin" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    IndustryModelDiagnosticStudentEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/industry-model-diagnostic.v1.json#/$defs/student" }
         message: { type: string }
         request_id: { type: string, minLength: 1 }
     ModelQualificationCoursePortfolioEnvelope:

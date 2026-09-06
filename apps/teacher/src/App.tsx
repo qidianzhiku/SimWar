@@ -2570,6 +2570,11 @@ export function App() {
             <ModelQualificationWorkbench
               apiBase={API_BASE}
               courseId={selectedRun?.course_id ?? selectedCourseId}
+              runId={selectedRun?.run_id}
+              teamId={activeTeacherTeamId}
+              roundId={selectedRound?.round_id}
+              scenarioPackageId={selectedRun?.scenario_package_id}
+              parameterSetId={selectedRun?.parameter_set_id}
               onRunAdmissionSelectionChange={setQualifiedRunAdmissionSelection}
               tenantId={login.tenantId}
               token={session.access_token}

@@ -42,3 +42,5 @@ export type {
   D5ReportSummary
 } from "./workbenches/D5ExportWorkbenchView.js";
 export { ModelQualificationAdoptionPanel } from "./components/ModelQualificationAdoptionPanel.js";
+export { IndustryModelDiagnosticReadinessPanel } from "./components/IndustryModelDiagnosticReadinessPanel.js";
+export type { IndustryModelDiagnosticReadinessPanelProps } from "./components/IndustryModelDiagnosticReadinessPanel.js";

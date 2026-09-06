@@ -143,6 +143,51 @@ async function assertCourse(
   }
 }
 
+async function assertExactIndustryDiagnosticContext(
+  deps: ModelQualificationRouteDependencies,
+  context: ModelQualificationRouteContext,
+  input: {
+    readonly course_id: string;
+    readonly run_id: string;
+    readonly team_id: string;
+    readonly round_id: string;
+    readonly scenario_package_id: string;
+    readonly parameter_set_id: string;
+  }
+): Promise<void> {
+  const [course, run, team, round, scenario, parameterSet] = await Promise.all([
+    deps.repository.courses.getCourse(context.tenantId, input.course_id),
+    deps.repository.runs.getRun(context.tenantId, input.run_id),
+    deps.repository.teams.getTeam(context.tenantId, input.team_id),
+    deps.repository.rounds.getRound(context.tenantId, input.round_id),
+    deps.repository.scenarios.getScenarioPackage(context.tenantId, input.scenario_package_id),
+    deps.repository.parameterSets.getParameterSet(context.tenantId, input.parameter_set_id)
+  ]);
+  if (
+    !course ||
+    course.tenant_id !== context.tenantId ||
+    course.scenario_package_id !== input.scenario_package_id ||
+    course.parameter_set_id !== input.parameter_set_id ||
+    !run ||
+    run.tenant_id !== context.tenantId ||
+    run.course_id !== input.course_id ||
+    run.scenario_package_id !== input.scenario_package_id ||
+    run.parameter_set_id !== input.parameter_set_id ||
+    !team ||
+    team.tenant_id !== context.tenantId ||
+    team.course_id !== input.course_id ||
+    !round ||
+    round.tenant_id !== context.tenantId ||
+    round.run_id !== input.run_id ||
+    !scenario ||
+    scenario.tenant_id !== context.tenantId ||
+    !parameterSet ||
+    parameterSet.tenant_id !== context.tenantId
+  ) {
+    throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+  }
+}
+
 async function canonicalTenantCourses(
   deps: ModelQualificationRouteDependencies,
   context: ModelQualificationRouteContext
@@ -179,6 +224,13 @@ export function isModelQualificationRoute(method: string | undefined, url: URL):
   if (
     method === "GET" &&
     /^\/api\/v1\/bff\/(teacher|admin|student)\/model-qualification\/adoption-operations$/.test(
+      url.pathname
+    )
+  )
+    return true;
+  if (
+    method === "GET" &&
+    /^\/api\/v1\/bff\/(teacher|admin|student)\/model-qualification\/diagnostic-readiness$/.test(
       url.pathname
     )
   )
@@ -258,6 +310,101 @@ export async function handleModelQualificationRoute(
 ): Promise<boolean> {
   if (!isModelQualificationRoute(request.method, url)) return false;
   const context = deps.createContext(request);
+
+  const diagnosticReadinessRoute = url.pathname.match(
+    /^\/api\/v1\/bff\/(teacher|admin|student)\/model-qualification\/diagnostic-readiness$/
+  );
+  if (request.method === "GET" && diagnosticReadinessRoute) {
+    const requestedRole = diagnosticReadinessRoute[1] as "teacher" | "admin" | "student";
+    const actor = deps.requirePermission(context, "course:read");
+    const allowedRoles =
+      requestedRole === "admin"
+        ? ["tenant_admin"]
+        : requestedRole === "teacher"
+          ? ["teacher"]
+          : ["student", "learner"];
+    if (actor.tenant_id !== context.tenantId || !deps.actorHasAnyRole(actor, allowedRoles)) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    const courseId = stringValue(url.searchParams.get("courseId"));
+    const requiredContext = {
+      run_id: stringValue(url.searchParams.get("runId")),
+      team_id: stringValue(url.searchParams.get("teamId")),
+      round_id: stringValue(url.searchParams.get("roundId")),
+      scenario_package_id: stringValue(url.searchParams.get("scenarioPackageId")),
+      parameter_set_id: stringValue(url.searchParams.get("parameterSetId")),
+      qualification_id: stringValue(url.searchParams.get("qualificationId"))
+    };
+    if (
+      !courseId ||
+      Object.values(requiredContext).some((value) => !value) ||
+      (url.searchParams.has("expectedDiagnosticEvidenceDigest") &&
+        !/^[a-f0-9]{64}$/u.test(
+          stringValue(url.searchParams.get("expectedDiagnosticEvidenceDigest"))
+        )) ||
+      (url.searchParams.has("expectedInterpretationPolicyDigest") &&
+        !/^[a-f0-9]{64}$/u.test(
+          stringValue(url.searchParams.get("expectedInterpretationPolicyDigest"))
+        ))
+    ) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    await assertCourse(deps, context, courseId);
+    await assertExactIndustryDiagnosticContext(deps, context, {
+      course_id: courseId,
+      ...requiredContext
+    });
+    if (requestedRole === "student") {
+      const visibleCourses = await deps.repository.courses.listCoursesForUser(
+        context.tenantId,
+        actor.user_id
+      );
+      if (!visibleCourses.some((course) => course.course_id === courseId)) {
+        throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+      }
+      const enrolledTeam = await deps.repository.teams.getTeamForUser(
+        context.tenantId,
+        requiredContext.run_id,
+        actor.user_id
+      );
+      if (
+        !enrolledTeam ||
+        enrolledTeam.team_id !== requiredContext.team_id ||
+        enrolledTeam.tenant_id !== context.tenantId ||
+        enrolledTeam.course_id !== courseId
+      ) {
+        throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+      }
+    }
+    send(
+      deps,
+      context,
+      response,
+      200,
+      service.getIndustryModelDiagnosticReadiness(
+        serviceActor(actor, requestedRole),
+        scope(context, courseId),
+        {
+          ...requiredContext,
+          ...(url.searchParams.has("expectedDiagnosticEvidenceDigest")
+            ? {
+                expected_diagnostic_evidence_digest: stringValue(
+                  url.searchParams.get("expectedDiagnosticEvidenceDigest")
+                )
+              }
+            : {}),
+          ...(url.searchParams.has("expectedInterpretationPolicyDigest")
+            ? {
+                expected_interpretation_policy_digest: stringValue(
+                  url.searchParams.get("expectedInterpretationPolicyDigest")
+                )
+              }
+            : {})
+        }
+      )
+    );
+    return true;
+  }
 
   if (
     request.method === "GET" &&
