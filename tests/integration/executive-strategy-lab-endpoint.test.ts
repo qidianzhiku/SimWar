@@ -201,11 +201,12 @@ describe("Executive Strategy Lab real BFF", () => {
     const initial = await w4.createInitialState(firstScope, initialState());
     const officialDecision = strategicDecision("esl-http-official", 1, 100);
     await w4.commitStrategicDecision(firstScope, officialDecision);
-    await w4.settleRound(firstScope, {
+    const official = await w4.settleRound(firstScope, {
       opening_state_ref: initial.state_ref,
       decision_id: officialDecision.decision_id,
       replay_input_manifest: manifest(initial.state_ref, officialDecision)
     });
+    const portfolio = await w4.getProjection(firstScope, { allowEmptyRound: true });
     const secondScope = scope(2);
     const pathA = strategicDecision("decision_priority_investment", 2, 125);
     const pathB = strategicDecision("decision_cash_protection", 2, 275);
@@ -306,6 +307,100 @@ describe("Executive Strategy Lab real BFF", () => {
       expect(admin.data.paths).toEqual([]);
       expect(admin.data.admin_projection?.audit.no_write).toBe(true);
       expect(admin.data.admin_projection?.audit.generated_by).toBe("usr_teacher");
+
+      const divergenceRequest = {
+        discriminator: "strategic_portfolio_divergence_request",
+        exact_binding: binding(),
+        counterfactual: {
+          source_state_ref: official.closing_state_ref,
+          source_outcome_id: official.outcome_id,
+          paths: [
+            {
+              path_id: "path_priority_investment",
+              label: "优先投资路径",
+              decision_ids: [pathA.decision_id]
+            },
+            {
+              path_id: "path_cash_protection",
+              label: "现金保护路径",
+              decision_ids: [pathB.decision_id]
+            }
+          ],
+          horizon_rounds: 1,
+          scenario_package_id: "scenario_esl_http",
+          parameter_set_id: "parameters_esl_http",
+          engine_id: "toy_logit_wellness_v1",
+          plugin_ids: ["plugin_wellness_stub"],
+          seed: 79
+        },
+        expected_portfolio_state_digest: portfolio.strategic_portfolio.portfolio_ref.portfolio_digest,
+        divergence_policy_digest: "sp-o3-policy-1",
+        idempotency_key: "sp-o3-http-journey-001"
+      };
+      const divergenceCreate = await fetch(
+        `${baseUrl}/api/v1/bff/teacher/sp-o3/strategic-portfolio/divergence`,
+        {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${teacherToken}`,
+            "content-type": "application/json",
+            "x-tenant-id": tenantId
+          },
+          body: JSON.stringify(divergenceRequest)
+        }
+      );
+      expect(divergenceCreate.status).toBe(201);
+      const divergence = (await divergenceCreate.json()) as ApiEnvelope<{
+        candidate_id: string;
+        envelope: {
+          exact_portfolio: { portfolio_digest: string };
+          non_official_paths: Array<{ officiality: string }>;
+        };
+        transfer: { status: string; selected_path_id: null };
+      }>;
+      expect(divergence.data.envelope.exact_portfolio.portfolio_digest).toBe(
+        portfolio.strategic_portfolio.portfolio_ref.portfolio_digest
+      );
+      expect(divergence.data.envelope.non_official_paths).toHaveLength(2);
+      expect(divergence.data.envelope.non_official_paths.every((path) => path.officiality === "NON_OFFICIAL")).toBe(true);
+      expect(divergence.data.transfer).toMatchObject({
+        status: "REFLECTION_ONLY",
+        selected_path_id: null
+      });
+
+      const divergenceStudent = await fetch(
+        `${baseUrl}/api/v1/bff/student/sp-o3/strategic-portfolio/divergence/${divergence.data.candidate_id}`,
+        { headers: { authorization: `Bearer ${studentToken}`, "x-tenant-id": tenantId } }
+      );
+      expect(divergenceStudent.status).toBe(200);
+      const studentDivergence = (await divergenceStudent.json()) as ApiEnvelope<{
+        role_safe: boolean;
+        exact_context: { course_id: string; run_id: string; team_id: string; round_no: number };
+        reflection: { path_count: number };
+      }>;
+      expect(studentDivergence.data).toMatchObject({
+        role_safe: true,
+        exact_context: { course_id: courseId, run_id: runId, team_id: teamId, round_no: 1 },
+        reflection: { path_count: 2 }
+      });
+      expect(JSON.stringify(studentDivergence.data)).not.toContain("path_priority_investment");
+      expect(JSON.stringify(studentDivergence.data)).not.toContain(
+        portfolio.strategic_portfolio.portfolio_ref.portfolio_digest
+      );
+
+      const divergenceAdmin = await fetch(
+        `${baseUrl}/api/v1/bff/admin/sp-o3/strategic-portfolio/divergence/${divergence.data.candidate_id}`,
+        { headers: { authorization: `Bearer ${adminToken}`, "x-tenant-id": tenantId } }
+      );
+      expect(divergenceAdmin.status).toBe(200);
+      const adminDivergence = (await divergenceAdmin.json()) as ApiEnvelope<{
+        surface: string;
+        authority: { query_only: boolean; official_truth_write: boolean; provider: string };
+      }>;
+      expect(adminDivergence.data).toMatchObject({
+        surface: "admin",
+        authority: { query_only: true, official_truth_write: false, provider: "OFF" }
+      });
       expect(store.w4).toEqual(before);
     } finally {
       server.close();

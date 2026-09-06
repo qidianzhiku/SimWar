@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { M4TeacherPathProjection, W4StrategicPortfolioProjection } from "@simwar/shared-contracts";
+import type {
+  M4TeacherPathProjection,
+  W4StrategicPortfolioProjection
+} from "@simwar/shared-contracts";
 import {
   createStrategicPortfolioDivergenceAnalysis,
   StrategicPortfolioDivergenceAnalysisError
@@ -86,8 +89,12 @@ describe("SP-O3 divergence analysis leaf", () => {
     expect(result.exact_portfolio.portfolio_digest).toBe("portfolio_digest_1");
     expect(result.non_official_paths).toHaveLength(2);
     expect(result.policy.no_winner_selection).toBe(true);
-    expect(result.dimension_evidence.find((item) => item.dimension === "cash")?.status).toBe("PROVEN");
-    expect(result.dimension_evidence.find((item) => item.dimension === "path_members")?.status).toBe("NOT_PROVEN");
+    expect(result.dimension_evidence.find((item) => item.dimension === "cash")?.status).toBe(
+      "PROVEN"
+    );
+    expect(
+      result.dimension_evidence.find((item) => item.dimension === "path_members")?.status
+    ).toBe("NOT_PROVEN");
     expect(JSON.stringify(result)).not.toMatch(/"(winner|score|rank)"\s*:/i);
   });
 
@@ -99,16 +106,17 @@ describe("SP-O3 divergence analysis leaf", () => {
         divergence_policy_digest: "policy_1",
         expected_portfolio_state_digest: "stale_digest"
       })
-    ).toThrowError(
-      new StrategicPortfolioDivergenceAnalysisError("SP_O3_REBASE_REQUIRED")
-    );
+    ).toThrowError(new StrategicPortfolioDivergenceAnalysisError("SP_O3_REBASE_REQUIRED"));
   });
 
   it("rejects official path re-entry", () => {
     expect(() =>
       createStrategicPortfolioDivergenceAnalysis({
         baseline,
-        paths: [{ ...path("path_a", "digest_a"), officiality: "OFFICIAL" }, path("path_b", "digest_b")],
+        paths: [
+          { ...path("path_a", "digest_a"), officiality: "OFFICIAL" },
+          path("path_b", "digest_b")
+        ],
         divergence_policy_digest: "policy_1"
       })
     ).toThrow("SP_O3_OFFICIAL_PATH_REENTRY");

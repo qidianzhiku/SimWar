@@ -1,9 +1,6 @@
 import { createHash } from "node:crypto";
 
-export type StrategicPortfolioTransferStatus =
-  | "REFLECTION_ONLY"
-  | "REBASE_REQUIRED"
-  | "BLOCKED";
+export type StrategicPortfolioTransferStatus = "REFLECTION_ONLY" | "REBASE_REQUIRED" | "BLOCKED";
 
 export interface StrategicPortfolioTransferPath {
   path_id: string;
@@ -31,7 +28,10 @@ export interface StrategicPortfolioTransferPolicyDecision {
 }
 
 export class StrategicPortfolioDivergenceTransferPolicyError extends Error {
-  constructor(readonly code: string, message = code) {
+  constructor(
+    readonly code: string,
+    message = code
+  ) {
     super(message);
     this.name = "StrategicPortfolioDivergenceTransferPolicyError";
   }
@@ -43,7 +43,10 @@ function digest(value: unknown): string {
 
 function exact(value: unknown, field: string): string {
   if (typeof value !== "string" || value.trim() !== value || value.length === 0) {
-    throw new StrategicPortfolioDivergenceTransferPolicyError("SP_O3_TRANSFER_EXACT_ID_REQUIRED", field);
+    throw new StrategicPortfolioDivergenceTransferPolicyError(
+      "SP_O3_TRANSFER_EXACT_ID_REQUIRED",
+      field
+    );
   }
   return value;
 }

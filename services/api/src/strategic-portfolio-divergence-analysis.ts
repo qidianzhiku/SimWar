@@ -73,7 +73,10 @@ export interface StrategicPortfolioDivergenceEnvelope {
 }
 
 export class StrategicPortfolioDivergenceAnalysisError extends Error {
-  constructor(readonly code: string, message = code) {
+  constructor(
+    readonly code: string,
+    message = code
+  ) {
     super(message);
     this.name = "StrategicPortfolioDivergenceAnalysisError";
   }
@@ -138,22 +141,48 @@ function assertPaths(
   }
 }
 
-function dimensions(paths: M4TeacherPathProjection[]): StrategicPortfolioDivergenceDimensionEvidence[] {
+function dimensions(
+  paths: M4TeacherPathProjection[]
+): StrategicPortfolioDivergenceDimensionEvidence[] {
   const pathIds = paths.map((path) => path.path_id);
   return [
     ["cash", "PROVEN", "M4 exposes deterministic cash delta from the official closing state."],
-    ["capacity", "PROVEN", "M4 exposes deterministic capacity delta from the official closing state."],
-    ["project_count", "PROVEN", "M4 exposes deterministic project-count delta from the official closing state."],
+    [
+      "capacity",
+      "PROVEN",
+      "M4 exposes deterministic capacity delta from the official closing state."
+    ],
+    [
+      "project_count",
+      "PROVEN",
+      "M4 exposes deterministic project-count delta from the official closing state."
+    ],
     ["changed_paths", "PROVEN", "M4 exposes the changed-path mechanism identifiers."],
-    ["path_members", "NOT_PROVEN", "No path-specific member set is authoritative in the M4 projection."],
-    ["path_allocations", "NOT_PROVEN", "No path-specific allocation or unfunded proof is authoritative in the M4 projection."],
-    ["dependency_impact", "NOT_PROVEN", "Dependency impact is not a proved causal or portfolio-level fact."],
-    ["path_model_readiness", "NOT_PROVEN", "Path-specific model readiness is outside the existing M4 evidence."],
+    [
+      "path_members",
+      "NOT_PROVEN",
+      "No path-specific member set is authoritative in the M4 projection."
+    ],
+    [
+      "path_allocations",
+      "NOT_PROVEN",
+      "No path-specific allocation or unfunded proof is authoritative in the M4 projection."
+    ],
+    [
+      "dependency_impact",
+      "NOT_PROVEN",
+      "Dependency impact is not a proved causal or portfolio-level fact."
+    ],
+    [
+      "path_model_readiness",
+      "NOT_PROVEN",
+      "Path-specific model readiness is outside the existing M4 evidence."
+    ]
   ].map(([dimension, status, reason]) => ({
     dimension: dimension as StrategicPortfolioDivergenceDimension,
     status: status as StrategicPortfolioDivergenceProvability,
     evidence_path_ids: pathIds,
-    reason
+    reason: reason ?? "No additional evidence reason was provided."
   }));
 }
 

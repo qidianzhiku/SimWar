@@ -6602,6 +6602,80 @@ paths:
         "403": { description: Tenant administrator scope denied }
         "409": { description: "Portfolio, preview, selected identity, or policy conflict" }
 
+  /api/v1/bff/teacher/sp-o3/strategic-portfolio/divergence:
+    post:
+      operationId: STRATEGIC_PORTFOLIO_DIVERGENCE_TEACHER_CREATE_V1
+      summary: Create one exact-bound, non-official strategic portfolio divergence envelope.
+      description: Reuses the W4 strategic portfolio authority and M4 counterfactual service. The result is derived query evidence only; it cannot select a winner or write official truth.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            { schema: { $ref: "../schemas/strategic-portfolio-divergence.v1.json#/$defs/request" } }
+      responses:
+        "201":
+          description: Exact-bound divergence evidence for Teacher.
+          content:
+            application/json:
+              { schema: { $ref: "#/components/schemas/StrategicPortfolioDivergenceTeacherEnvelope" } }
+        "401": { description: Authentication required }
+        "403": { description: Teacher scope denied }
+        "409": { description: Exact portfolio or idempotency conflict }
+        "422": { description: Invalid divergence request }
+
+  /api/v1/bff/teacher/sp-o3/strategic-portfolio/divergence/{candidateId}:
+    get:
+      operationId: STRATEGIC_PORTFOLIO_DIVERGENCE_TEACHER_GET_V1
+      summary: Read one exact-bound strategic portfolio divergence envelope for Teacher.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: candidateId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Teacher comparison evidence.
+          content:
+            application/json:
+              { schema: { $ref: "#/components/schemas/StrategicPortfolioDivergenceTeacherEnvelope" } }
+        "401": { description: Authentication required }
+        "403": { description: Teacher scope denied }
+        "404": { description: Candidate not found in tenant scope }
+
+  /api/v1/bff/admin/sp-o3/strategic-portfolio/divergence/{candidateId}:
+    get:
+      operationId: STRATEGIC_PORTFOLIO_DIVERGENCE_ADMIN_GET_V1
+      summary: Read tenant-safe strategic portfolio divergence evidence for Admin.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: candidateId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Admin comparison and provenance evidence.
+          content:
+            application/json:
+              { schema: { $ref: "#/components/schemas/StrategicPortfolioDivergenceTeacherEnvelope" } }
+        "401": { description: Authentication required }
+        "403": { description: Tenant administrator scope denied }
+        "404": { description: Candidate not found in tenant scope }
+
+  /api/v1/bff/student/sp-o3/strategic-portfolio/divergence/{candidateId}:
+    get:
+      operationId: STRATEGIC_PORTFOLIO_DIVERGENCE_STUDENT_GET_V1
+      summary: Read a role-safe strategic portfolio reflection summary for Student.
+      description: Student receives applicability and known limits only; governance identities and path details are withheld.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: candidateId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Student-safe reflection and transfer boundary.
+          content:
+            application/json:
+              { schema: { $ref: "#/components/schemas/StrategicPortfolioDivergenceStudentEnvelope" } }
+        "401": { description: Authentication required }
+        "403": { description: Student team scope denied }
+        "404": { description: Candidate not found in tenant scope }
+
   /api/v1/bff/teacher/model-qualification/adoption-operations:
     get:
       operationId: MODEL_QUALIFICATION_ADOPTION_OPERATIONS_TEACHER_GET_V1
@@ -11518,6 +11592,24 @@ components:
       properties:
         code: { type: string }
         data: { $ref: "#/components/schemas/RegionalTransferAdminProjection" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    StrategicPortfolioDivergenceTeacherEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/strategic-portfolio-divergence.v1.json#/$defs/teacherEnvelope" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    StrategicPortfolioDivergenceStudentEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/strategic-portfolio-divergence.v1.json#/$defs/studentEnvelope" }
         message: { type: string }
         request_id: { type: string, minLength: 1 }
     W5TeacherGovernedModelEnvelope:
