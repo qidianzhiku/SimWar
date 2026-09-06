@@ -1,8 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
-const apiBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_ESL_API_PORT ?? 3110}`;
-const adminBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_ESL_ADMIN_PORT ?? 3113}`;
+const apiBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_API_PORT ?? 3100}`;
+const adminBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_ADMIN_PORT ?? 3103}`;
 const tenantId = "tenant_demo";
 
 async function loginToken(
