@@ -19,6 +19,7 @@ const exact = {
   scenarioPackageId: "scenario-a",
   parameterSetId: "params-a",
   qualificationId: "qualification-a",
+  w5DraftId: "w5-draft-a",
   tenantId: "tenant-a",
   token: "token-a"
 };
@@ -130,6 +131,7 @@ describe("IM-O2 Reality Join consumer", () => {
     expect(host.textContent).toContain("NOT_ELIGIBLE");
     expect(host.textContent).toContain("LOOKAHEAD_READY");
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain("qualificationId=qualification-a");
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("w5DraftId=w5-draft-a");
     await act(async () => root.unmount());
   });
 

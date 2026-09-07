@@ -107,6 +107,13 @@ describe("IM-O4 exact W5/CAN/REALIZED producer integration", () => {
       .toMatchObject({ known_limits: expect.arrayContaining(["WANT_NOT_CALIBRATED"]) });
     expect(result.provability?.find((entry) => entry.producer_id === "can-service-feasibility"))
       .toMatchObject({ known_limits: expect.arrayContaining(["CAN_STATUS_UNKNOWN_NOT_FEASIBLE"]) });
+    expect(result.provability?.find((entry) => entry.producer_id === "can-service-feasibility"))
+      .toMatchObject({
+        source: {
+          path: "services/simulation-core/src/can-service-feasibility.ts",
+          symbol: "evaluateCanServiceFeasibility"
+        }
+      });
   });
 
   it("keeps the explicit producer gap when the W5 draft is not exact", () => {

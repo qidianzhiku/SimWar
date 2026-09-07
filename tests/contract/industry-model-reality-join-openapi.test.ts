@@ -33,12 +33,14 @@ describe("IM-O2 Reality Join OpenAPI parity", () => {
           "scenarioPackageId",
           "parameterSetId",
           "qualificationId",
+          "w5DraftId",
           "expectedRealityJoinDigest"
         ])
       );
       expect(
         parameters.find((parameter) => parameter.name === "expectedRealityJoinDigest")?.required
       ).toBe(false);
+      expect(parameters.find((parameter) => parameter.name === "w5DraftId")?.required).toBe(false);
     }
   });
 

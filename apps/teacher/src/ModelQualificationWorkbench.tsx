@@ -525,6 +525,7 @@ export function ModelQualificationWorkbench({
         scenarioPackageId={scenarioPackageId}
         parameterSetId={parameterSetId}
         qualificationId={resolution?.selected?.qualification.qualification_id}
+        w5DraftId={w5DraftId}
         tenantId={tenantId}
         token={token}
         role="teacher"

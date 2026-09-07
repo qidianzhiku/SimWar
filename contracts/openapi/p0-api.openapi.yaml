@@ -8046,6 +8046,13 @@ paths:
             schema: { type: string, minLength: 1 }
           }
         - {
+            name: w5DraftId,
+            in: query,
+            required: false,
+            description: "Optional exact W5 governed draft identity used for producer evidence.",
+            schema: { type: string, minLength: 1 }
+          }
+        - {
             name: expectedRealityJoinDigest,
             in: query,
             required: false,
@@ -8094,6 +8101,13 @@ paths:
             schema: { type: string, minLength: 1 }
           }
         - {
+            name: w5DraftId,
+            in: query,
+            required: false,
+            description: "Optional exact W5 governed draft identity used for producer evidence.",
+            schema: { type: string, minLength: 1 }
+          }
+        - {
             name: expectedRealityJoinDigest,
             in: query,
             required: false,
@@ -8137,6 +8151,13 @@ paths:
             name: qualificationId,
             in: query,
             required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - {
+            name: w5DraftId,
+            in: query,
+            required: false,
+            description: "Optional exact W5 governed draft identity used for producer evidence.",
             schema: { type: string, minLength: 1 }
           }
         - {

@@ -100,6 +100,7 @@ export function ModelQualificationAuditPanel({
         scenarioPackageId={scenarioPackageId}
         parameterSetId={parameterSetId}
         qualificationId={qualificationId}
+        w5DraftId={w5DraftId}
         tenantId={tenantId}
         token={token}
         role="admin"

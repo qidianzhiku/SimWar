@@ -1215,6 +1215,7 @@ export function App() {
               scenarioPackageId={latestRun?.scenario_package_id}
               parameterSetId={latestRun?.parameter_set_id}
               qualificationId={MODEL_QUALIFICATION_ID}
+              w5DraftId={w5DraftId}
               tenantId={login.tenantId}
               token={activeSession?.access_token ?? ""}
               role="student"

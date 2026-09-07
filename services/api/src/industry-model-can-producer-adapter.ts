@@ -72,7 +72,10 @@ export function adaptCanIndustryDiagnosticProducer(input: { context: CanIndustry
     classification: "CAN_EVIDENCE",
     evidence_identity: candidate.candidate_digest,
     authority_owner: "SIMULATION_CORE_READ_ONLY",
-    source: { path: "services/api/src/can-service-feasibility-service.ts", symbol: "CanServiceFeasibilityService.get" },
+    source: {
+      path: "services/simulation-core/src/can-service-feasibility.ts",
+      symbol: "evaluateCanServiceFeasibility"
+    },
     freshness: "FRESH",
     official_truth_write: false,
     known_limits: limits,
