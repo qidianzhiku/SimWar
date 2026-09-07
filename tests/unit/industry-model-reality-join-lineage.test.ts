@@ -300,6 +300,35 @@ describe("IM-O3 exact Reality Join lineage adapter", () => {
     );
   });
 
+  it.each(["factory rights expiry", "admission source expiry"])(
+    "fails closed for %s even when M30 remains valid",
+    (expiryKind) => {
+      const input = validInput();
+      if (expiryKind === "factory rights expiry") {
+        input.course_package_version.factory_metadata!.rights.expires_at =
+          "2026-09-05T00:00:00.000Z";
+      } else {
+        input.qualified_run_admission_snapshot!.admission.evidence_epoch.source_expires_at =
+          "2026-09-05T00:00:00.000Z";
+      }
+      expect(() => adaptIndustryModelRealityJoinLineage(input)).toThrow(
+        "IM_O3_LINEAGE_GOVERNING_EXPIRY_STALE"
+      );
+    }
+  );
+
+  it("does not treat ordinary package prose as a floating selector", () => {
+    const input = validInput();
+    input.course_package_version.title = "Current market model";
+    input.course_package_version.content_digest = calculateCoursePackageContentDigest(
+      input.course_package_version
+    );
+    input.qualified_run_admission_snapshot!.admission.course_package_reference =
+      createCoursePackageVersionReference(input.course_package_version);
+
+    expect(() => adaptIndustryModelRealityJoinLineage(input)).not.toThrow();
+  });
+
   it("fails closed for cross-scope M30 data and floating selectors", () => {
     const crossScope = validInput();
     crossScope.course_package_version.factory_metadata!.source_manifest.scenario_package_reference =

@@ -48,15 +48,48 @@ function same(left: unknown, right: unknown): boolean {
   return canonical(left) === canonical(right);
 }
 
-function hasFloatingSelector(value: unknown): boolean {
+const floatingSelectorFields = new Set([
+  "tenant_id",
+  "course_id",
+  "run_id",
+  "team_id",
+  "round_id",
+  "course_package_id",
+  "course_blueprint_id",
+  "scenario_package_id",
+  "parameter_set_id",
+  "model_version_id",
+  "artifact_id",
+  "source_package_id",
+  "calibration_dataset_id",
+  "qualification_id",
+  "epoch_id",
+  "version",
+  "epoch_version",
+  "content_digest",
+  "source_content_digest",
+  "qualification_content_digest",
+  "calibration_dataset_content_digest",
+  "epoch_digest",
+  "source_epoch_base_sha",
+  "model_version_reference",
+  "model_artifact_reference",
+  "course_package_reference",
+  "scenario_package_reference",
+  "parameter_set_reference",
+  "source_evidence_reference"
+]);
+
+function hasFloatingSelector(value: unknown, fieldName?: string): boolean {
   if (typeof value === "string") {
+    if (!fieldName || !floatingSelectorFields.has(fieldName)) return false;
     return /(^|[^a-z])(latest|default|current|fallback|newest|first|last|unresolved)([^a-z]|$)/iu.test(
       value
     );
   }
-  if (Array.isArray(value)) return value.some(hasFloatingSelector);
+  if (Array.isArray(value)) return false;
   if (value !== null && typeof value === "object") {
-    return Object.values(value).some(hasFloatingSelector);
+    return Object.entries(value).some(([key, child]) => hasFloatingSelector(child, key));
   }
   return false;
 }
@@ -86,7 +119,18 @@ export function adaptIndustryModelRealityJoinLineage(
   if (!sourceEvidence) fail("M30_EVIDENCE_REQUIRED");
   const m30Issues = validateM30CourseFactorySourceEvidence(sourceEvidence);
   if (m30Issues.length > 0) fail("M30_EVIDENCE_INVALID");
-  if (Date.parse(sourceEvidence.living_operations.expires_at) <= Date.parse(input.as_of)) {
+  const asOfTime = Date.parse(input.as_of);
+  const factoryRightsExpiry = Date.parse(packageVersion.factory_metadata?.rights.expires_at ?? "");
+  const admissionSourceExpiry = Date.parse(admission.evidence_epoch.source_expires_at ?? "");
+  if (
+    !Number.isFinite(factoryRightsExpiry) ||
+    !Number.isFinite(admissionSourceExpiry) ||
+    factoryRightsExpiry <= asOfTime ||
+    admissionSourceExpiry <= asOfTime
+  ) {
+    fail("GOVERNING_EXPIRY_STALE");
+  }
+  if (Date.parse(sourceEvidence.living_operations.expires_at) <= asOfTime) {
     fail("M30_EVIDENCE_STALE");
   }
 
