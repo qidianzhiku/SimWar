@@ -109,13 +109,21 @@ describe("IM-O1 diagnostic readiness consumer", () => {
     document.body.append(host);
     const root = createRoot(host);
     await act(async () =>
-      root.render(<IndustryModelDiagnosticReadinessPanel {...exact} role="teacher" />)
+      root.render(
+        <IndustryModelDiagnosticReadinessPanel
+          {...exact}
+          role="teacher"
+          w5DraftId="w5_draft_exact"
+        />
+      )
     );
     expect(host.querySelector('[data-testid="industry-diagnostic-readiness"]')).not.toBeNull();
     expect(host.textContent).toContain("NOT_PROVEN");
     expect(host.textContent).toContain("qualification-a");
+    expect(host.textContent).toContain("producer=producer-a");
     expect(fetchMock.mock.calls[0]?.[0]).toContain("runId=run-a");
     expect(fetchMock.mock.calls[0]?.[0]).toContain("qualificationId=qualification-a");
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("w5DraftId=w5_draft_exact");
     await act(async () => root.unmount());
   });
 

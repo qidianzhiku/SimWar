@@ -164,7 +164,7 @@ async function assertExactIndustryDiagnosticContext(
     readonly scenario_package_id: string;
     readonly parameter_set_id: string;
   }
-): Promise<void> {
+): Promise<{ readonly round_no: number }> {
   const [course, run, team, round, scenario, parameterSet] = await Promise.all([
     deps.repository.courses.getCourse(context.tenantId, input.course_id),
     deps.repository.runs.getRun(context.tenantId, input.run_id),
@@ -196,6 +196,7 @@ async function assertExactIndustryDiagnosticContext(
   ) {
     throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
   }
+  return { round_no: round.round_no };
 }
 
 async function canonicalTenantCourses(
@@ -356,15 +357,17 @@ export async function handleModelQualificationRoute(
       qualification_id: stringValue(url.searchParams.get("qualificationId"))
     };
     const expectedRealityJoinDigest = url.searchParams.get("expectedRealityJoinDigest");
+    const w5DraftId = url.searchParams.get("w5DraftId");
     if (
       !courseId ||
       Object.values(requiredContext).some((value) => !value) ||
+      (w5DraftId !== null && !w5DraftId.trim()) ||
       (expectedRealityJoinDigest !== null && !/^[a-f0-9]{64}$/u.test(expectedRealityJoinDigest))
     ) {
       throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
     }
     await assertCourse(deps, context, courseId);
-    await assertExactIndustryDiagnosticContext(deps, context, {
+    const exactIndustryContext = await assertExactIndustryDiagnosticContext(deps, context, {
       course_id: courseId,
       ...requiredContext
     });
@@ -411,6 +414,8 @@ export async function handleModelQualificationRoute(
         scope(context, courseId),
         {
           ...requiredContext,
+          round_no: exactIndustryContext.round_no,
+          ...(w5DraftId === null ? {} : { w5_draft_id: w5DraftId }),
           ...(expectedRealityJoinDigest === null
             ? {}
             : { expected_reality_join_digest: expectedRealityJoinDigest }),
@@ -442,9 +447,11 @@ export async function handleModelQualificationRoute(
       parameter_set_id: stringValue(url.searchParams.get("parameterSetId")),
       qualification_id: stringValue(url.searchParams.get("qualificationId"))
     };
+    const w5DraftId = url.searchParams.get("w5DraftId");
     if (
       !courseId ||
       Object.values(requiredContext).some((value) => !value) ||
+      (w5DraftId !== null && !w5DraftId.trim()) ||
       (url.searchParams.has("expectedDiagnosticEvidenceDigest") &&
         !/^[a-f0-9]{64}$/u.test(
           stringValue(url.searchParams.get("expectedDiagnosticEvidenceDigest"))
@@ -457,7 +464,7 @@ export async function handleModelQualificationRoute(
       throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
     }
     await assertCourse(deps, context, courseId);
-    await assertExactIndustryDiagnosticContext(deps, context, {
+    const exactIndustryContext = await assertExactIndustryDiagnosticContext(deps, context, {
       course_id: courseId,
       ...requiredContext
     });
@@ -493,6 +500,8 @@ export async function handleModelQualificationRoute(
         scope(context, courseId),
         {
           ...requiredContext,
+          round_no: exactIndustryContext.round_no,
+          ...(w5DraftId === null ? {} : { w5_draft_id: w5DraftId }),
           ...(url.searchParams.has("expectedDiagnosticEvidenceDigest")
             ? {
                 expected_diagnostic_evidence_digest: stringValue(

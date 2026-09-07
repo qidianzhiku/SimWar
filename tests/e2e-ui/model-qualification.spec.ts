@@ -117,7 +117,11 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
     name: "Industry Model diagnostic readiness"
   });
   await expect(teacherDiagnostic.getByTestId("industry-diagnostic-readiness")).toBeVisible();
-  await expect(teacherDiagnostic.getByText("NOT_PROVEN", { exact: false })).toBeVisible();
+  await expect(
+    teacherDiagnostic.getByTestId("industry-diagnostic-readiness").getByText("NOT_PROVEN", {
+      exact: false
+    })
+  ).toBeVisible();
   const teacherRealityJoin = page.getByRole("region", {
     name: "Industry Model portability and reality join"
   });
@@ -189,7 +193,11 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
     name: "Industry Model diagnostic readiness"
   });
   await expect(adminDiagnostic.getByTestId("industry-diagnostic-readiness")).toBeVisible();
-  await expect(adminDiagnostic.getByText("NOT_PROVEN", { exact: false })).toBeVisible();
+  await expect(
+    adminDiagnostic.getByTestId("industry-diagnostic-readiness").getByText("NOT_PROVEN", {
+      exact: false
+    })
+  ).toBeVisible();
   const adminRealityJoin = page.getByRole("region", {
     name: "Industry Model portability and reality join"
   });

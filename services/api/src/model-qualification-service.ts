@@ -104,13 +104,20 @@ import type {
   ModelQualificationRollbackOutcomeStudentSummary,
   IndustryModelDiagnosticReadinessDto,
   IndustryModelRealityJoinDto,
-  IndustryModelRealityJoinSupportEvidenceDto
+  IndustryModelRealityJoinSupportEvidenceDto,
+  CanServiceFeasibilityCandidate,
+  CanServiceFeasibilityDomainInput,
+  W5ConvergenceProjection,
+  W5ScenarioDraft
 } from "@simwar/shared-contracts";
 import {
   MODEL_QUALIFICATION_ROLLBACK_OUTCOME_SCHEMA_VERSION,
   MODEL_QUALIFICATION_SOLE_WRITER
 } from "@simwar/shared-contracts";
 import { composeIndustryModelRealityJoinSupport } from "./industry-model-reality-join-evidence.js";
+import { adaptCanIndustryDiagnosticProducer } from "./industry-model-can-producer-adapter.js";
+import { adaptW5IndustryDiagnosticProducers } from "./industry-model-w5-producer-adapter.js";
+import { evaluateCanServiceFeasibility } from "@simwar/simulation-core";
 
 export interface ModelQualificationActor {
   actor_id: string;
@@ -122,6 +129,149 @@ export interface ModelQualificationScope {
   activity_id: string;
   course_id: string;
   tenant_id: string;
+}
+
+export interface IndustryDiagnosticW5ReaderInput {
+  readonly tenant_id: string;
+  readonly course_id: string;
+  readonly run_id: string;
+  readonly team_id: string;
+  readonly round_id: string;
+  readonly round_no: number;
+  readonly scenario_package_id: string;
+  readonly parameter_set_id: string;
+  readonly w5_draft_id: string;
+}
+
+export interface IndustryDiagnosticW5Reader {
+  read(
+    actor: ModelQualificationActor,
+    input: IndustryDiagnosticW5ReaderInput
+  ): { readonly draft: W5ScenarioDraft; readonly convergence: W5ConvergenceProjection } | null;
+}
+
+function numericW5Parameter(
+  values: Readonly<Record<string, boolean | number | string>>,
+  key: string
+): number | null {
+  const value = values[key];
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+function numericW5Constraint(constraints: readonly string[], name: string): number | undefined {
+  const raw = constraints.find((constraint) => constraint.startsWith(`${name}=`));
+  if (!raw) return undefined;
+  const value = Number(raw.slice(name.length + 1));
+  return Number.isFinite(value) && value >= 0 ? value : undefined;
+}
+
+function buildCanCandidateFromW5(input: {
+  readonly context: IndustryDiagnosticW5ReaderInput;
+  readonly draft: W5ScenarioDraft;
+  readonly convergence: W5ConvergenceProjection;
+}): CanServiceFeasibilityCandidate | null {
+  const draftBinding = input.draft.exact_runtime_binding;
+  if (!draftBinding || draftBinding.status !== "BOUND") return null;
+  const demand = numericW5Parameter(input.draft.parameter_values, "customer_demand");
+  const workforce = numericW5Parameter(input.draft.parameter_values, "caregiver_supply");
+  if (demand === null || workforce === null) return null;
+  const bindingWithoutDigest = {
+    course_id: draftBinding.course_id,
+    model_version_ref: draftBinding.model_version_ref,
+    no_implicit_latest: true as const,
+    parameter_set_reference: { ...draftBinding.parameter_set_reference },
+    round_id: input.context.round_id,
+    round_no: draftBinding.round_no,
+    run_id: draftBinding.run_id,
+    scenario_package_reference: { ...draftBinding.scenario_package_reference },
+    seed: draftBinding.seed,
+    tenant_id: draftBinding.tenant_id
+  };
+  const capacity = numericW5Constraint(input.convergence.can.constraints, "capacity");
+  const domainInput: CanServiceFeasibilityDomainInput = {
+    ...(capacity === undefined
+      ? {}
+      : {
+          available_capacity_units: {
+            source_ref: `w5:${input.context.w5_draft_id}:can.capacity`,
+            unit: "service_units",
+            value: capacity
+          }
+        }),
+    binding: {
+      ...bindingWithoutDigest,
+      binding_digest: stableSha256(bindingWithoutDigest)
+    },
+    demand_units: {
+      source_ref: `w5:${input.context.w5_draft_id}:customer_demand`,
+      unit: "households",
+      value: demand
+    },
+    eligibility: {
+      licensed: {
+        source_ref: `w5:${input.context.w5_draft_id}:eligibility:input-unavailable`,
+        value: null
+      },
+      staffing_compliant: {
+        source_ref: `w5:${input.context.w5_draft_id}:eligibility:input-unavailable`,
+        value: null
+      }
+    },
+    minimum_service_quality_budget: {
+      source_ref: "r1:minimum_service_quality_budget_v1",
+      unit: "CNY",
+      value: 120000
+    },
+    minimum_workforce_units: {
+      source_ref: "r1:minimum_workforce_units_v1",
+      unit: "people",
+      value: 1
+    },
+    service_quality_budget: {
+      source_ref: `w5:${input.context.w5_draft_id}:service_quality_budget_formula_v1`,
+      unit: "CNY",
+      value: 120000 + demand * 250
+    },
+    workforce_units: {
+      source_ref: `w5:${input.context.w5_draft_id}:caregiver_supply`,
+      unit: "people",
+      value: workforce
+    }
+  };
+  try {
+    return evaluateCanServiceFeasibility(domainInput);
+  } catch {
+    return null;
+  }
+}
+
+function toDiagnosticProducer(
+  producer: {
+    readonly producer_id: string;
+    readonly diagnostic_family: string;
+    readonly classification: IndustryModelDiagnosticReadinessInput["producers"][number]["candidate_classification"];
+    readonly evidence_identity: string;
+    readonly authority_owner: string;
+    readonly source: { readonly path: string; readonly symbol: string };
+    readonly freshness: "FRESH" | "STALE" | "UNKNOWN";
+    readonly known_limits?: readonly string[];
+  },
+  contract: string,
+  tests: readonly string[]
+): IndustryModelDiagnosticReadinessInput["producers"][number] {
+  return {
+    producer_id: producer.producer_id,
+    current_source_path: producer.source.path,
+    exact_symbol: producer.source.symbol,
+    contract,
+    diagnostic_family: producer.diagnostic_family,
+    evidence_identity: producer.evidence_identity,
+    tests,
+    freshness: producer.freshness,
+    authority_owner: producer.authority_owner,
+    candidate_classification: producer.classification,
+    ...(producer.known_limits ? { known_limits: [...producer.known_limits] } : {})
+  };
 }
 
 export interface ModelQualificationPortfolioChangeSetQuery {
@@ -502,15 +652,18 @@ export class ModelQualificationService {
   readonly modelCatalog = [clone(MODEL_QUALIFICATION_MODEL_VERSION)] as const;
   private readonly clock: ModelQualificationClock;
   private readonly persistence: ModelQualificationPersistence | undefined;
+  private readonly w5Reader: IndustryDiagnosticW5Reader | undefined;
   private readonly records = new Map<string, ModelQualificationRecord>();
   private sequence = 0;
 
   constructor(
     clock: ModelQualificationClock = DEFAULT_CLOCK,
-    persistence?: ModelQualificationPersistence
+    persistence?: ModelQualificationPersistence,
+    options?: { readonly w5Reader?: IndustryDiagnosticW5Reader }
   ) {
     this.clock = clock;
     this.persistence = persistence;
+    this.w5Reader = options?.w5Reader;
     for (const record of persistence?.listRecords() ?? []) {
       this.records.set(this.key(record.tenant_id, record.course_id), clone(record));
       this.sequence = Math.max(
@@ -1687,9 +1840,11 @@ export class ModelQualificationService {
       readonly run_id: string;
       readonly team_id: string;
       readonly round_id: string;
+      readonly round_no?: number;
       readonly scenario_package_id: string;
       readonly parameter_set_id: string;
       readonly qualification_id: string;
+      readonly w5_draft_id?: string;
       readonly expected_diagnostic_evidence_digest?: string;
       readonly expected_interpretation_policy_digest?: string;
     }
@@ -1701,6 +1856,13 @@ export class ModelQualificationService {
       !input.round_id ||
       !input.scenario_package_id ||
       !input.parameter_set_id
+    ) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    const roundNo = input.round_no;
+    if (
+      input.w5_draft_id !== undefined &&
+      (!input.w5_draft_id.trim() || typeof roundNo !== "number" || !Number.isSafeInteger(roundNo) || roundNo < 1)
     ) {
       throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
     }
@@ -1743,11 +1905,62 @@ export class ModelQualificationService {
           adoption_digest: currentAdoptions[0].adoption_digest
         }
       : null;
+    const w5Context =
+      input.w5_draft_id === undefined
+        ? null
+        : {
+            tenant_id: scope.tenant_id,
+            course_id: scope.course_id,
+            run_id: input.run_id,
+            team_id: input.team_id,
+            round_id: input.round_id,
+            round_no: roundNo as number,
+            scenario_package_id: input.scenario_package_id,
+            parameter_set_id: input.parameter_set_id,
+            w5_draft_id: input.w5_draft_id
+          };
+    const w5Read = w5Context && this.w5Reader ? this.w5Reader.read(actor, w5Context) : null;
+    const w5Producers =
+      w5Context === null
+        ? null
+        : adaptW5IndustryDiagnosticProducers({
+            context: w5Context,
+            draft: w5Read?.draft ?? null,
+            convergence: w5Read?.convergence ?? null
+          });
+    const canProducer =
+      w5Context === null
+        ? null
+        : adaptCanIndustryDiagnosticProducer({
+            context: {
+              ...w5Context,
+              observed_team_id: w5Read?.convergence.security.team ?? ""
+            },
+            candidate:
+              w5Read === null
+                ? null
+                : buildCanCandidateFromW5({ context: w5Context, ...w5Read })
+          });
     const diagnosticEvidenceDigest = stableSha256({
       dataset_content_digest: dataset.content_digest,
       diagnostics,
       model_version_reference: model.model_version_reference,
-      source_content_digest: source.content_digest
+      source_content_digest: source.content_digest,
+      w5: w5Producers
+        ? w5Producers.producers.map((item) => ({
+            classification: item.classification,
+            evidence_identity: item.evidence_identity,
+            producer_id: item.producer_id
+          }))
+        : null,
+      can: canProducer?.producer
+        ? {
+            classification: canProducer.producer.classification,
+            evidence_identity: canProducer.producer.evidence_identity,
+            producer_id: canProducer.producer.producer_id,
+            status: canProducer.producer.derived_status
+          }
+        : null
     });
     const interpretationPolicyDigest = stableSha256({
       policy: "IM-O1-diagnostic-interpretation",
@@ -1761,7 +1974,9 @@ export class ModelQualificationService {
       ...(input.expected_interpretation_policy_digest &&
       input.expected_interpretation_policy_digest !== interpretationPolicyDigest
         ? ["interpretation_policy"]
-        : [])
+        : []),
+      ...(w5Producers?.identity_movements ?? []),
+      ...(canProducer?.identity_movements ?? [])
     ];
     const producer: IndustryModelDiagnosticReadinessInput["producers"][number] = {
       producer_id: "model-qualification-diagnostics",
@@ -1797,7 +2012,22 @@ export class ModelQualificationService {
       adoption: currentAdoption,
       diagnostic_evidence_digest: diagnosticEvidenceDigest,
       interpretation_policy_digest: interpretationPolicyDigest,
-      producers: [producer],
+      producers: [
+        producer,
+        ...(w5Producers?.producers ?? []).map((item) =>
+          toDiagnosticProducer(item, "W5IndustryDiagnosticProducerEvidence", [
+            "tests/unit/industry-model-w5-producer-adapter.test.ts"
+          ])
+        ),
+        ...(canProducer?.producer
+          ? [
+              toDiagnosticProducer(canProducer.producer, "CanServiceFeasibilityCandidate", [
+                "tests/unit/industry-model-can-producer-adapter.test.ts",
+                "tests/unit/can-service-feasibility-service.test.ts"
+              ])
+            ]
+          : [])
+      ],
       identity_movements: identityMovements,
       official_truth_write: false,
       provider_calls: 0
@@ -1825,7 +2055,7 @@ export class ModelQualificationService {
               : "FAIL",
         bounded_metrics: {},
         provenance: { source_path: entry.source.path, symbol: entry.source.symbol },
-        known_limits: readiness.known_limits
+        known_limits: entry.known_limits ?? readiness.known_limits
       })),
       identity_movements: identityMovements,
       provider: "OFF",
@@ -1887,9 +2117,11 @@ export class ModelQualificationService {
       readonly run_id: string;
       readonly team_id: string;
       readonly round_id: string;
+      readonly round_no?: number;
       readonly scenario_package_id: string;
       readonly parameter_set_id: string;
       readonly qualification_id: string;
+      readonly w5_draft_id?: string;
       readonly expected_reality_join_digest?: string;
       readonly course_package_version?: CoursePackageVersion | null;
       readonly qualified_run_admission_snapshot?: QualifiedRunAdmissionSnapshot | null;

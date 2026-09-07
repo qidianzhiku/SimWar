@@ -61,7 +61,11 @@
               "symbol": { "$ref": "#/$defs/nonEmptyString" }
             }
           },
-          "freshness": { "enum": ["FRESH", "STALE", "UNKNOWN"] }
+          "freshness": { "enum": ["FRESH", "STALE", "UNKNOWN"] },
+          "known_limits": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/nonEmptyString" }
+          }
         }
       }
     },

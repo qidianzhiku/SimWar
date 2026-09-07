@@ -15,6 +15,7 @@ interface Props {
   scenarioPackageId?: string | undefined;
   parameterSetId?: string | undefined;
   qualificationId?: string | undefined;
+  w5DraftId?: string | undefined;
   tenantId: string;
   token: string;
 }
@@ -28,6 +29,7 @@ export function ModelQualificationAuditPanel({
   scenarioPackageId,
   parameterSetId,
   qualificationId,
+  w5DraftId,
   tenantId,
   token
 }: Props) {
@@ -84,6 +86,7 @@ export function ModelQualificationAuditPanel({
         scenarioPackageId={scenarioPackageId}
         parameterSetId={parameterSetId}
         qualificationId={qualificationId}
+        w5DraftId={w5DraftId}
         tenantId={tenantId}
         token={token}
         role="admin"

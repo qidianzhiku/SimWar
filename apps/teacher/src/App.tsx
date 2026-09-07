@@ -2576,6 +2576,7 @@ export function App() {
               scenarioPackageId={selectedRun?.scenario_package_id}
               parameterSetId={selectedRun?.parameter_set_id}
               onRunAdmissionSelectionChange={setQualifiedRunAdmissionSelection}
+              w5DraftId={selectedShanghaiDraftId}
               tenantId={login.tenantId}
               token={session.access_token}
             />

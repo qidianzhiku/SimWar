@@ -31,6 +31,7 @@ interface Props {
   roundId?: string | null | undefined;
   scenarioPackageId?: string | null | undefined;
   parameterSetId?: string | null | undefined;
+  w5DraftId?: string | null | undefined;
   onRunAdmissionSelectionChange?: (
     selection: ModelQualificationRunAdmissionSelection | null
   ) => void;
@@ -76,6 +77,7 @@ export function ModelQualificationWorkbench({
   roundId,
   scenarioPackageId,
   parameterSetId,
+  w5DraftId,
   onRunAdmissionSelectionChange,
   tenantId,
   token
@@ -509,6 +511,7 @@ export function ModelQualificationWorkbench({
         scenarioPackageId={scenarioPackageId}
         parameterSetId={parameterSetId}
         qualificationId={resolution?.selected?.qualification.qualification_id}
+        w5DraftId={w5DraftId}
         tenantId={tenantId}
         token={token}
         role="teacher"

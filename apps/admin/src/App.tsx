@@ -1275,6 +1275,7 @@ export function App() {
               scenarioPackageId={IM_DIAGNOSTIC_SCENARIO_PACKAGE_ID}
               parameterSetId={IM_DIAGNOSTIC_PARAMETER_SET_ID}
               qualificationId={IM_DIAGNOSTIC_QUALIFICATION_ID}
+              w5DraftId={SHANGHAI_FULL_VERTICAL_DRAFT_ID}
               tenantId={login.tenantId}
               token={session.access_token}
             />

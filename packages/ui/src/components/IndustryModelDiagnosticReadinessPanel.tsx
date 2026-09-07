@@ -10,6 +10,7 @@ export interface IndustryModelDiagnosticReadinessPanelProps {
   scenarioPackageId?: string | null | undefined;
   parameterSetId?: string | null | undefined;
   qualificationId?: string | null | undefined;
+  w5DraftId?: string | null | undefined;
   tenantId: string;
   token: string;
   role: "teacher" | "admin" | "student";
@@ -42,6 +43,7 @@ export function IndustryModelDiagnosticReadinessPanel(
     scenarioPackageId,
     parameterSetId,
     qualificationId,
+    w5DraftId,
     tenantId,
     token,
     role
@@ -62,6 +64,7 @@ export function IndustryModelDiagnosticReadinessPanel(
         scenarioPackageId,
         parameterSetId,
         qualificationId,
+        w5DraftId,
         tenantId,
         token,
         role
@@ -75,6 +78,7 @@ export function IndustryModelDiagnosticReadinessPanel(
       scenarioPackageId,
       parameterSetId,
       qualificationId,
+      w5DraftId,
       tenantId,
       token,
       role
@@ -127,6 +131,7 @@ export function IndustryModelDiagnosticReadinessPanel(
       query.set("expectedDiagnosticEvidenceDigest", lastIdentity.diagnosticEvidenceDigest);
       query.set("expectedInterpretationPolicyDigest", lastIdentity.interpretationPolicyDigest);
     }
+    if (nonBlank(w5DraftId)) query.set("w5DraftId", w5DraftId);
     void fetch(
       `${apiBase}/api/v1/bff/${role}/model-qualification/diagnostic-readiness?${query.toString()}`,
       {
@@ -231,6 +236,21 @@ export function IndustryModelDiagnosticReadinessPanel(
               {data.qualification.qualification_id} · review={data.qualification.review_status} ·
               binding={data.qualification.binding_status}
             </p>
+          ) : null}
+          {role !== "student" && data.provability?.length ? (
+            <div className="evidence-list" data-testid="industry-diagnostic-producers">
+              {data.provability.map((entry) => (
+                <article className="evidence-note" key={`${entry.producer_id}:${entry.evidence_identity}`}>
+                  <strong>{entry.classification}</strong> · {entry.diagnostic_family}
+                  <div>producer={entry.producer_id} · authority={entry.authority_owner}</div>
+                  <div>evidence={entry.evidence_identity} · freshness={entry.freshness}</div>
+                  <div>source={entry.source.path}#{entry.source.symbol}</div>
+                  {entry.known_limits?.length ? (
+                    <div>limits={entry.known_limits.join(" · ")}</div>
+                  ) : null}
+                </article>
+              ))}
+            </div>
           ) : null}
           <p className="evidence-note">
             诊断 PASS 不等于业务真值或因果证明；WANT / CAN / REALIZED 只按已证明的 producer 分类。
