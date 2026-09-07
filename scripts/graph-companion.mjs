@@ -168,6 +168,23 @@ export function sha256(value) {
     .digest("hex");
 }
 
+export function buildGraphIdentity({ repository, repo_sha, tree_sha, config_digest }) {
+  return sha256({
+    repository: {
+      owner: repository?.owner || null,
+      name: repository?.name || null,
+      remote: repository?.remote || null
+    },
+    repo_sha,
+    tree_sha,
+    config_digest
+  });
+}
+
+function graphConfigDigest({ operation, version }) {
+  return sha256({ operation, tool: "CodeGraph", version });
+}
+
 function normalizePath(file) {
   return file.replaceAll("\\", "/").replace(/^\.\//u, "");
 }
@@ -1401,17 +1418,30 @@ function runCodeGraphIndex({ repoRoot, tools, graphHome, repository, currentSha 
       version: tools?.tools?.find((tool) => tool.tool === "CodeGraph")?.version || "UNKNOWN",
       warnings: [result.stderr || result.error || "CodeGraph index operation failed"]
     };
+  const parsedStatus = parseCodeGraphStatus(status.stdout, indexRoot);
+  if (parsedStatus.status !== "HEALTHY")
+    return {
+      ...parsedStatus,
+      version: tools?.tools?.find((tool) => tool.tool === "CodeGraph")?.version || "UNKNOWN",
+      command: `${CODEGRAPH_DISPLAY_COMMAND} ${command[0]}`,
+      command_ok: false,
+      warnings: ["CodeGraph status is not healthy; admission metadata not written"]
+    };
   const treeSha = git(indexRoot, ["rev-parse", `${currentSha}^{tree}`], { allowFailure: true });
+  const toolVersion = tools?.tools?.find((tool) => tool.tool === "CodeGraph")?.version || "UNKNOWN";
+  const configDigest = graphConfigDigest({ operation: command[0], version: toolVersion });
+  const identity = buildGraphIdentity({
+    repository,
+    repo_sha: currentSha,
+    tree_sha: treeSha || null,
+    config_digest: configDigest
+  });
   const admissionMetadata = {
     schema_version: "GraphAdmissionMetadataV1",
     repo_sha: currentSha,
     tree_sha: treeSha || null,
-    config_digest: sha256({
-      command,
-      tool: "CodeGraph",
-      version: tools?.tools?.find((tool) => tool.tool === "CodeGraph")?.version || "UNKNOWN"
-    }),
-    identity: `${repository.owner}/${repository.name}:${currentSha}:${treeSha || "UNKNOWN"}`,
+    config_digest: configDigest,
+    identity,
     lastIndexed: new Date().toISOString(),
     status_command_exit_code: 0,
     automatic_next_start: false,
@@ -1430,7 +1460,7 @@ function runCodeGraphIndex({ repoRoot, tools, graphHome, repository, currentSha 
   };
   atomicWrite(join(indexRoot, ".codegraph", "simwar-admission.json"), admissionMetadata);
   return {
-    ...parseCodeGraphStatus(status.stdout, indexRoot),
+    ...parsedStatus,
     workspace_root: indexRoot,
     command: `${CODEGRAPH_DISPLAY_COMMAND} ${command[0]}`,
     command_ok: true,
@@ -1770,7 +1800,7 @@ export function evaluateGraphAdmission({ target, status, queries = [] }) {
     requiredMetadata.every((field) => nonEmpty(metadata[field])) &&
     typeof metadata.lastIndexed === "string" &&
     Number.isFinite(Date.parse(metadata.lastIndexed));
-  const targetComplete = ["repo_sha", "tree_sha", "config_digest"].every((field) =>
+  const targetComplete = ["repo_sha", "tree_sha", "config_digest", "identity"].every((field) =>
     nonEmpty(target?.[field])
   );
   const targetMatch =
@@ -1781,13 +1811,12 @@ export function evaluateGraphAdmission({ target, status, queries = [] }) {
         ? "TRUE"
         : "FALSE"
       : "UNKNOWN";
-  const identityMatch = nonEmpty(target?.identity)
-    ? metadataComplete && metadata.identity === target.identity
-      ? "TRUE"
-      : metadataComplete
-        ? "FALSE"
-        : "UNKNOWN"
-    : "NOT_REQUESTED";
+  const identityMatch =
+    metadataComplete && targetComplete
+      ? metadata.identity === target.identity
+        ? "TRUE"
+        : "FALSE"
+      : "UNKNOWN";
   const snapshotStatus =
     !buildOk || !metadataComplete || !targetComplete
       ? "UNKNOWN"
@@ -2176,12 +2205,25 @@ export function runCompanion({
     sourceAvailable: true
   });
   const targetTreeSha = git(root, ["rev-parse", `${current}^{tree}`], { allowFailure: true });
+  const codeGraphOperation = codegraph.command?.match(/\b(init|sync)$/u)?.[1] || null;
+  const expectedConfigDigest =
+    codeGraphOperation && codegraph.version
+      ? graphConfigDigest({ operation: codeGraphOperation, version: codegraph.version })
+      : null;
+  const expectedIdentity = expectedConfigDigest
+    ? buildGraphIdentity({
+        repository,
+        repo_sha: current,
+        tree_sha: targetTreeSha,
+        config_digest: expectedConfigDigest
+      })
+    : null;
   const graphAdmission = evaluateGraphAdmission({
     target: {
       repo_sha: current,
       tree_sha: targetTreeSha,
-      config_digest: codegraph.admission_metadata?.config_digest || null,
-      identity: codegraph.admission_metadata?.identity || null
+      config_digest: expectedConfigDigest,
+      identity: expectedIdentity
     },
     status: {
       exit_code: codegraph.admission_metadata?.status_command_exit_code ?? 1,

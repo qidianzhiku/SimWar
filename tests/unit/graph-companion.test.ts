@@ -25,7 +25,12 @@ import {
 describe("Graph Companion V1 pure contracts", () => {
   it("rejects an invalid index status even when both queries return data (KG-ADM-001)", () => {
     const admission = evaluateGraphAdmission({
-      target: { repo_sha: "a".repeat(40), tree_sha: "tree-a", config_digest: "cfg-a" },
+      target: {
+        repo_sha: "a".repeat(40),
+        tree_sha: "tree-a",
+        config_digest: "cfg-a",
+        identity: "build-a"
+      },
       status: { exit_code: 1, raw: '{"lastIndexed":"a"}', json: { lastIndexed: "a" } },
       queries: [
         { exit_code: 0, output: "relevant result", relevant: true, coverage: "COMPLETE" },
@@ -38,7 +43,12 @@ describe("Graph Companion V1 pure contracts", () => {
 
   it("rejects invalid JSON status (KG-ADM-002)", () => {
     const admission = evaluateGraphAdmission({
-      target: { repo_sha: "a".repeat(40), tree_sha: "tree-a", config_digest: "cfg-a" },
+      target: {
+        repo_sha: "a".repeat(40),
+        tree_sha: "tree-a",
+        config_digest: "cfg-a",
+        identity: "build-a"
+      },
       status: { exit_code: 0, raw: "not-json", json: null },
       queries: [{ exit_code: 0, output: "relevant", relevant: true, coverage: "COMPLETE" }]
     });
@@ -48,7 +58,12 @@ describe("Graph Companion V1 pure contracts", () => {
 
   it("rejects a repository/tree/config mismatch (KG-ADM-003)", () => {
     const admission = evaluateGraphAdmission({
-      target: { repo_sha: "a".repeat(40), tree_sha: "tree-a", config_digest: "cfg-a" },
+      target: {
+        repo_sha: "a".repeat(40),
+        tree_sha: "tree-a",
+        config_digest: "cfg-a",
+        identity: "build-a"
+      },
       status: {
         exit_code: 0,
         raw: "{}",
@@ -68,7 +83,12 @@ describe("Graph Companion V1 pure contracts", () => {
 
   it("does not infer target identity when identity metadata is missing (KG-ADM-004)", () => {
     const admission = evaluateGraphAdmission({
-      target: { repo_sha: "a".repeat(40), tree_sha: "tree-a", config_digest: "cfg-a" },
+      target: {
+        repo_sha: "a".repeat(40),
+        tree_sha: "tree-a",
+        config_digest: "cfg-a",
+        identity: "build-a"
+      },
       status: {
         exit_code: 0,
         raw: "{}",
@@ -87,7 +107,12 @@ describe("Graph Companion V1 pure contracts", () => {
 
   it("rejects a historical index whose SHA differs from the target (KG-ADM-005)", () => {
     const admission = evaluateGraphAdmission({
-      target: { repo_sha: "a".repeat(40), tree_sha: "tree-a", config_digest: "cfg-a" },
+      target: {
+        repo_sha: "a".repeat(40),
+        tree_sha: "tree-a",
+        config_digest: "cfg-a",
+        identity: "build-a"
+      },
       status: {
         exit_code: 0,
         raw: "{}",
@@ -106,7 +131,12 @@ describe("Graph Companion V1 pure contracts", () => {
   });
 
   it("requires identity equality and a parseable lastIndexed value", () => {
-    const target = { repo_sha: "a".repeat(40), tree_sha: "tree-a", config_digest: "cfg-a" };
+    const target = {
+      repo_sha: "a".repeat(40),
+      tree_sha: "tree-a",
+      config_digest: "cfg-a",
+      identity: "expected-target"
+    };
     const admission = evaluateGraphAdmission({
       target,
       status: {
@@ -139,8 +169,32 @@ describe("Graph Companion V1 pure contracts", () => {
     expect(admission.decision).toBe("BLOCKED_TARGET_MISMATCH");
   });
 
+  it("requires an independent expected identity for exact-target admission", () => {
+    const admission = evaluateGraphAdmission({
+      target: { repo_sha: "a".repeat(40), tree_sha: "tree-a", config_digest: "cfg-a" },
+      status: {
+        exit_code: 0,
+        json: {
+          repo_sha: "a".repeat(40),
+          tree_sha: "tree-a",
+          config_digest: "cfg-a",
+          identity: "self-reported",
+          lastIndexed: "2026-09-07T00:00:00Z"
+        }
+      },
+      queries: [{ exit_code: 0, output: "relevant", relevant: true, coverage: "COMPLETE" }]
+    });
+    expect(admission.stages.SNAPSHOT_APPLICABILITY.status).toBe("UNKNOWN");
+    expect(admission.decision).toBe("BLOCKED_TARGET_UNKNOWN");
+  });
+
   it("does not promote truncated or irrelevant queries to exact-target ready", () => {
-    const target = { repo_sha: "a".repeat(40), tree_sha: "tree-a", config_digest: "cfg-a" };
+    const target = {
+      repo_sha: "a".repeat(40),
+      tree_sha: "tree-a",
+      config_digest: "cfg-a",
+      identity: "build-a"
+    };
     const status = {
       exit_code: 0,
       raw: "{}",
