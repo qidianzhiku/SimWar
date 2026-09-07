@@ -125,7 +125,9 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
   await expect(
     teacherRealityJoin.getByText("PORTABILITY_EVIDENCE_WITH_LIMITS", { exact: false })
   ).toBeVisible();
-  await expect(teacherRealityJoin.getByText("NOT_ELIGIBLE", { exact: false })).toBeVisible();
+  await expect(
+    teacherRealityJoin.getByTestId("industry-reality-join").getByText("NOT_ELIGIBLE", { exact: true })
+  ).toBeVisible();
 
   const teacherProjection = await request.get(
     `${apiBaseUrl}/api/v1/bff/teacher/model-qualification?courseId=course_demo`,
@@ -158,7 +160,11 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
     name: "Industry Model portability and reality join"
   });
   await expect(studentRealityJoin.getByTestId("industry-reality-join")).toBeVisible();
-  await expect(studentRealityJoin.getByText("NOT_PROVEN", { exact: false })).toBeVisible();
+  await expect(
+    studentRealityJoin.locator("p.evidence-note").filter({
+      hasText: "role-safe evidence classes=NOT_PROVEN"
+    })
+  ).toBeVisible();
   await expect(studentRealityJoin.getByText("qualification-a", { exact: false })).toHaveCount(0);
 
   await page.goto(
@@ -186,7 +192,9 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
     name: "Industry Model portability and reality join"
   });
   await expect(adminRealityJoin.getByTestId("industry-reality-join")).toBeVisible();
-  await expect(adminRealityJoin.getByText("LOOKAHEAD_READY", { exact: false })).toBeVisible();
+  await expect(
+    adminRealityJoin.getByTestId("industry-reality-join").getByText("LOOKAHEAD_READY", { exact: true })
+  ).toBeVisible();
 
   await page.goto(`${teacherBaseUrl}?courseId=course_demo`);
   await signIn(page, "teacher");
