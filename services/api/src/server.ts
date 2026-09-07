@@ -6905,6 +6905,8 @@ async function routeRequest(
 
   if (
     await handleModelQualificationRoute(runtime.modelQualification, request, response, url, {
+      getCoursePackageByReference: (tenantId, reference) =>
+        runtime.coursePackageQueries.getByReference(tenantId, reference),
       getLegacyAdmissionLaunch: async (tenantId, launchId) =>
         runtime.validationEnvironmentLaunch
           ? await runtime.validationEnvironmentLaunch.get(tenantId, launchId)
