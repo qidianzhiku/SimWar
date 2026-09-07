@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/industry-model-reality-join.v1.json",
+  "title": "SimWar Industry Model Reality Join",
+  "oneOf": [
+    { "$ref": "#/$defs/teacherAdmin" },
+    { "$ref": "#/$defs/student" }
+  ],
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "status": { "enum": ["READY", "READY_WITH_LIMITS", "BLOCKED", "REBASE_REQUIRED"] },
+    "classification": {
+      "enum": ["WANT_EVIDENCE", "CAN_EVIDENCE", "REALIZED_REFERENCE", "NOT_PROVEN"]
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenant_id",
+        "course_id",
+        "run_id",
+        "team_id",
+        "round_id",
+        "scenario_package_id",
+        "parameter_set_id"
+      ],
+      "properties": {
+        "tenant_id": { "$ref": "#/$defs/nonEmptyString" },
+        "course_id": { "$ref": "#/$defs/nonEmptyString" },
+        "run_id": { "$ref": "#/$defs/nonEmptyString" },
+        "team_id": { "$ref": "#/$defs/nonEmptyString" },
+        "round_id": { "$ref": "#/$defs/nonEmptyString" },
+        "scenario_package_id": { "$ref": "#/$defs/nonEmptyString" },
+        "parameter_set_id": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "studentContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["course_id", "run_id", "team_id", "round_id"],
+      "properties": {
+        "course_id": { "$ref": "#/$defs/nonEmptyString" },
+        "run_id": { "$ref": "#/$defs/nonEmptyString" },
+        "team_id": { "$ref": "#/$defs/nonEmptyString" },
+        "round_id": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "supportEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["portability", "holdout", "shanghai"],
+      "properties": {
+        "portability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "compatibility_status", "external_validity", "package_identity"],
+          "properties": {
+            "status": { "const": "PORTABILITY_EVIDENCE_WITH_LIMITS" },
+            "compatibility_status": { "enum": ["COMPATIBLE", "NON_BREAKING", "BREAKING"] },
+            "external_validity": { "const": "NOT_PROVEN" },
+            "package_identity": { "$ref": "#/$defs/nonEmptyString" }
+          }
+        },
+        "holdout": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "leakage_count", "eligibility"],
+          "properties": {
+            "status": { "const": "NOT_ELIGIBLE" },
+            "leakage_count": { "type": "integer", "minimum": 0 },
+            "eligibility": { "const": "NOT_ELIGIBLE" }
+          }
+        },
+        "shanghai": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "consumption_status",
+            "qualification_status",
+            "calibration_evidence",
+            "formal_binding_eligible"
+          ],
+          "properties": {
+            "consumption_status": { "const": "LOOKAHEAD_READY" },
+            "qualification_status": { "const": "LIMITED" },
+            "calibration_evidence": { "const": "NOT_PROVEN" },
+            "formal_binding_eligible": { "const": false }
+          }
+        }
+      }
+    },
+    "base": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "operation_id",
+        "role",
+        "readiness_status",
+        "rebase_required",
+        "exact_context",
+        "known_limits",
+        "provider",
+        "official_truth_write",
+        "readiness_digest"
+      ],
+      "properties": {
+        "schema_version": { "const": "industry-model-reality-join.v1" },
+        "operation_id": { "$ref": "#/$defs/nonEmptyString" },
+        "role": { "enum": ["teacher", "admin", "student"] },
+        "readiness_status": { "$ref": "#/$defs/status" },
+        "rebase_required": { "type": "boolean" },
+        "known_limits": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "provider": { "const": "OFF" },
+        "official_truth_write": { "const": false },
+        "readiness_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "teacherAdmin": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "type": "object",
+          "required": [
+            "operation_id",
+            "role",
+            "exact_context",
+            "model_version_reference",
+            "model_artifact_reference",
+            "qualification",
+            "adoption",
+            "diagnostic_evidence_digest",
+            "interpretation_policy_digest",
+            "provability",
+            "support_evidence"
+          ],
+          "properties": {
+            "operation_id": {
+              "enum": [
+                "INDUSTRY_MODEL_REALITY_JOIN_TEACHER_GET_V1",
+                "INDUSTRY_MODEL_REALITY_JOIN_ADMIN_GET_V1"
+              ]
+            },
+            "role": { "enum": ["teacher", "admin"] },
+            "exact_context": { "$ref": "#/$defs/context" },
+            "model_version_reference": { "type": "object", "additionalProperties": true },
+            "model_artifact_reference": { "type": "object", "additionalProperties": true },
+            "qualification": { "type": "object", "additionalProperties": true },
+            "adoption": {
+              "oneOf": [
+                { "type": "object", "additionalProperties": true },
+                { "type": "null" }
+              ]
+            },
+            "diagnostic_evidence_digest": { "$ref": "#/$defs/digest" },
+            "interpretation_policy_digest": { "$ref": "#/$defs/digest" },
+            "provability": {
+              "type": "array",
+              "items": { "type": "object", "additionalProperties": true }
+            },
+            "support_evidence": { "$ref": "#/$defs/supportEvidence" }
+          }
+        }
+      ]
+    },
+    "student": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "operation_id",
+        "role",
+        "readiness_status",
+        "rebase_required",
+        "exact_context",
+        "readiness_class",
+        "evidence_classes",
+        "portability_status",
+        "holdout_status",
+        "shanghai_status",
+        "recovery",
+        "known_limits",
+        "provider",
+        "official_truth_write",
+        "readiness_digest"
+      ],
+      "properties": {
+        "schema_version": { "const": "industry-model-reality-join.v1" },
+        "operation_id": { "const": "INDUSTRY_MODEL_REALITY_JOIN_STUDENT_GET_V1" },
+        "role": { "const": "student" },
+        "readiness_status": { "$ref": "#/$defs/status" },
+        "rebase_required": { "type": "boolean" },
+        "exact_context": { "$ref": "#/$defs/studentContext" },
+        "readiness_class": { "$ref": "#/$defs/status" },
+        "evidence_classes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/classification" }
+        },
+        "portability_status": { "const": "PORTABILITY_EVIDENCE_WITH_LIMITS" },
+        "holdout_status": { "const": "NOT_ELIGIBLE" },
+        "shanghai_status": { "const": "LOOKAHEAD_READY" },
+        "recovery": {
+          "enum": ["NONE", "RELOAD_EXACT_CONTEXT", "REAUTHORIZE", "RETRY_EXACT_REQUEST"]
+        },
+        "known_limits": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "provider": { "const": "OFF" },
+        "official_truth_write": { "const": false },
+        "readiness_digest": { "$ref": "#/$defs/digest" }
+      }
+    }
+  }
+}
