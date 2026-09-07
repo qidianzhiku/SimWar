@@ -20,7 +20,7 @@ import {
   validateReauthIdentity,
   type ReauthContext
 } from "@simwar/shared-contracts";
-import { IndustryModelDiagnosticReadinessPanel } from "@simwar/ui";
+import { IndustryModelDiagnosticReadinessPanel, IndustryModelRealityJoinPanel } from "@simwar/ui";
 import type {
   ApiEnvelope,
   AuthSession,
@@ -1191,19 +1191,34 @@ export function App() {
         ) : null}
 
         {hasStudentSurface ? (
-          <IndustryModelDiagnosticReadinessPanel
-            apiBase={API_BASE}
-            courseId={latestRun?.course_id}
-            runId={latestRun?.run_id}
-            teamId={team?.team_id}
-            roundId={latestRound?.round_id}
-            scenarioPackageId={latestRun?.scenario_package_id}
-            parameterSetId={latestRun?.parameter_set_id}
-            qualificationId={MODEL_QUALIFICATION_ID}
-            tenantId={login.tenantId}
-            token={activeSession?.access_token ?? ""}
-            role="student"
-          />
+          <>
+            <IndustryModelDiagnosticReadinessPanel
+              apiBase={API_BASE}
+              courseId={latestRun?.course_id}
+              runId={latestRun?.run_id}
+              teamId={team?.team_id}
+              roundId={latestRound?.round_id}
+              scenarioPackageId={latestRun?.scenario_package_id}
+              parameterSetId={latestRun?.parameter_set_id}
+              qualificationId={MODEL_QUALIFICATION_ID}
+              tenantId={login.tenantId}
+              token={activeSession?.access_token ?? ""}
+              role="student"
+            />
+            <IndustryModelRealityJoinPanel
+              apiBase={API_BASE}
+              courseId={latestRun?.course_id}
+              runId={latestRun?.run_id}
+              teamId={team?.team_id}
+              roundId={latestRound?.round_id}
+              scenarioPackageId={latestRun?.scenario_package_id}
+              parameterSetId={latestRun?.parameter_set_id}
+              qualificationId={MODEL_QUALIFICATION_ID}
+              tenantId={login.tenantId}
+              token={activeSession?.access_token ?? ""}
+              role="student"
+            />
+          </>
         ) : null}
 
         {hasStudentSurface ? (

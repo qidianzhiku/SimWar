@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import { IndustryModelDiagnosticReadinessPanel, ModelQualificationAdoptionPanel } from "@simwar/ui";
+import {
+  IndustryModelDiagnosticReadinessPanel,
+  IndustryModelRealityJoinPanel,
+  ModelQualificationAdoptionPanel
+} from "@simwar/ui";
 import type { ApiEnvelope, ModelQualificationAdminProjection } from "@simwar/shared-contracts";
 
 interface Props {
@@ -72,6 +76,19 @@ export function ModelQualificationAuditPanel({
         role="admin"
       />
       <IndustryModelDiagnosticReadinessPanel
+        apiBase={apiBase}
+        courseId={courseId}
+        runId={runId}
+        teamId={teamId}
+        roundId={roundId}
+        scenarioPackageId={scenarioPackageId}
+        parameterSetId={parameterSetId}
+        qualificationId={qualificationId}
+        tenantId={tenantId}
+        token={token}
+        role="admin"
+      />
+      <IndustryModelRealityJoinPanel
         apiBase={apiBase}
         courseId={courseId}
         runId={runId}

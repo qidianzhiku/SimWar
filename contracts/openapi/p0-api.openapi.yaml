@@ -7993,6 +7993,149 @@ paths:
         "401": { description: Authentication required }
         "403": { description: Student course scope denied }
 
+  /api/v1/bff/teacher/model-qualification/reality-join:
+    get:
+      operationId: INDUSTRY_MODEL_REALITY_JOIN_TEACHER_GET_V1
+      summary: Read exact-context teacher Industry Model portability and reality join.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: runId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: teamId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: roundId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - {
+            name: scenarioPackageId,
+            in: query,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - {
+            name: parameterSetId,
+            in: query,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - {
+            name: qualificationId,
+            in: query,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - {
+            name: expectedRealityJoinDigest,
+            in: query,
+            required: false,
+            schema: { type: string, pattern: "^[a-f0-9]{64}$" }
+          }
+      responses:
+        "200":
+          {
+            description: Exact-context teacher Reality Join,
+            content:
+              {
+                application/json:
+                  {
+                    schema: { $ref: "#/components/schemas/IndustryModelRealityJoinTeacherEnvelope" }
+                  }
+              }
+          }
+        "401": { description: Authentication required }
+        "403": { description: Teacher or course scope denied }
+  /api/v1/bff/admin/model-qualification/reality-join:
+    get:
+      operationId: INDUSTRY_MODEL_REALITY_JOIN_ADMIN_GET_V1
+      summary: Read exact-context admin Industry Model portability and reality join.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: runId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: teamId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: roundId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - {
+            name: scenarioPackageId,
+            in: query,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - {
+            name: parameterSetId,
+            in: query,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - {
+            name: qualificationId,
+            in: query,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - {
+            name: expectedRealityJoinDigest,
+            in: query,
+            required: false,
+            schema: { type: string, pattern: "^[a-f0-9]{64}$" }
+          }
+      responses:
+        "200":
+          {
+            description: Exact-context admin Reality Join,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/IndustryModelRealityJoinAdminEnvelope" } }
+              }
+          }
+        "401": { description: Authentication required }
+        "403": { description: Tenant administrator or course scope denied }
+  /api/v1/bff/student/model-qualification/reality-join:
+    get:
+      operationId: INDUSTRY_MODEL_REALITY_JOIN_STUDENT_GET_V1
+      summary: Read role-safe exact-context Industry Model portability and reality join.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: runId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: teamId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: roundId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - {
+            name: scenarioPackageId,
+            in: query,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - {
+            name: parameterSetId,
+            in: query,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - {
+            name: qualificationId,
+            in: query,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - {
+            name: expectedRealityJoinDigest,
+            in: query,
+            required: false,
+            schema: { type: string, pattern: "^[a-f0-9]{64}$" }
+          }
+      responses:
+        "200":
+          {
+            description: Student-safe Reality Join,
+            content:
+              {
+                application/json:
+                  {
+                    schema: { $ref: "#/components/schemas/IndustryModelRealityJoinStudentEnvelope" }
+                  }
+              }
+          }
+        "401": { description: Authentication required }
+        "403": { description: Student course scope denied }
+
 components:
   securitySchemes:
     SessionBearer:
@@ -11887,6 +12030,33 @@ components:
       properties:
         code: { type: string }
         data: { $ref: "../schemas/industry-model-diagnostic.v1.json#/$defs/student" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    IndustryModelRealityJoinTeacherEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/industry-model-reality-join.v1.json#/$defs/teacherAdmin" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    IndustryModelRealityJoinAdminEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/industry-model-reality-join.v1.json#/$defs/teacherAdmin" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    IndustryModelRealityJoinStudentEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/industry-model-reality-join.v1.json#/$defs/student" }
         message: { type: string }
         request_id: { type: string, minLength: 1 }
     ModelQualificationCoursePortfolioEnvelope:

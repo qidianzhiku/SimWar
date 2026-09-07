@@ -44,3 +44,5 @@ export type {
 export { ModelQualificationAdoptionPanel } from "./components/ModelQualificationAdoptionPanel.js";
 export { IndustryModelDiagnosticReadinessPanel } from "./components/IndustryModelDiagnosticReadinessPanel.js";
 export type { IndustryModelDiagnosticReadinessPanelProps } from "./components/IndustryModelDiagnosticReadinessPanel.js";
+export { IndustryModelRealityJoinPanel } from "./components/IndustryModelRealityJoinPanel.js";
+export type { IndustryModelRealityJoinPanelProps } from "./components/IndustryModelRealityJoinPanel.js";

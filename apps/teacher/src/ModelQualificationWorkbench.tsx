@@ -4,7 +4,11 @@ import type {
   ModelQualificationRunAdmissionSelection,
   ModelQualificationTeacherProjection
 } from "@simwar/shared-contracts";
-import { IndustryModelDiagnosticReadinessPanel, ModelQualificationAdoptionPanel } from "@simwar/ui";
+import {
+  IndustryModelDiagnosticReadinessPanel,
+  IndustryModelRealityJoinPanel,
+  ModelQualificationAdoptionPanel
+} from "@simwar/ui";
 import {
   calibrationDatasetIdentity,
   hasExactModelQualificationEvidence,
@@ -497,6 +501,19 @@ export function ModelQualificationWorkbench({
         </>
       ) : null}
       <IndustryModelDiagnosticReadinessPanel
+        apiBase={apiBase}
+        courseId={courseId}
+        runId={runId}
+        teamId={teamId}
+        roundId={roundId}
+        scenarioPackageId={scenarioPackageId}
+        parameterSetId={parameterSetId}
+        qualificationId={resolution?.selected?.qualification.qualification_id}
+        tenantId={tenantId}
+        token={token}
+        role="teacher"
+      />
+      <IndustryModelRealityJoinPanel
         apiBase={apiBase}
         courseId={courseId}
         runId={runId}

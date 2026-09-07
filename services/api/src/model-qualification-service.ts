@@ -101,12 +101,15 @@ import type {
   ModelQualificationSourcePackage,
   ModelQualificationRollbackOutcomeResolution,
   ModelQualificationRollbackOutcomeStudentSummary,
-  IndustryModelDiagnosticReadinessDto
+  IndustryModelDiagnosticReadinessDto,
+  IndustryModelRealityJoinDto,
+  IndustryModelRealityJoinSupportEvidenceDto
 } from "@simwar/shared-contracts";
 import {
   MODEL_QUALIFICATION_ROLLBACK_OUTCOME_SCHEMA_VERSION,
   MODEL_QUALIFICATION_SOLE_WRITER
 } from "@simwar/shared-contracts";
+import { composeIndustryModelRealityJoinSupport } from "./industry-model-reality-join-evidence.js";
 
 export interface ModelQualificationActor {
   actor_id: string;
@@ -1867,6 +1870,100 @@ export class ModelQualificationService {
       diagnostic_evidence_digest: diagnosticEvidenceDigest,
       interpretation_policy_digest: interpretationPolicyDigest,
       provability: readiness.provability
+    };
+  }
+
+  /**
+   * Join the existing IM-O1 exact diagnostic projection with the bounded M4,
+   * M5, and M29 support evidence. This is derived/query-only: the join does
+   * not create a course, mutate qualification/adoption, write REALIZED, or
+   * introduce a second authority.
+   */
+  getIndustryModelRealityJoin(
+    actor: ModelQualificationActor,
+    scope: ModelQualificationScope,
+    input: {
+      readonly run_id: string;
+      readonly team_id: string;
+      readonly round_id: string;
+      readonly scenario_package_id: string;
+      readonly parameter_set_id: string;
+      readonly qualification_id: string;
+      readonly expected_reality_join_digest?: string;
+    }
+  ): IndustryModelRealityJoinDto {
+    const diagnostic = this.getIndustryModelDiagnosticReadiness(actor, scope, input);
+    const support = composeIndustryModelRealityJoinSupport({
+      ...diagnostic.exact_context,
+      qualification_id: input.qualification_id
+    });
+    const supportEvidence: IndustryModelRealityJoinSupportEvidenceDto = support.support_evidence;
+    const joinDigest = stableSha256({
+      diagnostic_readiness_digest: diagnostic.readiness_digest,
+      support_evidence_digest: support.support_evidence_digest,
+      exact_context: diagnostic.exact_context
+    });
+    const identityMoved =
+      input.expected_reality_join_digest !== undefined &&
+      input.expected_reality_join_digest !== joinDigest;
+    const readinessStatus = identityMoved ? "REBASE_REQUIRED" : diagnostic.readiness_status;
+    const common = {
+      schema_version: "industry-model-reality-join.v1" as const,
+      readiness_status: readinessStatus,
+      rebase_required: diagnostic.rebase_required || identityMoved,
+      known_limits: [
+        ...new Set([
+          ...diagnostic.known_limits,
+          ...support.known_limits,
+          ...(identityMoved ? ["REALITY_JOIN_IDENTITY_MOVED_REQUIRES_REBASE"] : [])
+        ])
+      ].sort(),
+      provider: "OFF" as const,
+      official_truth_write: false as const,
+      readiness_digest: joinDigest
+    };
+    if (diagnostic.role === "student") {
+      return {
+        ...common,
+        operation_id: "INDUSTRY_MODEL_REALITY_JOIN_STUDENT_GET_V1",
+        role: "student",
+        exact_context: {
+          course_id: diagnostic.exact_context.course_id,
+          run_id: diagnostic.exact_context.run_id,
+          team_id: diagnostic.exact_context.team_id,
+          round_id: diagnostic.exact_context.round_id
+        },
+        readiness_class: readinessStatus,
+        evidence_classes: ["NOT_PROVEN"],
+        portability_status:
+          supportEvidence.availability === "BOUND"
+            ? supportEvidence.portability.status
+            : "UNAVAILABLE",
+        holdout_status:
+          supportEvidence.availability === "BOUND" ? supportEvidence.holdout.status : "UNAVAILABLE",
+        shanghai_status:
+          supportEvidence.availability === "BOUND"
+            ? supportEvidence.shanghai.consumption_status
+            : "UNAVAILABLE",
+        recovery: identityMoved ? "RELOAD_EXACT_CONTEXT" : "NONE"
+      };
+    }
+    return {
+      ...common,
+      operation_id:
+        diagnostic.role === "admin"
+          ? "INDUSTRY_MODEL_REALITY_JOIN_ADMIN_GET_V1"
+          : "INDUSTRY_MODEL_REALITY_JOIN_TEACHER_GET_V1",
+      role: diagnostic.role,
+      exact_context: diagnostic.exact_context,
+      model_version_reference: diagnostic.model_version_reference!,
+      model_artifact_reference: diagnostic.model_artifact_reference!,
+      qualification: diagnostic.qualification!,
+      adoption: diagnostic.adoption ?? null,
+      diagnostic_evidence_digest: diagnostic.diagnostic_evidence_digest!,
+      interpretation_policy_digest: diagnostic.interpretation_policy_digest!,
+      provability: diagnostic.provability ?? [],
+      support_evidence: supportEvidence
     };
   }
 

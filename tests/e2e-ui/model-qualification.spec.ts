@@ -118,6 +118,18 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
   });
   await expect(teacherDiagnostic.getByTestId("industry-diagnostic-readiness")).toBeVisible();
   await expect(teacherDiagnostic.getByText("NOT_PROVEN", { exact: false })).toBeVisible();
+  const teacherRealityJoin = page.getByRole("region", {
+    name: "Industry Model portability and reality join"
+  });
+  await expect(teacherRealityJoin.getByTestId("industry-reality-join")).toBeVisible();
+  const teacherRealityJoinGrid = teacherRealityJoin.getByTestId("industry-reality-join");
+  for (const label of ["Portability", "Holdout", "Shanghai"]) {
+    await expect(
+      teacherRealityJoinGrid.locator("article").filter({ hasText: label }).getByText("UNAVAILABLE", {
+        exact: true
+      })
+    ).toBeVisible();
+  }
 
   const teacherProjection = await request.get(
     `${apiBaseUrl}/api/v1/bff/teacher/model-qualification?courseId=course_demo`,
@@ -146,6 +158,16 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
   });
   await expect(studentDiagnostic.getByTestId("industry-diagnostic-readiness")).toBeVisible();
   await expect(studentDiagnostic.getByText("ROLE_SAFE_STUDENT", { exact: false })).toBeVisible();
+  const studentRealityJoin = page.getByRole("region", {
+    name: "Industry Model portability and reality join"
+  });
+  await expect(studentRealityJoin.getByTestId("industry-reality-join")).toBeVisible();
+  await expect(
+    studentRealityJoin.locator("p.evidence-note").filter({
+      hasText: "role-safe evidence classes=NOT_PROVEN"
+    })
+  ).toBeVisible();
+  await expect(studentRealityJoin.getByText("qualification-a", { exact: false })).toHaveCount(0);
 
   await page.goto(
     `${adminBaseUrl}?courseId=course_demo&runId=${encodeURIComponent(
@@ -168,6 +190,18 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
   });
   await expect(adminDiagnostic.getByTestId("industry-diagnostic-readiness")).toBeVisible();
   await expect(adminDiagnostic.getByText("NOT_PROVEN", { exact: false })).toBeVisible();
+  const adminRealityJoin = page.getByRole("region", {
+    name: "Industry Model portability and reality join"
+  });
+  await expect(adminRealityJoin.getByTestId("industry-reality-join")).toBeVisible();
+  const adminRealityJoinGrid = adminRealityJoin.getByTestId("industry-reality-join");
+  for (const label of ["Portability", "Holdout", "Shanghai"]) {
+    await expect(
+      adminRealityJoinGrid.locator("article").filter({ hasText: label }).getByText("UNAVAILABLE", {
+        exact: true
+      })
+    ).toBeVisible();
+  }
 
   await page.goto(`${teacherBaseUrl}?courseId=course_demo`);
   await signIn(page, "teacher");
