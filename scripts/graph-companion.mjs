@@ -1846,22 +1846,38 @@ function normalizeRelevance(value, fallback) {
   if (raw === "RELEVANT" || raw === true) return "RELEVANT";
   if (raw === "NO_RELEVANCE" || raw === "GENERIC" || raw === false || fallback === true)
     return "NO_RELEVANCE";
+  if (raw === "AMBIGUOUS") return "AMBIGUOUS";
+  if (raw === "NOT_APPLICABLE") return "NOT_APPLICABLE";
   return "UNKNOWN";
 }
 
 function normalizeCoverage(value, truncated) {
   const raw = typeof value === "string" ? value.toUpperCase() : value;
-  if (truncated === true || raw === "TRUNCATED" || raw === "PARTIAL") return "TRUNCATED";
-  if (raw === "COMPLETE") return "COMPLETE";
+  const preserved = new Set([
+    "COMPLETE",
+    "PARTIAL",
+    "NODE_SET_TRUNCATED",
+    "EDGE_DETAIL_TRUNCATED",
+    "OUTPUT_TRUNCATED",
+    "DEPTH_BOUNDED",
+    "UNKNOWN",
+    "NOT_APPLICABLE"
+  ]);
+  if (preserved.has(raw)) return raw;
+  if (truncated === true || raw === "TRUNCATED") return "TRUNCATED";
   return "UNKNOWN";
 }
 
 function normalizeToolQuestionEvidence(input) {
   const value = input && typeof input === "object" ? input : {};
+  const hasCommandStatus = typeof value.command_ok === "boolean" || value.exit_code !== undefined || value.exitCode !== undefined;
   const commandOk =
     typeof value.command_ok === "boolean"
       ? value.command_ok
-      : Number(value.exit_code ?? value.exitCode ?? 1) === 0;
+      : hasCommandStatus
+        ? Number(value.exit_code ?? value.exitCode) === 0
+        : false;
+  const executionStatus = hasCommandStatus ? (commandOk ? "PASS" : "FAIL") : "NOT_RUN";
   const anchors = Array.isArray(value.anchors)
     ? value.anchors.filter((anchor) => typeof anchor === "string" && anchor.trim()).map((anchor) => anchor.trim())
     : [];
@@ -1872,6 +1888,7 @@ function normalizeToolQuestionEvidence(input) {
       : [];
   return {
     command_ok: commandOk,
+    execution_status: executionStatus,
     relevance: normalizeRelevance(value.relevance, value.generic === true),
     coverage: normalizeCoverage(value.coverage, value.truncated === true),
     truncated: value.truncated === true || String(value.coverage || "").toUpperCase() === "TRUNCATED",
@@ -2015,16 +2032,24 @@ export function normalizeQueryEvidenceForAdmission({ queryEvidence, targetSha } 
     const admission = targetMatch ? admitQuestionReceipt(receipt) : "HOLD_THIS_SEAM";
     const ready = targetMatch && admission === "READY";
     const tools = [receipt?.graphify, receipt?.codegraph];
-    const executionOk = tools.length === 2 && tools.every((tool) => tool?.command_ok === true);
+    const executionStatuses = tools.map((tool) => tool?.execution_status || "NOT_RUN");
+    const executionStatus = executionStatuses.every((status) => status === "PASS")
+      ? "PASS"
+      : executionStatuses.some((status) => status === "FAIL")
+        ? "FAIL"
+        : "NOT_RUN";
     const toolCoverage = tools.map((tool) => normalizeCoverage(tool?.coverage, tool?.truncated === true));
     const actualTruncated = tools.some(
-      (tool, index) => tool?.truncated === true || toolCoverage[index] === "TRUNCATED"
+      (tool, index) => tool?.truncated === true || [
+        "TRUNCATED",
+        "NODE_SET_TRUNCATED",
+        "EDGE_DETAIL_TRUNCATED",
+        "OUTPUT_TRUNCATED"
+      ].includes(toolCoverage[index])
     );
-    const actualCoverage = actualTruncated
-      ? "TRUNCATED"
-      : tools.length === 2 && toolCoverage.every((coverage) => coverage === "COMPLETE")
-        ? "COMPLETE"
-        : "UNKNOWN";
+    const actualCoverage = tools.length === 2 && toolCoverage.every((coverage) => coverage === "COMPLETE")
+      ? "COMPLETE"
+      : toolCoverage.find((coverage) => coverage !== "COMPLETE") || "UNKNOWN";
     const toolRelevance = tools.map((tool) => tool?.relevance);
     const actualRelevance = toolRelevance.includes("NO_RELEVANCE")
       ? "NO_RELEVANCE"
@@ -2032,14 +2057,16 @@ export function normalizeQueryEvidenceForAdmission({ queryEvidence, targetSha } 
         ? "AMBIGUOUS"
         : toolRelevance.length === 2 && toolRelevance.every((relevance) => relevance === "RELEVANT")
           ? "RELEVANT"
-          : "NOT_APPLICABLE";
+          : toolRelevance.every((relevance) => relevance === "NOT_APPLICABLE")
+            ? "NOT_APPLICABLE"
+            : "UNKNOWN";
     return {
       ...receipt,
       target_match: targetMatch,
       question_admission: admission,
       normalized_query: {
-        execution_status: executionOk ? "PASS" : "FAIL",
-        exit_code: executionOk ? 0 : 1,
+        execution_status: executionStatus,
+        exit_code: executionStatus === "PASS" ? 0 : executionStatus === "FAIL" ? 1 : null,
         output: ready ? "exact question contract admitted" : `question contract ${admission.toLowerCase()}`,
         relevant: ready,
         relevance: actualRelevance,
@@ -2062,6 +2089,10 @@ export function normalizeQueryEvidenceForAdmission({ queryEvidence, targetSha } 
 
 export function resolveEffectiveQueryTarget({ mode, current, analysisTarget } = {}) {
   return mode === "impact" && analysisTarget ? analysisTarget : current;
+}
+
+export function resolveGraphAdmissionTarget({ mode, current, analysisTarget } = {}) {
+  return resolveEffectiveQueryTarget({ mode, current, analysisTarget });
 }
 
 const MCP_FINAL_STATES = new Set(["PASS", "FAIL", "NOT_OBSERVED", "NOT_APPLICABLE"]);
@@ -2426,7 +2457,7 @@ export function runCompanion({
   const queryEvidence = queryReceipt ? readTextManifest(resolve(queryReceipt)) : null;
   const queryNormalization = normalizeQueryEvidenceForAdmission({
     queryEvidence,
-    targetSha: resolveEffectiveQueryTarget({ mode, current, analysisTarget })
+    targetSha: resolveGraphAdmissionTarget({ mode, current, analysisTarget })
   });
   const queries = queryNormalization.queries;
   const existingGraphSource = existingRegistry?.graph_source_sha || null;
@@ -2528,7 +2559,8 @@ export function runCompanion({
     graphFound: Boolean(graph),
     sourceAvailable: true
   });
-  const targetTreeSha = git(root, ["rev-parse", `${current}^{tree}`], { allowFailure: true });
+  const graphAdmissionTargetSha = resolveGraphAdmissionTarget({ mode, current, analysisTarget });
+  const targetTreeSha = git(root, ["rev-parse", `${graphAdmissionTargetSha}^{tree}`], { allowFailure: true });
   const codeGraphOperation = codegraph.command?.match(/\b(init|sync)$/u)?.[1] || null;
   const expectedConfigDigest =
     codeGraphOperation && codegraph.version
@@ -2537,14 +2569,14 @@ export function runCompanion({
   const expectedIdentity = expectedConfigDigest
     ? buildGraphIdentity({
         repository,
-        repo_sha: current,
+        repo_sha: graphAdmissionTargetSha,
         tree_sha: targetTreeSha,
         config_digest: expectedConfigDigest
       })
     : null;
   const graphAdmission = evaluateGraphAdmission({
     target: {
-      repo_sha: current,
+      repo_sha: graphAdmissionTargetSha,
       tree_sha: targetTreeSha,
       config_digest: expectedConfigDigest,
       identity: expectedIdentity

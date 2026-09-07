@@ -21,6 +21,7 @@ import {
   normalizeQueryEvidenceForAdmission,
   normalizeMcpObservationSet,
   resolveEffectiveQueryTarget,
+  resolveGraphAdmissionTarget,
   assertArtifactRootSafety,
   evaluatePlanningGate,
   parseCodeGraphAffected,
@@ -711,12 +712,101 @@ describe("Graph Companion V1 pure contracts", () => {
     expect(admitQuestionReceipt(receipt)).toBe("SOURCE_FALLBACK");
   });
 
+  it("preserves explicit relevance, coverage, and NOT_RUN states", () => {
+    const contract = normalizeQuestionContract({
+      question_id: "V21-ENUMS",
+      risk_class: "module",
+      target_sha: "a".repeat(40),
+      canonical_seam: "scripts/graph-companion.mjs#query",
+      decision_before: "unknown",
+      decision_needed: "preserve evidence enums",
+      seed_paths: ["scripts/graph-companion.mjs"],
+      seed_symbols: ["query"],
+      seed_routes: [],
+      seed_schemas: [],
+      expected_edge_types: ["CALLS"],
+      mandatory_source_readback: [],
+      mandatory_tests: ["tests/unit/graph-companion.test.ts"]
+    });
+    const receipt = buildQuestionReceipt({
+      contract,
+      graphify: {
+        command_ok: true,
+        relevance: "AMBIGUOUS",
+        coverage: "PARTIAL",
+        anchors: ["scripts/graph-companion.mjs", "query"],
+        edge_types: ["CALLS"]
+      },
+      codegraph: {
+        command_ok: true,
+        relevance: "NOT_APPLICABLE",
+        coverage: "DEPTH_BOUNDED",
+        anchors: ["scripts/graph-companion.mjs", "query"],
+        edge_types: ["CALLS"]
+      }
+    });
+    expect(receipt.graphify.relevance).toBe("AMBIGUOUS");
+    expect(receipt.graphify.coverage).toBe("PARTIAL");
+    expect(receipt.codegraph.relevance).toBe("NOT_APPLICABLE");
+    expect(receipt.codegraph.coverage).toBe("DEPTH_BOUNDED");
+    const normalized = normalizeQueryEvidenceForAdmission({
+      queryEvidence: { question_receipts: [receipt] },
+      targetSha: "a".repeat(40)
+    });
+    expect(normalized.queries[0]).toMatchObject({
+      execution_status: "PASS",
+      exit_code: 0,
+      relevance: "AMBIGUOUS",
+      coverage: "PARTIAL",
+      question_admission: "SOURCE_FALLBACK"
+    });
+  });
+
+  it("preserves NOT_RUN instead of converting absent tool evidence into failure", () => {
+    const contract = normalizeQuestionContract({
+      question_id: "V21-NOT-RUN",
+      risk_class: "module",
+      target_sha: "a".repeat(40),
+      canonical_seam: "scripts/graph-companion.mjs#query",
+      decision_before: "unknown",
+      decision_needed: "preserve not-run evidence",
+      seed_paths: ["scripts/graph-companion.mjs"],
+      seed_symbols: ["query"],
+      seed_routes: [],
+      seed_schemas: [],
+      expected_edge_types: ["CALLS"],
+      mandatory_source_readback: [],
+      mandatory_tests: ["tests/unit/graph-companion.test.ts"]
+    });
+    const receipt = buildQuestionReceipt({ contract });
+    expect(receipt.graphify.execution_status).toBe("NOT_RUN");
+    expect(receipt.codegraph.execution_status).toBe("NOT_RUN");
+    const normalized = normalizeQueryEvidenceForAdmission({
+      queryEvidence: { question_receipts: [receipt] },
+      targetSha: "a".repeat(40)
+    });
+    expect(normalized.queries[0]).toMatchObject({
+      execution_status: "NOT_RUN",
+      exit_code: null,
+      question_admission: "SOURCE_FALLBACK"
+    });
+  });
+
   it("uses the impact analysis target for question admission identity", () => {
     expect(
       resolveEffectiveQueryTarget({ mode: "impact", current: "a".repeat(40), analysisTarget: "b".repeat(40) })
     ).toBe("b".repeat(40));
     expect(
       resolveEffectiveQueryTarget({ mode: "entry", current: "a".repeat(40), analysisTarget: "b".repeat(40) })
+    ).toBe("a".repeat(40));
+  });
+
+  it("uses the impact analysis target for graph admission identity", () => {
+    expect(
+      resolveGraphAdmissionTarget({ mode: "impact", current: "a".repeat(40), analysisTarget: "b".repeat(40) })
+    ).toBe("b".repeat(40));
+    expect(
+      resolveGraphAdmissionTarget({ mode: "entry", current: "a".repeat(40), analysisTarget: "b".repeat(40) })
     ).toBe("a".repeat(40));
   });
 
