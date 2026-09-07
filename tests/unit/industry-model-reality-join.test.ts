@@ -28,19 +28,12 @@ describe("IM-O2 Industry Model Reality Join", () => {
     expect(result.role).toBe("teacher");
     expect(result.readiness_status).toBe("BLOCKED");
     expect(result.support_evidence).toMatchObject({
-      portability: {
-        status: "PORTABILITY_EVIDENCE_WITH_LIMITS",
-        external_validity: "NOT_PROVEN"
-      },
-      holdout: { status: "NOT_ELIGIBLE", eligibility: "NOT_ELIGIBLE" },
-      shanghai: {
-        consumption_status: "LOOKAHEAD_READY",
-        qualification_status: "LIMITED",
-        calibration_evidence: "NOT_PROVEN",
-        formal_binding_eligible: false
-      }
+      availability: "UNAVAILABLE",
+      reason: "EXACT_SUPPORT_APPLICABILITY_NOT_PROVEN"
     });
-    expect(result.known_limits).toContain("M4 portability compatibility is not external validity.");
+    expect(result.known_limits).toContain(
+      "M4 portability compatibility is not external validity."
+    );
     expect(result.known_limits).toContain("M5 holdout and qualification remain NOT_ELIGIBLE.");
     expect(result.official_truth_write).toBe(false);
     expect(result.provider).toBe("OFF");

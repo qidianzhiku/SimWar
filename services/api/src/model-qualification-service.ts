@@ -1893,7 +1893,10 @@ export class ModelQualificationService {
     }
   ): IndustryModelRealityJoinDto {
     const diagnostic = this.getIndustryModelDiagnosticReadiness(actor, scope, input);
-    const support = composeIndustryModelRealityJoinSupport();
+    const support = composeIndustryModelRealityJoinSupport({
+      ...diagnostic.exact_context,
+      qualification_id: input.qualification_id
+    });
     const supportEvidence: IndustryModelRealityJoinSupportEvidenceDto = support.support_evidence;
     const joinDigest = stableSha256({
       diagnostic_readiness_digest: diagnostic.readiness_digest,
@@ -1932,9 +1935,16 @@ export class ModelQualificationService {
         },
         readiness_class: readinessStatus,
         evidence_classes: ["NOT_PROVEN"],
-        portability_status: supportEvidence.portability.status,
-        holdout_status: supportEvidence.holdout.status,
-        shanghai_status: supportEvidence.shanghai.consumption_status,
+        portability_status:
+          supportEvidence.availability === "BOUND"
+            ? supportEvidence.portability.status
+            : "UNAVAILABLE",
+        holdout_status:
+          supportEvidence.availability === "BOUND" ? supportEvidence.holdout.status : "UNAVAILABLE",
+        shanghai_status:
+          supportEvidence.availability === "BOUND"
+            ? supportEvidence.shanghai.consumption_status
+            : "UNAVAILABLE",
         recovery: identityMoved ? "RELOAD_EXACT_CONTEXT" : "NONE"
       };
     }

@@ -61,6 +61,13 @@ const teacherData = {
   interpretation_policy_digest: "e".repeat(64),
   provability: [],
   support_evidence: {
+    availability: "BOUND" as const,
+    applicability_digest: "f".repeat(64),
+    upstream_pack_digests: {
+      m4: "a".repeat(64),
+      m5: "b".repeat(64),
+      m29: "c".repeat(64)
+    },
     portability: {
       status: "PORTABILITY_EVIDENCE_WITH_LIMITS" as const,
       compatibility_status: "NON_BREAKING" as const,
@@ -123,6 +130,24 @@ describe("IM-O2 Reality Join consumer", () => {
     expect(host.textContent).toContain("NOT_ELIGIBLE");
     expect(host.textContent).toContain("LOOKAHEAD_READY");
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain("qualificationId=qualification-a");
+    await act(async () => root.unmount());
+  });
+
+  it("clears the cached digest before requesting a different exact selector", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ code: "OK", message: "ok", request_id: "r", data: teacherData })
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () => root.render(<IndustryModelRealityJoinPanel {...exact} role="teacher" />));
+    await act(async () =>
+      root.render(<IndustryModelRealityJoinPanel {...exact} runId="run-b" role="teacher" />)
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[1]?.[0])).not.toContain("expectedRealityJoinDigest");
     await act(async () => root.unmount());
   });
 

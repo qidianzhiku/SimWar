@@ -6,7 +6,9 @@ industry-model-reality-join.v1 is a derived, query-only projection over the exis
 
 - M4 portability compatibility is PORTABILITY_EVIDENCE_WITH_LIMITS; it is not external validity.
 - M5 holdout and reality qualification remain NOT_ELIGIBLE.
-- M29 Shanghai consumption remains LOOKAHEAD_READY, with LIMITED qualification, NOT_PROVEN calibration evidence, and formal_binding_eligible=false.
+- M29 Shanghai consumption remains LOOKAHEAD_READY, with LIMITED qualification, NOT_PROVEN calibration evidence, and formal_binding_eligible=false when an exact applicability binding is proven.
+
+The support packs are not global fixtures. The service computes a request-context digest and includes the exact upstream M4/M5/M29 pack digests in the support lineage digest. Until a source-backed applicability match for the requested Course/Run/Round/Team/ScenarioPackage/ParameterSet/Qualification is proven, Teacher and Admin receive `support_evidence.availability=UNAVAILABLE` with reason `EXACT_SUPPORT_APPLICABILITY_NOT_PROVEN`; the pack summaries are not attached to that context. A future exact binding may return `BOUND` with the pack summaries.
 
 The route requires an exact Course, Run, Team, Round, ScenarioPackage, ParameterSet, and Qualification selector. An expectedRealityJoinDigest may be supplied on a reload; a changed identity returns REBASE_REQUIRED. No latest, current, default, array position, or timestamp fallback is allowed.
 

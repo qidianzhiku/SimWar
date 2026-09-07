@@ -252,9 +252,8 @@ describe("IM-O1 diagnostic readiness route", () => {
       data: {
         operation_id: "INDUSTRY_MODEL_REALITY_JOIN_TEACHER_GET_V1",
         support_evidence: {
-          portability: { external_validity: "NOT_PROVEN" },
-          holdout: { status: "NOT_ELIGIBLE" },
-          shanghai: { formal_binding_eligible: false }
+          availability: "UNAVAILABLE",
+          reason: "EXACT_SUPPORT_APPLICABILITY_NOT_PROVEN"
         }
       }
     });

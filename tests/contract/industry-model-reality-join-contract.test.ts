@@ -58,6 +58,13 @@ const teacherFixture: IndustryModelRealityJoinDto = {
     }
   ],
   support_evidence: {
+    availability: "BOUND",
+    applicability_digest: "a".repeat(64),
+    upstream_pack_digests: {
+      m4: "b".repeat(64),
+      m5: "c".repeat(64),
+      m29: "d".repeat(64)
+    },
     portability: {
       status: "PORTABILITY_EVIDENCE_WITH_LIMITS",
       compatibility_status: "NON_BREAKING",
@@ -109,9 +116,9 @@ describe("IM-O2 Industry Model Reality Join contract", () => {
       },
       readiness_class: "READY_WITH_LIMITS",
       evidence_classes: ["NOT_PROVEN"],
-      portability_status: "PORTABILITY_EVIDENCE_WITH_LIMITS",
-      holdout_status: "NOT_ELIGIBLE",
-      shanghai_status: "LOOKAHEAD_READY",
+      portability_status: "UNAVAILABLE",
+      holdout_status: "UNAVAILABLE",
+      shanghai_status: "UNAVAILABLE",
       known_limits: ["BOUNDED"],
       recovery: "RELOAD_EXACT_CONTEXT",
       provider: "OFF",

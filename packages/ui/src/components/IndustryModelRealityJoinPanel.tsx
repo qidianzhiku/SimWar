@@ -38,7 +38,20 @@ export function IndustryModelRealityJoinPanel({
   const [loadState, setLoadState] = useState<LoadState>("missing-context");
   const [errorMessage, setErrorMessage] = useState("");
   const [reloadNonce, setReloadNonce] = useState(0);
-  const lastDigestRef = useRef<string | null>(null);
+  const lastDigestRef = useRef<{ selectorKey: string; digest: string } | null>(null);
+  const selectorKey = [
+    courseId,
+    runId,
+    teamId,
+    roundId,
+    scenarioPackageId,
+    parameterSetId,
+    qualificationId,
+    tenantId,
+    role
+  ]
+    .map((value) => value ?? "")
+    .join("\u001f");
 
   useEffect(() => {
     if (
@@ -58,6 +71,7 @@ export function IndustryModelRealityJoinPanel({
       lastDigestRef.current = null;
       return;
     }
+    if (lastDigestRef.current?.selectorKey !== selectorKey) lastDigestRef.current = null;
     const controller = new AbortController();
     setLoadState("loading");
     setErrorMessage("");
@@ -70,7 +84,7 @@ export function IndustryModelRealityJoinPanel({
       parameterSetId,
       qualificationId
     });
-    if (lastDigestRef.current) query.set("expectedRealityJoinDigest", lastDigestRef.current);
+    if (lastDigestRef.current) query.set("expectedRealityJoinDigest", lastDigestRef.current.digest);
     void fetch(
       apiBase + "/api/v1/bff/" + role + "/model-qualification/reality-join?" + query.toString(),
       {
@@ -94,7 +108,7 @@ export function IndustryModelRealityJoinPanel({
         lastDigestRef.current =
           envelope.data.readiness_status === "REBASE_REQUIRED"
             ? null
-            : envelope.data.readiness_digest;
+            : { selectorKey, digest: envelope.data.readiness_digest };
         setLoadState("ready");
       })
       .catch((error: unknown) => {
@@ -118,7 +132,8 @@ export function IndustryModelRealityJoinPanel({
     tenantId,
     token,
     role,
-    reloadNonce
+    reloadNonce,
+    selectorKey
   ]);
 
   return (
@@ -164,7 +179,9 @@ export function IndustryModelRealityJoinPanel({
               <strong>
                 {data.role === "student"
                   ? data.portability_status
-                  : data.support_evidence.portability.status}
+                  : data.support_evidence.availability === "BOUND"
+                    ? data.support_evidence.portability.status
+                    : data.support_evidence.availability}
               </strong>
             </article>
             <article>
@@ -172,7 +189,9 @@ export function IndustryModelRealityJoinPanel({
               <strong>
                 {data.role === "student"
                   ? data.holdout_status
-                  : data.support_evidence.holdout.status}
+                  : data.support_evidence.availability === "BOUND"
+                    ? data.support_evidence.holdout.status
+                    : data.support_evidence.availability}
               </strong>
             </article>
             <article>
@@ -180,17 +199,26 @@ export function IndustryModelRealityJoinPanel({
               <strong>
                 {data.role === "student"
                   ? data.shanghai_status
-                  : data.support_evidence.shanghai.consumption_status}
+                  : data.support_evidence.availability === "BOUND"
+                    ? data.support_evidence.shanghai.consumption_status
+                    : data.support_evidence.availability}
               </strong>
             </article>
           </div>
           {data.role !== "student" ? (
-            <p className="evidence-note">
-              ModelVersion={data.model_version_reference.version} · qualification=
-              {data.qualification.qualification_id} · diagnostic=
-              {data.diagnostic_evidence_digest.slice(0, 12)}… · support=
-              {data.support_evidence.portability.package_identity}
-            </p>
+            data.support_evidence.availability === "BOUND" ? (
+              <p className="evidence-note">
+                ModelVersion={data.model_version_reference.version} · qualification=
+                {data.qualification.qualification_id} · diagnostic=
+                {data.diagnostic_evidence_digest.slice(0, 12)}… · support=
+                {data.support_evidence.portability.package_identity}
+              </p>
+            ) : (
+              <p className="evidence-note">
+                Support evidence unavailable: exact applicability is not proven for this context;
+                upstream pack lineage remains diagnostic-only.
+              </p>
+            )
           ) : (
             <p className="evidence-note">
               role-safe evidence classes={data.evidence_classes.join(" / ")} · advisory

@@ -44,10 +44,29 @@
       }
     },
     "supportEvidence": {
+      "oneOf": [
+        { "$ref": "#/$defs/boundSupportEvidence" },
+        { "$ref": "#/$defs/unavailableSupportEvidence" }
+      ]
+    },
+    "packDigests": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["portability", "holdout", "shanghai"],
+      "required": ["m4", "m5", "m29"],
       "properties": {
+        "m4": { "$ref": "#/$defs/digest" },
+        "m5": { "$ref": "#/$defs/digest" },
+        "m29": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "boundSupportEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["availability", "applicability_digest", "upstream_pack_digests", "portability", "holdout", "shanghai"],
+      "properties": {
+        "availability": { "const": "BOUND" },
+        "applicability_digest": { "$ref": "#/$defs/digest" },
+        "upstream_pack_digests": { "$ref": "#/$defs/packDigests" },
         "portability": {
           "type": "object",
           "additionalProperties": false,
@@ -85,6 +104,17 @@
             "formal_binding_eligible": { "const": false }
           }
         }
+      }
+    },
+    "unavailableSupportEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["availability", "reason", "request_context_digest", "upstream_pack_digests"],
+      "properties": {
+        "availability": { "const": "UNAVAILABLE" },
+        "reason": { "const": "EXACT_SUPPORT_APPLICABILITY_NOT_PROVEN" },
+        "request_context_digest": { "$ref": "#/$defs/digest" },
+        "upstream_pack_digests": { "$ref": "#/$defs/packDigests" }
       }
     },
     "base": {
@@ -190,9 +220,9 @@
           "type": "array",
           "items": { "$ref": "#/$defs/classification" }
         },
-        "portability_status": { "const": "PORTABILITY_EVIDENCE_WITH_LIMITS" },
-        "holdout_status": { "const": "NOT_ELIGIBLE" },
-        "shanghai_status": { "const": "LOOKAHEAD_READY" },
+        "portability_status": { "enum": ["PORTABILITY_EVIDENCE_WITH_LIMITS", "NOT_ELIGIBLE", "LOOKAHEAD_READY", "UNAVAILABLE"] },
+        "holdout_status": { "enum": ["PORTABILITY_EVIDENCE_WITH_LIMITS", "NOT_ELIGIBLE", "LOOKAHEAD_READY", "UNAVAILABLE"] },
+        "shanghai_status": { "enum": ["PORTABILITY_EVIDENCE_WITH_LIMITS", "NOT_ELIGIBLE", "LOOKAHEAD_READY", "UNAVAILABLE"] },
         "recovery": {
           "enum": ["NONE", "RELOAD_EXACT_CONTEXT", "REAUTHORIZE", "RETRY_EXACT_REQUEST"]
         },

@@ -122,12 +122,14 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
     name: "Industry Model portability and reality join"
   });
   await expect(teacherRealityJoin.getByTestId("industry-reality-join")).toBeVisible();
-  await expect(
-    teacherRealityJoin.getByText("PORTABILITY_EVIDENCE_WITH_LIMITS", { exact: false })
-  ).toBeVisible();
-  await expect(
-    teacherRealityJoin.getByTestId("industry-reality-join").getByText("NOT_ELIGIBLE", { exact: true })
-  ).toBeVisible();
+  const teacherRealityJoinGrid = teacherRealityJoin.getByTestId("industry-reality-join");
+  for (const label of ["Portability", "Holdout", "Shanghai"]) {
+    await expect(
+      teacherRealityJoinGrid.locator("article").filter({ hasText: label }).getByText("UNAVAILABLE", {
+        exact: true
+      })
+    ).toBeVisible();
+  }
 
   const teacherProjection = await request.get(
     `${apiBaseUrl}/api/v1/bff/teacher/model-qualification?courseId=course_demo`,
@@ -192,9 +194,14 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
     name: "Industry Model portability and reality join"
   });
   await expect(adminRealityJoin.getByTestId("industry-reality-join")).toBeVisible();
-  await expect(
-    adminRealityJoin.getByTestId("industry-reality-join").getByText("LOOKAHEAD_READY", { exact: true })
-  ).toBeVisible();
+  const adminRealityJoinGrid = adminRealityJoin.getByTestId("industry-reality-join");
+  for (const label of ["Portability", "Holdout", "Shanghai"]) {
+    await expect(
+      adminRealityJoinGrid.locator("article").filter({ hasText: label }).getByText("UNAVAILABLE", {
+        exact: true
+      })
+    ).toBeVisible();
+  }
 
   await page.goto(`${teacherBaseUrl}?courseId=course_demo`);
   await signIn(page, "teacher");

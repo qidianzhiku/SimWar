@@ -30,7 +30,14 @@ export interface IndustryModelRealityJoinStudentContextDto {
   readonly round_id: string;
 }
 
-export interface IndustryModelRealityJoinSupportEvidenceDto {
+export interface IndustryModelRealityJoinBoundSupportEvidenceDto {
+  readonly availability: "BOUND";
+  readonly applicability_digest: string;
+  readonly upstream_pack_digests: {
+    readonly m4: string;
+    readonly m5: string;
+    readonly m29: string;
+  };
   readonly portability: {
     readonly status: "PORTABILITY_EVIDENCE_WITH_LIMITS";
     readonly compatibility_status: "COMPATIBLE" | "NON_BREAKING" | "BREAKING";
@@ -49,6 +56,27 @@ export interface IndustryModelRealityJoinSupportEvidenceDto {
     readonly formal_binding_eligible: false;
   };
 }
+
+export interface IndustryModelRealityJoinUnavailableSupportEvidenceDto {
+  readonly availability: "UNAVAILABLE";
+  readonly reason: "EXACT_SUPPORT_APPLICABILITY_NOT_PROVEN";
+  readonly request_context_digest: string;
+  readonly upstream_pack_digests: {
+    readonly m4: string;
+    readonly m5: string;
+    readonly m29: string;
+  };
+}
+
+export type IndustryModelRealityJoinSupportEvidenceDto =
+  | IndustryModelRealityJoinBoundSupportEvidenceDto
+  | IndustryModelRealityJoinUnavailableSupportEvidenceDto;
+
+export type IndustryModelRealityJoinSupportStatus =
+  | "PORTABILITY_EVIDENCE_WITH_LIMITS"
+  | "NOT_ELIGIBLE"
+  | "LOOKAHEAD_READY"
+  | "UNAVAILABLE";
 
 export interface IndustryModelRealityJoinProjectionBase {
   readonly schema_version: typeof INDUSTRY_MODEL_REALITY_JOIN_SCHEMA_VERSION;
@@ -96,9 +124,9 @@ export interface IndustryModelRealityJoinStudentDto extends IndustryModelReality
   readonly exact_context: IndustryModelRealityJoinStudentContextDto;
   readonly readiness_class: IndustryModelRealityJoinStatus;
   readonly evidence_classes: readonly IndustryDiagnosticClassification[];
-  readonly portability_status: "PORTABILITY_EVIDENCE_WITH_LIMITS";
-  readonly holdout_status: "NOT_ELIGIBLE";
-  readonly shanghai_status: "LOOKAHEAD_READY";
+  readonly portability_status: IndustryModelRealityJoinSupportStatus;
+  readonly holdout_status: IndustryModelRealityJoinSupportStatus;
+  readonly shanghai_status: IndustryModelRealityJoinSupportStatus;
   readonly recovery: IndustryModelRealityJoinRecovery;
 }
 
