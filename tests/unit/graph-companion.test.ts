@@ -624,12 +624,91 @@ describe("Graph Companion V1 pure contracts", () => {
 
   it("does not require a fabricated source anchor when the contract opts out", () => {
     const receipt = {
+      seed_paths: ["scripts/graph-companion.mjs"],
+      seed_symbols: ["admitQuestionReceipt"],
+      seed_routes: [],
+      seed_schemas: [],
+      expected_edge_types: ["CALLS"],
       mandatory_source_readback: [],
-      graphify: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
-      codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      graphify: {
+        command_ok: true,
+        relevance: "RELEVANT",
+        coverage: "COMPLETE",
+        truncated: false,
+        anchors: ["scripts/graph-companion.mjs", "admitQuestionReceipt"],
+        edge_types: ["CALLS"]
+      },
+      codegraph: {
+        command_ok: true,
+        relevance: "RELEVANT",
+        coverage: "COMPLETE",
+        truncated: false,
+        anchors: ["scripts/graph-companion.mjs", "admitQuestionReceipt"],
+        edge_types: ["CALLS"]
+      },
       source_readback: { resolved: false, anchors: [], unresolved: [] }
     };
     expect(admitQuestionReceipt(receipt)).toBe("READY");
+  });
+
+  it("holds when mandatory source evidence does not match the contract", () => {
+    const receipt = buildQuestionReceipt({
+      contract: normalizeQuestionContract({
+        question_id: "F2-MISMATCH",
+        risk_class: "authority",
+        target_sha: "a".repeat(40),
+        canonical_seam: "services/api/src/model-qualification-service.ts#commit",
+        decision_before: "unknown",
+        decision_needed: "prove writer",
+        seed_paths: ["services/api/src/model-qualification-service.ts"],
+        seed_symbols: ["ModelQualificationService.commit"],
+        seed_routes: [],
+        seed_schemas: [],
+        expected_edge_types: ["CALLS"],
+        mandatory_source_readback: ["services/api/src/model-qualification-service.ts:2350-2382"],
+        mandatory_tests: ["tests/unit/model-qualification-service.test.ts"]
+      }),
+      graphify: {
+        command_ok: true,
+        relevance: "RELEVANT",
+        coverage: "COMPLETE",
+        anchors: ["services/api/src/model-qualification-service.ts", "ModelQualificationService.commit"],
+        edge_types: ["CALLS"]
+      },
+      codegraph: {
+        command_ok: true,
+        relevance: "RELEVANT",
+        coverage: "COMPLETE",
+        anchors: ["services/api/src/model-qualification-service.ts", "ModelQualificationService.commit"],
+        edge_types: ["CALLS"]
+      },
+      sourceReadback: { resolved: true, anchors: ["unrelated.ts:1"], unresolved: [] }
+    });
+    expect(admitQuestionReceipt(receipt)).toBe("HOLD_THIS_SEAM");
+  });
+
+  it("does not return READY when exact seeds or expected edge types are absent", () => {
+    const receipt = buildQuestionReceipt({
+      contract: normalizeQuestionContract({
+        question_id: "F2-GRAPH-MISMATCH",
+        risk_class: "authority",
+        target_sha: "a".repeat(40),
+        canonical_seam: "scripts/graph-companion.mjs#query",
+        decision_before: "unknown",
+        decision_needed: "confirm query",
+        seed_paths: ["scripts/graph-companion.mjs"],
+        seed_symbols: ["runCompanion"],
+        seed_routes: [],
+        seed_schemas: [],
+        expected_edge_types: ["CALLS"],
+        mandatory_source_readback: [],
+        mandatory_tests: ["tests/unit/graph-companion.test.ts"]
+      }),
+      graphify: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", anchors: ["generic helper"], edge_types: [] },
+      codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", anchors: ["generic helper"], edge_types: [] },
+      sourceReadback: { resolved: false, anchors: [], unresolved: [] }
+    });
+    expect(admitQuestionReceipt(receipt)).toBe("SOURCE_FALLBACK");
   });
 
   it("uses the impact analysis target for question admission identity", () => {
@@ -831,8 +910,22 @@ describe("Graph Companion V1 pure contracts", () => {
         mandatory_source_readback: ["scripts/graph-companion.mjs:1"],
         mandatory_tests: ["tests/unit/graph-companion.test.ts"]
       }),
-      graphify: { command_ok: true, relevance, coverage: "COMPLETE", truncated: false },
-      codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      graphify: {
+        command_ok: true,
+        relevance,
+        coverage: "COMPLETE",
+        truncated: false,
+        anchors: ["scripts/graph-companion.mjs", "query"],
+        edge_types: ["CALLS"]
+      },
+      codegraph: {
+        command_ok: true,
+        relevance: "RELEVANT",
+        coverage: "COMPLETE",
+        truncated: false,
+        anchors: ["scripts/graph-companion.mjs", "query"],
+        edge_types: ["CALLS"]
+      },
       sourceReadback: { resolved: true, anchors: ["scripts/graph-companion.mjs:1"], unresolved: [] }
     });
     const normalized = normalizeQueryEvidenceForAdmission({
@@ -861,9 +954,23 @@ describe("Graph Companion V1 pure contracts", () => {
     });
     const receipt = buildQuestionReceipt({
       contract,
-      graphify: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
-      codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
-      sourceReadback: { resolved: true, anchors: ["service.ts:1"], unresolved: [] }
+      graphify: {
+        command_ok: true,
+        relevance: "RELEVANT",
+        coverage: "COMPLETE",
+        truncated: false,
+        anchors: ["services/api/src/model-qualification-service.ts", "ModelQualificationService.commit"],
+        edge_types: ["CALLS"]
+      },
+      codegraph: {
+        command_ok: true,
+        relevance: "RELEVANT",
+        coverage: "COMPLETE",
+        truncated: false,
+        anchors: ["services/api/src/model-qualification-service.ts", "ModelQualificationService.commit"],
+        edge_types: ["CALLS"]
+      },
+      sourceReadback: { resolved: true, anchors: ["writer @ service.ts:1"], unresolved: [] }
     });
     expect(normalizeQueryEvidenceForAdmission({
       queryEvidence: { question_receipts: [receipt] },

@@ -1865,12 +1865,18 @@ function normalizeToolQuestionEvidence(input) {
   const anchors = Array.isArray(value.anchors)
     ? value.anchors.filter((anchor) => typeof anchor === "string" && anchor.trim()).map((anchor) => anchor.trim())
     : [];
+  const edgeTypes = Array.isArray(value.edge_types)
+    ? value.edge_types.filter((edge) => typeof edge === "string" && edge.trim()).map((edge) => edge.trim())
+    : Array.isArray(value.edgeTypes)
+      ? value.edgeTypes.filter((edge) => typeof edge === "string" && edge.trim()).map((edge) => edge.trim())
+      : [];
   return {
     command_ok: commandOk,
     relevance: normalizeRelevance(value.relevance, value.generic === true),
     coverage: normalizeCoverage(value.coverage, value.truncated === true),
     truncated: value.truncated === true || String(value.coverage || "").toUpperCase() === "TRUNCATED",
-    anchors
+    anchors,
+    edge_types: edgeTypes
   };
 }
 
@@ -1901,6 +1907,11 @@ export function buildQuestionReceipt({ contract, graphify, codegraph, sourceRead
     risk_class: normalizedContract.risk_class,
     target_sha: normalizedContract.target_sha,
     canonical_seam: normalizedContract.canonical_seam,
+    seed_paths: normalizedContract.seed_paths,
+    seed_symbols: normalizedContract.seed_symbols,
+    seed_routes: normalizedContract.seed_routes,
+    seed_schemas: normalizedContract.seed_schemas,
+    expected_edge_types: normalizedContract.expected_edge_types,
     mandatory_source_readback: normalizedContract.mandatory_source_readback,
     graphify: normalizeToolQuestionEvidence(graphify),
     codegraph: normalizeToolQuestionEvidence(codegraph),
@@ -1915,13 +1926,39 @@ export function buildQuestionReceipt({ contract, graphify, codegraph, sourceRead
  * source readback; source evidence can still be useful as a bounded fallback.
  */
 export function admitQuestionReceipt(receipt) {
+  const graphAnchors = [receipt?.graphify, receipt?.codegraph].flatMap((tool) =>
+    Array.isArray(tool?.anchors) ? tool.anchors : []
+  );
+  const graphEdgeTypes = [receipt?.graphify, receipt?.codegraph].flatMap((tool) =>
+    Array.isArray(tool?.edge_types) ? tool.edge_types : []
+  );
+  const exactSeeds = [
+    ...(Array.isArray(receipt?.seed_paths) ? receipt.seed_paths : []),
+    ...(Array.isArray(receipt?.seed_symbols) ? receipt.seed_symbols : []),
+    ...(Array.isArray(receipt?.seed_routes) ? receipt.seed_routes : []),
+    ...(Array.isArray(receipt?.seed_schemas) ? receipt.seed_schemas : [])
+  ];
+  const anchorMatches = (requirement, anchors) => {
+    const expected = String(requirement ?? "").trim().replaceAll("\\", "/").toLowerCase();
+    if (!expected) return false;
+    return anchors.some((anchor) => {
+      const actual = String(anchor ?? "").trim().replaceAll("\\", "/").toLowerCase();
+      return actual === expected || actual.includes(expected) || expected.endsWith(actual);
+    });
+  };
+  const graphEvidenceMatchesContract =
+    exactSeeds.length > 0 &&
+    exactSeeds.every((seed) => anchorMatches(seed, graphAnchors)) &&
+    (Array.isArray(receipt?.expected_edge_types) ? receipt.expected_edge_types : []).every((edge) =>
+      graphEdgeTypes.some((observed) => String(observed).toLowerCase() === String(edge).toLowerCase())
+    );
   const graphReady = [receipt?.graphify, receipt?.codegraph].every(
     (tool) =>
       tool?.command_ok === true &&
       tool.relevance === "RELEVANT" &&
       tool.coverage === "COMPLETE" &&
       tool.truncated !== true
-  );
+  ) && graphEvidenceMatchesContract;
   const sourceReadbackRequired = !Array.isArray(receipt?.mandatory_source_readback) ||
     receipt.mandatory_source_readback.length > 0;
   if (!sourceReadbackRequired) return graphReady ? "READY" : "SOURCE_FALLBACK";
@@ -1929,7 +1966,10 @@ export function admitQuestionReceipt(receipt) {
     receipt?.source_readback?.resolved === true &&
     Array.isArray(receipt.source_readback.anchors) &&
     receipt.source_readback.anchors.length > 0 &&
-    (!Array.isArray(receipt.source_readback.unresolved) || receipt.source_readback.unresolved.length === 0);
+    (!Array.isArray(receipt.source_readback.unresolved) || receipt.source_readback.unresolved.length === 0) &&
+    (Array.isArray(receipt?.mandatory_source_readback) ? receipt.mandatory_source_readback : []).every((required) =>
+      anchorMatches(required, receipt.source_readback.anchors)
+    );
   if (!sourceResolved) return "HOLD_THIS_SEAM";
   return graphReady ? "READY" : "SOURCE_FALLBACK";
 }
