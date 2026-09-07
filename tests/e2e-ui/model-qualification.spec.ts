@@ -118,6 +118,14 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
   });
   await expect(teacherDiagnostic.getByTestId("industry-diagnostic-readiness")).toBeVisible();
   await expect(teacherDiagnostic.getByText("NOT_PROVEN", { exact: false })).toBeVisible();
+  const teacherRealityJoin = page.getByRole("region", {
+    name: "Industry Model portability and reality join"
+  });
+  await expect(teacherRealityJoin.getByTestId("industry-reality-join")).toBeVisible();
+  await expect(
+    teacherRealityJoin.getByText("PORTABILITY_EVIDENCE_WITH_LIMITS", { exact: false })
+  ).toBeVisible();
+  await expect(teacherRealityJoin.getByText("NOT_ELIGIBLE", { exact: false })).toBeVisible();
 
   const teacherProjection = await request.get(
     `${apiBaseUrl}/api/v1/bff/teacher/model-qualification?courseId=course_demo`,
@@ -146,6 +154,12 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
   });
   await expect(studentDiagnostic.getByTestId("industry-diagnostic-readiness")).toBeVisible();
   await expect(studentDiagnostic.getByText("ROLE_SAFE_STUDENT", { exact: false })).toBeVisible();
+  const studentRealityJoin = page.getByRole("region", {
+    name: "Industry Model portability and reality join"
+  });
+  await expect(studentRealityJoin.getByTestId("industry-reality-join")).toBeVisible();
+  await expect(studentRealityJoin.getByText("NOT_PROVEN", { exact: false })).toBeVisible();
+  await expect(studentRealityJoin.getByText("qualification-a", { exact: false })).toHaveCount(0);
 
   await page.goto(
     `${adminBaseUrl}?courseId=course_demo&runId=${encodeURIComponent(
@@ -168,6 +182,11 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
   });
   await expect(adminDiagnostic.getByTestId("industry-diagnostic-readiness")).toBeVisible();
   await expect(adminDiagnostic.getByText("NOT_PROVEN", { exact: false })).toBeVisible();
+  const adminRealityJoin = page.getByRole("region", {
+    name: "Industry Model portability and reality join"
+  });
+  await expect(adminRealityJoin.getByTestId("industry-reality-join")).toBeVisible();
+  await expect(adminRealityJoin.getByText("LOOKAHEAD_READY", { exact: false })).toBeVisible();
 
   await page.goto(`${teacherBaseUrl}?courseId=course_demo`);
   await signIn(page, "teacher");

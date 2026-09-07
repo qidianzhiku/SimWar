@@ -221,4 +221,42 @@ describe("IM-O1 diagnostic readiness route", () => {
       )
     ).rejects.toThrow("MODEL_QUALIFICATION_SCOPE_CONFLICT");
   });
+
+  it("serves the O2 Reality Join through the existing role route", async () => {
+    const fixture = createEvidenceAdoptionServiceFixture();
+    let responseBody: unknown;
+    const dependencies = {
+      actorHasAnyRole: () => true,
+      createContext: () => ({ requestId: "request-o2", tenantId: actor.tenant_id, actor }),
+      createEnvelope: (_context: unknown, data: unknown) => ({ data }),
+      readJson: async () => ({}),
+      repository: exactRepository(),
+      requirePermission: () => actor,
+      sendJson: (_response: ServerResponse, _status: number, body: unknown) => {
+        responseBody = body;
+      }
+    };
+    const url = new URL(
+      "/api/v1/bff/teacher/model-qualification/reality-join?courseId=course_demo&runId=run-exact&teamId=team-exact&roundId=round-exact&scenarioPackageId=scenario-exact&parameterSetId=parameter-exact&qualificationId=" +
+        fixture.primary.qualificationA.qualification_id,
+      "http://localhost"
+    );
+    await handleModelQualificationRoute(
+      fixture.service,
+      { method: "GET" } as IncomingMessage,
+      {} as ServerResponse,
+      url,
+      dependencies
+    );
+    expect(responseBody).toMatchObject({
+      data: {
+        operation_id: "INDUSTRY_MODEL_REALITY_JOIN_TEACHER_GET_V1",
+        support_evidence: {
+          portability: { external_validity: "NOT_PROVEN" },
+          holdout: { status: "NOT_ELIGIBLE" },
+          shanghai: { formal_binding_eligible: false }
+        }
+      }
+    });
+  });
 });

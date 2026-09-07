@@ -235,6 +235,13 @@ export function isModelQualificationRoute(method: string | undefined, url: URL):
     )
   )
     return true;
+  if (
+    method === "GET" &&
+    /^\/api\/v1\/bff\/(teacher|admin|student)\/model-qualification\/reality-join$/.test(
+      url.pathname
+    )
+  )
+    return true;
   if (method === "GET" && url.pathname === `${ADMIN_PREFIX}/course-portfolio`) return true;
   if (method === "GET" && url.pathname === `${ADMIN_PREFIX}/strategic-portfolio-readiness`)
     return true;
@@ -314,6 +321,83 @@ export async function handleModelQualificationRoute(
   const diagnosticReadinessRoute = url.pathname.match(
     /^\/api\/v1\/bff\/(teacher|admin|student)\/model-qualification\/diagnostic-readiness$/
   );
+  const realityJoinRoute = url.pathname.match(
+    /^\/api\/v1\/bff\/(teacher|admin|student)\/model-qualification\/reality-join$/
+  );
+  if (request.method === "GET" && realityJoinRoute) {
+    const requestedRole = realityJoinRoute[1] as "teacher" | "admin" | "student";
+    const actor = deps.requirePermission(context, "course:read");
+    const allowedRoles =
+      requestedRole === "admin"
+        ? ["tenant_admin"]
+        : requestedRole === "teacher"
+          ? ["teacher"]
+          : ["student", "learner"];
+    if (actor.tenant_id !== context.tenantId || !deps.actorHasAnyRole(actor, allowedRoles)) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    const courseId = stringValue(url.searchParams.get("courseId"));
+    const requiredContext = {
+      run_id: stringValue(url.searchParams.get("runId")),
+      team_id: stringValue(url.searchParams.get("teamId")),
+      round_id: stringValue(url.searchParams.get("roundId")),
+      scenario_package_id: stringValue(url.searchParams.get("scenarioPackageId")),
+      parameter_set_id: stringValue(url.searchParams.get("parameterSetId")),
+      qualification_id: stringValue(url.searchParams.get("qualificationId"))
+    };
+    const expectedRealityJoinDigest = url.searchParams.get("expectedRealityJoinDigest");
+    if (
+      !courseId ||
+      Object.values(requiredContext).some((value) => !value) ||
+      (expectedRealityJoinDigest !== null && !/^[a-f0-9]{64}$/u.test(expectedRealityJoinDigest))
+    ) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
+    await assertCourse(deps, context, courseId);
+    await assertExactIndustryDiagnosticContext(deps, context, {
+      course_id: courseId,
+      ...requiredContext
+    });
+    if (requestedRole === "student") {
+      const visibleCourses = await deps.repository.courses.listCoursesForUser(
+        context.tenantId,
+        actor.user_id
+      );
+      if (!visibleCourses.some((course) => course.course_id === courseId)) {
+        throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+      }
+      const enrolledTeam = await deps.repository.teams.getTeamForUser(
+        context.tenantId,
+        requiredContext.run_id,
+        actor.user_id
+      );
+      if (
+        !enrolledTeam ||
+        enrolledTeam.team_id !== requiredContext.team_id ||
+        enrolledTeam.tenant_id !== context.tenantId ||
+        enrolledTeam.course_id !== courseId
+      ) {
+        throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+      }
+    }
+    send(
+      deps,
+      context,
+      response,
+      200,
+      service.getIndustryModelRealityJoin(
+        serviceActor(actor, requestedRole),
+        scope(context, courseId),
+        {
+          ...requiredContext,
+          ...(expectedRealityJoinDigest === null
+            ? {}
+            : { expected_reality_join_digest: expectedRealityJoinDigest })
+        }
+      )
+    );
+    return true;
+  }
   if (request.method === "GET" && diagnosticReadinessRoute) {
     const requestedRole = diagnosticReadinessRoute[1] as "teacher" | "admin" | "student";
     const actor = deps.requirePermission(context, "course:read");

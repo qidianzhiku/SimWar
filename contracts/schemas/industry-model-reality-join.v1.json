@@ -2,10 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://simwar.local/contracts/schemas/industry-model-reality-join.v1.json",
   "title": "SimWar Industry Model Reality Join",
-  "oneOf": [
-    { "$ref": "#/$defs/teacherAdmin" },
-    { "$ref": "#/$defs/student" }
-  ],
+  "oneOf": [{ "$ref": "#/$defs/teacherAdmin" }, { "$ref": "#/$defs/student" }],
   "$defs": {
     "nonEmptyString": { "type": "string", "minLength": 1 },
     "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
@@ -147,10 +144,7 @@
             "model_artifact_reference": { "type": "object", "additionalProperties": true },
             "qualification": { "type": "object", "additionalProperties": true },
             "adoption": {
-              "oneOf": [
-                { "type": "object", "additionalProperties": true },
-                { "type": "null" }
-              ]
+              "oneOf": [{ "type": "object", "additionalProperties": true }, { "type": "null" }]
             },
             "diagnostic_evidence_digest": { "$ref": "#/$defs/digest" },
             "interpretation_policy_digest": { "$ref": "#/$defs/digest" },

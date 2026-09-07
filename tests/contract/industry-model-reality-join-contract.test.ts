@@ -101,7 +101,12 @@ describe("IM-O2 Industry Model Reality Join contract", () => {
       role: "student",
       readiness_status: "READY_WITH_LIMITS",
       rebase_required: false,
-      exact_context: { course_id: "course-1", run_id: "run-1", team_id: "team-1", round_id: "round-1" },
+      exact_context: {
+        course_id: "course-1",
+        run_id: "run-1",
+        team_id: "team-1",
+        round_id: "round-1"
+      },
       readiness_class: "READY_WITH_LIMITS",
       evidence_classes: ["NOT_PROVEN"],
       portability_status: "PORTABILITY_EVIDENCE_WITH_LIMITS",
