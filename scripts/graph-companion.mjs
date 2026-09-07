@@ -1941,17 +1941,23 @@ export function admitQuestionReceipt(receipt) {
  * and source readback independently admit it as READY.
  */
 export function normalizeQueryEvidenceForAdmission({ queryEvidence, targetSha } = {}) {
-  const legacyQueries = Array.isArray(queryEvidence?.queries)
-    ? queryEvidence.queries.filter((item) => item?.schema_version !== "GraphQuestionReceiptV2")
-    : [];
-  const candidates = Array.isArray(queryEvidence?.question_receipts)
-    ? queryEvidence.question_receipts
-    : Array.isArray(queryEvidence?.receipts)
-      ? queryEvidence.receipts
-      : Array.isArray(queryEvidence?.queries) &&
-          queryEvidence.queries.some((item) => item?.schema_version === "GraphQuestionReceiptV2")
-        ? queryEvidence.queries
-        : [];
+  const candidateSource =
+    Array.isArray(queryEvidence?.question_receipts) && queryEvidence.question_receipts.length > 0
+      ? queryEvidence.question_receipts
+      : Array.isArray(queryEvidence?.receipts) && queryEvidence.receipts.length > 0
+        ? queryEvidence.receipts
+        : Array.isArray(queryEvidence?.queries)
+          ? queryEvidence.queries
+          : [];
+  const candidates = candidateSource.filter((item) => item?.schema_version === "GraphQuestionReceiptV2");
+  const legacyQueries = candidateSource === queryEvidence?.queries
+    ? candidateSource.filter((item) => item?.schema_version !== "GraphQuestionReceiptV2")
+    : [
+        ...candidateSource.filter((item) => item?.schema_version !== "GraphQuestionReceiptV2"),
+        ...(Array.isArray(queryEvidence?.queries)
+          ? queryEvidence.queries.filter((item) => item?.schema_version !== "GraphQuestionReceiptV2")
+          : [])
+      ];
   if (candidates.length === 0) {
     return {
       query_contract_v2: false,

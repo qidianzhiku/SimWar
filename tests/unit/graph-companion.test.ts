@@ -689,6 +689,27 @@ describe("Graph Companion V1 pure contracts", () => {
     expect(normalized.non_authoritative_legacy_queries).toHaveLength(1);
   });
 
+  it("does not promote schema-less receipt arrays into V2 admission", () => {
+    for (const field of ["question_receipts", "receipts"] as const) {
+      const normalized = normalizeQueryEvidenceForAdmission({
+        queryEvidence: {
+          [field]: [{
+            target_sha: "a".repeat(40),
+            question_id: "legacy-receipt",
+            graphify: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE" },
+            codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE" },
+            source_readback: { resolved: true, anchors: ["legacy.ts:1"], unresolved: [] }
+          }]
+        },
+        targetSha: "a".repeat(40)
+      });
+      expect(normalized.query_contract_v2).toBe(false);
+      expect(normalized.legacy_detected).toBe(true);
+      expect(normalized.queries).toEqual([]);
+      expect(normalized.legacy_question_admission).toBe("HOLD_THIS_SEAM");
+    }
+  });
+
   it("preserves command success when a question falls back for no relevance", () => {
     const contract = normalizeQuestionContract({
       question_id: "V21-001",
