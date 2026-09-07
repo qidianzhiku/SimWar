@@ -1,5 +1,4 @@
 # SimWar KG-O2 Mainline Adoption Implementation Plan
-
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Restore the recovered Graph Companion P0 admission behavior onto the current protected master, add decision-specific Query Contract V2 and canonical MCP evidence normalization, and deliver one exact-head, evidence-bound PR without changing product truth.
@@ -191,4 +190,3 @@ Include recovery, fresh base, Query Contract V2, MCP normalization, continuity l
 - [ ] **Step 5: Build and verify the atomic result ZIP**
 
 Include all required paths from the mission contract; verify ZIP integrity, CRC, duplicate paths, and `SHA256SUMS.txt` before reporting.
-

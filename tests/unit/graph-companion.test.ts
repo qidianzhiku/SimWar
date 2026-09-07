@@ -18,6 +18,7 @@ import {
   normalizeQuestionContract,
   buildQuestionReceipt,
   admitQuestionReceipt,
+  normalizeQueryEvidenceForAdmission,
   normalizeMcpObservationSet,
   assertArtifactRootSafety,
   evaluatePlanningGate,
@@ -608,6 +609,46 @@ describe("Graph Companion V1 pure contracts", () => {
       source_readback: { resolved: true, anchors: ["partial.ts:1"], unresolved: ["missing consumer"] }
     };
     expect(admitQuestionReceipt(receipt)).toBe("HOLD_THIS_SEAM");
+  });
+
+  it("binds Query Contract V2 receipts to the exact target before admission", () => {
+    const contract = normalizeQuestionContract({
+      question_id: "Q-V2",
+      risk_class: "authority",
+      target_sha: "a".repeat(40),
+      canonical_seam: "services/api/src/model-qualification-service.ts#commit",
+      decision_before: "unknown",
+      decision_needed: "sole writer",
+      seed_paths: ["services/api/src/model-qualification-service.ts"],
+      seed_symbols: ["ModelQualificationService.commit"],
+      seed_routes: [],
+      seed_schemas: [],
+      expected_edge_types: ["CALLS"],
+      mandatory_source_readback: ["writer"],
+      mandatory_tests: ["graph-companion"]
+    });
+    const receipt = buildQuestionReceipt({
+      contract,
+      graphify: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      sourceReadback: { resolved: true, anchors: ["service.ts:1"], unresolved: [] }
+    });
+    expect(normalizeQueryEvidenceForAdmission({
+      queryEvidence: { question_receipts: [receipt] },
+      targetSha: "b".repeat(40)
+    })).toMatchObject({
+      query_contract_v2: true,
+      invalid_target_count: 1,
+      queries: [{ exit_code: 1, relevant: false, coverage: "INCOMPLETE", truncated: true }]
+    });
+    expect(normalizeQueryEvidenceForAdmission({
+      queryEvidence: { question_receipts: [receipt] },
+      targetSha: "a".repeat(40)
+    })).toMatchObject({
+      query_contract_v2: true,
+      invalid_target_count: 0,
+      queries: [{ exit_code: 0, relevant: true, coverage: "COMPLETE", truncated: false }]
+    });
   });
 
   it("normalizes final MCP observations without turning NOT_OBSERVED into FAIL", () => {

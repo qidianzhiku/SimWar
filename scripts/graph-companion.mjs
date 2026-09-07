@@ -1692,14 +1692,15 @@ function resolveCurrentSha(repoRoot, requestedSha) {
   return git(repoRoot, ["rev-parse", "HEAD"], { allowFailure: true }) || null;
 }
 
-function ensureEvidenceRoot(path) {
-  return ensureDirectory(
+function ensureEvidenceRoot(path, repoRoot) {
+  const candidate =
     path ||
-      join(
-        tmpdir(),
-        `E-SIMWAR-GRAPH-COMPANION-V1-${new Date().toISOString().replace(/[-:.]/gu, "")}`
-      )
-  );
+    join(
+      tmpdir(),
+      `E-SIMWAR-GRAPH-COMPANION-V1-${new Date().toISOString().replace(/[-:.]/gu, "")}`
+    );
+  if (repoRoot) assertArtifactRootSafety({ projectRoot: repoRoot, artifactRoot: candidate });
+  return ensureDirectory(candidate);
 }
 
 export function assertExternalGraphHome(graphHome, repoRoot) {
@@ -1927,6 +1928,54 @@ export function admitQuestionReceipt(receipt) {
   return graphReady ? "READY" : "SOURCE_FALLBACK";
 }
 
+/**
+ * Convert Query Contract V2 receipts into the legacy aggregate shape consumed by
+ * the four-stage gate, while binding every receipt to the current exact target.
+ * A V2 receipt is never allowed to authorize a seam unless its two graph tools
+ * and source readback independently admit it as READY.
+ */
+export function normalizeQueryEvidenceForAdmission({ queryEvidence, targetSha } = {}) {
+  const candidates = Array.isArray(queryEvidence?.question_receipts)
+    ? queryEvidence.question_receipts
+    : Array.isArray(queryEvidence?.receipts)
+      ? queryEvidence.receipts
+      : Array.isArray(queryEvidence?.queries) &&
+          queryEvidence.queries.some((item) => item?.schema_version === "GraphQuestionReceiptV2")
+        ? queryEvidence.queries
+        : [];
+  if (candidates.length === 0) {
+    return {
+      query_contract_v2: false,
+      receipts: [],
+      queries: Array.isArray(queryEvidence?.queries) ? queryEvidence.queries : [],
+      invalid_target_count: 0
+    };
+  }
+  const receipts = candidates.map((receipt) => {
+    const targetMatch = receipt?.target_sha === targetSha;
+    const admission = targetMatch ? admitQuestionReceipt(receipt) : "HOLD_THIS_SEAM";
+    const ready = targetMatch && admission === "READY";
+    return {
+      ...receipt,
+      target_match: targetMatch,
+      question_admission: admission,
+      normalized_query: {
+        exit_code: ready ? 0 : 1,
+        output: ready ? "exact question contract admitted" : "question contract not admitted",
+        relevant: ready,
+        coverage: ready ? "COMPLETE" : "INCOMPLETE",
+        truncated: !ready
+      }
+    };
+  });
+  return {
+    query_contract_v2: true,
+    receipts,
+    queries: receipts.map((receipt) => receipt.normalized_query),
+    invalid_target_count: receipts.filter((receipt) => receipt.target_match !== true).length
+  };
+}
+
 const MCP_FINAL_STATES = new Set(["PASS", "FAIL", "NOT_OBSERVED", "NOT_APPLICABLE"]);
 
 function normalizeMcpState(value) {
@@ -2145,7 +2194,7 @@ export function runCompanion({
     if (parents.length < 3) throw new Error("postmerge mode requires a two-parent merge commit");
   }
   if (!repositoryHead) {
-    const blockedEvidence = ensureEvidenceRoot(evidenceRoot);
+    const blockedEvidence = ensureEvidenceRoot(evidenceRoot, root);
     const blockedHome = assertExternalGraphHome(resolve(graphHome || resolveGraphHome()), root);
     const blockedRepository = parseRepository(getRemote(root), root);
     const blockedTools = discoverTools({ cwd: root });
@@ -2276,7 +2325,7 @@ export function runCompanion({
   if (baseSha && !validatedBase) throw new Error(`Unable to resolve base SHA: ${baseSha}`);
   if (targetSha && !validatedTarget) throw new Error(`Unable to resolve target SHA: ${targetSha}`);
   const analysisTarget = mode === "impact" ? validatedTarget || current : current;
-  const evidence = ensureEvidenceRoot(evidenceRoot);
+  const evidence = ensureEvidenceRoot(evidenceRoot, root);
   const home = assertExternalGraphHome(resolve(graphHome || resolveGraphHome()), root);
   const repository = parseRepository(getRemote(root), root);
   const existingRegistry = loadRegistry(home, repository);
@@ -2287,7 +2336,11 @@ export function runCompanion({
       : currentManifest;
   const tools = discoverTools({ cwd: root });
   const queryEvidence = queryReceipt ? readTextManifest(resolve(queryReceipt)) : null;
-  const queries = Array.isArray(queryEvidence?.queries) ? queryEvidence.queries : [];
+  const queryNormalization = normalizeQueryEvidenceForAdmission({
+    queryEvidence,
+    targetSha: current
+  });
+  const queries = queryNormalization.queries;
   const existingGraphSource = existingRegistry?.graph_source_sha || null;
   const graphPath = existingRegistry?.graphify?.path || null;
   const graphManifest = readSourceManifestForGraph(graphPath);
@@ -2414,6 +2467,9 @@ export function runCompanion({
     },
     queries
   });
+  graphAdmission.query_contract_v2 = queryNormalization.query_contract_v2;
+  graphAdmission.query_receipts = queryNormalization.receipts;
+  graphAdmission.query_invalid_target_count = queryNormalization.invalid_target_count;
   const delta = buildArchitectureDelta({
     baseSha: validatedBase || sourceForDiff,
     targetSha: analysisTarget,
