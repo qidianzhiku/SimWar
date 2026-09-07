@@ -6,6 +6,7 @@ export interface W5IndustryDiagnosticContext {
   readonly run_id: string;
   readonly team_id: string;
   readonly round_id: string;
+  readonly round_no: number;
   readonly scenario_package_id: string;
   readonly parameter_set_id: string;
 }
@@ -50,14 +51,14 @@ function exactBindingMovements(context: W5IndustryDiagnosticContext, draft: W5Sc
   if (binding.tenant_id !== context.tenant_id) movements.push("w5_tenant");
   if (binding.course_id !== context.course_id || draft.course_id !== context.course_id) movements.push("w5_course");
   if (binding.run_id !== context.run_id) movements.push("w5_run");
-  if (String(binding.round_no) !== context.round_id.replace(/^round[-_:]?/iu, "")) movements.push("w5_round");
+  if (binding.round_no !== context.round_no) movements.push("w5_round");
   if (binding.scenario_package_reference.scenario_package_id !== context.scenario_package_id) movements.push("w5_scenario_package");
   if (binding.parameter_set_reference.parameter_set_id !== context.parameter_set_id) movements.push("w5_parameter_set");
   if (convergence.security.tenant !== context.tenant_id) movements.push("w5_security_tenant");
   if (convergence.security.course !== context.course_id) movements.push("w5_security_course");
   if (convergence.security.run !== context.run_id) movements.push("w5_security_run");
   if (convergence.security.team !== context.team_id) movements.push("w5_team");
-  if (convergence.security.round !== Number(context.round_id.replace(/^round[-_:]?/iu, ""))) movements.push("w5_security_round");
+  if (convergence.security.round !== context.round_no) movements.push("w5_security_round");
   return movements;
 }
 
