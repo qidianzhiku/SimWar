@@ -13,14 +13,23 @@ import {
 import { stableDigest } from "@simwar/sh-next-support";
 import type {
   IndustryModelRealityJoinContextDto,
-  IndustryModelRealityJoinSupportEvidenceDto
+  IndustryModelRealityJoinSupportEvidenceDto,
+  CoursePackageVersion,
+  QualifiedRunAdmissionSnapshot
 } from "@simwar/shared-contracts";
+import { adaptIndustryModelRealityJoinLineage } from "./industry-model-reality-join-lineage.js";
+import { resolveIndustryModelRealityJoinApplicability } from "./industry-model-reality-join-applicability.js";
 
-export type IndustryModelRealityJoinSupportApplicabilityInput = IndustryModelRealityJoinContextDto & {
-  readonly qualification_id: string;
-};
+export type IndustryModelRealityJoinSupportApplicabilityInput =
+  IndustryModelRealityJoinContextDto & {
+    readonly qualification_id: string;
+    readonly course_package_version?: CoursePackageVersion | null;
+    readonly qualified_run_admission_snapshot?: QualifiedRunAdmissionSnapshot | null;
+    readonly expected_applicability_digest?: string;
+  };
 
 export interface IndustryModelRealityJoinSupportComposition {
+  readonly applicability_status: "BOUND" | "UNAVAILABLE" | "REBASE_REQUIRED";
   readonly support_evidence: IndustryModelRealityJoinSupportEvidenceDto;
   readonly support_evidence_digest: string;
   readonly source_refs: readonly string[];
@@ -60,6 +69,39 @@ export function composeIndustryModelRealityJoinSupport(
     "packages/sh-next-support/src/m5-reality-qualification.ts",
     "packages/sh-next-support/src/m29-main-pull-consumption.ts"
   ] as const;
+  if (
+    requestContext.course_package_version !== undefined &&
+    requestContext.qualified_run_admission_snapshot !== undefined
+  ) {
+    try {
+      const lineage = adaptIndustryModelRealityJoinLineage({
+        as_of: new Date().toISOString(),
+        course_package_version: requestContext.course_package_version!,
+        qualified_run_admission_snapshot: requestContext.qualified_run_admission_snapshot
+      });
+      const applicability = resolveIndustryModelRealityJoinApplicability({
+        exact_context: requestContext,
+        lineage,
+        ...(requestContext.expected_applicability_digest === undefined
+          ? {}
+          : { expected_applicability_digest: requestContext.expected_applicability_digest })
+      });
+      return {
+        applicability_status: applicability.status,
+        support_evidence: applicability.support_evidence,
+        support_evidence_digest: applicability.support_evidence_digest,
+        source_refs: applicability.source_refs,
+        upstream_pack_digests,
+        known_limits: applicability.known_limits,
+        writer_effect: "NONE",
+        official_truth_write: false
+      };
+    } catch {
+      // A missing, stale, or conflicting lineage is deliberately fail-closed.
+      // Keep the established UNAVAILABLE contract rather than leaking a raw
+      // adapter error to the role projection.
+    }
+  }
   const support_evidence: IndustryModelRealityJoinSupportEvidenceDto = {
     availability: "UNAVAILABLE",
     reason: "EXACT_SUPPORT_APPLICABILITY_NOT_PROVEN",
@@ -67,6 +109,7 @@ export function composeIndustryModelRealityJoinSupport(
     upstream_pack_digests
   };
   return {
+    applicability_status: "UNAVAILABLE",
     support_evidence,
     support_evidence_digest: stableDigest({
       support_evidence,

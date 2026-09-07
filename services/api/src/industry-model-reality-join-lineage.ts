@@ -136,12 +136,16 @@ export function adaptIndustryModelRealityJoinLineage(
       admission.scenario_package_reference.content_digest ||
     sourceManifest.scenario_package_reference.scenario_package_id !==
       admission.scenario_package_reference.scenario_package_id ||
-    sourceManifest.scenario_package_reference.version !== admission.scenario_package_reference.version
+    sourceManifest.scenario_package_reference.version !==
+      admission.scenario_package_reference.version
   ) {
     fail("MANIFEST_REFERENCE");
   }
   if (sourceManifest.scenario_package_reference.tenant_id !== admission.tenant_id) {
     fail("CROSS_SCOPE");
+  }
+  if (!sourceManifest.model_version_reference || !sourceManifest.model_artifact_reference) {
+    fail("MODEL_REFERENCE_REQUIRED");
   }
   if (
     sourceManifest.model_version_reference &&

@@ -77,6 +77,7 @@ import type {
   GovernedRollbackRequestInput,
   GovernedRollbackRequestReceipt,
   QualifiedRunAdmissionSnapshot,
+  CoursePackageVersion,
   ReviewEvidenceAdoption,
   AuditLog,
   ModelArtifactReference,
@@ -1890,12 +1891,24 @@ export class ModelQualificationService {
       readonly parameter_set_id: string;
       readonly qualification_id: string;
       readonly expected_reality_join_digest?: string;
+      readonly course_package_version?: CoursePackageVersion | null;
+      readonly qualified_run_admission_snapshot?: QualifiedRunAdmissionSnapshot | null;
+      readonly expected_applicability_digest?: string;
     }
   ): IndustryModelRealityJoinDto {
     const diagnostic = this.getIndustryModelDiagnosticReadiness(actor, scope, input);
     const support = composeIndustryModelRealityJoinSupport({
       ...diagnostic.exact_context,
-      qualification_id: input.qualification_id
+      qualification_id: input.qualification_id,
+      ...(input.course_package_version === undefined
+        ? {}
+        : { course_package_version: input.course_package_version }),
+      ...(input.qualified_run_admission_snapshot === undefined
+        ? {}
+        : { qualified_run_admission_snapshot: input.qualified_run_admission_snapshot }),
+      ...(input.expected_applicability_digest === undefined
+        ? {}
+        : { expected_applicability_digest: input.expected_applicability_digest })
     });
     const supportEvidence: IndustryModelRealityJoinSupportEvidenceDto = support.support_evidence;
     const joinDigest = stableSha256({
@@ -1904,8 +1917,9 @@ export class ModelQualificationService {
       exact_context: diagnostic.exact_context
     });
     const identityMoved =
-      input.expected_reality_join_digest !== undefined &&
-      input.expected_reality_join_digest !== joinDigest;
+      support.applicability_status === "REBASE_REQUIRED" ||
+      (input.expected_reality_join_digest !== undefined &&
+        input.expected_reality_join_digest !== joinDigest);
     const readinessStatus = identityMoved ? "REBASE_REQUIRED" : diagnostic.readiness_status;
     const common = {
       schema_version: "industry-model-reality-join.v1" as const,

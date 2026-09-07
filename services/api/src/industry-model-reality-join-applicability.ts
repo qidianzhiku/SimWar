@@ -34,7 +34,9 @@ export interface IndustryModelRealityJoinLineageFacts {
 }
 
 export interface IndustryModelRealityJoinApplicabilityInput {
-  readonly exact_context: IndustryModelRealityJoinContextDto & { readonly qualification_id: string };
+  readonly exact_context: IndustryModelRealityJoinContextDto & {
+    readonly qualification_id: string;
+  };
   readonly lineage: IndustryModelRealityJoinLineageFacts | null | undefined;
   readonly expected_applicability_digest?: string;
 }
@@ -79,7 +81,8 @@ function unavailable(
     "packages/sh-next-support/src/m30-main-pull-consumption.ts"
   ] as const;
   return {
-    status: reason === "EXACT_SUPPORT_IDENTITY_MOVED_REQUIRES_REBASE" ? "REBASE_REQUIRED" : "UNAVAILABLE",
+    status:
+      reason === "EXACT_SUPPORT_IDENTITY_MOVED_REQUIRES_REBASE" ? "REBASE_REQUIRED" : "UNAVAILABLE",
     reason,
     applicability_digest: stableDigest({ request, reason, upstream_pack_digests }),
     support_evidence,
@@ -142,7 +145,8 @@ export function resolveIndustryModelRealityJoinApplicability(
     upstream_pack_digests,
     portability: {
       status: "PORTABILITY_EVIDENCE_WITH_LIMITS",
-      compatibility_status: m4.compatibility_report.overall_status === "BREAKING" ? "BREAKING" : "COMPATIBLE",
+      compatibility_status:
+        m4.compatibility_report.overall_status === "BREAKING" ? "BREAKING" : "COMPATIBLE",
       external_validity: "NOT_PROVEN",
       package_identity: m4Package.package_id
     },

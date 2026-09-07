@@ -183,9 +183,7 @@ describe("IM-O3 exact Reality Join lineage adapter", () => {
 
     expect(result).toEqual({
       admission_receipt: input.qualified_run_admission_snapshot!.admission,
-      course_package_reference: createCoursePackageVersionReference(
-        input.course_package_version
-      ),
+      course_package_reference: createCoursePackageVersionReference(input.course_package_version),
       evidence_epoch: input.qualified_run_admission_snapshot!.admission.evidence_epoch,
       run_identity: {
         course_id: COURSE_ID,
@@ -304,11 +302,12 @@ describe("IM-O3 exact Reality Join lineage adapter", () => {
 
   it("fails closed for cross-scope M30 data and floating selectors", () => {
     const crossScope = validInput();
-    crossScope.course_package_version.factory_metadata!.source_manifest.scenario_package_reference = {
-      ...crossScope.course_package_version.factory_metadata!.source_manifest
-        .scenario_package_reference,
-      tenant_id: "tenant_other"
-    };
+    crossScope.course_package_version.factory_metadata!.source_manifest.scenario_package_reference =
+      {
+        ...crossScope.course_package_version.factory_metadata!.source_manifest
+          .scenario_package_reference,
+        tenant_id: "tenant_other"
+      };
     expect(() => adaptIndustryModelRealityJoinLineage(crossScope)).toThrow(
       "IM_O3_LINEAGE_CROSS_SCOPE"
     );

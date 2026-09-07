@@ -10,6 +10,7 @@ import type {
   W4StrategicPortfolioProjection,
   ValidationEnvironmentLaunch
 } from "@simwar/shared-contracts";
+import type { CoursePackageVersion } from "@simwar/shared-contracts";
 import type { RepositoryFacade } from "../repository-facade.js";
 import {
   ModelQualificationError,
@@ -33,6 +34,15 @@ interface ModelQualificationRouteContext {
 }
 
 interface ModelQualificationRouteDependencies {
+  getCoursePackageByReference?(
+    tenantId: string,
+    reference: {
+      readonly content_digest: string;
+      readonly course_package_id: string;
+      readonly tenant_id: string;
+      readonly version: string;
+    }
+  ): Promise<CoursePackageVersion | null>;
   getLegacyAdmissionLaunch?(
     tenantId: string,
     launchId: string
@@ -358,6 +368,17 @@ export async function handleModelQualificationRoute(
       course_id: courseId,
       ...requiredContext
     });
+    const qualifiedRunAdmission = await deps.repository.runs.getQualifiedRunAdmission(
+      context.tenantId,
+      requiredContext.run_id
+    );
+    const coursePackage =
+      qualifiedRunAdmission && deps.getCoursePackageByReference
+        ? await deps.getCoursePackageByReference(
+            context.tenantId,
+            qualifiedRunAdmission.admission.course_package_reference
+          )
+        : null;
     if (requestedRole === "student") {
       const visibleCourses = await deps.repository.courses.listCoursesForUser(
         context.tenantId,
@@ -392,7 +413,9 @@ export async function handleModelQualificationRoute(
           ...requiredContext,
           ...(expectedRealityJoinDigest === null
             ? {}
-            : { expected_reality_join_digest: expectedRealityJoinDigest })
+            : { expected_reality_join_digest: expectedRealityJoinDigest }),
+          course_package_version: coursePackage,
+          qualified_run_admission_snapshot: qualifiedRunAdmission
         }
       )
     );
