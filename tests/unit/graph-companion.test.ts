@@ -15,6 +15,10 @@ import {
   evaluateGraphAdmission,
   classifyWriterEvidence,
   classifyMcpHealth,
+  normalizeQuestionContract,
+  buildQuestionReceipt,
+  admitQuestionReceipt,
+  normalizeMcpObservationSet,
   assertArtifactRootSafety,
   evaluatePlanningGate,
   parseCodeGraphAffected,
@@ -487,6 +491,138 @@ describe("Graph Companion V1 pure contracts", () => {
     expect(impact.false_negative_controls).toContain(
       "missing edge expands mandatory safety floors"
     );
+  });
+
+  it("accepts an exact-path and exact-symbol Query Contract V2", () => {
+    const contract = normalizeQuestionContract({
+      question_id: "Q-FORMAL-WRITER",
+      risk_class: "authority",
+      target_sha: "a".repeat(40),
+      canonical_seam: "services/api/src/model-qualification-service.ts#commit",
+      decision_before: "writer authority is not proven",
+      decision_needed: "identify the sole formal writer and its audit path",
+      seed_paths: ["services/api/src/model-qualification-service.ts"],
+      seed_symbols: ["ModelQualificationService.commit"],
+      seed_routes: [],
+      seed_schemas: [],
+      expected_edge_types: ["CALLS", "WRITES"],
+      mandatory_source_readback: ["services/api/src/model-qualification-service.ts:2350-2382"],
+      mandatory_tests: ["tests/unit/model-qualification-service.test.ts"]
+    });
+    expect(contract.schema_version).toBe("GraphQuestionContractV2");
+    expect(contract.question_id).toBe("Q-FORMAL-WRITER");
+  });
+
+  it("rejects a Query Contract V2 with no exact seed", () => {
+    expect(() =>
+      normalizeQuestionContract({
+        question_id: "Q-MISSING-SEED",
+        risk_class: "authority",
+        target_sha: "a".repeat(40),
+        canonical_seam: "services/api/src/model-qualification-service.ts",
+        decision_before: "unknown",
+        decision_needed: "find writer",
+        seed_paths: [],
+        seed_symbols: [],
+        seed_routes: [],
+        seed_schemas: [],
+        expected_edge_types: ["CALLS"],
+        mandatory_source_readback: ["services/api/src/model-qualification-service.ts"],
+        mandatory_tests: ["tests/unit/model-qualification-service.test.ts"]
+      })
+    ).toThrow(/seed/u);
+  });
+
+  it("routes truncated or generic graph results to source fallback", () => {
+    const contract = normalizeQuestionContract({
+      question_id: "Q-PERMISSION",
+      risk_class: "permission",
+      target_sha: "b".repeat(40),
+      canonical_seam: "services/api/src/routes/model-qualification-routes.ts",
+      decision_before: "permission path is unclear",
+      decision_needed: "confirm exact tenant and team checks",
+      seed_paths: ["services/api/src/routes/model-qualification-routes.ts"],
+      seed_symbols: ["assertExactIndustryDiagnosticContext"],
+      seed_routes: ["GET /api/v1/bff/student/model-qualification/reality-join"],
+      seed_schemas: [],
+      expected_edge_types: ["CALLS", "READS"],
+      mandatory_source_readback: ["services/api/src/routes/model-qualification-routes.ts:317-377"],
+      mandatory_tests: ["tests/unit/industry-model-diagnostic-route.test.ts"]
+    });
+    const receipt = buildQuestionReceipt({
+      contract,
+      graphify: {
+        command_ok: true,
+        relevance: "RELEVANT",
+        coverage: "TRUNCATED",
+        truncated: true,
+        anchors: ["assertExactIndustryDiagnosticContext"]
+      },
+      codegraph: {
+        command_ok: true,
+        relevance: "NO_RELEVANCE",
+        coverage: "COMPLETE",
+        truncated: false,
+        generic: true,
+        anchors: ["generic permission helper"]
+      },
+      sourceReadback: {
+        resolved: true,
+        anchors: ["model-qualification-routes.ts:317-377"],
+        unresolved: []
+      }
+    });
+    expect(receipt.graphify.truncated).toBe(true);
+    expect(receipt.codegraph.relevance).toBe("NO_RELEVANCE");
+    expect(admitQuestionReceipt(receipt)).toBe("SOURCE_FALLBACK");
+  });
+
+  it("holds a high-risk seam when source readback is unresolved", () => {
+    const receipt = buildQuestionReceipt({
+      contract: normalizeQuestionContract({
+        question_id: "Q-WRITER-HOLD",
+        risk_class: "authority",
+        target_sha: "c".repeat(40),
+        canonical_seam: "services/api/src/model-qualification-service.ts#commit",
+        decision_before: "unknown",
+        decision_needed: "prove writer",
+        seed_paths: ["services/api/src/model-qualification-service.ts"],
+        seed_symbols: ["commit"],
+        seed_routes: [],
+        seed_schemas: [],
+        expected_edge_types: ["CALLS"],
+        mandatory_source_readback: ["services/api/src/model-qualification-service.ts"],
+        mandatory_tests: ["tests/unit/model-qualification-service.test.ts"]
+      }),
+      graphify: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", anchors: ["commit"] },
+      codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", anchors: ["commit"] },
+      sourceReadback: { resolved: false, anchors: [], unresolved: ["writer audit path"] }
+    });
+    expect(admitQuestionReceipt(receipt)).toBe("HOLD_THIS_SEAM");
+  });
+
+  it("normalizes final MCP observations without turning NOT_OBSERVED into FAIL", () => {
+    const receipt = normalizeMcpObservationSet({ configured: true });
+    expect(receipt.MCP_CONFIGURED).toBe("PASS");
+    expect(receipt.MCP_HANDSHAKE).toBe("NOT_OBSERVED");
+    expect(receipt.MCP_TOOL_LIST).toBe("NOT_OBSERVED");
+    expect(receipt.MCP_TOOL_CALL).toBe("NOT_OBSERVED");
+    expect(receipt.MCP_RESULT_USEFUL).toBe("NOT_OBSERVED");
+    expect(receipt.status).toBe("PASS_WITH_LIMITS");
+  });
+
+  it("records an observed MCP failure as FAIL while preserving other states", () => {
+    const receipt = normalizeMcpObservationSet({
+      configured: true,
+      handshake: true,
+      tool_list: false,
+      tool_call: "NOT_APPLICABLE",
+      useful: "NOT_APPLICABLE"
+    });
+    expect(receipt.MCP_HANDSHAKE).toBe("PASS");
+    expect(receipt.MCP_TOOL_LIST).toBe("FAIL");
+    expect(receipt.MCP_TOOL_CALL).toBe("NOT_APPLICABLE");
+    expect(receipt.status).toBe("FAIL");
   });
 
   it("uses minimal T0 validation for docs-only changes", () => {

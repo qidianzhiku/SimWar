@@ -1,0 +1,19 @@
+{
+  "schema_version": "McpFinalReceiptV2",
+  "purpose": "Canonical final MCP observation semantics",
+  "status_values": ["PASS", "FAIL", "NOT_OBSERVED", "NOT_APPLICABLE"],
+  "checks": [
+    "MCP_CONFIGURED",
+    "MCP_HANDSHAKE",
+    "MCP_TOOL_LIST",
+    "MCP_TOOL_CALL",
+    "MCP_RESULT_USEFUL"
+  ],
+  "rules": [
+    "The receipt is recomputed from the final observation set after all MCP activity.",
+    "NOT_OBSERVED is distinct from FAIL.",
+    "Configuration presence alone does not prove handshake, tool-list, tool-call, or useful-result success.",
+    "Any observed FAIL makes the aggregate status FAIL; otherwise incomplete observation is PASS_WITH_LIMITS.",
+    "MCP evidence remains derived engineering evidence and never becomes Product Truth or a second controller."
+  ]
+}

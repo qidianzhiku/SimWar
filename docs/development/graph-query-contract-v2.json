@@ -1,0 +1,44 @@
+{
+  "schema_version": "GraphQuestionContractV2",
+  "purpose": "Decision-specific Graphify and CodeGraph evidence contract",
+  "required_fields": [
+    "question_id",
+    "risk_class",
+    "target_sha",
+    "canonical_seam",
+    "decision_before",
+    "decision_needed",
+    "seed_paths",
+    "seed_symbols",
+    "seed_routes",
+    "seed_schemas",
+    "expected_edge_types",
+    "mandatory_source_readback",
+    "mandatory_tests"
+  ],
+  "seed_order": [
+    "exact file/path",
+    "exact symbol",
+    "exact route/schema/function",
+    "bounded caller/callee",
+    "changed-file adjacency",
+    "limited-depth expansion"
+  ],
+  "tool_receipt_fields": {
+    "graphify": ["command_ok", "relevance", "coverage", "truncated", "anchors"],
+    "codegraph": ["command_ok", "relevance", "coverage", "truncated", "anchors"],
+    "source_readback": ["resolved", "anchors", "unresolved"]
+  },
+  "admission": {
+    "READY": "Both graph tools are command-ok, relevant, complete and not truncated, and mandatory source readback is resolved.",
+    "SOURCE_FALLBACK": "Source readback is resolved but one or more graph observations are generic, non-relevant, failed, or incomplete.",
+    "HOLD_THIS_SEAM": "Mandatory source readback is unresolved; no graph result may authorize the seam."
+  },
+  "fail_closed_rules": [
+    "A non-empty result is not automatically relevant.",
+    "A truncated result is never complete coverage.",
+    "A generic CodeGraph helper hit is NO_RELEVANCE unless exact seeds and expected edges resolve.",
+    "Graph evidence navigates and discovers scope; source, contract, and tests determine the engineering conclusion.",
+    "Every receipt is bound to the exact target_sha and records the source fallback decision independently."
+  ]
+}

@@ -195,3 +195,33 @@ product truth, a formal writer, a global quality gate, a mission registry, or
 an automatic successor trigger. When an admission stage is blocked, continue
 legal low-risk source/documentation work with an explicit source-only receipt;
 hold only the high-risk seam whose authority chain cannot be proven.
+
+## 14. Query Contract V2
+
+Decision-useful graph work starts from an exact question contract, not a broad
+natural-language probe. Every contract binds `target_sha`, a canonical seam,
+the decision before/after the query, exact path/symbol/route/schema seeds,
+expected edge types, mandatory source readback, and mandatory tests. Query
+ordering is exact path, exact symbol, exact route/schema/function, bounded
+caller/callee, changed-file adjacency, then limited-depth expansion.
+
+Each question has independent Graphify and CodeGraph receipts containing
+`command_ok`, `relevance`, `coverage`, `truncated`, and `anchors`, plus source
+readback `resolved`, `anchors`, and `unresolved`. A generic CodeGraph helper,
+an empty result, or a truncated Graphify expansion is not confirmatory. The
+question admission can be `READY`, `SOURCE_FALLBACK`, or `HOLD_THIS_SEAM`; the
+last state is mandatory when high-risk source readback is unresolved. See
+`docs/development/graph-query-contract-v2.json` and the exported
+`normalizeQuestionContract`, `buildQuestionReceipt`, and
+`admitQuestionReceipt` helpers.
+
+## 15. Canonical final MCP receipt
+
+After all direct MCP activity, recompute one final receipt with
+`normalizeMcpObservationSet`. The five checks are
+`MCP_CONFIGURED`, `MCP_HANDSHAKE`, `MCP_TOOL_LIST`, `MCP_TOOL_CALL`, and
+`MCP_RESULT_USEFUL`; each is one of `PASS`, `FAIL`, `NOT_OBSERVED`, or
+`NOT_APPLICABLE`. `NOT_OBSERVED` is not a failure. Configuration-only local
+evidence therefore remains `PASS_WITH_LIMITS` and cannot be upgraded to an
+operational tool-call claim. The machine output is `mcp-final-receipt.json`
+under the external evidence root; no receipt is committed into the repository.

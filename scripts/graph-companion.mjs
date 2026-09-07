@@ -576,7 +576,7 @@ export function discoverTools({ cwd = DEFAULT_REPO_ROOT } = {}) {
     ],
     graphify_available: graphifyOk,
     codegraph_available: codegraphOk,
-    mcp_health: classifyMcpHealth({ configured: mcpConfigured }),
+    mcp_health: normalizeMcpObservationSet({ configured: mcpConfigured }),
     mcp_evidence: mcpConfigured ? "CONFIG_ONLY_HANDSHAKE_NOT_RUN" : "NOT_CONFIGURED",
     github_workflow: "LOCAL_CODEX_ORCHESTRATION_ONLY_V1"
   };
@@ -1782,6 +1782,187 @@ function nonEmpty(value) {
     : value !== null && value !== undefined;
 }
 
+const QUESTION_CONTRACT_FIELDS = [
+  "question_id",
+  "risk_class",
+  "target_sha",
+  "canonical_seam",
+  "decision_before",
+  "decision_needed",
+  "seed_paths",
+  "seed_symbols",
+  "seed_routes",
+  "seed_schemas",
+  "expected_edge_types",
+  "mandatory_source_readback",
+  "mandatory_tests"
+];
+
+function stringArray(value, field) {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || !item.trim())) {
+    throw new Error(`Query Contract V2 ${field} must be an array of non-empty strings`);
+  }
+  return value.map((item) => item.trim());
+}
+
+/**
+ * Normalize and validate one decision-specific graph question. The contract
+ * intentionally requires exact seeds so broad natural-language probes cannot
+ * be mistaken for decision-useful graph evidence.
+ */
+export function normalizeQuestionContract(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input))
+    throw new Error("Query Contract V2 must be an object");
+  for (const field of QUESTION_CONTRACT_FIELDS) {
+    if (!(field in input)) throw new Error(`Query Contract V2 missing ${field}`);
+  }
+  for (const field of ["question_id", "risk_class", "canonical_seam", "decision_before", "decision_needed"]) {
+    if (typeof input[field] !== "string" || !input[field].trim())
+      throw new Error(`Query Contract V2 ${field} must be a non-empty string`);
+  }
+  if (!/^[0-9a-f]{40}$/iu.test(input.target_sha))
+    throw new Error("Query Contract V2 target_sha must be a 40-character commit SHA");
+  const seedFields = ["seed_paths", "seed_symbols", "seed_routes", "seed_schemas"];
+  const normalized = Object.fromEntries(
+    ["question_id", "risk_class", "target_sha", "canonical_seam", "decision_before", "decision_needed"].map(
+      (field) => [field, input[field].trim()]
+    )
+  );
+  for (const field of seedFields) normalized[field] = stringArray(input[field], field);
+  if (!seedFields.some((field) => normalized[field].length > 0))
+    throw new Error("Query Contract V2 requires at least one exact seed");
+  normalized.expected_edge_types = stringArray(input.expected_edge_types, "expected_edge_types");
+  normalized.mandatory_source_readback = stringArray(
+    input.mandatory_source_readback,
+    "mandatory_source_readback"
+  );
+  normalized.mandatory_tests = stringArray(input.mandatory_tests, "mandatory_tests");
+  return { schema_version: "GraphQuestionContractV2", ...normalized };
+}
+
+function normalizeRelevance(value, fallback) {
+  const raw = typeof value === "string" ? value.toUpperCase() : value;
+  if (raw === "RELEVANT" || raw === true) return "RELEVANT";
+  if (raw === "NO_RELEVANCE" || raw === "GENERIC" || raw === false || fallback === true)
+    return "NO_RELEVANCE";
+  return "UNKNOWN";
+}
+
+function normalizeCoverage(value, truncated) {
+  const raw = typeof value === "string" ? value.toUpperCase() : value;
+  if (truncated === true || raw === "TRUNCATED" || raw === "PARTIAL") return "TRUNCATED";
+  if (raw === "COMPLETE") return "COMPLETE";
+  return "UNKNOWN";
+}
+
+function normalizeToolQuestionEvidence(input) {
+  const value = input && typeof input === "object" ? input : {};
+  const commandOk =
+    typeof value.command_ok === "boolean"
+      ? value.command_ok
+      : Number(value.exit_code ?? value.exitCode ?? 1) === 0;
+  const anchors = Array.isArray(value.anchors)
+    ? value.anchors.filter((anchor) => typeof anchor === "string" && anchor.trim()).map((anchor) => anchor.trim())
+    : [];
+  return {
+    command_ok: commandOk,
+    relevance: normalizeRelevance(value.relevance, value.generic === true),
+    coverage: normalizeCoverage(value.coverage, value.truncated === true),
+    truncated: value.truncated === true || String(value.coverage || "").toUpperCase() === "TRUNCATED",
+    anchors
+  };
+}
+
+function normalizeSourceReadback(input) {
+  const value = input && typeof input === "object" ? input : {};
+  return {
+    resolved: value.resolved === true,
+    anchors: Array.isArray(value.anchors)
+      ? value.anchors.filter((anchor) => typeof anchor === "string" && anchor.trim()).map((anchor) => anchor.trim())
+      : [],
+    unresolved: Array.isArray(value.unresolved)
+      ? value.unresolved
+          .filter((item) => typeof item === "string" && item.trim())
+          .map((item) => item.trim())
+      : []
+  };
+}
+
+/**
+ * Convert raw Graphify/CodeGraph/source observations into a per-question
+ * receipt. Generic graph hits and truncated expansion remain explicit.
+ */
+export function buildQuestionReceipt({ contract, graphify, codegraph, sourceReadback } = {}) {
+  const normalizedContract = normalizeQuestionContract(contract);
+  const receipt = {
+    schema_version: "GraphQuestionReceiptV2",
+    question_id: normalizedContract.question_id,
+    risk_class: normalizedContract.risk_class,
+    target_sha: normalizedContract.target_sha,
+    canonical_seam: normalizedContract.canonical_seam,
+    graphify: normalizeToolQuestionEvidence(graphify),
+    codegraph: normalizeToolQuestionEvidence(codegraph),
+    source_readback: normalizeSourceReadback(sourceReadback)
+  };
+  receipt.question_admission = admitQuestionReceipt(receipt);
+  return receipt;
+}
+
+/**
+ * Admit one question independently. READY requires both exact graph tools and
+ * source readback; source evidence can still be useful as a bounded fallback.
+ */
+export function admitQuestionReceipt(receipt) {
+  const graphReady = [receipt?.graphify, receipt?.codegraph].every(
+    (tool) =>
+      tool?.command_ok === true &&
+      tool.relevance === "RELEVANT" &&
+      tool.coverage === "COMPLETE" &&
+      tool.truncated !== true
+  );
+  const sourceResolved = receipt?.source_readback?.resolved === true;
+  if (!sourceResolved) return "HOLD_THIS_SEAM";
+  return graphReady ? "READY" : "SOURCE_FALLBACK";
+}
+
+const MCP_FINAL_STATES = new Set(["PASS", "FAIL", "NOT_OBSERVED", "NOT_APPLICABLE"]);
+
+function normalizeMcpState(value) {
+  if (typeof value === "object" && value !== null) return normalizeMcpState(value.status);
+  if (value === true) return "PASS";
+  if (value === false) return "FAIL";
+  if (value === null || value === undefined) return "NOT_OBSERVED";
+  const normalized = String(value).toUpperCase();
+  return MCP_FINAL_STATES.has(normalized) ? normalized : "NOT_OBSERVED";
+}
+
+/**
+ * Produce the one canonical receipt from the final MCP activity set. A lack of
+ * an independently observed handshake/tool call is NOT_OBSERVED, not FAIL.
+ */
+export function normalizeMcpObservationSet(observations = {}) {
+  const checks = {
+    MCP_CONFIGURED: normalizeMcpState(observations.configured),
+    MCP_HANDSHAKE: normalizeMcpState(observations.handshake),
+    MCP_TOOL_LIST: normalizeMcpState(observations.tool_list ?? observations.toolList),
+    MCP_TOOL_CALL: normalizeMcpState(observations.tool_call ?? observations.toolCall),
+    MCP_RESULT_USEFUL: normalizeMcpState(observations.useful)
+  };
+  const states = Object.values(checks);
+  const status = states.includes("FAIL")
+    ? "FAIL"
+    : states.every((state) => state === "PASS" || state === "NOT_APPLICABLE")
+      ? "PASS"
+      : "PASS_WITH_LIMITS";
+  return {
+    schema_version: "McpFinalReceiptV2",
+    final_observation: true,
+    status,
+    ...checks,
+    checks
+  };
+}
+
 /**
  * Four-stage machine admission for exact-target graph evidence. Query output
  * can never compensate for a failed/unknown build or snapshot identity.
@@ -2333,10 +2514,21 @@ export function runCompanion({
     freshness: finalFreshness,
     automatic_next_start: false
   };
+  const finalMcpReceipt = normalizeMcpObservationSet({
+    configured: tools.mcp_health?.MCP_CONFIGURED,
+    handshake: tools.mcp_health?.MCP_HANDSHAKE,
+    tool_list: tools.mcp_health?.MCP_TOOL_LIST,
+    tool_call: tools.mcp_health?.MCP_TOOL_CALL,
+    useful: tools.mcp_health?.MCP_RESULT_USEFUL
+  });
   writeReceipt(evidence, "graph-state.json", graphState);
   writeReceipt(evidence, "tool-health.json", tools);
   writeReceipt(evidence, "mcp-health.json", {
-    ...tools.mcp_health,
+    ...finalMcpReceipt,
+    evidence: tools.mcp_evidence || "NOT_RUN"
+  });
+  writeReceipt(evidence, "mcp-final-receipt.json", {
+    ...finalMcpReceipt,
     evidence: tools.mcp_evidence || "NOT_RUN"
   });
   writeReceipt(evidence, "writer.json", graphState.writer_evidence);
