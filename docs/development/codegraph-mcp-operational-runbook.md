@@ -139,3 +139,59 @@ platform work after the worktree-level status and fallback rule are understood.
 The CodeGraph MCP setup is considered operational enough for SimWar
 development. Future work should focus on SimWar product and platform tasks, not
 repeated MCP installation troubleshooting.
+
+## 10. Exact-target admission (Graph Admission V1)
+
+The Graph Companion now exposes a four-stage admission contract. A non-empty
+query is never sufficient to call a snapshot current-target ready:
+
+1. `BUILD_HEALTH` — the status command must exit successfully and produce
+   valid structured metadata.
+2. `SNAPSHOT_APPLICABILITY` — repository SHA, tree SHA, configuration digest,
+   build identity, and `lastIndexed` must be present and match the requested
+   target. A newer timestamp cannot substitute for identity.
+3. `QUERY_USEFULNESS` — command success, relevance, and coverage completeness
+   are tracked separately. `TRUNCATED`, `NO_RELEVANCE`, `COMMAND_FAILED`, and
+   `NOT_RUN` are explicit outcomes.
+4. `DECISION_ADMISSION` — only four passing stages yield
+   `EXACT_TARGET_READY`. Invalid metadata, missing identity, historical SHA,
+   or incomplete query coverage fail closed for that seam.
+
+The pure contract is exported by `scripts/graph-companion.mjs` as
+`evaluateGraphAdmission` and is covered by `KG-ADM-001` through `KG-ADM-005`
+in `tests/unit/graph-companion.test.ts`. Consumers must preserve the returned
+stage values in receipts rather than collapsing them into one boolean.
+
+## 11. Artifact roots and writer evidence
+
+Graph output and evidence must live outside the source worktree. Use
+`assertArtifactRootSafety` before creating a directory; it rejects equal,
+nested, case-insensitive, and physical symlink/junction paths. Failed checks
+must happen before clone, extraction, or index creation.
+
+Writer status is intentionally conservative:
+
+- `NO_CONTENTION_OBSERVED` means only that no contention was observed;
+- `LOCK_OWNERSHIP_PROVEN` requires build key, owner, process id, start time,
+  and heartbeat evidence;
+- `LOCK_OWNERSHIP_UNKNOWN` must not trigger lock deletion or process killing.
+
+Use `classifyWriterEvidence` for the machine receipt and keep the owner
+evidence alongside the build key. A successful CLI command does not prove
+exclusive ownership.
+
+## 12. MCP health is a ladder, not a configuration flag
+
+Record `MCP_CONFIGURED`, `MCP_HANDSHAKE_OK`, `MCP_TOOL_LIST_OK`,
+`MCP_TOOL_CALL_OK`, and `MCP_RESULT_USEFUL` independently. Configuration is
+not a handshake, a handshake is not a callable tool, and a callable tool is
+not useful evidence. `classifyMcpHealth` provides the small structured shape;
+it does not install, upgrade, or silently change MCP configuration.
+
+## 13. Evidence boundaries
+
+Graphify and CodeGraph remain derived engineering evidence. They do not become
+product truth, a formal writer, a global quality gate, a mission registry, or
+an automatic successor trigger. When an admission stage is blocked, continue
+legal low-risk source/documentation work with an explicit source-only receipt;
+hold only the high-risk seam whose authority chain cannot be proven.

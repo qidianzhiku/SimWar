@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import {
   buildArchitectureDelta,
   buildRiskDelta,
@@ -9,6 +12,10 @@ import {
   classifyPlanningDocuments,
   classifyPath,
   codeGraphWorkspacePath,
+  evaluateGraphAdmission,
+  classifyWriterEvidence,
+  classifyMcpHealth,
+  assertArtifactRootSafety,
   evaluatePlanningGate,
   parseCodeGraphAffected,
   parseCodeGraphStatus,
@@ -16,6 +23,179 @@ import {
 } from "../../scripts/graph-companion.mjs";
 
 describe("Graph Companion V1 pure contracts", () => {
+  it("rejects an invalid index status even when both queries return data (KG-ADM-001)", () => {
+    const admission = evaluateGraphAdmission({
+      target: { repo_sha: "a".repeat(40), tree_sha: "tree-a", config_digest: "cfg-a" },
+      status: { exit_code: 1, raw: '{"lastIndexed":"a"}', json: { lastIndexed: "a" } },
+      queries: [
+        { exit_code: 0, output: "relevant result", relevant: true, coverage: "COMPLETE" },
+        { exit_code: 0, output: "relevant result", relevant: true, coverage: "COMPLETE" }
+      ]
+    });
+    expect(admission.stages.BUILD_HEALTH.status).toBe("FAIL");
+    expect(admission.decision).toBe("BLOCKED_INDEX_METADATA");
+  });
+
+  it("rejects invalid JSON status (KG-ADM-002)", () => {
+    const admission = evaluateGraphAdmission({
+      target: { repo_sha: "a".repeat(40), tree_sha: "tree-a", config_digest: "cfg-a" },
+      status: { exit_code: 0, raw: "not-json", json: null },
+      queries: [{ exit_code: 0, output: "relevant", relevant: true, coverage: "COMPLETE" }]
+    });
+    expect(admission.stages.BUILD_HEALTH.status).toBe("FAIL");
+    expect(admission.decision).toBe("BLOCKED_INDEX_METADATA");
+  });
+
+  it("rejects a repository/tree/config mismatch (KG-ADM-003)", () => {
+    const admission = evaluateGraphAdmission({
+      target: { repo_sha: "a".repeat(40), tree_sha: "tree-a", config_digest: "cfg-a" },
+      status: {
+        exit_code: 0,
+        raw: "{}",
+        json: {
+          repo_sha: "b".repeat(40),
+          tree_sha: "tree-b",
+          config_digest: "cfg-b",
+          identity: "build-b",
+          lastIndexed: "2026-09-07T00:00:00Z"
+        }
+      },
+      queries: [{ exit_code: 0, output: "relevant", relevant: true, coverage: "COMPLETE" }]
+    });
+    expect(admission.stages.SNAPSHOT_APPLICABILITY.status).toBe("MISMATCH");
+    expect(admission.decision).toBe("BLOCKED_TARGET_MISMATCH");
+  });
+
+  it("does not infer target identity when identity metadata is missing (KG-ADM-004)", () => {
+    const admission = evaluateGraphAdmission({
+      target: { repo_sha: "a".repeat(40), tree_sha: "tree-a", config_digest: "cfg-a" },
+      status: {
+        exit_code: 0,
+        raw: "{}",
+        json: {
+          repo_sha: "a".repeat(40),
+          tree_sha: "tree-a",
+          config_digest: "cfg-a",
+          lastIndexed: "2026-09-07T00:00:00Z"
+        }
+      },
+      queries: [{ exit_code: 0, output: "relevant", relevant: true, coverage: "COMPLETE" }]
+    });
+    expect(admission.stages.SNAPSHOT_APPLICABILITY.status).toBe("UNKNOWN");
+    expect(admission.decision).toBe("BLOCKED_TARGET_UNKNOWN");
+  });
+
+  it("rejects a historical index whose SHA differs from the target (KG-ADM-005)", () => {
+    const admission = evaluateGraphAdmission({
+      target: { repo_sha: "a".repeat(40), tree_sha: "tree-a", config_digest: "cfg-a" },
+      status: {
+        exit_code: 0,
+        raw: "{}",
+        json: {
+          repo_sha: "b".repeat(40),
+          tree_sha: "tree-a",
+          config_digest: "cfg-a",
+          identity: "build-b",
+          lastIndexed: "2026-09-07T00:00:00Z"
+        }
+      },
+      queries: [{ exit_code: 0, output: "relevant", relevant: true, coverage: "COMPLETE" }]
+    });
+    expect(admission.stages.SNAPSHOT_APPLICABILITY.target_match).toBe("FALSE");
+    expect(admission.decision).toBe("BLOCKED_TARGET_MISMATCH");
+  });
+
+  it("does not promote truncated or irrelevant queries to exact-target ready", () => {
+    const target = { repo_sha: "a".repeat(40), tree_sha: "tree-a", config_digest: "cfg-a" };
+    const status = {
+      exit_code: 0,
+      raw: "{}",
+      json: { ...target, identity: "build-a", lastIndexed: "2026-09-07T00:00:00Z" }
+    };
+    const truncated = evaluateGraphAdmission({
+      target,
+      status,
+      queries: [{ exit_code: 0, output: "partial", relevant: true, coverage: "TRUNCATED" }]
+    });
+    expect(truncated.stages.QUERY_USEFULNESS.status).toBe("TRUNCATED");
+    expect(truncated.exact_target_ready).toBe(false);
+    const irrelevant = evaluateGraphAdmission({
+      target,
+      status,
+      queries: [{ exit_code: 0, output: "baseline", relevant: false, coverage: "COMPLETE" }]
+    });
+    expect(irrelevant.stages.QUERY_USEFULNESS.status).toBe("NO_RELEVANCE");
+  });
+
+  it("distinguishes unknown writer ownership from an observed lack of contention", () => {
+    expect(classifyWriterEvidence({ observedErrors: [] }).state).toBe("NO_CONTENTION_OBSERVED");
+    expect(
+      classifyWriterEvidence({
+        observedErrors: [],
+        owner: {
+          build_key: "k",
+          owner: "codex",
+          process_id: 42,
+          started_at: "t",
+          heartbeat_at: "t"
+        }
+      }).state
+    ).toBe("LOCK_OWNERSHIP_PROVEN");
+    expect(classifyWriterEvidence({ observedErrors: ["unknown lock"] }).state).toBe(
+      "LOCK_OWNERSHIP_UNKNOWN"
+    );
+  });
+
+  it("keeps MCP configured, handshake, tool call, and useful result separate", () => {
+    expect(
+      classifyMcpHealth({
+        configured: true,
+        handshake: true,
+        tool_list: true,
+        tool_call: true,
+        useful: false
+      })
+    ).toEqual({
+      MCP_CONFIGURED: true,
+      MCP_HANDSHAKE_OK: true,
+      MCP_TOOL_LIST_OK: true,
+      MCP_TOOL_CALL_OK: true,
+      MCP_RESULT_USEFUL: false
+    });
+  });
+
+  it("rejects equal and nested ArtifactRoot paths before any write", () => {
+    const source = "D:/simwar/source";
+    expect(() => assertArtifactRootSafety({ projectRoot: source, artifactRoot: source })).toThrow();
+    expect(() =>
+      assertArtifactRootSafety({ projectRoot: source, artifactRoot: "D:/simwar/source/graph" })
+    ).toThrow();
+    expect(
+      assertArtifactRootSafety({
+        projectRoot: source,
+        artifactRoot: "D:/simwar/artifacts"
+      }).replaceAll("\\", "/")
+    ).toContain("D:/simwar/artifacts");
+  });
+
+  it("rejects a physical alias that resolves an external path into the source", () => {
+    const root = mkdtempSync(join(tmpdir(), "simwar-artifact-safety-"));
+    const source = join(root, "source");
+    const outside = join(root, "outside");
+    mkdirSync(source);
+    mkdirSync(outside);
+    try {
+      expect(() =>
+        assertArtifactRootSafety({
+          projectRoot: source,
+          artifactRoot: join(outside, "graph"),
+          realpath: (path) => (path === outside ? source : path)
+        })
+      ).toThrow(/resolves inside/u);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
   it("resolves a stable graph home without a user-specific hard-coded path", () => {
     expect(
       resolveGraphHome({

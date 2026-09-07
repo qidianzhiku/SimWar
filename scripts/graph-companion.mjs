@@ -5,6 +5,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   renameSync,
   rmSync,
   writeFileSync
@@ -12,15 +13,7 @@ import {
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { homedir, platform as hostPlatform, tmpdir } from "node:os";
-import {
-  basename,
-  dirname,
-  isAbsolute,
-  join,
-  relative,
-  resolve,
-  win32 as win32Path
-} from "node:path";
+import { basename, dirname, join, resolve, win32 as win32Path } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SCRIPT_ROOT = dirname(fileURLToPath(import.meta.url));
@@ -1390,12 +1383,29 @@ function runCodeGraphIndex({ repoRoot, tools, graphHome, repository, currentSha 
       version: tools?.tools?.find((tool) => tool.tool === "CodeGraph")?.version || "UNKNOWN",
       warnings: [result.stderr || result.error || "CodeGraph index operation failed"]
     };
+  const treeSha = git(indexRoot, ["rev-parse", `${currentSha}^{tree}`], { allowFailure: true });
+  const admissionMetadata = {
+    schema_version: "GraphAdmissionMetadataV1",
+    repo_sha: currentSha,
+    tree_sha: treeSha || null,
+    config_digest: sha256({
+      command,
+      tool: "CodeGraph",
+      version: tools?.tools?.find((tool) => tool.tool === "CodeGraph")?.version || "UNKNOWN"
+    }),
+    identity: `${repository.owner}/${repository.name}:${currentSha}:${treeSha || "UNKNOWN"}`,
+    lastIndexed: new Date().toISOString(),
+    status_command_exit_code: 0,
+    automatic_next_start: false
+  };
+  atomicWrite(join(indexRoot, ".codegraph", "simwar-admission.json"), admissionMetadata);
   return {
     ...parseCodeGraphStatus(status.stdout, indexRoot),
     workspace_root: indexRoot,
     command: `${CODEGRAPH_DISPLAY_COMMAND} ${command[0]}`,
     command_ok: true,
-    version: tools?.tools?.find((tool) => tool.tool === "CodeGraph")?.version || "UNKNOWN"
+    version: tools?.tools?.find((tool) => tool.tool === "CodeGraph")?.version || "UNKNOWN",
+    admission_metadata: admissionMetadata
   };
 }
 
@@ -1633,13 +1643,208 @@ function ensureEvidenceRoot(path) {
 }
 
 export function assertExternalGraphHome(graphHome, repoRoot) {
-  const home = resolve(graphHome);
-  const root = resolve(repoRoot);
-  const relativePath = relative(root, home);
-  const insideSource =
-    relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
-  if (insideSource) throw new Error("Graph home must be outside the source worktree");
-  return home;
+  try {
+    return assertArtifactRootSafety({ projectRoot: repoRoot, artifactRoot: graphHome });
+  } catch (error) {
+    throw new Error("Graph home must be outside the source worktree", { cause: error });
+  }
+}
+
+function comparePath(path) {
+  return resolve(path).replaceAll("\\", "/").replace(/\/+$/u, "").toLowerCase();
+}
+
+function pathContains(root, candidate) {
+  const normalizedRoot = comparePath(root);
+  const normalizedCandidate = comparePath(candidate);
+  return (
+    normalizedCandidate === normalizedRoot || normalizedCandidate.startsWith(`${normalizedRoot}/`)
+  );
+}
+
+function nearestExistingPath(path) {
+  let current = resolve(path);
+  while (!existsSync(current)) {
+    const parent = dirname(current);
+    if (parent === current) return null;
+    current = parent;
+  }
+  return current;
+}
+
+/**
+ * Validate an external artifact root before creating or publishing anything.
+ * Lexical and physical checks are both required so a junction/symlink cannot
+ * redirect a supposedly external root back into the source worktree.
+ */
+export function assertArtifactRootSafety({
+  projectRoot,
+  artifactRoot,
+  realpath = realpathSync.native
+}) {
+  const source = resolve(projectRoot);
+  const artifact = resolve(artifactRoot);
+  if (pathContains(source, artifact)) {
+    throw new Error("Artifact root must be external to the source worktree");
+  }
+
+  const sourceExisting = existsSync(source) ? nearestExistingPath(source) : null;
+  const artifactExisting = nearestExistingPath(artifact);
+  if (sourceExisting && artifactExisting) {
+    try {
+      const sourcePhysical = realpath(sourceExisting);
+      const artifactPhysical = realpath(artifactExisting);
+      if (pathContains(sourcePhysical, artifactPhysical)) {
+        throw new Error("Artifact root resolves inside the source worktree");
+      }
+    } catch (error) {
+      if (error instanceof Error && /Artifact root resolves/u.test(error.message)) throw error;
+      // An as-yet-uncreated external path may not have a realpath. Lexical
+      // containment has already been checked, so retain the safe fallback.
+    }
+  }
+  return artifact;
+}
+
+function statusJsonFromInput(status) {
+  if (status?.json && typeof status.json === "object") return status.json;
+  if (typeof status?.raw !== "string" || !status.raw.trim()) return null;
+  try {
+    const parsed = JSON.parse(status.raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function nonEmpty(value) {
+  return typeof value === "string"
+    ? value.trim().length > 0
+    : value !== null && value !== undefined;
+}
+
+/**
+ * Four-stage machine admission for exact-target graph evidence. Query output
+ * can never compensate for a failed/unknown build or snapshot identity.
+ */
+export function evaluateGraphAdmission({ target, status, queries = [] }) {
+  const parsed = statusJsonFromInput(status);
+  const buildOk = Number(status?.exit_code ?? status?.exitCode ?? 1) === 0 && parsed !== null;
+  const buildStage = {
+    status: buildOk ? "PASS" : "FAIL",
+    reason: buildOk ? "status command succeeded with valid JSON" : "INDEX_METADATA_INVALID"
+  };
+
+  const metadata = parsed || {};
+  const requiredMetadata = ["repo_sha", "tree_sha", "config_digest", "identity", "lastIndexed"];
+  const metadataComplete = requiredMetadata.every((field) => nonEmpty(metadata[field]));
+  const targetComplete = ["repo_sha", "tree_sha", "config_digest"].every((field) =>
+    nonEmpty(target?.[field])
+  );
+  const targetMatch =
+    metadataComplete && targetComplete
+      ? metadata.repo_sha === target.repo_sha &&
+        metadata.tree_sha === target.tree_sha &&
+        metadata.config_digest === target.config_digest
+        ? "TRUE"
+        : "FALSE"
+      : "UNKNOWN";
+  const snapshotStatus =
+    !buildOk || !metadataComplete || !targetComplete
+      ? "UNKNOWN"
+      : targetMatch === "TRUE"
+        ? "PASS"
+        : "MISMATCH";
+  const snapshotStage = {
+    status: snapshotStatus,
+    target_match: targetMatch,
+    identity_present: nonEmpty(metadata.identity),
+    last_indexed_present: nonEmpty(metadata.lastIndexed),
+    reason:
+      snapshotStatus === "PASS"
+        ? "repo/tree/config/identity/lastIndexed match target"
+        : snapshotStatus === "MISMATCH"
+          ? "snapshot identity differs from target"
+          : "snapshot applicability cannot be proven"
+  };
+
+  let queryStatus = "PASS";
+  let queryReason = "all query commands returned relevant complete evidence";
+  if (queries.length === 0) {
+    queryStatus = "NOT_RUN";
+    queryReason = "no query result supplied";
+  } else if (queries.some((query) => Number(query?.exit_code ?? query?.exitCode ?? 1) !== 0)) {
+    queryStatus = "COMMAND_FAILED";
+    queryReason = "one or more query commands failed";
+  } else if (
+    queries.some((query) => query?.coverage === "TRUNCATED" || query?.truncated === true)
+  ) {
+    queryStatus = "TRUNCATED";
+    queryReason = "query output was truncated; coverage is incomplete";
+  } else if (queries.some((query) => query?.relevant !== true || !nonEmpty(query?.output))) {
+    queryStatus = "NO_RELEVANCE";
+    queryReason = "query output is empty or not relevant to the decision question";
+  }
+  const queryStage = { status: queryStatus, reason: queryReason };
+
+  let decision = "EXACT_TARGET_READY";
+  if (!buildOk) decision = "BLOCKED_INDEX_METADATA";
+  else if (snapshotStatus === "MISMATCH") decision = "BLOCKED_TARGET_MISMATCH";
+  else if (snapshotStatus !== "PASS") decision = "BLOCKED_TARGET_UNKNOWN";
+  else if (queryStatus !== "PASS") decision = "BLOCKED_QUERY_NOT_USEFUL";
+  const decisionStage = {
+    status: decision === "EXACT_TARGET_READY" ? "READY" : "BLOCKED",
+    decision,
+    automatic_next_start: false
+  };
+  return {
+    schema_version: "GraphAdmissionV1",
+    stages: {
+      BUILD_HEALTH: buildStage,
+      SNAPSHOT_APPLICABILITY: snapshotStage,
+      QUERY_USEFULNESS: queryStage,
+      DECISION_ADMISSION: decisionStage
+    },
+    decision,
+    exact_target_ready: decision === "EXACT_TARGET_READY",
+    automatic_next_start: false
+  };
+}
+
+export function classifyWriterEvidence({
+  owner = null,
+  observedErrors = [],
+  lockPresent = false
+} = {}) {
+  const ownerFields = ["build_key", "owner", "process_id", "started_at", "heartbeat_at"];
+  if (owner && ownerFields.every((field) => nonEmpty(owner[field]))) {
+    return { state: "LOCK_OWNERSHIP_PROVEN", owner, delete_unknown_lock: false };
+  }
+  if (lockPresent || observedErrors.length > 0) {
+    return {
+      state: "LOCK_OWNERSHIP_UNKNOWN",
+      owner: owner || null,
+      observed_errors: observedErrors,
+      delete_unknown_lock: false
+    };
+  }
+  return { state: "NO_CONTENTION_OBSERVED", owner: null, delete_unknown_lock: false };
+}
+
+export function classifyMcpHealth({
+  configured = false,
+  handshake = false,
+  tool_list = false,
+  tool_call = false,
+  useful = false
+} = {}) {
+  return {
+    MCP_CONFIGURED: Boolean(configured),
+    MCP_HANDSHAKE_OK: Boolean(handshake),
+    MCP_TOOL_LIST_OK: Boolean(tool_list),
+    MCP_TOOL_CALL_OK: Boolean(tool_call),
+    MCP_RESULT_USEFUL: Boolean(useful)
+  };
 }
 
 export function runCompanion({
@@ -1914,6 +2119,22 @@ export function runCompanion({
     graphFound: Boolean(graph),
     sourceAvailable: true
   });
+  const targetTreeSha = git(root, ["rev-parse", `${current}^{tree}`], { allowFailure: true });
+  const graphAdmission = evaluateGraphAdmission({
+    target: {
+      repo_sha: current,
+      tree_sha: targetTreeSha,
+      config_digest: codegraph.admission_metadata?.config_digest || null
+    },
+    status: {
+      exit_code: codegraph.admission_metadata?.status_command_exit_code ?? 1,
+      json: codegraph.admission_metadata || null
+    },
+    // The companion builds/indexes snapshots but does not invent a business
+    // question. Query usefulness is admitted only by a subsequent read-only
+    // query receipt, so this remains NOT_RUN here by design.
+    queries: []
+  });
   const delta = buildArchitectureDelta({
     baseSha: validatedBase || sourceForDiff,
     targetSha: analysisTarget,
@@ -2034,6 +2255,7 @@ export function runCompanion({
   writeReceipt(evidence, "risk-delta.json", risk);
   writeReceipt(evidence, "planning-reality.json", planningReality);
   writeReceipt(evidence, "planning-gate.json", planningGate);
+  writeReceipt(evidence, "admission.json", graphAdmission);
   atomicWrite(
     join(evidence, "graph-companion", "summary.md"),
     summaryMarkdown({
