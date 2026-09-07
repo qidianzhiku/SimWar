@@ -20,6 +20,7 @@ import {
   admitQuestionReceipt,
   normalizeQueryEvidenceForAdmission,
   normalizeMcpObservationSet,
+  resolveEffectiveQueryTarget,
   assertArtifactRootSafety,
   evaluatePlanningGate,
   parseCodeGraphAffected,
@@ -611,6 +612,216 @@ describe("Graph Companion V1 pure contracts", () => {
     expect(admitQuestionReceipt(receipt)).toBe("HOLD_THIS_SEAM");
   });
 
+  it("holds mandatory source readback when anchors are empty", () => {
+    const receipt = {
+      risk_class: "authority",
+      graphify: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      source_readback: { resolved: true, anchors: [], unresolved: [] }
+    };
+    expect(admitQuestionReceipt(receipt)).toBe("HOLD_THIS_SEAM");
+  });
+
+  it("does not require a fabricated source anchor when the contract opts out", () => {
+    const receipt = {
+      mandatory_source_readback: [],
+      graphify: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      source_readback: { resolved: false, anchors: [], unresolved: [] }
+    };
+    expect(admitQuestionReceipt(receipt)).toBe("READY");
+  });
+
+  it("uses the impact analysis target for question admission identity", () => {
+    expect(
+      resolveEffectiveQueryTarget({ mode: "impact", current: "a".repeat(40), analysisTarget: "b".repeat(40) })
+    ).toBe("b".repeat(40));
+    expect(
+      resolveEffectiveQueryTarget({ mode: "entry", current: "a".repeat(40), analysisTarget: "b".repeat(40) })
+    ).toBe("a".repeat(40));
+  });
+
+  it("does not promote legacy queries into exact-target V2 admission", () => {
+    const normalized = normalizeQueryEvidenceForAdmission({
+      queryEvidence: {
+        queries: [{ exit_code: 0, output: "legacy result", relevant: true, coverage: "COMPLETE", truncated: false }]
+      },
+      targetSha: "a".repeat(40)
+    });
+    expect(normalized.query_contract_v2).toBe(false);
+    expect(normalized.legacy_detected).toBe(true);
+    expect(normalized.legacy_question_admission).toBe("HOLD_THIS_SEAM");
+    expect(normalized.queries).toEqual([]);
+    expect(normalized.non_authoritative_legacy_queries).toHaveLength(1);
+  });
+
+  it("keeps legacy data informational when a V2 receipt is also present", () => {
+    const receipt = buildQuestionReceipt({
+      contract: normalizeQuestionContract({
+        question_id: "F3-C",
+        risk_class: "module",
+        target_sha: "a".repeat(40),
+        canonical_seam: "scripts/graph-companion.mjs#query",
+        decision_before: "unknown",
+        decision_needed: "confirm query",
+        seed_paths: ["scripts/graph-companion.mjs"],
+        seed_symbols: ["query"],
+        seed_routes: [],
+        seed_schemas: [],
+        expected_edge_types: ["CALLS"],
+        mandatory_source_readback: [],
+        mandatory_tests: ["tests/unit/graph-companion.test.ts"]
+      }),
+      graphify: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      sourceReadback: { resolved: false, anchors: [], unresolved: [] }
+    });
+    const normalized = normalizeQueryEvidenceForAdmission({
+      queryEvidence: {
+        question_receipts: [receipt],
+        queries: [{ exit_code: 0, relevant: true, coverage: "COMPLETE" }]
+      },
+      targetSha: "a".repeat(40)
+    });
+    expect(normalized.query_contract_v2).toBe(true);
+    expect(normalized.legacy_detected).toBe(true);
+    expect(normalized.queries).toHaveLength(1);
+    expect(normalized.non_authoritative_legacy_queries).toHaveLength(1);
+  });
+
+  it("preserves command success when a question falls back for no relevance", () => {
+    const contract = normalizeQuestionContract({
+      question_id: "V21-001",
+      risk_class: "module",
+      target_sha: "a".repeat(40),
+      canonical_seam: "scripts/graph-companion.mjs#query",
+      decision_before: "unknown",
+      decision_needed: "find a relevant anchor",
+      seed_paths: ["scripts/graph-companion.mjs"],
+      seed_symbols: ["query"],
+      seed_routes: [],
+      seed_schemas: [],
+      expected_edge_types: ["CALLS"],
+      mandatory_source_readback: [],
+      mandatory_tests: ["tests/unit/graph-companion.test.ts"]
+    });
+    const receipt = buildQuestionReceipt({
+      contract,
+      graphify: { command_ok: true, relevance: "NO_RELEVANCE", coverage: "COMPLETE", truncated: false },
+      codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      sourceReadback: { resolved: true, anchors: ["scripts/graph-companion.mjs:1"], unresolved: [] }
+    });
+    const normalized = normalizeQueryEvidenceForAdmission({
+      queryEvidence: { question_receipts: [receipt] },
+      targetSha: "a".repeat(40)
+    });
+    expect(receipt.question_admission).toBe("SOURCE_FALLBACK");
+    expect(normalized.queries[0]).toMatchObject({
+      execution_status: "PASS",
+      exit_code: 0,
+      relevance: "NO_RELEVANCE",
+      coverage: "COMPLETE",
+      truncated: false,
+      question_admission: "SOURCE_FALLBACK"
+    });
+  });
+
+  it("preserves command success and truncation when a question falls back", () => {
+    const receipt = buildQuestionReceipt({
+      contract: normalizeQuestionContract({
+        question_id: "V21-002",
+        risk_class: "module",
+        target_sha: "a".repeat(40),
+        canonical_seam: "scripts/graph-companion.mjs#query",
+        decision_before: "unknown",
+        decision_needed: "bound expansion",
+        seed_paths: ["scripts/graph-companion.mjs"],
+        seed_symbols: ["query"],
+        seed_routes: [],
+        seed_schemas: [],
+        expected_edge_types: ["CALLS"],
+        mandatory_source_readback: [],
+        mandatory_tests: ["tests/unit/graph-companion.test.ts"]
+      }),
+      graphify: { command_ok: true, relevance: "RELEVANT", coverage: "TRUNCATED", truncated: true },
+      codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      sourceReadback: { resolved: true, anchors: ["scripts/graph-companion.mjs:1"], unresolved: [] }
+    });
+    const normalized = normalizeQueryEvidenceForAdmission({
+      queryEvidence: { question_receipts: [receipt] },
+      targetSha: "a".repeat(40)
+    });
+    expect(normalized.queries[0]).toMatchObject({
+      execution_status: "PASS",
+      exit_code: 0,
+      coverage: "TRUNCATED",
+      truncated: true,
+      question_admission: "SOURCE_FALLBACK"
+    });
+  });
+
+  it("reports an actual tool failure separately from question admission", () => {
+    const receipt = buildQuestionReceipt({
+      contract: normalizeQuestionContract({
+        question_id: "V21-003",
+        risk_class: "module",
+        target_sha: "a".repeat(40),
+        canonical_seam: "scripts/graph-companion.mjs#query",
+        decision_before: "unknown",
+        decision_needed: "run query",
+        seed_paths: ["scripts/graph-companion.mjs"],
+        seed_symbols: ["query"],
+        seed_routes: [],
+        seed_schemas: [],
+        expected_edge_types: ["CALLS"],
+        mandatory_source_readback: [],
+        mandatory_tests: ["tests/unit/graph-companion.test.ts"]
+      }),
+      graphify: { command_ok: false, relevance: "NOT_APPLICABLE", coverage: "UNKNOWN", truncated: false },
+      codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      sourceReadback: { resolved: false, anchors: [], unresolved: [] }
+    });
+    const normalized = normalizeQueryEvidenceForAdmission({
+      queryEvidence: { question_receipts: [receipt] },
+      targetSha: "a".repeat(40)
+    });
+    expect(normalized.queries[0]).toMatchObject({
+      execution_status: "FAIL",
+      exit_code: 1,
+      question_admission: "SOURCE_FALLBACK",
+      truncated: false
+    });
+  });
+
+  it("preserves READY and SOURCE_FALLBACK per question without a global hold", () => {
+    const makeReceipt = (questionId: string, relevance: string) => buildQuestionReceipt({
+      contract: normalizeQuestionContract({
+        question_id: questionId,
+        risk_class: "module",
+        target_sha: "a".repeat(40),
+        canonical_seam: "scripts/graph-companion.mjs#query",
+        decision_before: "unknown",
+        decision_needed: "compare question",
+        seed_paths: ["scripts/graph-companion.mjs"],
+        seed_symbols: ["query"],
+        seed_routes: [],
+        seed_schemas: [],
+        expected_edge_types: ["CALLS"],
+        mandatory_source_readback: ["scripts/graph-companion.mjs:1"],
+        mandatory_tests: ["tests/unit/graph-companion.test.ts"]
+      }),
+      graphify: { command_ok: true, relevance, coverage: "COMPLETE", truncated: false },
+      codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      sourceReadback: { resolved: true, anchors: ["scripts/graph-companion.mjs:1"], unresolved: [] }
+    });
+    const normalized = normalizeQueryEvidenceForAdmission({
+      queryEvidence: { question_receipts: [makeReceipt("READY", "RELEVANT"), makeReceipt("FALLBACK", "NO_RELEVANCE")] },
+      targetSha: "a".repeat(40)
+    });
+    expect(normalized.receipts.map((receipt) => receipt.question_admission)).toEqual(["READY", "SOURCE_FALLBACK"]);
+    expect(normalized.queries.map((query) => query.question_admission)).toEqual(["READY", "SOURCE_FALLBACK"]);
+  });
+
   it("binds Query Contract V2 receipts to the exact target before admission", () => {
     const contract = normalizeQuestionContract({
       question_id: "Q-V2",
@@ -639,7 +850,14 @@ describe("Graph Companion V1 pure contracts", () => {
     })).toMatchObject({
       query_contract_v2: true,
       invalid_target_count: 1,
-      queries: [{ exit_code: 1, relevant: false, coverage: "INCOMPLETE", truncated: true }]
+      queries: [{
+        execution_status: "PASS",
+        exit_code: 0,
+        relevant: false,
+        coverage: "COMPLETE",
+        truncated: false,
+        question_admission: "HOLD_THIS_SEAM"
+      }]
     });
     expect(normalizeQueryEvidenceForAdmission({
       queryEvidence: { question_receipts: [receipt] },

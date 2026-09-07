@@ -1901,6 +1901,7 @@ export function buildQuestionReceipt({ contract, graphify, codegraph, sourceRead
     risk_class: normalizedContract.risk_class,
     target_sha: normalizedContract.target_sha,
     canonical_seam: normalizedContract.canonical_seam,
+    mandatory_source_readback: normalizedContract.mandatory_source_readback,
     graphify: normalizeToolQuestionEvidence(graphify),
     codegraph: normalizeToolQuestionEvidence(codegraph),
     source_readback: normalizeSourceReadback(sourceReadback)
@@ -1921,8 +1922,13 @@ export function admitQuestionReceipt(receipt) {
       tool.coverage === "COMPLETE" &&
       tool.truncated !== true
   );
+  const sourceReadbackRequired = !Array.isArray(receipt?.mandatory_source_readback) ||
+    receipt.mandatory_source_readback.length > 0;
+  if (!sourceReadbackRequired) return graphReady ? "READY" : "SOURCE_FALLBACK";
   const sourceResolved =
     receipt?.source_readback?.resolved === true &&
+    Array.isArray(receipt.source_readback.anchors) &&
+    receipt.source_readback.anchors.length > 0 &&
     (!Array.isArray(receipt.source_readback.unresolved) || receipt.source_readback.unresolved.length === 0);
   if (!sourceResolved) return "HOLD_THIS_SEAM";
   return graphReady ? "READY" : "SOURCE_FALLBACK";
@@ -1935,6 +1941,9 @@ export function admitQuestionReceipt(receipt) {
  * and source readback independently admit it as READY.
  */
 export function normalizeQueryEvidenceForAdmission({ queryEvidence, targetSha } = {}) {
+  const legacyQueries = Array.isArray(queryEvidence?.queries)
+    ? queryEvidence.queries.filter((item) => item?.schema_version !== "GraphQuestionReceiptV2")
+    : [];
   const candidates = Array.isArray(queryEvidence?.question_receipts)
     ? queryEvidence.question_receipts
     : Array.isArray(queryEvidence?.receipts)
@@ -1947,7 +1956,11 @@ export function normalizeQueryEvidenceForAdmission({ queryEvidence, targetSha } 
     return {
       query_contract_v2: false,
       receipts: [],
-      queries: Array.isArray(queryEvidence?.queries) ? queryEvidence.queries : [],
+      queries: [],
+      legacy_detected: legacyQueries.length > 0,
+      legacy_question_admission: legacyQueries.length > 0 ? "HOLD_THIS_SEAM" : null,
+      non_authoritative_legacy_queries: legacyQueries,
+      legacy_query_count: legacyQueries.length,
       invalid_target_count: 0
     };
   }
@@ -1955,16 +1968,38 @@ export function normalizeQueryEvidenceForAdmission({ queryEvidence, targetSha } 
     const targetMatch = receipt?.target_sha === targetSha;
     const admission = targetMatch ? admitQuestionReceipt(receipt) : "HOLD_THIS_SEAM";
     const ready = targetMatch && admission === "READY";
+    const tools = [receipt?.graphify, receipt?.codegraph];
+    const executionOk = tools.length === 2 && tools.every((tool) => tool?.command_ok === true);
+    const toolCoverage = tools.map((tool) => normalizeCoverage(tool?.coverage, tool?.truncated === true));
+    const actualTruncated = tools.some(
+      (tool, index) => tool?.truncated === true || toolCoverage[index] === "TRUNCATED"
+    );
+    const actualCoverage = actualTruncated
+      ? "TRUNCATED"
+      : tools.length === 2 && toolCoverage.every((coverage) => coverage === "COMPLETE")
+        ? "COMPLETE"
+        : "UNKNOWN";
+    const toolRelevance = tools.map((tool) => tool?.relevance);
+    const actualRelevance = toolRelevance.includes("NO_RELEVANCE")
+      ? "NO_RELEVANCE"
+      : toolRelevance.includes("AMBIGUOUS")
+        ? "AMBIGUOUS"
+        : toolRelevance.length === 2 && toolRelevance.every((relevance) => relevance === "RELEVANT")
+          ? "RELEVANT"
+          : "NOT_APPLICABLE";
     return {
       ...receipt,
       target_match: targetMatch,
       question_admission: admission,
       normalized_query: {
-        exit_code: ready ? 0 : 1,
-        output: ready ? "exact question contract admitted" : "question contract not admitted",
+        execution_status: executionOk ? "PASS" : "FAIL",
+        exit_code: executionOk ? 0 : 1,
+        output: ready ? "exact question contract admitted" : `question contract ${admission.toLowerCase()}`,
         relevant: ready,
-        coverage: ready ? "COMPLETE" : "INCOMPLETE",
-        truncated: !ready
+        relevance: actualRelevance,
+        coverage: actualCoverage,
+        truncated: actualTruncated,
+        question_admission: admission
       }
     };
   });
@@ -1972,8 +2007,15 @@ export function normalizeQueryEvidenceForAdmission({ queryEvidence, targetSha } 
     query_contract_v2: true,
     receipts,
     queries: receipts.map((receipt) => receipt.normalized_query),
+    legacy_detected: legacyQueries.length > 0,
+    non_authoritative_legacy_queries: legacyQueries,
+    legacy_query_count: legacyQueries.length,
     invalid_target_count: receipts.filter((receipt) => receipt.target_match !== true).length
   };
+}
+
+export function resolveEffectiveQueryTarget({ mode, current, analysisTarget } = {}) {
+  return mode === "impact" && analysisTarget ? analysisTarget : current;
 }
 
 const MCP_FINAL_STATES = new Set(["PASS", "FAIL", "NOT_OBSERVED", "NOT_APPLICABLE"]);
@@ -2338,7 +2380,7 @@ export function runCompanion({
   const queryEvidence = queryReceipt ? readTextManifest(resolve(queryReceipt)) : null;
   const queryNormalization = normalizeQueryEvidenceForAdmission({
     queryEvidence,
-    targetSha: current
+    targetSha: resolveEffectiveQueryTarget({ mode, current, analysisTarget })
   });
   const queries = queryNormalization.queries;
   const existingGraphSource = existingRegistry?.graph_source_sha || null;
