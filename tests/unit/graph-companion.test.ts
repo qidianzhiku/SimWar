@@ -601,6 +601,15 @@ describe("Graph Companion V1 pure contracts", () => {
     expect(admitQuestionReceipt(receipt)).toBe("HOLD_THIS_SEAM");
   });
 
+  it("does not treat a non-empty unresolved list as resolved evidence", () => {
+    const receipt = {
+      graphify: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      source_readback: { resolved: true, anchors: ["partial.ts:1"], unresolved: ["missing consumer"] }
+    };
+    expect(admitQuestionReceipt(receipt)).toBe("HOLD_THIS_SEAM");
+  });
+
   it("normalizes final MCP observations without turning NOT_OBSERVED into FAIL", () => {
     const receipt = normalizeMcpObservationSet({ configured: true });
     expect(receipt.MCP_CONFIGURED).toBe("PASS");

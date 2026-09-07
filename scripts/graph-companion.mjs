@@ -1920,7 +1920,9 @@ export function admitQuestionReceipt(receipt) {
       tool.coverage === "COMPLETE" &&
       tool.truncated !== true
   );
-  const sourceResolved = receipt?.source_readback?.resolved === true;
+  const sourceResolved =
+    receipt?.source_readback?.resolved === true &&
+    (!Array.isArray(receipt.source_readback.unresolved) || receipt.source_readback.unresolved.length === 0);
   if (!sourceResolved) return "HOLD_THIS_SEAM";
   return graphReady ? "READY" : "SOURCE_FALLBACK";
 }
