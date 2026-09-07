@@ -11,6 +11,7 @@ const context: CanIndustryDiagnosticContext = {
   run_id: "run-1",
   team_id: "team-1",
   round_id: "round-1",
+  round_no: 1,
   scenario_package_id: "scenario-1",
   parameter_set_id: "parameter-1",
   observed_team_id: "team-1"

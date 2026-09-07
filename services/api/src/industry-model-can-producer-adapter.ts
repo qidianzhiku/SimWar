@@ -6,6 +6,7 @@ export interface CanIndustryDiagnosticContext {
   readonly run_id: string;
   readonly team_id: string;
   readonly round_id: string;
+  readonly round_no: number;
   readonly scenario_package_id: string;
   readonly parameter_set_id: string;
   readonly observed_team_id: string;
@@ -41,7 +42,7 @@ function identityMovements(context: CanIndustryDiagnosticContext, candidate: Can
   if (binding.tenant_id !== context.tenant_id) movements.push("can_tenant");
   if (binding.course_id !== context.course_id) movements.push("can_course");
   if (binding.run_id !== context.run_id) movements.push("can_run");
-  if (binding.round_id !== context.round_id || binding.round_no !== Number(context.round_id.replace(/^round[-_:]?/iu, ""))) movements.push("can_round");
+  if (binding.round_id !== context.round_id || binding.round_no !== context.round_no) movements.push("can_round");
   if (binding.scenario_package_reference.scenario_package_id !== context.scenario_package_id) movements.push("can_scenario_package");
   if (binding.parameter_set_reference.parameter_set_id !== context.parameter_set_id) movements.push("can_parameter_set");
   if (context.observed_team_id !== context.team_id) movements.push("can_team");
