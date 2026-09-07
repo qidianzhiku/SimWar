@@ -105,6 +105,40 @@ describe("Graph Companion V1 pure contracts", () => {
     expect(admission.decision).toBe("BLOCKED_TARGET_MISMATCH");
   });
 
+  it("requires identity equality and a parseable lastIndexed value", () => {
+    const target = { repo_sha: "a".repeat(40), tree_sha: "tree-a", config_digest: "cfg-a" };
+    const admission = evaluateGraphAdmission({
+      target,
+      status: {
+        exit_code: 0,
+        raw: "{}",
+        json: { ...target, identity: "wrong-target", lastIndexed: "not-a-date" }
+      },
+      queries: [{ exit_code: 0, output: "relevant", relevant: true, coverage: "COMPLETE" }]
+    });
+    expect(admission.stages.SNAPSHOT_APPLICABILITY.status).toBe("UNKNOWN");
+    expect(admission.decision).toBe("BLOCKED_TARGET_UNKNOWN");
+  });
+
+  it("blocks a valid snapshot when the expected target identity differs", () => {
+    const target = {
+      repo_sha: "a".repeat(40),
+      tree_sha: "tree-a",
+      config_digest: "cfg-a",
+      identity: "expected-target"
+    };
+    const admission = evaluateGraphAdmission({
+      target,
+      status: {
+        exit_code: 0,
+        json: { ...target, identity: "different-target", lastIndexed: "2026-09-07T00:00:00Z" }
+      },
+      queries: [{ exit_code: 0, output: "relevant", relevant: true, coverage: "COMPLETE" }]
+    });
+    expect(admission.stages.SNAPSHOT_APPLICABILITY.identity_match).toBe("FALSE");
+    expect(admission.decision).toBe("BLOCKED_TARGET_MISMATCH");
+  });
+
   it("does not promote truncated or irrelevant queries to exact-target ready", () => {
     const target = { repo_sha: "a".repeat(40), tree_sha: "tree-a", config_digest: "cfg-a" };
     const status = {
@@ -118,6 +152,9 @@ describe("Graph Companion V1 pure contracts", () => {
       queries: [{ exit_code: 0, output: "partial", relevant: true, coverage: "TRUNCATED" }]
     });
     expect(truncated.stages.QUERY_USEFULNESS.status).toBe("TRUNCATED");
+    expect(truncated.stages.QUERY_USEFULNESS.COMMAND_OK).toBe(true);
+    expect(truncated.stages.QUERY_USEFULNESS.RELEVANT_RESULT).toBe(true);
+    expect(truncated.stages.QUERY_USEFULNESS.COVERAGE_COMPLETE).toBe(false);
     expect(truncated.exact_target_ready).toBe(false);
     const irrelevant = evaluateGraphAdmission({
       target,
@@ -125,6 +162,9 @@ describe("Graph Companion V1 pure contracts", () => {
       queries: [{ exit_code: 0, output: "baseline", relevant: false, coverage: "COMPLETE" }]
     });
     expect(irrelevant.stages.QUERY_USEFULNESS.status).toBe("NO_RELEVANCE");
+    expect(irrelevant.stages.QUERY_USEFULNESS.COMMAND_OK).toBe(true);
+    expect(irrelevant.stages.QUERY_USEFULNESS.RELEVANT_RESULT).toBe(false);
+    expect(irrelevant.stages.QUERY_USEFULNESS.COVERAGE_COMPLETE).toBe(true);
   });
 
   it("distinguishes unknown writer ownership from an observed lack of contention", () => {
@@ -192,6 +232,27 @@ describe("Graph Companion V1 pure contracts", () => {
           realpath: (path) => (path === outside ? source : path)
         })
       ).toThrow(/resolves inside/u);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails closed when physical canonicalization cannot be completed", () => {
+    const root = mkdtempSync(join(tmpdir(), "simwar-artifact-realpath-"));
+    const source = join(root, "source");
+    const outside = join(root, "outside");
+    mkdirSync(source);
+    mkdirSync(outside);
+    try {
+      expect(() =>
+        assertArtifactRootSafety({
+          projectRoot: source,
+          artifactRoot: join(outside, "graph"),
+          realpath: () => {
+            throw new Error("realpath unavailable");
+          }
+        })
+      ).toThrow(/physical|canonical|realpath|safety/u);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

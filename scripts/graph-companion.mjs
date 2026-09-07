@@ -521,6 +521,15 @@ export function discoverTools({ cwd = DEFAULT_REPO_ROOT } = {}) {
   const codegraphHelp = runCodeGraphCommand(["--help"], cwd);
   const graphifyOk = graphifyVersion.ok;
   const codegraphOk = codegraphVersion.ok;
+  const mcpConfigPath = join(homedir(), ".codex", "config.toml");
+  let mcpConfigured = false;
+  try {
+    const mcpConfig = existsSync(mcpConfigPath) ? readFileSync(mcpConfigPath, "utf8") : "";
+    mcpConfigured =
+      /\[mcp_servers\.graphify\]/u.test(mcpConfig) && /\[mcp_servers\.codegraph\]/u.test(mcpConfig);
+  } catch {
+    mcpConfigured = false;
+  }
   return {
     schema_version: OUTPUT_SCHEMA_VERSION,
     generated_at: new Date().toISOString(),
@@ -550,6 +559,8 @@ export function discoverTools({ cwd = DEFAULT_REPO_ROOT } = {}) {
     ],
     graphify_available: graphifyOk,
     codegraph_available: codegraphOk,
+    mcp_health: classifyMcpHealth({ configured: mcpConfigured }),
+    mcp_evidence: mcpConfigured ? "CONFIG_ONLY_HANDSHAKE_NOT_RUN" : "NOT_CONFIGURED",
     github_workflow: "LOCAL_CODEX_ORCHESTRATION_ONLY_V1"
   };
 }
@@ -1353,6 +1364,13 @@ function runCodeGraphIndex({ repoRoot, tools, graphHome, repository, currentSha 
     };
   const initialized = existsSync(join(indexRoot, ".codegraph"));
   const command = initialized ? ["sync", indexRoot] : ["init", indexRoot];
+  const startedAt = new Date().toISOString();
+  const buildKey = sha256({
+    repo_sha: currentSha,
+    command,
+    repository,
+    tool: "CodeGraph"
+  });
   const result = runCodeGraphCommand(command, indexRoot, { timeout: 1_800_000 });
   const status = runCodeGraphCommand(["status", indexRoot], indexRoot, {
     timeout: 120_000
@@ -1396,7 +1414,19 @@ function runCodeGraphIndex({ repoRoot, tools, graphHome, repository, currentSha 
     identity: `${repository.owner}/${repository.name}:${currentSha}:${treeSha || "UNKNOWN"}`,
     lastIndexed: new Date().toISOString(),
     status_command_exit_code: 0,
-    automatic_next_start: false
+    automatic_next_start: false,
+    writer_evidence: {
+      state: "NO_CONTENTION_OBSERVED",
+      ownership_proof: "NOT_PROVEN",
+      build_key: buildKey,
+      owner: "graph-companion",
+      process_id: String(process.pid),
+      started_at: startedAt,
+      heartbeat_at: new Date().toISOString(),
+      release: null,
+      lock_present: false,
+      observed_errors: []
+    }
   };
   atomicWrite(join(indexRoot, ".codegraph", "simwar-admission.json"), admissionMetadata);
   return {
@@ -1699,8 +1729,7 @@ export function assertArtifactRootSafety({
       }
     } catch (error) {
       if (error instanceof Error && /Artifact root resolves/u.test(error.message)) throw error;
-      // An as-yet-uncreated external path may not have a realpath. Lexical
-      // containment has already been checked, so retain the safe fallback.
+      throw new Error("Artifact root physical safety could not be proven", { cause: error });
     }
   }
   return artifact;
@@ -1737,7 +1766,10 @@ export function evaluateGraphAdmission({ target, status, queries = [] }) {
 
   const metadata = parsed || {};
   const requiredMetadata = ["repo_sha", "tree_sha", "config_digest", "identity", "lastIndexed"];
-  const metadataComplete = requiredMetadata.every((field) => nonEmpty(metadata[field]));
+  const metadataComplete =
+    requiredMetadata.every((field) => nonEmpty(metadata[field])) &&
+    typeof metadata.lastIndexed === "string" &&
+    Number.isFinite(Date.parse(metadata.lastIndexed));
   const targetComplete = ["repo_sha", "tree_sha", "config_digest"].every((field) =>
     nonEmpty(target?.[field])
   );
@@ -1749,15 +1781,23 @@ export function evaluateGraphAdmission({ target, status, queries = [] }) {
         ? "TRUE"
         : "FALSE"
       : "UNKNOWN";
+  const identityMatch = nonEmpty(target?.identity)
+    ? metadataComplete && metadata.identity === target.identity
+      ? "TRUE"
+      : metadataComplete
+        ? "FALSE"
+        : "UNKNOWN"
+    : "NOT_REQUESTED";
   const snapshotStatus =
     !buildOk || !metadataComplete || !targetComplete
       ? "UNKNOWN"
-      : targetMatch === "TRUE"
+      : targetMatch === "TRUE" && identityMatch !== "FALSE"
         ? "PASS"
         : "MISMATCH";
   const snapshotStage = {
     status: snapshotStatus,
     target_match: targetMatch,
+    identity_match: identityMatch,
     identity_present: nonEmpty(metadata.identity),
     last_indexed_present: nonEmpty(metadata.lastIndexed),
     reason:
@@ -1768,24 +1808,37 @@ export function evaluateGraphAdmission({ target, status, queries = [] }) {
           : "snapshot applicability cannot be proven"
   };
 
+  const commandOk =
+    queries.length > 0 &&
+    queries.every((query) => Number(query?.exit_code ?? query?.exitCode ?? 1) === 0);
+  const relevantResult =
+    queries.length > 0 &&
+    queries.every((query) => query?.relevant === true && nonEmpty(query?.output));
+  const coverageComplete =
+    queries.length > 0 &&
+    queries.every((query) => query?.coverage === "COMPLETE" && query?.truncated !== true);
   let queryStatus = "PASS";
   let queryReason = "all query commands returned relevant complete evidence";
   if (queries.length === 0) {
     queryStatus = "NOT_RUN";
     queryReason = "no query result supplied";
-  } else if (queries.some((query) => Number(query?.exit_code ?? query?.exitCode ?? 1) !== 0)) {
+  } else if (!commandOk) {
     queryStatus = "COMMAND_FAILED";
     queryReason = "one or more query commands failed";
-  } else if (
-    queries.some((query) => query?.coverage === "TRUNCATED" || query?.truncated === true)
-  ) {
-    queryStatus = "TRUNCATED";
-    queryReason = "query output was truncated; coverage is incomplete";
-  } else if (queries.some((query) => query?.relevant !== true || !nonEmpty(query?.output))) {
+  } else if (!relevantResult) {
     queryStatus = "NO_RELEVANCE";
     queryReason = "query output is empty or not relevant to the decision question";
+  } else if (!coverageComplete) {
+    queryStatus = "TRUNCATED";
+    queryReason = "query output was truncated; coverage is incomplete";
   }
-  const queryStage = { status: queryStatus, reason: queryReason };
+  const queryStage = {
+    status: queryStatus,
+    reason: queryReason,
+    COMMAND_OK: commandOk,
+    RELEVANT_RESULT: relevantResult,
+    COVERAGE_COMPLETE: coverageComplete
+  };
 
   let decision = "EXACT_TARGET_READY";
   if (!buildOk) decision = "BLOCKED_INDEX_METADATA";
@@ -1854,7 +1907,8 @@ export function runCompanion({
   graphHome,
   baseSha = null,
   targetSha = null,
-  currentSha = null
+  currentSha = null,
+  queryReceipt = null
 } = {}) {
   if (!VALID_MODES.has(mode)) throw new Error(`Unsupported Graph Companion mode: ${mode}`);
   if (mode === "impact" && (!baseSha || !targetSha))
@@ -2020,6 +2074,8 @@ export function runCompanion({
       ? readRepositoryManifestAtSha(root, analysisTarget) || currentManifest
       : currentManifest;
   const tools = discoverTools({ cwd: root });
+  const queryEvidence = queryReceipt ? readTextManifest(resolve(queryReceipt)) : null;
+  const queries = Array.isArray(queryEvidence?.queries) ? queryEvidence.queries : [];
   const existingGraphSource = existingRegistry?.graph_source_sha || null;
   const graphPath = existingRegistry?.graphify?.path || null;
   const graphManifest = readSourceManifestForGraph(graphPath);
@@ -2124,16 +2180,14 @@ export function runCompanion({
     target: {
       repo_sha: current,
       tree_sha: targetTreeSha,
-      config_digest: codegraph.admission_metadata?.config_digest || null
+      config_digest: codegraph.admission_metadata?.config_digest || null,
+      identity: codegraph.admission_metadata?.identity || null
     },
     status: {
       exit_code: codegraph.admission_metadata?.status_command_exit_code ?? 1,
       json: codegraph.admission_metadata || null
     },
-    // The companion builds/indexes snapshots but does not invent a business
-    // question. Query usefulness is admitted only by a subsequent read-only
-    // query receipt, so this remains NOT_RUN here by design.
-    queries: []
+    queries
   });
   const delta = buildArchitectureDelta({
     baseSha: validatedBase || sourceForDiff,
@@ -2230,11 +2284,29 @@ export function runCompanion({
     graph_source_sha: graphSourceSha,
     graphify,
     codegraph,
+    mcp_health: tools.mcp_health,
+    writer_evidence:
+      codegraph.admission_metadata?.writer_evidence ||
+      classifyWriterEvidence({ observedErrors: ["writer receipt unavailable"] }),
     freshness: finalFreshness,
     automatic_next_start: false
   };
   writeReceipt(evidence, "graph-state.json", graphState);
   writeReceipt(evidence, "tool-health.json", tools);
+  writeReceipt(evidence, "mcp-health.json", {
+    ...tools.mcp_health,
+    evidence: tools.mcp_evidence || "NOT_RUN"
+  });
+  writeReceipt(evidence, "writer.json", graphState.writer_evidence);
+  writeReceipt(
+    evidence,
+    "query-receipt.json",
+    queryEvidence || {
+      schema_version: "GraphQueryReceiptV1",
+      status: "NOT_RUN",
+      queries: []
+    }
+  );
   writeReceipt(evidence, "source-manifest.json", currentManifest);
   writeReceipt(evidence, "freshness.json", {
     schema_version: OUTPUT_SCHEMA_VERSION,
@@ -2296,6 +2368,7 @@ function parseArgs(argv) {
     else if (arg === "--base") options.baseSha = argv[++index];
     else if (arg === "--target") options.targetSha = argv[++index];
     else if (arg === "--current-sha") options.currentSha = argv[++index];
+    else if (arg === "--query-receipt") options.queryReceipt = argv[++index];
     else if (arg === "--json") options.json = true;
   }
   return options;
