@@ -18,6 +18,7 @@
     "command success does not imply question admission",
     "PASS plus NO_RELEVANCE remains PASS plus SOURCE_FALLBACK",
     "PASS plus truncation remains PASS plus SOURCE_FALLBACK",
+    "G2 and G3 require a positively admitted CodeGraph observation, not CLI availability alone",
     "an unresolved G3 authority chain is HOLD_THIS_SEAM",
     "G0 and G1 tool unavailability does not globally hold unrelated seams",
     "historical receipts with a mismatched target SHA are never admitted"

@@ -20,6 +20,9 @@ Use exact path/symbol/route/schema seeds. Record `execution_status`, `relevance`
 `coverage`, and `question_admission` independently. `PASS` with no relevance or
 truncation is still command success and becomes `SOURCE_FALLBACK`; it is not a
 synthetic command failure. Historical receipts must match the current target SHA.
+For G2/G3, `READY` additionally requires a positively admitted CodeGraph
+observation (`codegraph_admitted` or a qualified PASS/relevance/coverage receipt);
+installation or availability alone never counts as graph evidence.
 
 The contract/provenance overlay records source and contract anchors for review
 leads. Source, contract, and tests remain the decision authority. The compact
