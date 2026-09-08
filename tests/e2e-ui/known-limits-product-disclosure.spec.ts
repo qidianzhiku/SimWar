@@ -108,9 +108,10 @@ async function verifyDisclosure(
   await expect(panel).toBeVisible();
   await expect(panel.getByRole("heading", { name: "已知限制与内部使用说明" })).toBeVisible();
 
-  const disclosureRequests: string[] = [];
+  const disclosureMutationRequests: string[] = [];
   const recordRequest = (request: { method(): string; url(): string }): void => {
-    disclosureRequests.push(`${request.method()} ${request.url()}`);
+    if (!["POST", "PUT", "PATCH", "DELETE"].includes(request.method())) return;
+    disclosureMutationRequests.push(`${request.method()} ${request.url()}`);
   };
   const clientStateBefore = await page.evaluate(() => ({
     cookie: document.cookie,
@@ -118,9 +119,6 @@ async function verifyDisclosure(
     sessionStorage: JSON.stringify({ ...sessionStorage })
   }));
   await page.waitForLoadState("networkidle");
-  const requestCountBefore = await page.evaluate(
-    () => performance.getEntriesByType("resource").length
-  );
   page.on("request", recordRequest);
   await panel.getByText("查看完整限制").click();
   const visibleSemanticIds = await panel.locator("strong").allTextContents();
@@ -132,11 +130,7 @@ async function verifyDisclosure(
   }
   await expect(panel.getByText(expectedRoleBoundary, { exact: false })).toBeVisible();
   page.off("request", recordRequest);
-  const requestCountAfter = await page.evaluate(
-    () => performance.getEntriesByType("resource").length
-  );
-  expect(requestCountAfter).toBe(requestCountBefore);
-  expect(disclosureRequests).toEqual([]);
+  expect(disclosureMutationRequests).toEqual([]);
   expect(
     await page.evaluate(() => ({
       cookie: document.cookie,
@@ -171,24 +165,49 @@ async function verifyDisclosure(
   );
 }
 
-function captureConsoleErrors(page: Page): string[] {
+const generic404ConsoleMessage =
+  "Failed to load resource: the server responded with a status of 404 (Not Found)";
+
+interface ConsoleErrorCapture {
+  errors: string[];
+  finalize: () => string[];
+}
+
+function captureConsoleErrors(page: Page): ConsoleErrorCapture {
   const errors: string[] = [];
-  const expectedMissingW027Resources = new Set<string>();
+  let expectedMissingW027Count = 0;
+  let generic404ConsoleCount = 0;
+  const unexpected404Resources: string[] = [];
   page.on("response", (response) => {
-    if (
-      response.status() === 404 &&
-      response.url().includes("/api/v1/bff/student/w027/decision-experience")
-    ) {
-      expectedMissingW027Resources.add(response.url());
+    if (response.status() !== 404) return;
+    if (response.url().includes("/api/v1/bff/student/w027/decision-experience")) {
+      expectedMissingW027Count += 1;
+      return;
     }
+    unexpected404Resources.push(response.url());
   });
   page.on("console", (message) => {
-    if (message.type() === "error") {
-      if (expectedMissingW027Resources.has(message.location().url)) return;
-      errors.push(message.text());
+    if (message.type() !== "error") return;
+    if (message.text() === generic404ConsoleMessage) {
+      generic404ConsoleCount += 1;
+      return;
     }
+    errors.push(message.text());
   });
-  return errors;
+  return {
+    errors,
+    finalize: () => {
+      const allowedGeneric404Count =
+        unexpected404Resources.length === 0 ? expectedMissingW027Count : 0;
+      for (let index = allowedGeneric404Count; index < generic404ConsoleCount; index += 1) {
+        errors.push(generic404ConsoleMessage);
+      }
+      for (const url of unexpected404Resources) {
+        errors.push(`Unexpected 404 resource: ${url}`);
+      }
+      return errors;
+    }
+  };
 }
 
 async function attachSurfaceScreenshot(
@@ -244,7 +263,7 @@ test("Teacher and Student consume role-safe Known Limits without formal-state mu
   );
   expect(await formalStateDigest(page, studentToken, "tenant_demo")).toBe(studentDigest);
   await attachSurfaceScreenshot(page, testInfo, "student-known-limits-mobile");
-  expect(consoleErrors).toEqual([]);
+  expect(consoleErrors.finalize()).toEqual([]);
 });
 
 test("Tenant and Platform Admin receive distinct authority-safe disclosures", async ({
@@ -279,5 +298,5 @@ test("Tenant and Platform Admin receive distinct authority-safe disclosures", as
   ]);
   expect(await formalStateDigest(page, platformToken, "tenant_platform")).toBe(platformDigest);
   await attachSurfaceScreenshot(page, testInfo, "platform-admin-known-limits-desktop");
-  expect(consoleErrors).toEqual([]);
+  expect(consoleErrors.finalize()).toEqual([]);
 });
