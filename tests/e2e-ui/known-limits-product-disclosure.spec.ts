@@ -167,21 +167,35 @@ async function verifyDisclosure(
 
 const generic404ConsoleMessage =
   "Failed to load resource: the server responded with a status of 404 (Not Found)";
+const expected404RouteCodes = new Map([
+  ["/api/v1/bff/student/w027/decision-experience", "W027_ASSIGNMENT_NOT_FOUND"],
+  ["/api/v1/bff/student/role-workspace", "ROLE_WORKFLOW_ASSIGNMENT_NOT_FOUND"]
+]);
 
 interface ConsoleErrorCapture {
   errors: string[];
-  finalize: () => string[];
+  finalize: () => Promise<string[]>;
 }
 
 function captureConsoleErrors(page: Page): ConsoleErrorCapture {
   const errors: string[] = [];
-  let expectedMissingW027Count = 0;
+  const expected404ResponseChecks: Array<Promise<{ url: string; valid: boolean }>> = [];
   let generic404ConsoleCount = 0;
   const unexpected404Resources: string[] = [];
   page.on("response", (response) => {
     if (response.status() !== 404) return;
-    if (response.url().includes("/api/v1/bff/student/w027/decision-experience")) {
-      expectedMissingW027Count += 1;
+    const responseUrl = new URL(response.url());
+    const expectedCode = expected404RouteCodes.get(responseUrl.pathname);
+    if (expectedCode) {
+      expected404ResponseChecks.push(
+        response
+          .text()
+          .then((body) => ({
+            url: response.url(),
+            valid: body.includes(`"code":"${expectedCode}"`)
+          }))
+          .catch(() => ({ url: response.url(), valid: false }))
+      );
       return;
     }
     unexpected404Resources.push(response.url());
@@ -196,9 +210,17 @@ function captureConsoleErrors(page: Page): ConsoleErrorCapture {
   });
   return {
     errors,
-    finalize: () => {
+    finalize: async () => {
+      const expected404Results = await Promise.all(expected404ResponseChecks);
+      const invalidExpected404s = expected404Results.filter((result) => !result.valid);
+      for (const result of invalidExpected404s) {
+        errors.push(`Unexpected 404 response body: ${result.url}`);
+      }
+      const validExpected404Count = expected404Results.length - invalidExpected404s.length;
       const allowedGeneric404Count =
-        unexpected404Resources.length === 0 ? expectedMissingW027Count : 0;
+        unexpected404Resources.length === 0 && invalidExpected404s.length === 0
+          ? validExpected404Count
+          : 0;
       for (let index = allowedGeneric404Count; index < generic404ConsoleCount; index += 1) {
         errors.push(generic404ConsoleMessage);
       }
@@ -263,7 +285,7 @@ test("Teacher and Student consume role-safe Known Limits without formal-state mu
   );
   expect(await formalStateDigest(page, studentToken, "tenant_demo")).toBe(studentDigest);
   await attachSurfaceScreenshot(page, testInfo, "student-known-limits-mobile");
-  expect(consoleErrors.finalize()).toEqual([]);
+  expect(await consoleErrors.finalize()).toEqual([]);
 });
 
 test("Tenant and Platform Admin receive distinct authority-safe disclosures", async ({
@@ -298,5 +320,5 @@ test("Tenant and Platform Admin receive distinct authority-safe disclosures", as
   ]);
   expect(await formalStateDigest(page, platformToken, "tenant_platform")).toBe(platformDigest);
   await attachSurfaceScreenshot(page, testInfo, "platform-admin-known-limits-desktop");
-  expect(consoleErrors.finalize()).toEqual([]);
+  expect(await consoleErrors.finalize()).toEqual([]);
 });
