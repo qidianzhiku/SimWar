@@ -1,5 +1,6 @@
 import type { ParameterSetReference } from "./parameter-set-authority.js";
 import type { ScenarioPackageReference } from "./scenario-package-authority.js";
+import type { ModelArtifactReference, ModelVersionReference } from "./model-governance.js";
 
 export const CAN_SERVICE_FEASIBILITY_SCHEMA_VERSION = "r1-can-service-feasibility.v1" as const;
 export const CAN_SERVICE_FEASIBILITY_OPERATION_ID = "R1_CAN_SERVICE_FEASIBILITY_GET_V1" as const;
@@ -81,9 +82,22 @@ export interface CanServiceFeasibilityCandidate {
   candidate_id: string;
   constraints: readonly CanConstraintEvidence[];
   exact_binding: CanServiceFeasibilityExactBinding;
+  /** Producer-owned identity; optional only for backwards-compatible historical receipts. */
+  producer_intrinsic_lineage?: CanProducerIntrinsicLineage;
   queue: CanQueueDisclosure;
   status: CanServiceFeasibilityStatus;
   why_not: readonly CanWhyNotReason[];
+}
+
+/**
+ * CAN's intrinsic model/artifact identity is producer-owned and is deliberately
+ * separate from the consumer-owned ModelQualification binding.
+ */
+export interface CanProducerIntrinsicLineage {
+  model_artifact_reference: ModelArtifactReference;
+  model_version_reference: ModelVersionReference;
+  producer_source_ref: string;
+  lineage_digest: string;
 }
 
 export interface CanServiceFeasibilityAuthority {

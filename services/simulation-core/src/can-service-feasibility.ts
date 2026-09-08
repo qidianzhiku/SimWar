@@ -5,7 +5,8 @@ import type {
   CanServiceFeasibilityDomainInput,
   CanServiceFeasibilityExactBinding,
   CanServiceFeasibilityStatus,
-  CanWhyNotReason
+  CanWhyNotReason,
+  CanProducerIntrinsicLineage
 } from "@simwar/shared-contracts";
 
 export class CanServiceFeasibilityError extends Error {
@@ -111,6 +112,39 @@ function stable(value: unknown): string {
 function digest(value: unknown): string {
   return createHash("sha256").update(stable(value), "utf8").digest("hex");
 }
+
+const CAN_INTRINSIC_MODEL_VERSION_REFERENCE = Object.freeze({
+  model_version_id: "can_service_feasibility_v1",
+  version: "1.0.0",
+  content_digest: digest({
+    producer: "can-service-feasibility",
+    source: "services/simulation-core/src/can-service-feasibility.ts",
+    contract: "r1-can-service-feasibility.v1"
+  })
+});
+
+const CAN_INTRINSIC_MODEL_ARTIFACT_REFERENCE = Object.freeze({
+  artifact_id: "can_service_feasibility_evaluator",
+  content_digest: digest({
+    producer: "can-service-feasibility",
+    source: "services/simulation-core/src/can-service-feasibility.ts",
+    artifact: "typescript-simulation-core"
+  }),
+  format: "typescript-simulation-core",
+  source_ref: "services/simulation-core/src/can-service-feasibility.ts"
+});
+
+export const CAN_SERVICE_FEASIBILITY_INTRINSIC_LINEAGE: CanProducerIntrinsicLineage =
+  Object.freeze({
+    model_artifact_reference: CAN_INTRINSIC_MODEL_ARTIFACT_REFERENCE,
+    model_version_reference: CAN_INTRINSIC_MODEL_VERSION_REFERENCE,
+    producer_source_ref: "services/simulation-core/src/can-service-feasibility.ts",
+    lineage_digest: digest({
+      model_artifact_reference: CAN_INTRINSIC_MODEL_ARTIFACT_REFERENCE,
+      model_version_reference: CAN_INTRINSIC_MODEL_VERSION_REFERENCE,
+      producer_source_ref: "services/simulation-core/src/can-service-feasibility.ts"
+    })
+  });
 
 function numericConstraint(input: {
   constraint_id: string;
@@ -336,6 +370,7 @@ export function evaluateCanServiceFeasibility(
     },
     binding: input.binding,
     constraints,
+    producer_intrinsic_lineage: CAN_SERVICE_FEASIBILITY_INTRINSIC_LINEAGE,
     queue: { claim: "NOT_CLAIMED" as const, reason: "EXACT_QUEUE_INPUT_NOT_AVAILABLE" as const },
     status,
     why_not: whyNotReasons
@@ -347,6 +382,7 @@ export function evaluateCanServiceFeasibility(
     candidate_id: candidateId,
     constraints,
     exact_binding: input.binding,
+    producer_intrinsic_lineage: CAN_SERVICE_FEASIBILITY_INTRINSIC_LINEAGE,
     queue: candidateWithoutDigest.queue,
     status,
     why_not: whyNotReasons
