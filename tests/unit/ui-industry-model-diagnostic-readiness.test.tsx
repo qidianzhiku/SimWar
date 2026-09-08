@@ -67,7 +67,18 @@ const teacherData = {
       evidence_identity: "f".repeat(64),
       authority_owner: "MODEL_QUALIFICATION",
       source: { path: "source.ts", symbol: "diagnostics" },
-      freshness: "FRESH" as const
+      freshness: "FRESH" as const,
+      producer_model_version_reference: {
+        model_version_id: "producer-model-a",
+        version: "1.0.0",
+        content_digest: "9".repeat(64)
+      },
+      producer_model_artifact_reference: {
+        artifact_id: "producer-artifact-a",
+        content_digest: "8".repeat(64),
+        format: "typescript-boundary",
+        source_ref: "artifact://producer-model-a"
+      }
     }
   ],
   qualified_producer_admission: [
@@ -129,6 +140,8 @@ describe("IM-O1 diagnostic readiness consumer", () => {
     expect(host.textContent).toContain("NOT_PROVEN");
     expect(host.textContent).toContain("qualification-a");
     expect(host.textContent).toContain("producer=producer-a");
+    expect(host.textContent).toContain("intrinsic_model=producer-model-a@1.0.0");
+    expect(host.textContent).toContain("intrinsic_artifact=producer-artifact-a");
     expect(host.textContent).toContain("QUALIFICATION_NOT_PROVEN");
     expect(host.textContent).toContain(`admission_digest=${"2".repeat(64)}`);
     expect(fetchMock.mock.calls[0]?.[0]).toContain("runId=run-a");

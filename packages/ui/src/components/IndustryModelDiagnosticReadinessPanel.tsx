@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ApiEnvelope, IndustryModelDiagnosticReadinessDto } from "@simwar/shared-contracts";
+import type {
+  ApiEnvelope,
+  IndustryModelDiagnosticReadinessDto,
+  ModelArtifactReference,
+  ModelVersionReference
+} from "@simwar/shared-contracts";
 
 export interface IndustryModelDiagnosticReadinessPanelProps {
   apiBase: string;
@@ -30,7 +35,13 @@ type QualifiedProducerAdmissionView = {
   known_limits: readonly string[];
 };
 
+type DiagnosticProducerView = NonNullable<IndustryModelDiagnosticReadinessDto["provability"]>[number] & {
+  producer_model_version_reference?: ModelVersionReference;
+  producer_model_artifact_reference?: ModelArtifactReference;
+};
+
 type DiagnosticWithQualifiedProducerAdmission = IndustryModelDiagnosticReadinessDto & {
+  provability?: readonly DiagnosticProducerView[];
   qualified_producer_admission?: readonly QualifiedProducerAdmissionView[];
   student_summary?: IndustryModelDiagnosticReadinessDto["student_summary"] & {
     qualified_producer_admission_statuses?: readonly QualifiedProducerAdmissionView["status"][];
@@ -255,14 +266,27 @@ export function IndustryModelDiagnosticReadinessPanel(
               binding={data.qualification.binding_status}
             </p>
           ) : null}
-          {role !== "student" && data.provability?.length ? (
+          {role !== "student" && qualifiedData.provability?.length ? (
             <div className="evidence-list" data-testid="industry-diagnostic-producers">
-              {data.provability.map((entry) => (
+              {(qualifiedData.provability as readonly DiagnosticProducerView[]).map((entry) => (
                 <article className="evidence-note" key={`${entry.producer_id}:${entry.evidence_identity}`}>
                   <strong>{entry.classification}</strong> · {entry.diagnostic_family}
                   <div>producer={entry.producer_id} · authority={entry.authority_owner}</div>
                   <div>evidence={entry.evidence_identity} · freshness={entry.freshness}</div>
                   <div>source={entry.source.path}#{entry.source.symbol}</div>
+                  {entry.producer_model_version_reference ? (
+                    <div>
+                      intrinsic_model={entry.producer_model_version_reference.model_version_id}@
+                      {entry.producer_model_version_reference.version}#
+                      {entry.producer_model_version_reference.content_digest}
+                    </div>
+                  ) : null}
+                  {entry.producer_model_artifact_reference ? (
+                    <div>
+                      intrinsic_artifact={entry.producer_model_artifact_reference.artifact_id}#
+                      {entry.producer_model_artifact_reference.content_digest}
+                    </div>
+                  ) : null}
                   {entry.known_limits?.length ? (
                     <div>limits={entry.known_limits.join(" · ")}</div>
                   ) : null}
