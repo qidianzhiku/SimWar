@@ -132,13 +132,10 @@ export function adaptW5IndustryDiagnosticProducers(input: { context: W5IndustryD
         source: { path: "services/simulation-core/src/w5-governed-convergence.ts", symbol: "evaluateW5CoreRealization" },
         freshness: "FRESH",
         official_truth_write: false,
-        known_limits: baseLimits,
-        ...(intrinsicLineage(input.convergence)?.model_version_reference
-          ? { producer_model_version_reference: intrinsicLineage(input.convergence)!.model_version_reference }
-          : {}),
-        ...(intrinsicLineage(input.convergence)?.model_artifact_reference
-          ? { producer_model_artifact_reference: intrinsicLineage(input.convergence)!.model_artifact_reference }
-          : {})
+        // The current Simulation Core realization contract does not expose a
+        // typed model/artifact lineage of its own. Do not copy the governed
+        // demand producer's identity onto the separate REALIZED reference.
+        known_limits: [...baseLimits, "REALIZED_TYPED_LINEAGE_NOT_EXPOSED_BY_CORE"]
       }
     ],
     known_limits: baseLimits,

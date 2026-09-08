@@ -43,9 +43,13 @@ synthetic and uncalibrated, and the realized value remains reference-only.
 ## O5 qualified producer admission
 
 The O5 extension adds a qualification-scoped admission decision for every
-producer entry. A producer is `QUALIFICATION_COMPATIBLE` only when its exact
-typed `ModelVersionReference`, exact `ModelArtifactReference`, and
-qualification id/digest match the server-resolved `ModelQualification`.
+producer entry. A producer proves its own exact typed
+`ModelVersionReference` and exact `ModelArtifactReference`; the admission
+consumer compares those references with the server-resolved
+`ModelQualification`. Producer qualification id/digest claims are optional
+legacy metadata and are checked when present, but they are not required to
+establish producer-intrinsic lineage and do not let a producer self-claim
+qualification membership.
 The legacy W5 runtime identity string (for example,
 `eldercare_w5_governed_v1@1.1.0`) is evidence about the W5 producer only; it
 is not parsed or implicitly mapped to a Model Qualification identity.

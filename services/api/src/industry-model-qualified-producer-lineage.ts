@@ -43,11 +43,12 @@ export function readQualifiedProducerLineage(source: QualifiedProducerLineageSou
     };
   }
 
+  // Qualification is consumer-owned. A producer proves only its own typed
+  // model/artifact lineage; the admission service compares that lineage with
+  // the selected qualification and may optionally validate legacy claims.
   const missingLimits: string[] = [];
   if (!source.producer_model_version_reference) missingLimits.push("TYPED_MODEL_VERSION_REFERENCE_REQUIRED");
   if (!source.producer_model_artifact_reference) missingLimits.push("TYPED_MODEL_ARTIFACT_REFERENCE_REQUIRED");
-  if (!source.producer_qualification_id) missingLimits.push("PRODUCER_QUALIFICATION_ID_REQUIRED");
-  if (!source.producer_qualification_digest) missingLimits.push("PRODUCER_QUALIFICATION_DIGEST_REQUIRED");
 
   return {
     proof_status: missingLimits.length === 0 ? "COMPLETE" : "MISSING_TYPED_IDENTITY",

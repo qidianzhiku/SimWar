@@ -145,9 +145,8 @@ describe("W5 industry diagnostic producer adapter", () => {
       model_version_id: "o3-governed-demand-v1",
       version: "1.0.0"
     });
-    expect(result.producers[1]?.producer_model_artifact_reference).toMatchObject({
-      artifact_id: "artifact:o3-governed-demand-v1:1.0.0"
-    });
+    expect(result.producers[1]?.producer_model_version_reference).toBeUndefined();
+    expect(result.producers[1]?.producer_model_artifact_reference).toBeUndefined();
   });
 
   it("keeps both producers NOT_PROVEN when the exact draft context is missing", () => {
