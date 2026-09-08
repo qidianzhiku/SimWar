@@ -210,9 +210,12 @@ export interface W5MutationReceipt {
  * It is not included in the student projection.
  */
 export interface W5ProducerIntrinsicLineage {
+  /** Stable producer implementation identity, independent of one invocation. */
+  intrinsic_lineage_digest?: string;
   model_artifact_reference: ModelArtifactReference;
   model_version_reference: ModelVersionReference;
   producer_source_ref: string;
+  /** Exact runtime input/binding identity for this producer invocation. */
   runtime_binding_digest: string;
 }
 

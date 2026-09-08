@@ -52,15 +52,18 @@ const CORE_MODEL_ARTIFACT_REFERENCE = Object.freeze({
   source_ref: "services/simulation-core/src/eldercare-core-model.ts"
 });
 
+const CORE_INTRINSIC_LINEAGE_DIGEST = digest({
+  model_artifact_reference: CORE_MODEL_ARTIFACT_REFERENCE,
+  model_version_reference: CORE_MODEL_VERSION_REFERENCE,
+  producer_source_ref: "services/simulation-core/src/eldercare-core-model.ts"
+});
+
 export const ELDERCARE_CORE_INTRINSIC_LINEAGE: W5ProducerIntrinsicLineage = Object.freeze({
+  intrinsic_lineage_digest: CORE_INTRINSIC_LINEAGE_DIGEST,
   model_artifact_reference: CORE_MODEL_ARTIFACT_REFERENCE,
   model_version_reference: CORE_MODEL_VERSION_REFERENCE,
   producer_source_ref: "services/simulation-core/src/eldercare-core-model.ts",
-  runtime_binding_digest: digest({
-    model_artifact_reference: CORE_MODEL_ARTIFACT_REFERENCE,
-    model_version_reference: CORE_MODEL_VERSION_REFERENCE,
-    producer_source_ref: "services/simulation-core/src/eldercare-core-model.ts"
-  })
+  runtime_binding_digest: CORE_INTRINSIC_LINEAGE_DIGEST
 });
 
 /**
@@ -76,7 +79,13 @@ export function evaluateW5CoreRealization(
     authority: "SIMULATION_CORE",
     metrics: evaluation.round_metrics,
     official: true,
-    producer_intrinsic_lineage: ELDERCARE_CORE_INTRINSIC_LINEAGE,
+    producer_intrinsic_lineage: {
+      ...ELDERCARE_CORE_INTRINSIC_LINEAGE,
+      runtime_binding_digest: digest({
+        input,
+        intrinsic_lineage_digest: CORE_INTRINSIC_LINEAGE_DIGEST
+      })
+    },
     replay_relevant_digest: digest({
       model_family: evaluation.model_family,
       round_metrics: evaluation.round_metrics,

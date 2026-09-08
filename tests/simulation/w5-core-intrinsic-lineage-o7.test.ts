@@ -22,6 +22,7 @@ describe("O7 Simulation Core realized intrinsic lineage", () => {
       source_ref: "services/simulation-core/src/eldercare-core-model.ts"
     });
     expect(first.producer_intrinsic_lineage.model_version_reference.model_version_id).not.toContain("w5");
+    expect(first.producer_intrinsic_lineage.intrinsic_lineage_digest).toMatch(/^[a-f0-9]{64}$/u);
     expect(first.producer_intrinsic_lineage.runtime_binding_digest).toMatch(/^[a-f0-9]{64}$/u);
     expect(first.authority).toBe("SIMULATION_CORE");
     expect(first.writes_formal_result).toBe(false);
@@ -35,6 +36,20 @@ describe("O7 Simulation Core realized intrinsic lineage", () => {
     );
     expect(result.producer_intrinsic_lineage.model_artifact_reference.source_ref).toContain(
       "eldercare-core-model.ts"
+    );
+  });
+
+  it("binds runtime lineage to the exact Core invocation while retaining stable intrinsic identity", () => {
+    const firstInput = createDefaultEldercareModelInput();
+    const secondInput = { ...firstInput, seed: firstInput.seed + 1 };
+    const first = evaluateW5CoreRealization(firstInput);
+    const second = evaluateW5CoreRealization(secondInput);
+
+    expect(first.producer_intrinsic_lineage.intrinsic_lineage_digest).toBe(
+      second.producer_intrinsic_lineage.intrinsic_lineage_digest
+    );
+    expect(first.producer_intrinsic_lineage.runtime_binding_digest).not.toBe(
+      second.producer_intrinsic_lineage.runtime_binding_digest
     );
   });
 });
