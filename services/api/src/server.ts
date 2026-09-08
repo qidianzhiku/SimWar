@@ -936,7 +936,64 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
   );
   const modelQualification = new ModelQualificationService(
     undefined,
-    createJsonModelQualificationPersistence(store)
+    createJsonModelQualificationPersistence(store),
+    {
+      w5Reader: {
+        read: (actor, input) => {
+          try {
+            const draft = w5GovernedModel.getDraft(
+              {
+                actor_id: actor.actor_id,
+                role: actor.role,
+                tenant_id: actor.tenant_id
+              },
+              {
+                activity_id: "r1_can_service_feasibility",
+                course_id: input.course_id,
+                round_no: input.round_no,
+                run_id: input.run_id,
+                team_id: input.team_id
+              },
+              input.w5_draft_id
+            );
+            const binding = draft.exact_runtime_binding;
+            if (
+              !binding ||
+              binding.status !== "BOUND" ||
+              binding.tenant_id !== input.tenant_id ||
+              binding.course_id !== input.course_id ||
+              binding.run_id !== input.run_id ||
+              binding.round_no !== input.round_no ||
+              binding.scenario_package_reference.scenario_package_id !==
+                input.scenario_package_id ||
+              binding.parameter_set_reference.parameter_set_id !== input.parameter_set_id
+            ) {
+              return null;
+            }
+            const convergence = w5GovernedModel.evaluate(
+              {
+                actor_id: actor.actor_id,
+                role: actor.role,
+                tenant_id: actor.tenant_id
+              },
+              {
+                activity_id: "r1_can_service_feasibility",
+                course_id: input.course_id,
+                round_no: input.round_no,
+                run_id: input.run_id,
+                team_id: input.team_id
+              },
+              input.w5_draft_id,
+              "STANDARD",
+              { model_plane: "ON" }
+            );
+            return { draft, convergence };
+          } catch {
+            return null;
+          }
+        }
+      }
+    }
   );
   const canServiceFeasibility = new CanServiceFeasibilityService(
     createW5CanServiceFeasibilitySource({

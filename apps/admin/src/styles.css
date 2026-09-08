@@ -252,6 +252,7 @@ body {
   border-radius: 1rem;
   background: #0b1b2b;
   color: #f3f8fc;
+  word-wrap: anywhere;
 }
 
 .o10-changeset-heading h3 {
@@ -270,9 +271,7 @@ body {
 }
 
 .o10-changeset-identities dd {
-  min-width: 0;
   margin: 0;
-  overflow-wrap: anywhere;
 }
 
 .o10-handoff-list {
@@ -295,7 +294,6 @@ body {
 .o10-handoff small {
   display: block;
   margin: 0.4rem 0 0;
-  overflow-wrap: anywhere;
 }
 
 button,

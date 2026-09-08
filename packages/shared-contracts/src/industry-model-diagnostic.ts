@@ -33,6 +33,7 @@ export interface IndustryDiagnosticProvabilityDto {
   readonly authority_owner: string;
   readonly source: { readonly path: string; readonly symbol: string };
   readonly freshness: "FRESH" | "STALE" | "UNKNOWN";
+  readonly known_limits?: readonly string[];
 }
 
 export interface IndustryDiagnosticStudentSummaryDto {

@@ -10,6 +10,7 @@ export interface IndustryModelRealityJoinPanelProps {
   scenarioPackageId?: string | null | undefined;
   parameterSetId?: string | null | undefined;
   qualificationId?: string | null | undefined;
+  w5DraftId?: string | null | undefined;
   tenantId: string;
   token: string;
   role: "teacher" | "admin" | "student";
@@ -30,6 +31,7 @@ export function IndustryModelRealityJoinPanel({
   scenarioPackageId,
   parameterSetId,
   qualificationId,
+  w5DraftId,
   tenantId,
   token,
   role
@@ -47,6 +49,7 @@ export function IndustryModelRealityJoinPanel({
     scenarioPackageId,
     parameterSetId,
     qualificationId,
+    w5DraftId,
     tenantId,
     role
   ]
@@ -84,6 +87,7 @@ export function IndustryModelRealityJoinPanel({
       parameterSetId,
       qualificationId
     });
+    if (nonBlank(w5DraftId)) query.set("w5DraftId", w5DraftId);
     if (lastDigestRef.current) query.set("expectedRealityJoinDigest", lastDigestRef.current.digest);
     void fetch(
       apiBase + "/api/v1/bff/" + role + "/model-qualification/reality-join?" + query.toString(),
@@ -129,6 +133,7 @@ export function IndustryModelRealityJoinPanel({
     scenarioPackageId,
     parameterSetId,
     qualificationId,
+    w5DraftId,
     tenantId,
     token,
     role,

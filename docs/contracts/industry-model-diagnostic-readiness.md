@@ -23,7 +23,8 @@ The role endpoints are:
 The query requires `courseId`, `runId`, `teamId`, `roundId`,
 `scenarioPackageId`, `parameterSetId`, and `qualificationId`. Optional expected
 diagnostic and interpretation-policy digests are used only for freshness
-comparison.
+comparison. An optional `w5DraftId` must identify one exact `BOUND` W5 draft;
+it is never selected through latest/current/default/fallback behavior.
 
 ## Provability boundary
 
@@ -33,6 +34,11 @@ diagnostic pass is not business truth and is not causal proof. The allowed
 classes are `WANT_EVIDENCE`, `CAN_EVIDENCE`, `REALIZED_REFERENCE`, and
 `NOT_PROVEN`. `REALIZED_REFERENCE` can only be attributed to the existing
 Simulation Core or W4 authority; IM-O1 never calculates or writes `REALIZED`.
+When `w5DraftId` is supplied and the server proves its exact binding, the
+projection appends separate W5 WANT, canonical CAN feasibility, and
+Simulation Core REALIZED reference producer entries. Each entry retains its
+own authority and known limits; CAN `UNKNOWN` remains `UNKNOWN`, WANT remains
+synthetic and uncalibrated, and the realized value remains reference-only.
 
 Teacher and Admin receive exact model, qualification, adoption, producer,
 provenance, and digest fields for governed interpretation. Student receives
