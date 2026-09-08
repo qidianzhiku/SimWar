@@ -102,12 +102,18 @@ export function reconcileQualifiedProducerEvidence(input: {
     const missing: string[] = [];
     if (!producer.producer_model_version_reference) missing.push("TYPED_PRODUCER_MODEL_VERSION_REFERENCE_REQUIRED");
     if (!producer.producer_model_artifact_reference) missing.push("TYPED_PRODUCER_MODEL_ARTIFACT_REFERENCE_REQUIRED");
-    if (!producer.producer_qualification_id) missing.push("PRODUCER_QUALIFICATION_ID_REQUIRED");
-    if (!producer.producer_qualification_digest) missing.push("PRODUCER_QUALIFICATION_DIGEST_REQUIRED");
+    // Qualification identity is consumer-owned. A producer proves its own
+    // typed model/artifact lineage; it must not self-assert membership in the
+    // selected qualification. Optional producer qualification claims remain
+    // checked when present, so a conflicting claim cannot be ignored.
+    const qualificationClaimMatches =
+      (!producer.producer_qualification_id ||
+        producer.producer_qualification_id === qualification.qualification_id) &&
+      (!producer.producer_qualification_digest ||
+        producer.producer_qualification_digest === qualification.qualification_digest);
 
     const compatible = missing.length === 0
-      && producer.producer_qualification_id === qualification.qualification_id
-      && producer.producer_qualification_digest === qualification.qualification_digest
+      && qualificationClaimMatches
       && sameIdentity(producer.producer_model_version_reference, qualification.model_version_reference)
       && sameIdentity(producer.producer_model_artifact_reference, qualification.model_artifact_reference);
 
