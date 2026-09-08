@@ -5,11 +5,13 @@ import {
   type EldercareModelInput,
   type EldercareRoundMetrics
 } from "./eldercare-core-model.js";
+import type { W5ProducerIntrinsicLineage } from "@simwar/shared-contracts";
 
 export interface W5CoreRealization {
   authority: "SIMULATION_CORE";
   metrics: EldercareRoundMetrics;
   official: true;
+  producer_intrinsic_lineage: W5ProducerIntrinsicLineage;
   replay_relevant_digest: string;
   writes_formal_result: false;
 }
@@ -29,6 +31,38 @@ function digest(value: unknown): string {
   return createHash("sha256").update(stableStringify(value), "utf8").digest("hex");
 }
 
+const CORE_MODEL_VERSION_REFERENCE = Object.freeze({
+  model_version_id: "eldercare_core_model_v1",
+  version: "1.0.0",
+  content_digest: digest({
+    producer: "simulation-core-eldercare",
+    model_family: "eldercare_core_model_v1",
+    source: "services/simulation-core/src/eldercare-core-model.ts"
+  })
+});
+
+const CORE_MODEL_ARTIFACT_REFERENCE = Object.freeze({
+  artifact_id: "eldercare_core_model_v1_artifact",
+  content_digest: digest({
+    producer: "simulation-core-eldercare",
+    artifact: "typescript-simulation-core",
+    source: "services/simulation-core/src/eldercare-core-model.ts"
+  }),
+  format: "typescript-simulation-core",
+  source_ref: "services/simulation-core/src/eldercare-core-model.ts"
+});
+
+export const ELDERCARE_CORE_INTRINSIC_LINEAGE: W5ProducerIntrinsicLineage = Object.freeze({
+  model_artifact_reference: CORE_MODEL_ARTIFACT_REFERENCE,
+  model_version_reference: CORE_MODEL_VERSION_REFERENCE,
+  producer_source_ref: "services/simulation-core/src/eldercare-core-model.ts",
+  runtime_binding_digest: digest({
+    model_artifact_reference: CORE_MODEL_ARTIFACT_REFERENCE,
+    model_version_reference: CORE_MODEL_VERSION_REFERENCE,
+    producer_source_ref: "services/simulation-core/src/eldercare-core-model.ts"
+  })
+});
+
 /**
  * W5's realized plane deliberately delegates to the existing Simulation Core
  * evaluator. It returns an official-core projection for model convergence
@@ -42,6 +76,7 @@ export function evaluateW5CoreRealization(
     authority: "SIMULATION_CORE",
     metrics: evaluation.round_metrics,
     official: true,
+    producer_intrinsic_lineage: ELDERCARE_CORE_INTRINSIC_LINEAGE,
     replay_relevant_digest: digest({
       model_family: evaluation.model_family,
       round_metrics: evaluation.round_metrics,
