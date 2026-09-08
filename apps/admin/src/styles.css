@@ -244,14 +244,29 @@ body {
 }
 
 .o10-changeset {
+  box-sizing: border-box;
   display: grid;
   gap: 1rem;
   margin-top: 1.25rem;
+  min-width: 0;
+  max-width: 100%;
   padding: 1.25rem;
   border: 1px solid #6c9cc1;
   border-radius: 1rem;
   background: #0b1b2b;
   color: #f3f8fc;
+}
+
+.o10-changeset-heading,
+.o10-changeset-identities,
+.o10-handoff-list,
+.o10-handoff {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.o10-changeset-heading {
+  overflow-wrap: anywhere;
 }
 
 .o10-changeset-heading h3 {
@@ -288,6 +303,8 @@ body {
 
 .o10-handoff > div {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
   justify-content: space-between;
 }
 

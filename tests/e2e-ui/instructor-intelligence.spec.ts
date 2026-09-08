@@ -239,10 +239,11 @@ test("Teacher explicitly creates, publishes, and reads an AI-off C4 debrief kit 
   }
 
   const panel = page.getByLabel("Instructor intelligence");
+  const createDraftButton = panel.getByRole("button", { name: /创建(?:复盘)?草稿/u });
   await expect(panel).toBeVisible();
-  await expect(panel.getByRole("button", { name: "创建草稿" })).toBeEnabled();
+  await expect(createDraftButton).toBeEnabled();
   await panel.getByLabel("教学复盘标题").fill("Browser debrief");
-  await panel.getByRole("button", { name: "创建草稿" }).click();
+  await createDraftButton.click();
   await panel.getByRole("button", { name: "发布教学资产" }).click();
   await panel.getByRole("button", { name: "读取复盘包" }).click();
 
