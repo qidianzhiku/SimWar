@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import {
   buildArchitectureDelta,
   buildRiskDelta,
@@ -9,6 +12,17 @@ import {
   classifyPlanningDocuments,
   classifyPath,
   codeGraphWorkspacePath,
+  evaluateGraphAdmission,
+  classifyWriterEvidence,
+  classifyMcpHealth,
+  normalizeQuestionContract,
+  buildQuestionReceipt,
+  admitQuestionReceipt,
+  normalizeQueryEvidenceForAdmission,
+  normalizeMcpObservationSet,
+  resolveEffectiveQueryTarget,
+  resolveGraphAdmissionTarget,
+  assertArtifactRootSafety,
   evaluatePlanningGate,
   parseCodeGraphAffected,
   parseCodeGraphStatus,
@@ -16,6 +30,294 @@ import {
 } from "../../scripts/graph-companion.mjs";
 
 describe("Graph Companion V1 pure contracts", () => {
+  it("rejects an invalid index status even when both queries return data (KG-ADM-001)", () => {
+    const admission = evaluateGraphAdmission({
+      target: {
+        repo_sha: "a".repeat(40),
+        tree_sha: "tree-a",
+        config_digest: "cfg-a",
+        identity: "build-a"
+      },
+      status: { exit_code: 1, raw: '{"lastIndexed":"a"}', json: { lastIndexed: "a" } },
+      queries: [
+        { exit_code: 0, output: "relevant result", relevant: true, coverage: "COMPLETE" },
+        { exit_code: 0, output: "relevant result", relevant: true, coverage: "COMPLETE" }
+      ]
+    });
+    expect(admission.stages.BUILD_HEALTH.status).toBe("FAIL");
+    expect(admission.decision).toBe("BLOCKED_INDEX_METADATA");
+  });
+
+  it("rejects invalid JSON status (KG-ADM-002)", () => {
+    const admission = evaluateGraphAdmission({
+      target: {
+        repo_sha: "a".repeat(40),
+        tree_sha: "tree-a",
+        config_digest: "cfg-a",
+        identity: "build-a"
+      },
+      status: { exit_code: 0, raw: "not-json", json: null },
+      queries: [{ exit_code: 0, output: "relevant", relevant: true, coverage: "COMPLETE" }]
+    });
+    expect(admission.stages.BUILD_HEALTH.status).toBe("FAIL");
+    expect(admission.decision).toBe("BLOCKED_INDEX_METADATA");
+  });
+
+  it("rejects a repository/tree/config mismatch (KG-ADM-003)", () => {
+    const admission = evaluateGraphAdmission({
+      target: {
+        repo_sha: "a".repeat(40),
+        tree_sha: "tree-a",
+        config_digest: "cfg-a",
+        identity: "build-a"
+      },
+      status: {
+        exit_code: 0,
+        raw: "{}",
+        json: {
+          repo_sha: "b".repeat(40),
+          tree_sha: "tree-b",
+          config_digest: "cfg-b",
+          identity: "build-b",
+          lastIndexed: "2026-09-07T00:00:00Z"
+        }
+      },
+      queries: [{ exit_code: 0, output: "relevant", relevant: true, coverage: "COMPLETE" }]
+    });
+    expect(admission.stages.SNAPSHOT_APPLICABILITY.status).toBe("MISMATCH");
+    expect(admission.decision).toBe("BLOCKED_TARGET_MISMATCH");
+  });
+
+  it("does not infer target identity when identity metadata is missing (KG-ADM-004)", () => {
+    const admission = evaluateGraphAdmission({
+      target: {
+        repo_sha: "a".repeat(40),
+        tree_sha: "tree-a",
+        config_digest: "cfg-a",
+        identity: "build-a"
+      },
+      status: {
+        exit_code: 0,
+        raw: "{}",
+        json: {
+          repo_sha: "a".repeat(40),
+          tree_sha: "tree-a",
+          config_digest: "cfg-a",
+          lastIndexed: "2026-09-07T00:00:00Z"
+        }
+      },
+      queries: [{ exit_code: 0, output: "relevant", relevant: true, coverage: "COMPLETE" }]
+    });
+    expect(admission.stages.SNAPSHOT_APPLICABILITY.status).toBe("UNKNOWN");
+    expect(admission.decision).toBe("BLOCKED_TARGET_UNKNOWN");
+  });
+
+  it("rejects a historical index whose SHA differs from the target (KG-ADM-005)", () => {
+    const admission = evaluateGraphAdmission({
+      target: {
+        repo_sha: "a".repeat(40),
+        tree_sha: "tree-a",
+        config_digest: "cfg-a",
+        identity: "build-a"
+      },
+      status: {
+        exit_code: 0,
+        raw: "{}",
+        json: {
+          repo_sha: "b".repeat(40),
+          tree_sha: "tree-a",
+          config_digest: "cfg-a",
+          identity: "build-b",
+          lastIndexed: "2026-09-07T00:00:00Z"
+        }
+      },
+      queries: [{ exit_code: 0, output: "relevant", relevant: true, coverage: "COMPLETE" }]
+    });
+    expect(admission.stages.SNAPSHOT_APPLICABILITY.target_match).toBe("FALSE");
+    expect(admission.decision).toBe("BLOCKED_TARGET_MISMATCH");
+  });
+
+  it("requires identity equality and a parseable lastIndexed value", () => {
+    const target = {
+      repo_sha: "a".repeat(40),
+      tree_sha: "tree-a",
+      config_digest: "cfg-a",
+      identity: "expected-target"
+    };
+    const admission = evaluateGraphAdmission({
+      target,
+      status: {
+        exit_code: 0,
+        raw: "{}",
+        json: { ...target, identity: "wrong-target", lastIndexed: "not-a-date" }
+      },
+      queries: [{ exit_code: 0, output: "relevant", relevant: true, coverage: "COMPLETE" }]
+    });
+    expect(admission.stages.SNAPSHOT_APPLICABILITY.status).toBe("UNKNOWN");
+    expect(admission.decision).toBe("BLOCKED_TARGET_UNKNOWN");
+  });
+
+  it("blocks a valid snapshot when the expected target identity differs", () => {
+    const target = {
+      repo_sha: "a".repeat(40),
+      tree_sha: "tree-a",
+      config_digest: "cfg-a",
+      identity: "expected-target"
+    };
+    const admission = evaluateGraphAdmission({
+      target,
+      status: {
+        exit_code: 0,
+        json: { ...target, identity: "different-target", lastIndexed: "2026-09-07T00:00:00Z" }
+      },
+      queries: [{ exit_code: 0, output: "relevant", relevant: true, coverage: "COMPLETE" }]
+    });
+    expect(admission.stages.SNAPSHOT_APPLICABILITY.identity_match).toBe("FALSE");
+    expect(admission.decision).toBe("BLOCKED_TARGET_MISMATCH");
+  });
+
+  it("requires an independent expected identity for exact-target admission", () => {
+    const admission = evaluateGraphAdmission({
+      target: { repo_sha: "a".repeat(40), tree_sha: "tree-a", config_digest: "cfg-a" },
+      status: {
+        exit_code: 0,
+        json: {
+          repo_sha: "a".repeat(40),
+          tree_sha: "tree-a",
+          config_digest: "cfg-a",
+          identity: "self-reported",
+          lastIndexed: "2026-09-07T00:00:00Z"
+        }
+      },
+      queries: [{ exit_code: 0, output: "relevant", relevant: true, coverage: "COMPLETE" }]
+    });
+    expect(admission.stages.SNAPSHOT_APPLICABILITY.status).toBe("UNKNOWN");
+    expect(admission.decision).toBe("BLOCKED_TARGET_UNKNOWN");
+  });
+
+  it("does not promote truncated or irrelevant queries to exact-target ready", () => {
+    const target = {
+      repo_sha: "a".repeat(40),
+      tree_sha: "tree-a",
+      config_digest: "cfg-a",
+      identity: "build-a"
+    };
+    const status = {
+      exit_code: 0,
+      raw: "{}",
+      json: { ...target, identity: "build-a", lastIndexed: "2026-09-07T00:00:00Z" }
+    };
+    const truncated = evaluateGraphAdmission({
+      target,
+      status,
+      queries: [{ exit_code: 0, output: "partial", relevant: true, coverage: "TRUNCATED" }]
+    });
+    expect(truncated.stages.QUERY_USEFULNESS.status).toBe("TRUNCATED");
+    expect(truncated.stages.QUERY_USEFULNESS.COMMAND_OK).toBe(true);
+    expect(truncated.stages.QUERY_USEFULNESS.RELEVANT_RESULT).toBe(true);
+    expect(truncated.stages.QUERY_USEFULNESS.COVERAGE_COMPLETE).toBe(false);
+    expect(truncated.exact_target_ready).toBe(false);
+    const irrelevant = evaluateGraphAdmission({
+      target,
+      status,
+      queries: [{ exit_code: 0, output: "baseline", relevant: false, coverage: "COMPLETE" }]
+    });
+    expect(irrelevant.stages.QUERY_USEFULNESS.status).toBe("NO_RELEVANCE");
+    expect(irrelevant.stages.QUERY_USEFULNESS.COMMAND_OK).toBe(true);
+    expect(irrelevant.stages.QUERY_USEFULNESS.RELEVANT_RESULT).toBe(false);
+    expect(irrelevant.stages.QUERY_USEFULNESS.COVERAGE_COMPLETE).toBe(true);
+  });
+
+  it("distinguishes unknown writer ownership from an observed lack of contention", () => {
+    expect(classifyWriterEvidence({ observedErrors: [] }).state).toBe("NO_CONTENTION_OBSERVED");
+    expect(
+      classifyWriterEvidence({
+        observedErrors: [],
+        owner: {
+          build_key: "k",
+          owner: "codex",
+          process_id: 42,
+          started_at: "t",
+          heartbeat_at: "t"
+        }
+      }).state
+    ).toBe("LOCK_OWNERSHIP_PROVEN");
+    expect(classifyWriterEvidence({ observedErrors: ["unknown lock"] }).state).toBe(
+      "LOCK_OWNERSHIP_UNKNOWN"
+    );
+  });
+
+  it("keeps MCP configured, handshake, tool call, and useful result separate", () => {
+    expect(
+      classifyMcpHealth({
+        configured: true,
+        handshake: true,
+        tool_list: true,
+        tool_call: true,
+        useful: false
+      })
+    ).toEqual({
+      MCP_CONFIGURED: true,
+      MCP_HANDSHAKE_OK: true,
+      MCP_TOOL_LIST_OK: true,
+      MCP_TOOL_CALL_OK: true,
+      MCP_RESULT_USEFUL: false
+    });
+  });
+
+  it("rejects equal and nested ArtifactRoot paths before any write", () => {
+    const source = "D:/simwar/source";
+    expect(() => assertArtifactRootSafety({ projectRoot: source, artifactRoot: source })).toThrow();
+    expect(() =>
+      assertArtifactRootSafety({ projectRoot: source, artifactRoot: "D:/simwar/source/graph" })
+    ).toThrow();
+    expect(
+      assertArtifactRootSafety({
+        projectRoot: source,
+        artifactRoot: "D:/simwar/artifacts"
+      }).replaceAll("\\", "/")
+    ).toContain("D:/simwar/artifacts");
+  });
+
+  it("rejects a physical alias that resolves an external path into the source", () => {
+    const root = mkdtempSync(join(tmpdir(), "simwar-artifact-safety-"));
+    const source = join(root, "source");
+    const outside = join(root, "outside");
+    mkdirSync(source);
+    mkdirSync(outside);
+    try {
+      expect(() =>
+        assertArtifactRootSafety({
+          projectRoot: source,
+          artifactRoot: join(outside, "graph"),
+          realpath: (path) => (path === outside ? source : path)
+        })
+      ).toThrow(/resolves inside/u);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails closed when physical canonicalization cannot be completed", () => {
+    const root = mkdtempSync(join(tmpdir(), "simwar-artifact-realpath-"));
+    const source = join(root, "source");
+    const outside = join(root, "outside");
+    mkdirSync(source);
+    mkdirSync(outside);
+    try {
+      expect(() =>
+        assertArtifactRootSafety({
+          projectRoot: source,
+          artifactRoot: join(outside, "graph"),
+          realpath: () => {
+            throw new Error("realpath unavailable");
+          }
+        })
+      ).toThrow(/physical|canonical|realpath|safety/u);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
   it("resolves a stable graph home without a user-specific hard-coded path", () => {
     expect(
       resolveGraphHome({
@@ -192,6 +494,621 @@ describe("Graph Companion V1 pure contracts", () => {
     expect(impact.false_negative_controls).toContain(
       "missing edge expands mandatory safety floors"
     );
+  });
+
+  it("accepts an exact-path and exact-symbol Query Contract V2", () => {
+    const contract = normalizeQuestionContract({
+      question_id: "Q-FORMAL-WRITER",
+      risk_class: "authority",
+      target_sha: "a".repeat(40),
+      canonical_seam: "services/api/src/model-qualification-service.ts#commit",
+      decision_before: "writer authority is not proven",
+      decision_needed: "identify the sole formal writer and its audit path",
+      seed_paths: ["services/api/src/model-qualification-service.ts"],
+      seed_symbols: ["ModelQualificationService.commit"],
+      seed_routes: [],
+      seed_schemas: [],
+      expected_edge_types: ["CALLS", "WRITES"],
+      mandatory_source_readback: ["services/api/src/model-qualification-service.ts:2350-2382"],
+      mandatory_tests: ["tests/unit/model-qualification-service.test.ts"]
+    });
+    expect(contract.schema_version).toBe("GraphQuestionContractV2");
+    expect(contract.question_id).toBe("Q-FORMAL-WRITER");
+  });
+
+  it("rejects a Query Contract V2 with no exact seed", () => {
+    expect(() =>
+      normalizeQuestionContract({
+        question_id: "Q-MISSING-SEED",
+        risk_class: "authority",
+        target_sha: "a".repeat(40),
+        canonical_seam: "services/api/src/model-qualification-service.ts",
+        decision_before: "unknown",
+        decision_needed: "find writer",
+        seed_paths: [],
+        seed_symbols: [],
+        seed_routes: [],
+        seed_schemas: [],
+        expected_edge_types: ["CALLS"],
+        mandatory_source_readback: ["services/api/src/model-qualification-service.ts"],
+        mandatory_tests: ["tests/unit/model-qualification-service.test.ts"]
+      })
+    ).toThrow(/seed/u);
+  });
+
+  it("routes truncated or generic graph results to source fallback", () => {
+    const contract = normalizeQuestionContract({
+      question_id: "Q-PERMISSION",
+      risk_class: "permission",
+      target_sha: "b".repeat(40),
+      canonical_seam: "services/api/src/routes/model-qualification-routes.ts",
+      decision_before: "permission path is unclear",
+      decision_needed: "confirm exact tenant and team checks",
+      seed_paths: ["services/api/src/routes/model-qualification-routes.ts"],
+      seed_symbols: ["assertExactIndustryDiagnosticContext"],
+      seed_routes: ["GET /api/v1/bff/student/model-qualification/reality-join"],
+      seed_schemas: [],
+      expected_edge_types: ["CALLS", "READS"],
+      mandatory_source_readback: ["services/api/src/routes/model-qualification-routes.ts:317-377"],
+      mandatory_tests: ["tests/unit/industry-model-diagnostic-route.test.ts"]
+    });
+    const receipt = buildQuestionReceipt({
+      contract,
+      graphify: {
+        command_ok: true,
+        relevance: "RELEVANT",
+        coverage: "TRUNCATED",
+        truncated: true,
+        anchors: ["assertExactIndustryDiagnosticContext"]
+      },
+      codegraph: {
+        command_ok: true,
+        relevance: "NO_RELEVANCE",
+        coverage: "COMPLETE",
+        truncated: false,
+        generic: true,
+        anchors: ["generic permission helper"]
+      },
+      sourceReadback: {
+        resolved: true,
+        anchors: ["model-qualification-routes.ts:317-377"],
+        unresolved: []
+      }
+    });
+    expect(receipt.graphify.truncated).toBe(true);
+    expect(receipt.codegraph.relevance).toBe("NO_RELEVANCE");
+    expect(admitQuestionReceipt(receipt)).toBe("SOURCE_FALLBACK");
+  });
+
+  it("holds a high-risk seam when source readback is unresolved", () => {
+    const receipt = buildQuestionReceipt({
+      contract: normalizeQuestionContract({
+        question_id: "Q-WRITER-HOLD",
+        risk_class: "authority",
+        target_sha: "c".repeat(40),
+        canonical_seam: "services/api/src/model-qualification-service.ts#commit",
+        decision_before: "unknown",
+        decision_needed: "prove writer",
+        seed_paths: ["services/api/src/model-qualification-service.ts"],
+        seed_symbols: ["commit"],
+        seed_routes: [],
+        seed_schemas: [],
+        expected_edge_types: ["CALLS"],
+        mandatory_source_readback: ["services/api/src/model-qualification-service.ts"],
+        mandatory_tests: ["tests/unit/model-qualification-service.test.ts"]
+      }),
+      graphify: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", anchors: ["commit"] },
+      codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", anchors: ["commit"] },
+      sourceReadback: { resolved: false, anchors: [], unresolved: ["writer audit path"] }
+    });
+    expect(admitQuestionReceipt(receipt)).toBe("HOLD_THIS_SEAM");
+  });
+
+  it("does not treat a non-empty unresolved list as resolved evidence", () => {
+    const receipt = {
+      graphify: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      source_readback: { resolved: true, anchors: ["partial.ts:1"], unresolved: ["missing consumer"] }
+    };
+    expect(admitQuestionReceipt(receipt)).toBe("HOLD_THIS_SEAM");
+  });
+
+  it("holds mandatory source readback when anchors are empty", () => {
+    const receipt = {
+      risk_class: "authority",
+      graphify: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      source_readback: { resolved: true, anchors: [], unresolved: [] }
+    };
+    expect(admitQuestionReceipt(receipt)).toBe("HOLD_THIS_SEAM");
+  });
+
+  it("does not require a fabricated source anchor when the contract opts out", () => {
+    const receipt = {
+      seed_paths: ["scripts/graph-companion.mjs"],
+      seed_symbols: ["admitQuestionReceipt"],
+      seed_routes: [],
+      seed_schemas: [],
+      expected_edge_types: ["CALLS"],
+      mandatory_source_readback: [],
+      graphify: {
+        command_ok: true,
+        relevance: "RELEVANT",
+        coverage: "COMPLETE",
+        truncated: false,
+        anchors: ["scripts/graph-companion.mjs", "admitQuestionReceipt"],
+        edge_types: ["CALLS"]
+      },
+      codegraph: {
+        command_ok: true,
+        relevance: "RELEVANT",
+        coverage: "COMPLETE",
+        truncated: false,
+        anchors: ["scripts/graph-companion.mjs", "admitQuestionReceipt"],
+        edge_types: ["CALLS"]
+      },
+      source_readback: { resolved: false, anchors: [], unresolved: [] }
+    };
+    expect(admitQuestionReceipt(receipt)).toBe("READY");
+  });
+
+  it("holds when mandatory source evidence does not match the contract", () => {
+    const receipt = buildQuestionReceipt({
+      contract: normalizeQuestionContract({
+        question_id: "F2-MISMATCH",
+        risk_class: "authority",
+        target_sha: "a".repeat(40),
+        canonical_seam: "services/api/src/model-qualification-service.ts#commit",
+        decision_before: "unknown",
+        decision_needed: "prove writer",
+        seed_paths: ["services/api/src/model-qualification-service.ts"],
+        seed_symbols: ["ModelQualificationService.commit"],
+        seed_routes: [],
+        seed_schemas: [],
+        expected_edge_types: ["CALLS"],
+        mandatory_source_readback: ["services/api/src/model-qualification-service.ts:2350-2382"],
+        mandatory_tests: ["tests/unit/model-qualification-service.test.ts"]
+      }),
+      graphify: {
+        command_ok: true,
+        relevance: "RELEVANT",
+        coverage: "COMPLETE",
+        anchors: ["services/api/src/model-qualification-service.ts", "ModelQualificationService.commit"],
+        edge_types: ["CALLS"]
+      },
+      codegraph: {
+        command_ok: true,
+        relevance: "RELEVANT",
+        coverage: "COMPLETE",
+        anchors: ["services/api/src/model-qualification-service.ts", "ModelQualificationService.commit"],
+        edge_types: ["CALLS"]
+      },
+      sourceReadback: { resolved: true, anchors: ["unrelated.ts:1"], unresolved: [] }
+    });
+    expect(admitQuestionReceipt(receipt)).toBe("HOLD_THIS_SEAM");
+  });
+
+  it("does not return READY when exact seeds or expected edge types are absent", () => {
+    const receipt = buildQuestionReceipt({
+      contract: normalizeQuestionContract({
+        question_id: "F2-GRAPH-MISMATCH",
+        risk_class: "authority",
+        target_sha: "a".repeat(40),
+        canonical_seam: "scripts/graph-companion.mjs#query",
+        decision_before: "unknown",
+        decision_needed: "confirm query",
+        seed_paths: ["scripts/graph-companion.mjs"],
+        seed_symbols: ["runCompanion"],
+        seed_routes: [],
+        seed_schemas: [],
+        expected_edge_types: ["CALLS"],
+        mandatory_source_readback: [],
+        mandatory_tests: ["tests/unit/graph-companion.test.ts"]
+      }),
+      graphify: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", anchors: ["generic helper"], edge_types: [] },
+      codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", anchors: ["generic helper"], edge_types: [] },
+      sourceReadback: { resolved: false, anchors: [], unresolved: [] }
+    });
+    expect(admitQuestionReceipt(receipt)).toBe("SOURCE_FALLBACK");
+  });
+
+  it("preserves explicit relevance, coverage, and NOT_RUN states", () => {
+    const contract = normalizeQuestionContract({
+      question_id: "V21-ENUMS",
+      risk_class: "module",
+      target_sha: "a".repeat(40),
+      canonical_seam: "scripts/graph-companion.mjs#query",
+      decision_before: "unknown",
+      decision_needed: "preserve evidence enums",
+      seed_paths: ["scripts/graph-companion.mjs"],
+      seed_symbols: ["query"],
+      seed_routes: [],
+      seed_schemas: [],
+      expected_edge_types: ["CALLS"],
+      mandatory_source_readback: [],
+      mandatory_tests: ["tests/unit/graph-companion.test.ts"]
+    });
+    const receipt = buildQuestionReceipt({
+      contract,
+      graphify: {
+        command_ok: true,
+        relevance: "AMBIGUOUS",
+        coverage: "PARTIAL",
+        anchors: ["scripts/graph-companion.mjs", "query"],
+        edge_types: ["CALLS"]
+      },
+      codegraph: {
+        command_ok: true,
+        relevance: "NOT_APPLICABLE",
+        coverage: "DEPTH_BOUNDED",
+        anchors: ["scripts/graph-companion.mjs", "query"],
+        edge_types: ["CALLS"]
+      }
+    });
+    expect(receipt.graphify.relevance).toBe("AMBIGUOUS");
+    expect(receipt.graphify.coverage).toBe("PARTIAL");
+    expect(receipt.codegraph.relevance).toBe("NOT_APPLICABLE");
+    expect(receipt.codegraph.coverage).toBe("DEPTH_BOUNDED");
+    const normalized = normalizeQueryEvidenceForAdmission({
+      queryEvidence: { question_receipts: [receipt] },
+      targetSha: "a".repeat(40)
+    });
+    expect(normalized.queries[0]).toMatchObject({
+      execution_status: "PASS",
+      exit_code: 0,
+      relevance: "AMBIGUOUS",
+      coverage: "PARTIAL",
+      question_admission: "SOURCE_FALLBACK"
+    });
+  });
+
+  it("preserves NOT_RUN instead of converting absent tool evidence into failure", () => {
+    const contract = normalizeQuestionContract({
+      question_id: "V21-NOT-RUN",
+      risk_class: "module",
+      target_sha: "a".repeat(40),
+      canonical_seam: "scripts/graph-companion.mjs#query",
+      decision_before: "unknown",
+      decision_needed: "preserve not-run evidence",
+      seed_paths: ["scripts/graph-companion.mjs"],
+      seed_symbols: ["query"],
+      seed_routes: [],
+      seed_schemas: [],
+      expected_edge_types: ["CALLS"],
+      mandatory_source_readback: [],
+      mandatory_tests: ["tests/unit/graph-companion.test.ts"]
+    });
+    const receipt = buildQuestionReceipt({ contract });
+    expect(receipt.graphify.execution_status).toBe("NOT_RUN");
+    expect(receipt.codegraph.execution_status).toBe("NOT_RUN");
+    const normalized = normalizeQueryEvidenceForAdmission({
+      queryEvidence: { question_receipts: [receipt] },
+      targetSha: "a".repeat(40)
+    });
+    expect(normalized.queries[0]).toMatchObject({
+      execution_status: "NOT_RUN",
+      exit_code: null,
+      question_admission: "SOURCE_FALLBACK"
+    });
+  });
+
+  it("uses the impact analysis target for question admission identity", () => {
+    expect(
+      resolveEffectiveQueryTarget({ mode: "impact", current: "a".repeat(40), analysisTarget: "b".repeat(40) })
+    ).toBe("b".repeat(40));
+    expect(
+      resolveEffectiveQueryTarget({ mode: "entry", current: "a".repeat(40), analysisTarget: "b".repeat(40) })
+    ).toBe("a".repeat(40));
+  });
+
+  it("uses the impact analysis target for graph admission identity", () => {
+    expect(
+      resolveGraphAdmissionTarget({ mode: "impact", current: "a".repeat(40), analysisTarget: "b".repeat(40) })
+    ).toBe("b".repeat(40));
+    expect(
+      resolveGraphAdmissionTarget({ mode: "entry", current: "a".repeat(40), analysisTarget: "b".repeat(40) })
+    ).toBe("a".repeat(40));
+  });
+
+  it("does not promote legacy queries into exact-target V2 admission", () => {
+    const normalized = normalizeQueryEvidenceForAdmission({
+      queryEvidence: {
+        queries: [{ exit_code: 0, output: "legacy result", relevant: true, coverage: "COMPLETE", truncated: false }]
+      },
+      targetSha: "a".repeat(40)
+    });
+    expect(normalized.query_contract_v2).toBe(false);
+    expect(normalized.legacy_detected).toBe(true);
+    expect(normalized.legacy_question_admission).toBe("HOLD_THIS_SEAM");
+    expect(normalized.queries).toEqual([]);
+    expect(normalized.non_authoritative_legacy_queries).toHaveLength(1);
+  });
+
+  it("keeps legacy data informational when a V2 receipt is also present", () => {
+    const receipt = buildQuestionReceipt({
+      contract: normalizeQuestionContract({
+        question_id: "F3-C",
+        risk_class: "module",
+        target_sha: "a".repeat(40),
+        canonical_seam: "scripts/graph-companion.mjs#query",
+        decision_before: "unknown",
+        decision_needed: "confirm query",
+        seed_paths: ["scripts/graph-companion.mjs"],
+        seed_symbols: ["query"],
+        seed_routes: [],
+        seed_schemas: [],
+        expected_edge_types: ["CALLS"],
+        mandatory_source_readback: [],
+        mandatory_tests: ["tests/unit/graph-companion.test.ts"]
+      }),
+      graphify: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      sourceReadback: { resolved: false, anchors: [], unresolved: [] }
+    });
+    const normalized = normalizeQueryEvidenceForAdmission({
+      queryEvidence: {
+        question_receipts: [receipt],
+        queries: [{ exit_code: 0, relevant: true, coverage: "COMPLETE" }]
+      },
+      targetSha: "a".repeat(40)
+    });
+    expect(normalized.query_contract_v2).toBe(true);
+    expect(normalized.legacy_detected).toBe(true);
+    expect(normalized.queries).toHaveLength(1);
+    expect(normalized.non_authoritative_legacy_queries).toHaveLength(1);
+  });
+
+  it("does not promote schema-less receipt arrays into V2 admission", () => {
+    for (const field of ["question_receipts", "receipts"] as const) {
+      const normalized = normalizeQueryEvidenceForAdmission({
+        queryEvidence: {
+          [field]: [{
+            target_sha: "a".repeat(40),
+            question_id: "legacy-receipt",
+            graphify: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE" },
+            codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE" },
+            source_readback: { resolved: true, anchors: ["legacy.ts:1"], unresolved: [] }
+          }]
+        },
+        targetSha: "a".repeat(40)
+      });
+      expect(normalized.query_contract_v2).toBe(false);
+      expect(normalized.legacy_detected).toBe(true);
+      expect(normalized.queries).toEqual([]);
+      expect(normalized.legacy_question_admission).toBe("HOLD_THIS_SEAM");
+    }
+  });
+
+  it("preserves command success when a question falls back for no relevance", () => {
+    const contract = normalizeQuestionContract({
+      question_id: "V21-001",
+      risk_class: "module",
+      target_sha: "a".repeat(40),
+      canonical_seam: "scripts/graph-companion.mjs#query",
+      decision_before: "unknown",
+      decision_needed: "find a relevant anchor",
+      seed_paths: ["scripts/graph-companion.mjs"],
+      seed_symbols: ["query"],
+      seed_routes: [],
+      seed_schemas: [],
+      expected_edge_types: ["CALLS"],
+      mandatory_source_readback: [],
+      mandatory_tests: ["tests/unit/graph-companion.test.ts"]
+    });
+    const receipt = buildQuestionReceipt({
+      contract,
+      graphify: { command_ok: true, relevance: "NO_RELEVANCE", coverage: "COMPLETE", truncated: false },
+      codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      sourceReadback: { resolved: true, anchors: ["scripts/graph-companion.mjs:1"], unresolved: [] }
+    });
+    const normalized = normalizeQueryEvidenceForAdmission({
+      queryEvidence: { question_receipts: [receipt] },
+      targetSha: "a".repeat(40)
+    });
+    expect(receipt.question_admission).toBe("SOURCE_FALLBACK");
+    expect(normalized.queries[0]).toMatchObject({
+      execution_status: "PASS",
+      exit_code: 0,
+      relevance: "NO_RELEVANCE",
+      coverage: "COMPLETE",
+      truncated: false,
+      question_admission: "SOURCE_FALLBACK"
+    });
+  });
+
+  it("preserves command success and truncation when a question falls back", () => {
+    const receipt = buildQuestionReceipt({
+      contract: normalizeQuestionContract({
+        question_id: "V21-002",
+        risk_class: "module",
+        target_sha: "a".repeat(40),
+        canonical_seam: "scripts/graph-companion.mjs#query",
+        decision_before: "unknown",
+        decision_needed: "bound expansion",
+        seed_paths: ["scripts/graph-companion.mjs"],
+        seed_symbols: ["query"],
+        seed_routes: [],
+        seed_schemas: [],
+        expected_edge_types: ["CALLS"],
+        mandatory_source_readback: [],
+        mandatory_tests: ["tests/unit/graph-companion.test.ts"]
+      }),
+      graphify: { command_ok: true, relevance: "RELEVANT", coverage: "TRUNCATED", truncated: true },
+      codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      sourceReadback: { resolved: true, anchors: ["scripts/graph-companion.mjs:1"], unresolved: [] }
+    });
+    const normalized = normalizeQueryEvidenceForAdmission({
+      queryEvidence: { question_receipts: [receipt] },
+      targetSha: "a".repeat(40)
+    });
+    expect(normalized.queries[0]).toMatchObject({
+      execution_status: "PASS",
+      exit_code: 0,
+      coverage: "TRUNCATED",
+      truncated: true,
+      question_admission: "SOURCE_FALLBACK"
+    });
+  });
+
+  it("reports an actual tool failure separately from question admission", () => {
+    const receipt = buildQuestionReceipt({
+      contract: normalizeQuestionContract({
+        question_id: "V21-003",
+        risk_class: "module",
+        target_sha: "a".repeat(40),
+        canonical_seam: "scripts/graph-companion.mjs#query",
+        decision_before: "unknown",
+        decision_needed: "run query",
+        seed_paths: ["scripts/graph-companion.mjs"],
+        seed_symbols: ["query"],
+        seed_routes: [],
+        seed_schemas: [],
+        expected_edge_types: ["CALLS"],
+        mandatory_source_readback: [],
+        mandatory_tests: ["tests/unit/graph-companion.test.ts"]
+      }),
+      graphify: { command_ok: false, relevance: "NOT_APPLICABLE", coverage: "UNKNOWN", truncated: false },
+      codegraph: { command_ok: true, relevance: "RELEVANT", coverage: "COMPLETE", truncated: false },
+      sourceReadback: { resolved: false, anchors: [], unresolved: [] }
+    });
+    const normalized = normalizeQueryEvidenceForAdmission({
+      queryEvidence: { question_receipts: [receipt] },
+      targetSha: "a".repeat(40)
+    });
+    expect(normalized.queries[0]).toMatchObject({
+      execution_status: "FAIL",
+      exit_code: 1,
+      question_admission: "SOURCE_FALLBACK",
+      truncated: false
+    });
+  });
+
+  it("preserves READY and SOURCE_FALLBACK per question without a global hold", () => {
+    const makeReceipt = (questionId: string, relevance: string) => buildQuestionReceipt({
+      contract: normalizeQuestionContract({
+        question_id: questionId,
+        risk_class: "module",
+        target_sha: "a".repeat(40),
+        canonical_seam: "scripts/graph-companion.mjs#query",
+        decision_before: "unknown",
+        decision_needed: "compare question",
+        seed_paths: ["scripts/graph-companion.mjs"],
+        seed_symbols: ["query"],
+        seed_routes: [],
+        seed_schemas: [],
+        expected_edge_types: ["CALLS"],
+        mandatory_source_readback: ["scripts/graph-companion.mjs:1"],
+        mandatory_tests: ["tests/unit/graph-companion.test.ts"]
+      }),
+      graphify: {
+        command_ok: true,
+        relevance,
+        coverage: "COMPLETE",
+        truncated: false,
+        anchors: ["scripts/graph-companion.mjs", "query"],
+        edge_types: ["CALLS"]
+      },
+      codegraph: {
+        command_ok: true,
+        relevance: "RELEVANT",
+        coverage: "COMPLETE",
+        truncated: false,
+        anchors: ["scripts/graph-companion.mjs", "query"],
+        edge_types: ["CALLS"]
+      },
+      sourceReadback: { resolved: true, anchors: ["scripts/graph-companion.mjs:1"], unresolved: [] }
+    });
+    const normalized = normalizeQueryEvidenceForAdmission({
+      queryEvidence: { question_receipts: [makeReceipt("READY", "RELEVANT"), makeReceipt("FALLBACK", "NO_RELEVANCE")] },
+      targetSha: "a".repeat(40)
+    });
+    expect(normalized.receipts.map((receipt) => receipt.question_admission)).toEqual(["READY", "SOURCE_FALLBACK"]);
+    expect(normalized.queries.map((query) => query.question_admission)).toEqual(["READY", "SOURCE_FALLBACK"]);
+  });
+
+  it("binds Query Contract V2 receipts to the exact target before admission", () => {
+    const contract = normalizeQuestionContract({
+      question_id: "Q-V2",
+      risk_class: "authority",
+      target_sha: "a".repeat(40),
+      canonical_seam: "services/api/src/model-qualification-service.ts#commit",
+      decision_before: "unknown",
+      decision_needed: "sole writer",
+      seed_paths: ["services/api/src/model-qualification-service.ts"],
+      seed_symbols: ["ModelQualificationService.commit"],
+      seed_routes: [],
+      seed_schemas: [],
+      expected_edge_types: ["CALLS"],
+      mandatory_source_readback: ["writer"],
+      mandatory_tests: ["graph-companion"]
+    });
+    const receipt = buildQuestionReceipt({
+      contract,
+      graphify: {
+        command_ok: true,
+        relevance: "RELEVANT",
+        coverage: "COMPLETE",
+        truncated: false,
+        anchors: ["services/api/src/model-qualification-service.ts", "ModelQualificationService.commit"],
+        edge_types: ["CALLS"]
+      },
+      codegraph: {
+        command_ok: true,
+        relevance: "RELEVANT",
+        coverage: "COMPLETE",
+        truncated: false,
+        anchors: ["services/api/src/model-qualification-service.ts", "ModelQualificationService.commit"],
+        edge_types: ["CALLS"]
+      },
+      sourceReadback: { resolved: true, anchors: ["writer @ service.ts:1"], unresolved: [] }
+    });
+    expect(normalizeQueryEvidenceForAdmission({
+      queryEvidence: { question_receipts: [receipt] },
+      targetSha: "b".repeat(40)
+    })).toMatchObject({
+      query_contract_v2: true,
+      invalid_target_count: 1,
+      queries: [{
+        execution_status: "PASS",
+        exit_code: 0,
+        relevant: false,
+        coverage: "COMPLETE",
+        truncated: false,
+        question_admission: "HOLD_THIS_SEAM"
+      }]
+    });
+    expect(normalizeQueryEvidenceForAdmission({
+      queryEvidence: { question_receipts: [receipt] },
+      targetSha: "a".repeat(40)
+    })).toMatchObject({
+      query_contract_v2: true,
+      invalid_target_count: 0,
+      queries: [{ exit_code: 0, relevant: true, coverage: "COMPLETE", truncated: false }]
+    });
+  });
+
+  it("normalizes final MCP observations without turning NOT_OBSERVED into FAIL", () => {
+    const receipt = normalizeMcpObservationSet({ configured: true });
+    expect(receipt.MCP_CONFIGURED).toBe("PASS");
+    expect(receipt.MCP_HANDSHAKE).toBe("NOT_OBSERVED");
+    expect(receipt.MCP_TOOL_LIST).toBe("NOT_OBSERVED");
+    expect(receipt.MCP_TOOL_CALL).toBe("NOT_OBSERVED");
+    expect(receipt.MCP_RESULT_USEFUL).toBe("NOT_OBSERVED");
+    expect(receipt.status).toBe("PASS_WITH_LIMITS");
+  });
+
+  it("records an observed MCP failure as FAIL while preserving other states", () => {
+    const receipt = normalizeMcpObservationSet({
+      configured: true,
+      handshake: true,
+      tool_list: false,
+      tool_call: "NOT_APPLICABLE",
+      useful: "NOT_APPLICABLE"
+    });
+    expect(receipt.MCP_HANDSHAKE).toBe("PASS");
+    expect(receipt.MCP_TOOL_LIST).toBe("FAIL");
+    expect(receipt.MCP_TOOL_CALL).toBe("NOT_APPLICABLE");
+    expect(receipt.status).toBe("FAIL");
   });
 
   it("uses minimal T0 validation for docs-only changes", () => {
