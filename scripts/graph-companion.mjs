@@ -5,6 +5,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   renameSync,
   rmSync,
   writeFileSync
@@ -12,15 +13,7 @@ import {
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { homedir, platform as hostPlatform, tmpdir } from "node:os";
-import {
-  basename,
-  dirname,
-  isAbsolute,
-  join,
-  relative,
-  resolve,
-  win32 as win32Path
-} from "node:path";
+import { basename, dirname, join, resolve, win32 as win32Path } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SCRIPT_ROOT = dirname(fileURLToPath(import.meta.url));
@@ -173,6 +166,23 @@ export function sha256(value) {
   return createHash("sha256")
     .update(typeof value === "string" || Buffer.isBuffer(value) ? value : canonicalJson(value))
     .digest("hex");
+}
+
+export function buildGraphIdentity({ repository, repo_sha, tree_sha, config_digest }) {
+  return sha256({
+    repository: {
+      owner: repository?.owner || null,
+      name: repository?.name || null,
+      remote: repository?.remote || null
+    },
+    repo_sha,
+    tree_sha,
+    config_digest
+  });
+}
+
+function graphConfigDigest({ operation, version }) {
+  return sha256({ operation, tool: "CodeGraph", version });
 }
 
 function normalizePath(file) {
@@ -528,6 +538,15 @@ export function discoverTools({ cwd = DEFAULT_REPO_ROOT } = {}) {
   const codegraphHelp = runCodeGraphCommand(["--help"], cwd);
   const graphifyOk = graphifyVersion.ok;
   const codegraphOk = codegraphVersion.ok;
+  const mcpConfigPath = join(homedir(), ".codex", "config.toml");
+  let mcpConfigured = false;
+  try {
+    const mcpConfig = existsSync(mcpConfigPath) ? readFileSync(mcpConfigPath, "utf8") : "";
+    mcpConfigured =
+      /\[mcp_servers\.graphify\]/u.test(mcpConfig) && /\[mcp_servers\.codegraph\]/u.test(mcpConfig);
+  } catch {
+    mcpConfigured = false;
+  }
   return {
     schema_version: OUTPUT_SCHEMA_VERSION,
     generated_at: new Date().toISOString(),
@@ -557,6 +576,8 @@ export function discoverTools({ cwd = DEFAULT_REPO_ROOT } = {}) {
     ],
     graphify_available: graphifyOk,
     codegraph_available: codegraphOk,
+    mcp_health: normalizeMcpObservationSet({ configured: mcpConfigured }),
+    mcp_evidence: mcpConfigured ? "CONFIG_ONLY_HANDSHAKE_NOT_RUN" : "NOT_CONFIGURED",
     github_workflow: "LOCAL_CODEX_ORCHESTRATION_ONLY_V1"
   };
 }
@@ -1360,6 +1381,13 @@ function runCodeGraphIndex({ repoRoot, tools, graphHome, repository, currentSha 
     };
   const initialized = existsSync(join(indexRoot, ".codegraph"));
   const command = initialized ? ["sync", indexRoot] : ["init", indexRoot];
+  const startedAt = new Date().toISOString();
+  const buildKey = sha256({
+    repo_sha: currentSha,
+    command,
+    repository,
+    tool: "CodeGraph"
+  });
   const result = runCodeGraphCommand(command, indexRoot, { timeout: 1_800_000 });
   const status = runCodeGraphCommand(["status", indexRoot], indexRoot, {
     timeout: 120_000
@@ -1390,12 +1418,54 @@ function runCodeGraphIndex({ repoRoot, tools, graphHome, repository, currentSha 
       version: tools?.tools?.find((tool) => tool.tool === "CodeGraph")?.version || "UNKNOWN",
       warnings: [result.stderr || result.error || "CodeGraph index operation failed"]
     };
+  const parsedStatus = parseCodeGraphStatus(status.stdout, indexRoot);
+  if (parsedStatus.status !== "HEALTHY")
+    return {
+      ...parsedStatus,
+      version: tools?.tools?.find((tool) => tool.tool === "CodeGraph")?.version || "UNKNOWN",
+      command: `${CODEGRAPH_DISPLAY_COMMAND} ${command[0]}`,
+      command_ok: false,
+      warnings: ["CodeGraph status is not healthy; admission metadata not written"]
+    };
+  const treeSha = git(indexRoot, ["rev-parse", `${currentSha}^{tree}`], { allowFailure: true });
+  const toolVersion = tools?.tools?.find((tool) => tool.tool === "CodeGraph")?.version || "UNKNOWN";
+  const configDigest = graphConfigDigest({ operation: command[0], version: toolVersion });
+  const identity = buildGraphIdentity({
+    repository,
+    repo_sha: currentSha,
+    tree_sha: treeSha || null,
+    config_digest: configDigest
+  });
+  const admissionMetadata = {
+    schema_version: "GraphAdmissionMetadataV1",
+    repo_sha: currentSha,
+    tree_sha: treeSha || null,
+    config_digest: configDigest,
+    identity,
+    lastIndexed: new Date().toISOString(),
+    status_command_exit_code: 0,
+    automatic_next_start: false,
+    writer_evidence: {
+      state: "NO_CONTENTION_OBSERVED",
+      ownership_proof: "NOT_PROVEN",
+      build_key: buildKey,
+      owner: "graph-companion",
+      process_id: String(process.pid),
+      started_at: startedAt,
+      heartbeat_at: new Date().toISOString(),
+      release: null,
+      lock_present: false,
+      observed_errors: []
+    }
+  };
+  atomicWrite(join(indexRoot, ".codegraph", "simwar-admission.json"), admissionMetadata);
   return {
-    ...parseCodeGraphStatus(status.stdout, indexRoot),
+    ...parsedStatus,
     workspace_root: indexRoot,
     command: `${CODEGRAPH_DISPLAY_COMMAND} ${command[0]}`,
     command_ok: true,
-    version: tools?.tools?.find((tool) => tool.tool === "CodeGraph")?.version || "UNKNOWN"
+    version: tools?.tools?.find((tool) => tool.tool === "CodeGraph")?.version || "UNKNOWN",
+    admission_metadata: admissionMetadata
   };
 }
 
@@ -1622,24 +1692,592 @@ function resolveCurrentSha(repoRoot, requestedSha) {
   return git(repoRoot, ["rev-parse", "HEAD"], { allowFailure: true }) || null;
 }
 
-function ensureEvidenceRoot(path) {
-  return ensureDirectory(
+function ensureEvidenceRoot(path, repoRoot) {
+  const candidate =
     path ||
-      join(
-        tmpdir(),
-        `E-SIMWAR-GRAPH-COMPANION-V1-${new Date().toISOString().replace(/[-:.]/gu, "")}`
-      )
-  );
+    join(
+      tmpdir(),
+      `E-SIMWAR-GRAPH-COMPANION-V1-${new Date().toISOString().replace(/[-:.]/gu, "")}`
+    );
+  if (repoRoot) assertArtifactRootSafety({ projectRoot: repoRoot, artifactRoot: candidate });
+  return ensureDirectory(candidate);
 }
 
 export function assertExternalGraphHome(graphHome, repoRoot) {
-  const home = resolve(graphHome);
-  const root = resolve(repoRoot);
-  const relativePath = relative(root, home);
-  const insideSource =
-    relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
-  if (insideSource) throw new Error("Graph home must be outside the source worktree");
-  return home;
+  try {
+    return assertArtifactRootSafety({ projectRoot: repoRoot, artifactRoot: graphHome });
+  } catch (error) {
+    throw new Error("Graph home must be outside the source worktree", { cause: error });
+  }
+}
+
+function comparePath(path) {
+  return resolve(path).replaceAll("\\", "/").replace(/\/+$/u, "").toLowerCase();
+}
+
+function pathContains(root, candidate) {
+  const normalizedRoot = comparePath(root);
+  const normalizedCandidate = comparePath(candidate);
+  return (
+    normalizedCandidate === normalizedRoot || normalizedCandidate.startsWith(`${normalizedRoot}/`)
+  );
+}
+
+function nearestExistingPath(path) {
+  let current = resolve(path);
+  while (!existsSync(current)) {
+    const parent = dirname(current);
+    if (parent === current) return null;
+    current = parent;
+  }
+  return current;
+}
+
+/**
+ * Validate an external artifact root before creating or publishing anything.
+ * Lexical and physical checks are both required so a junction/symlink cannot
+ * redirect a supposedly external root back into the source worktree.
+ */
+export function assertArtifactRootSafety({
+  projectRoot,
+  artifactRoot,
+  realpath = realpathSync.native
+}) {
+  const source = resolve(projectRoot);
+  const artifact = resolve(artifactRoot);
+  if (pathContains(source, artifact)) {
+    throw new Error("Artifact root must be external to the source worktree");
+  }
+
+  const sourceExisting = existsSync(source) ? nearestExistingPath(source) : null;
+  const artifactExisting = nearestExistingPath(artifact);
+  if (sourceExisting && artifactExisting) {
+    try {
+      const sourcePhysical = realpath(sourceExisting);
+      const artifactPhysical = realpath(artifactExisting);
+      if (pathContains(sourcePhysical, artifactPhysical)) {
+        throw new Error("Artifact root resolves inside the source worktree");
+      }
+    } catch (error) {
+      if (error instanceof Error && /Artifact root resolves/u.test(error.message)) throw error;
+      throw new Error("Artifact root physical safety could not be proven", { cause: error });
+    }
+  }
+  return artifact;
+}
+
+function statusJsonFromInput(status) {
+  if (status?.json && typeof status.json === "object") return status.json;
+  if (typeof status?.raw !== "string" || !status.raw.trim()) return null;
+  try {
+    const parsed = JSON.parse(status.raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function nonEmpty(value) {
+  return typeof value === "string"
+    ? value.trim().length > 0
+    : value !== null && value !== undefined;
+}
+
+const QUESTION_CONTRACT_FIELDS = [
+  "question_id",
+  "risk_class",
+  "target_sha",
+  "canonical_seam",
+  "decision_before",
+  "decision_needed",
+  "seed_paths",
+  "seed_symbols",
+  "seed_routes",
+  "seed_schemas",
+  "expected_edge_types",
+  "mandatory_source_readback",
+  "mandatory_tests"
+];
+
+function stringArray(value, field) {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || !item.trim())) {
+    throw new Error(`Query Contract V2 ${field} must be an array of non-empty strings`);
+  }
+  return value.map((item) => item.trim());
+}
+
+/**
+ * Normalize and validate one decision-specific graph question. The contract
+ * intentionally requires exact seeds so broad natural-language probes cannot
+ * be mistaken for decision-useful graph evidence.
+ */
+export function normalizeQuestionContract(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input))
+    throw new Error("Query Contract V2 must be an object");
+  for (const field of QUESTION_CONTRACT_FIELDS) {
+    if (!(field in input)) throw new Error(`Query Contract V2 missing ${field}`);
+  }
+  for (const field of ["question_id", "risk_class", "canonical_seam", "decision_before", "decision_needed"]) {
+    if (typeof input[field] !== "string" || !input[field].trim())
+      throw new Error(`Query Contract V2 ${field} must be a non-empty string`);
+  }
+  if (!/^[0-9a-f]{40}$/iu.test(input.target_sha))
+    throw new Error("Query Contract V2 target_sha must be a 40-character commit SHA");
+  const seedFields = ["seed_paths", "seed_symbols", "seed_routes", "seed_schemas"];
+  const normalized = Object.fromEntries(
+    ["question_id", "risk_class", "target_sha", "canonical_seam", "decision_before", "decision_needed"].map(
+      (field) => [field, input[field].trim()]
+    )
+  );
+  for (const field of seedFields) normalized[field] = stringArray(input[field], field);
+  if (!seedFields.some((field) => normalized[field].length > 0))
+    throw new Error("Query Contract V2 requires at least one exact seed");
+  normalized.expected_edge_types = stringArray(input.expected_edge_types, "expected_edge_types");
+  normalized.mandatory_source_readback = stringArray(
+    input.mandatory_source_readback,
+    "mandatory_source_readback"
+  );
+  normalized.mandatory_tests = stringArray(input.mandatory_tests, "mandatory_tests");
+  return { schema_version: "GraphQuestionContractV2", ...normalized };
+}
+
+function normalizeRelevance(value, fallback) {
+  const raw = typeof value === "string" ? value.toUpperCase() : value;
+  if (raw === "RELEVANT" || raw === true) return "RELEVANT";
+  if (raw === "NO_RELEVANCE" || raw === "GENERIC" || raw === false || fallback === true)
+    return "NO_RELEVANCE";
+  if (raw === "AMBIGUOUS") return "AMBIGUOUS";
+  if (raw === "NOT_APPLICABLE") return "NOT_APPLICABLE";
+  return "UNKNOWN";
+}
+
+function normalizeCoverage(value, truncated) {
+  const raw = typeof value === "string" ? value.toUpperCase() : value;
+  const preserved = new Set([
+    "COMPLETE",
+    "PARTIAL",
+    "NODE_SET_TRUNCATED",
+    "EDGE_DETAIL_TRUNCATED",
+    "OUTPUT_TRUNCATED",
+    "DEPTH_BOUNDED",
+    "UNKNOWN",
+    "NOT_APPLICABLE"
+  ]);
+  if (preserved.has(raw)) return raw;
+  if (truncated === true || raw === "TRUNCATED") return "TRUNCATED";
+  return "UNKNOWN";
+}
+
+function normalizeToolQuestionEvidence(input) {
+  const value = input && typeof input === "object" ? input : {};
+  const hasCommandStatus = typeof value.command_ok === "boolean" || value.exit_code !== undefined || value.exitCode !== undefined;
+  const commandOk =
+    typeof value.command_ok === "boolean"
+      ? value.command_ok
+      : hasCommandStatus
+        ? Number(value.exit_code ?? value.exitCode) === 0
+        : false;
+  const executionStatus = hasCommandStatus ? (commandOk ? "PASS" : "FAIL") : "NOT_RUN";
+  const anchors = Array.isArray(value.anchors)
+    ? value.anchors.filter((anchor) => typeof anchor === "string" && anchor.trim()).map((anchor) => anchor.trim())
+    : [];
+  const edgeTypes = Array.isArray(value.edge_types)
+    ? value.edge_types.filter((edge) => typeof edge === "string" && edge.trim()).map((edge) => edge.trim())
+    : Array.isArray(value.edgeTypes)
+      ? value.edgeTypes.filter((edge) => typeof edge === "string" && edge.trim()).map((edge) => edge.trim())
+      : [];
+  return {
+    command_ok: commandOk,
+    execution_status: executionStatus,
+    relevance: normalizeRelevance(value.relevance, value.generic === true),
+    coverage: normalizeCoverage(value.coverage, value.truncated === true),
+    truncated: value.truncated === true || String(value.coverage || "").toUpperCase() === "TRUNCATED",
+    anchors,
+    edge_types: edgeTypes
+  };
+}
+
+function normalizeSourceReadback(input) {
+  const value = input && typeof input === "object" ? input : {};
+  return {
+    resolved: value.resolved === true,
+    anchors: Array.isArray(value.anchors)
+      ? value.anchors.filter((anchor) => typeof anchor === "string" && anchor.trim()).map((anchor) => anchor.trim())
+      : [],
+    unresolved: Array.isArray(value.unresolved)
+      ? value.unresolved
+          .filter((item) => typeof item === "string" && item.trim())
+          .map((item) => item.trim())
+      : []
+  };
+}
+
+/**
+ * Convert raw Graphify/CodeGraph/source observations into a per-question
+ * receipt. Generic graph hits and truncated expansion remain explicit.
+ */
+export function buildQuestionReceipt({ contract, graphify, codegraph, sourceReadback } = {}) {
+  const normalizedContract = normalizeQuestionContract(contract);
+  const receipt = {
+    schema_version: "GraphQuestionReceiptV2",
+    question_id: normalizedContract.question_id,
+    risk_class: normalizedContract.risk_class,
+    target_sha: normalizedContract.target_sha,
+    canonical_seam: normalizedContract.canonical_seam,
+    seed_paths: normalizedContract.seed_paths,
+    seed_symbols: normalizedContract.seed_symbols,
+    seed_routes: normalizedContract.seed_routes,
+    seed_schemas: normalizedContract.seed_schemas,
+    expected_edge_types: normalizedContract.expected_edge_types,
+    mandatory_source_readback: normalizedContract.mandatory_source_readback,
+    graphify: normalizeToolQuestionEvidence(graphify),
+    codegraph: normalizeToolQuestionEvidence(codegraph),
+    source_readback: normalizeSourceReadback(sourceReadback)
+  };
+  receipt.question_admission = admitQuestionReceipt(receipt);
+  return receipt;
+}
+
+/**
+ * Admit one question independently. READY requires both exact graph tools and
+ * source readback; source evidence can still be useful as a bounded fallback.
+ */
+export function admitQuestionReceipt(receipt) {
+  const graphAnchors = [receipt?.graphify, receipt?.codegraph].flatMap((tool) =>
+    Array.isArray(tool?.anchors) ? tool.anchors : []
+  );
+  const graphEdgeTypes = [receipt?.graphify, receipt?.codegraph].flatMap((tool) =>
+    Array.isArray(tool?.edge_types) ? tool.edge_types : []
+  );
+  const exactSeeds = [
+    ...(Array.isArray(receipt?.seed_paths) ? receipt.seed_paths : []),
+    ...(Array.isArray(receipt?.seed_symbols) ? receipt.seed_symbols : []),
+    ...(Array.isArray(receipt?.seed_routes) ? receipt.seed_routes : []),
+    ...(Array.isArray(receipt?.seed_schemas) ? receipt.seed_schemas : [])
+  ];
+  const anchorMatches = (requirement, anchors) => {
+    const expected = String(requirement ?? "").trim().replaceAll("\\", "/").toLowerCase();
+    if (!expected) return false;
+    return anchors.some((anchor) => {
+      const actual = String(anchor ?? "").trim().replaceAll("\\", "/").toLowerCase();
+      return actual === expected || actual.includes(expected) || expected.endsWith(actual);
+    });
+  };
+  const graphEvidenceMatchesContract =
+    exactSeeds.length > 0 &&
+    exactSeeds.every((seed) => anchorMatches(seed, graphAnchors)) &&
+    (Array.isArray(receipt?.expected_edge_types) ? receipt.expected_edge_types : []).every((edge) =>
+      graphEdgeTypes.some((observed) => String(observed).toLowerCase() === String(edge).toLowerCase())
+    );
+  const graphReady = [receipt?.graphify, receipt?.codegraph].every(
+    (tool) =>
+      tool?.command_ok === true &&
+      tool.relevance === "RELEVANT" &&
+      tool.coverage === "COMPLETE" &&
+      tool.truncated !== true
+  ) && graphEvidenceMatchesContract;
+  const sourceReadbackRequired = !Array.isArray(receipt?.mandatory_source_readback) ||
+    receipt.mandatory_source_readback.length > 0;
+  if (!sourceReadbackRequired) return graphReady ? "READY" : "SOURCE_FALLBACK";
+  const sourceResolved =
+    receipt?.source_readback?.resolved === true &&
+    Array.isArray(receipt.source_readback.anchors) &&
+    receipt.source_readback.anchors.length > 0 &&
+    (!Array.isArray(receipt.source_readback.unresolved) || receipt.source_readback.unresolved.length === 0) &&
+    (Array.isArray(receipt?.mandatory_source_readback) ? receipt.mandatory_source_readback : []).every((required) =>
+      anchorMatches(required, receipt.source_readback.anchors)
+    );
+  if (!sourceResolved) return "HOLD_THIS_SEAM";
+  return graphReady ? "READY" : "SOURCE_FALLBACK";
+}
+
+/**
+ * Convert Query Contract V2 receipts into the legacy aggregate shape consumed by
+ * the four-stage gate, while binding every receipt to the current exact target.
+ * A V2 receipt is never allowed to authorize a seam unless its two graph tools
+ * and source readback independently admit it as READY.
+ */
+export function normalizeQueryEvidenceForAdmission({ queryEvidence, targetSha } = {}) {
+  const candidateSource =
+    Array.isArray(queryEvidence?.question_receipts) && queryEvidence.question_receipts.length > 0
+      ? queryEvidence.question_receipts
+      : Array.isArray(queryEvidence?.receipts) && queryEvidence.receipts.length > 0
+        ? queryEvidence.receipts
+        : Array.isArray(queryEvidence?.queries)
+          ? queryEvidence.queries
+          : [];
+  const candidates = candidateSource.filter((item) => item?.schema_version === "GraphQuestionReceiptV2");
+  const legacyQueries = candidateSource === queryEvidence?.queries
+    ? candidateSource.filter((item) => item?.schema_version !== "GraphQuestionReceiptV2")
+    : [
+        ...candidateSource.filter((item) => item?.schema_version !== "GraphQuestionReceiptV2"),
+        ...(Array.isArray(queryEvidence?.queries)
+          ? queryEvidence.queries.filter((item) => item?.schema_version !== "GraphQuestionReceiptV2")
+          : [])
+      ];
+  if (candidates.length === 0) {
+    return {
+      query_contract_v2: false,
+      receipts: [],
+      queries: [],
+      legacy_detected: legacyQueries.length > 0,
+      legacy_question_admission: legacyQueries.length > 0 ? "HOLD_THIS_SEAM" : null,
+      non_authoritative_legacy_queries: legacyQueries,
+      legacy_query_count: legacyQueries.length,
+      invalid_target_count: 0
+    };
+  }
+  const receipts = candidates.map((receipt) => {
+    const targetMatch = receipt?.target_sha === targetSha;
+    const admission = targetMatch ? admitQuestionReceipt(receipt) : "HOLD_THIS_SEAM";
+    const ready = targetMatch && admission === "READY";
+    const tools = [receipt?.graphify, receipt?.codegraph];
+    const executionStatuses = tools.map((tool) => tool?.execution_status || "NOT_RUN");
+    const executionStatus = executionStatuses.every((status) => status === "PASS")
+      ? "PASS"
+      : executionStatuses.some((status) => status === "FAIL")
+        ? "FAIL"
+        : "NOT_RUN";
+    const toolCoverage = tools.map((tool) => normalizeCoverage(tool?.coverage, tool?.truncated === true));
+    const actualTruncated = tools.some(
+      (tool, index) => tool?.truncated === true || [
+        "TRUNCATED",
+        "NODE_SET_TRUNCATED",
+        "EDGE_DETAIL_TRUNCATED",
+        "OUTPUT_TRUNCATED"
+      ].includes(toolCoverage[index])
+    );
+    const actualCoverage = tools.length === 2 && toolCoverage.every((coverage) => coverage === "COMPLETE")
+      ? "COMPLETE"
+      : toolCoverage.find((coverage) => coverage !== "COMPLETE") || "UNKNOWN";
+    const toolRelevance = tools.map((tool) => tool?.relevance);
+    const actualRelevance = toolRelevance.includes("NO_RELEVANCE")
+      ? "NO_RELEVANCE"
+      : toolRelevance.includes("AMBIGUOUS")
+        ? "AMBIGUOUS"
+        : toolRelevance.length === 2 && toolRelevance.every((relevance) => relevance === "RELEVANT")
+          ? "RELEVANT"
+          : toolRelevance.every((relevance) => relevance === "NOT_APPLICABLE")
+            ? "NOT_APPLICABLE"
+            : "UNKNOWN";
+    return {
+      ...receipt,
+      target_match: targetMatch,
+      question_admission: admission,
+      normalized_query: {
+        execution_status: executionStatus,
+        exit_code: executionStatus === "PASS" ? 0 : executionStatus === "FAIL" ? 1 : null,
+        output: ready ? "exact question contract admitted" : `question contract ${admission.toLowerCase()}`,
+        relevant: ready,
+        relevance: actualRelevance,
+        coverage: actualCoverage,
+        truncated: actualTruncated,
+        question_admission: admission
+      }
+    };
+  });
+  return {
+    query_contract_v2: true,
+    receipts,
+    queries: receipts.map((receipt) => receipt.normalized_query),
+    legacy_detected: legacyQueries.length > 0,
+    non_authoritative_legacy_queries: legacyQueries,
+    legacy_query_count: legacyQueries.length,
+    invalid_target_count: receipts.filter((receipt) => receipt.target_match !== true).length
+  };
+}
+
+export function resolveEffectiveQueryTarget({ mode, current, analysisTarget } = {}) {
+  return mode === "impact" && analysisTarget ? analysisTarget : current;
+}
+
+export function resolveGraphAdmissionTarget({ mode, current, analysisTarget } = {}) {
+  return resolveEffectiveQueryTarget({ mode, current, analysisTarget });
+}
+
+const MCP_FINAL_STATES = new Set(["PASS", "FAIL", "NOT_OBSERVED", "NOT_APPLICABLE"]);
+
+function normalizeMcpState(value) {
+  if (typeof value === "object" && value !== null) return normalizeMcpState(value.status);
+  if (value === true) return "PASS";
+  if (value === false) return "FAIL";
+  if (value === null || value === undefined) return "NOT_OBSERVED";
+  const normalized = String(value).toUpperCase();
+  return MCP_FINAL_STATES.has(normalized) ? normalized : "NOT_OBSERVED";
+}
+
+/**
+ * Produce the one canonical receipt from the final MCP activity set. A lack of
+ * an independently observed handshake/tool call is NOT_OBSERVED, not FAIL.
+ */
+export function normalizeMcpObservationSet(observations = {}) {
+  const checks = {
+    MCP_CONFIGURED: normalizeMcpState(observations.configured),
+    MCP_HANDSHAKE: normalizeMcpState(observations.handshake),
+    MCP_TOOL_LIST: normalizeMcpState(observations.tool_list ?? observations.toolList),
+    MCP_TOOL_CALL: normalizeMcpState(observations.tool_call ?? observations.toolCall),
+    MCP_RESULT_USEFUL: normalizeMcpState(observations.useful)
+  };
+  const states = Object.values(checks);
+  const status = states.includes("FAIL")
+    ? "FAIL"
+    : states.every((state) => state === "PASS" || state === "NOT_APPLICABLE")
+      ? "PASS"
+      : "PASS_WITH_LIMITS";
+  return {
+    schema_version: "McpFinalReceiptV2",
+    final_observation: true,
+    status,
+    ...checks,
+    checks
+  };
+}
+
+/**
+ * Four-stage machine admission for exact-target graph evidence. Query output
+ * can never compensate for a failed/unknown build or snapshot identity.
+ */
+export function evaluateGraphAdmission({ target, status, queries = [] }) {
+  const parsed = statusJsonFromInput(status);
+  const buildOk = Number(status?.exit_code ?? status?.exitCode ?? 1) === 0 && parsed !== null;
+  const buildStage = {
+    status: buildOk ? "PASS" : "FAIL",
+    reason: buildOk ? "status command succeeded with valid JSON" : "INDEX_METADATA_INVALID"
+  };
+
+  const metadata = parsed || {};
+  const requiredMetadata = ["repo_sha", "tree_sha", "config_digest", "identity", "lastIndexed"];
+  const metadataComplete =
+    requiredMetadata.every((field) => nonEmpty(metadata[field])) &&
+    typeof metadata.lastIndexed === "string" &&
+    Number.isFinite(Date.parse(metadata.lastIndexed));
+  const targetComplete = ["repo_sha", "tree_sha", "config_digest", "identity"].every((field) =>
+    nonEmpty(target?.[field])
+  );
+  const targetMatch =
+    metadataComplete && targetComplete
+      ? metadata.repo_sha === target.repo_sha &&
+        metadata.tree_sha === target.tree_sha &&
+        metadata.config_digest === target.config_digest
+        ? "TRUE"
+        : "FALSE"
+      : "UNKNOWN";
+  const identityMatch =
+    metadataComplete && targetComplete
+      ? metadata.identity === target.identity
+        ? "TRUE"
+        : "FALSE"
+      : "UNKNOWN";
+  const snapshotStatus =
+    !buildOk || !metadataComplete || !targetComplete
+      ? "UNKNOWN"
+      : targetMatch === "TRUE" && identityMatch !== "FALSE"
+        ? "PASS"
+        : "MISMATCH";
+  const snapshotStage = {
+    status: snapshotStatus,
+    target_match: targetMatch,
+    identity_match: identityMatch,
+    identity_present: nonEmpty(metadata.identity),
+    last_indexed_present: nonEmpty(metadata.lastIndexed),
+    reason:
+      snapshotStatus === "PASS"
+        ? "repo/tree/config/identity/lastIndexed match target"
+        : snapshotStatus === "MISMATCH"
+          ? "snapshot identity differs from target"
+          : "snapshot applicability cannot be proven"
+  };
+
+  const commandOk =
+    queries.length > 0 &&
+    queries.every((query) => Number(query?.exit_code ?? query?.exitCode ?? 1) === 0);
+  const relevantResult =
+    queries.length > 0 &&
+    queries.every((query) => query?.relevant === true && nonEmpty(query?.output));
+  const coverageComplete =
+    queries.length > 0 &&
+    queries.every((query) => query?.coverage === "COMPLETE" && query?.truncated !== true);
+  let queryStatus = "PASS";
+  let queryReason = "all query commands returned relevant complete evidence";
+  if (queries.length === 0) {
+    queryStatus = "NOT_RUN";
+    queryReason = "no query result supplied";
+  } else if (!commandOk) {
+    queryStatus = "COMMAND_FAILED";
+    queryReason = "one or more query commands failed";
+  } else if (!relevantResult) {
+    queryStatus = "NO_RELEVANCE";
+    queryReason = "query output is empty or not relevant to the decision question";
+  } else if (!coverageComplete) {
+    queryStatus = "TRUNCATED";
+    queryReason = "query output was truncated; coverage is incomplete";
+  }
+  const queryStage = {
+    status: queryStatus,
+    reason: queryReason,
+    COMMAND_OK: commandOk,
+    RELEVANT_RESULT: relevantResult,
+    COVERAGE_COMPLETE: coverageComplete
+  };
+
+  let decision = "EXACT_TARGET_READY";
+  if (!buildOk) decision = "BLOCKED_INDEX_METADATA";
+  else if (snapshotStatus === "MISMATCH") decision = "BLOCKED_TARGET_MISMATCH";
+  else if (snapshotStatus !== "PASS") decision = "BLOCKED_TARGET_UNKNOWN";
+  else if (queryStatus !== "PASS") decision = "BLOCKED_QUERY_NOT_USEFUL";
+  const decisionStage = {
+    status: decision === "EXACT_TARGET_READY" ? "READY" : "BLOCKED",
+    decision,
+    automatic_next_start: false
+  };
+  return {
+    schema_version: "GraphAdmissionV1",
+    stages: {
+      BUILD_HEALTH: buildStage,
+      SNAPSHOT_APPLICABILITY: snapshotStage,
+      QUERY_USEFULNESS: queryStage,
+      DECISION_ADMISSION: decisionStage
+    },
+    decision,
+    exact_target_ready: decision === "EXACT_TARGET_READY",
+    automatic_next_start: false
+  };
+}
+
+export function classifyWriterEvidence({
+  owner = null,
+  observedErrors = [],
+  lockPresent = false
+} = {}) {
+  const ownerFields = ["build_key", "owner", "process_id", "started_at", "heartbeat_at"];
+  if (owner && ownerFields.every((field) => nonEmpty(owner[field]))) {
+    return { state: "LOCK_OWNERSHIP_PROVEN", owner, delete_unknown_lock: false };
+  }
+  if (lockPresent || observedErrors.length > 0) {
+    return {
+      state: "LOCK_OWNERSHIP_UNKNOWN",
+      owner: owner || null,
+      observed_errors: observedErrors,
+      delete_unknown_lock: false
+    };
+  }
+  return { state: "NO_CONTENTION_OBSERVED", owner: null, delete_unknown_lock: false };
+}
+
+export function classifyMcpHealth({
+  configured = false,
+  handshake = false,
+  tool_list = false,
+  tool_call = false,
+  useful = false
+} = {}) {
+  return {
+    MCP_CONFIGURED: Boolean(configured),
+    MCP_HANDSHAKE_OK: Boolean(handshake),
+    MCP_TOOL_LIST_OK: Boolean(tool_list),
+    MCP_TOOL_CALL_OK: Boolean(tool_call),
+    MCP_RESULT_USEFUL: Boolean(useful)
+  };
 }
 
 export function runCompanion({
@@ -1649,7 +2287,8 @@ export function runCompanion({
   graphHome,
   baseSha = null,
   targetSha = null,
-  currentSha = null
+  currentSha = null,
+  queryReceipt = null
 } = {}) {
   if (!VALID_MODES.has(mode)) throw new Error(`Unsupported Graph Companion mode: ${mode}`);
   if (mode === "impact" && (!baseSha || !targetSha))
@@ -1674,7 +2313,7 @@ export function runCompanion({
     if (parents.length < 3) throw new Error("postmerge mode requires a two-parent merge commit");
   }
   if (!repositoryHead) {
-    const blockedEvidence = ensureEvidenceRoot(evidenceRoot);
+    const blockedEvidence = ensureEvidenceRoot(evidenceRoot, root);
     const blockedHome = assertExternalGraphHome(resolve(graphHome || resolveGraphHome()), root);
     const blockedRepository = parseRepository(getRemote(root), root);
     const blockedTools = discoverTools({ cwd: root });
@@ -1805,7 +2444,7 @@ export function runCompanion({
   if (baseSha && !validatedBase) throw new Error(`Unable to resolve base SHA: ${baseSha}`);
   if (targetSha && !validatedTarget) throw new Error(`Unable to resolve target SHA: ${targetSha}`);
   const analysisTarget = mode === "impact" ? validatedTarget || current : current;
-  const evidence = ensureEvidenceRoot(evidenceRoot);
+  const evidence = ensureEvidenceRoot(evidenceRoot, root);
   const home = assertExternalGraphHome(resolve(graphHome || resolveGraphHome()), root);
   const repository = parseRepository(getRemote(root), root);
   const existingRegistry = loadRegistry(home, repository);
@@ -1815,6 +2454,12 @@ export function runCompanion({
       ? readRepositoryManifestAtSha(root, analysisTarget) || currentManifest
       : currentManifest;
   const tools = discoverTools({ cwd: root });
+  const queryEvidence = queryReceipt ? readTextManifest(resolve(queryReceipt)) : null;
+  const queryNormalization = normalizeQueryEvidenceForAdmission({
+    queryEvidence,
+    targetSha: resolveGraphAdmissionTarget({ mode, current, analysisTarget })
+  });
+  const queries = queryNormalization.queries;
   const existingGraphSource = existingRegistry?.graph_source_sha || null;
   const graphPath = existingRegistry?.graphify?.path || null;
   const graphManifest = readSourceManifestForGraph(graphPath);
@@ -1914,6 +2559,37 @@ export function runCompanion({
     graphFound: Boolean(graph),
     sourceAvailable: true
   });
+  const graphAdmissionTargetSha = resolveGraphAdmissionTarget({ mode, current, analysisTarget });
+  const targetTreeSha = git(root, ["rev-parse", `${graphAdmissionTargetSha}^{tree}`], { allowFailure: true });
+  const codeGraphOperation = codegraph.command?.match(/\b(init|sync)$/u)?.[1] || null;
+  const expectedConfigDigest =
+    codeGraphOperation && codegraph.version
+      ? graphConfigDigest({ operation: codeGraphOperation, version: codegraph.version })
+      : null;
+  const expectedIdentity = expectedConfigDigest
+    ? buildGraphIdentity({
+        repository,
+        repo_sha: graphAdmissionTargetSha,
+        tree_sha: targetTreeSha,
+        config_digest: expectedConfigDigest
+      })
+    : null;
+  const graphAdmission = evaluateGraphAdmission({
+    target: {
+      repo_sha: graphAdmissionTargetSha,
+      tree_sha: targetTreeSha,
+      config_digest: expectedConfigDigest,
+      identity: expectedIdentity
+    },
+    status: {
+      exit_code: codegraph.admission_metadata?.status_command_exit_code ?? 1,
+      json: codegraph.admission_metadata || null
+    },
+    queries
+  });
+  graphAdmission.query_contract_v2 = queryNormalization.query_contract_v2;
+  graphAdmission.query_receipts = queryNormalization.receipts;
+  graphAdmission.query_invalid_target_count = queryNormalization.invalid_target_count;
   const delta = buildArchitectureDelta({
     baseSha: validatedBase || sourceForDiff,
     targetSha: analysisTarget,
@@ -2009,11 +2685,40 @@ export function runCompanion({
     graph_source_sha: graphSourceSha,
     graphify,
     codegraph,
+    mcp_health: tools.mcp_health,
+    writer_evidence:
+      codegraph.admission_metadata?.writer_evidence ||
+      classifyWriterEvidence({ observedErrors: ["writer receipt unavailable"] }),
     freshness: finalFreshness,
     automatic_next_start: false
   };
+  const finalMcpReceipt = normalizeMcpObservationSet({
+    configured: tools.mcp_health?.MCP_CONFIGURED,
+    handshake: tools.mcp_health?.MCP_HANDSHAKE,
+    tool_list: tools.mcp_health?.MCP_TOOL_LIST,
+    tool_call: tools.mcp_health?.MCP_TOOL_CALL,
+    useful: tools.mcp_health?.MCP_RESULT_USEFUL
+  });
   writeReceipt(evidence, "graph-state.json", graphState);
   writeReceipt(evidence, "tool-health.json", tools);
+  writeReceipt(evidence, "mcp-health.json", {
+    ...finalMcpReceipt,
+    evidence: tools.mcp_evidence || "NOT_RUN"
+  });
+  writeReceipt(evidence, "mcp-final-receipt.json", {
+    ...finalMcpReceipt,
+    evidence: tools.mcp_evidence || "NOT_RUN"
+  });
+  writeReceipt(evidence, "writer.json", graphState.writer_evidence);
+  writeReceipt(
+    evidence,
+    "query-receipt.json",
+    queryEvidence || {
+      schema_version: "GraphQueryReceiptV1",
+      status: "NOT_RUN",
+      queries: []
+    }
+  );
   writeReceipt(evidence, "source-manifest.json", currentManifest);
   writeReceipt(evidence, "freshness.json", {
     schema_version: OUTPUT_SCHEMA_VERSION,
@@ -2034,6 +2739,7 @@ export function runCompanion({
   writeReceipt(evidence, "risk-delta.json", risk);
   writeReceipt(evidence, "planning-reality.json", planningReality);
   writeReceipt(evidence, "planning-gate.json", planningGate);
+  writeReceipt(evidence, "admission.json", graphAdmission);
   atomicWrite(
     join(evidence, "graph-companion", "summary.md"),
     summaryMarkdown({
@@ -2074,6 +2780,7 @@ function parseArgs(argv) {
     else if (arg === "--base") options.baseSha = argv[++index];
     else if (arg === "--target") options.targetSha = argv[++index];
     else if (arg === "--current-sha") options.currentSha = argv[++index];
+    else if (arg === "--query-receipt") options.queryReceipt = argv[++index];
     else if (arg === "--json") options.json = true;
   }
   return options;

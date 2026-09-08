@@ -139,3 +139,89 @@ platform work after the worktree-level status and fallback rule are understood.
 The CodeGraph MCP setup is considered operational enough for SimWar
 development. Future work should focus on SimWar product and platform tasks, not
 repeated MCP installation troubleshooting.
+
+## 10. Exact-target admission (Graph Admission V1)
+
+The Graph Companion now exposes a four-stage admission contract. A non-empty
+query is never sufficient to call a snapshot current-target ready:
+
+1. `BUILD_HEALTH` — the status command must exit successfully and produce
+   valid structured metadata.
+2. `SNAPSHOT_APPLICABILITY` — repository SHA, tree SHA, configuration digest,
+   build identity, and `lastIndexed` must be present and match the requested
+   target. A newer timestamp cannot substitute for identity.
+3. `QUERY_USEFULNESS` — command success, relevance, and coverage completeness
+   are tracked separately. `TRUNCATED`, `NO_RELEVANCE`, `COMMAND_FAILED`, and
+   `NOT_RUN` are explicit outcomes.
+4. `DECISION_ADMISSION` — only four passing stages yield
+   `EXACT_TARGET_READY`. Invalid metadata, missing identity, historical SHA,
+   or incomplete query coverage fail closed for that seam.
+
+The pure contract is exported by `scripts/graph-companion.mjs` as
+`evaluateGraphAdmission` and is covered by `KG-ADM-001` through `KG-ADM-005`
+in `tests/unit/graph-companion.test.ts`. Consumers must preserve the returned
+stage values in receipts rather than collapsing them into one boolean.
+
+## 11. Artifact roots and writer evidence
+
+Graph output and evidence must live outside the source worktree. Use
+`assertArtifactRootSafety` before creating a directory; it rejects equal,
+nested, case-insensitive, and physical symlink/junction paths. Failed checks
+must happen before clone, extraction, or index creation.
+
+Writer status is intentionally conservative:
+
+- `NO_CONTENTION_OBSERVED` means only that no contention was observed;
+- `LOCK_OWNERSHIP_PROVEN` requires build key, owner, process id, start time,
+  and heartbeat evidence;
+- `LOCK_OWNERSHIP_UNKNOWN` must not trigger lock deletion or process killing.
+
+Use `classifyWriterEvidence` for the machine receipt and keep the owner
+evidence alongside the build key. A successful CLI command does not prove
+exclusive ownership.
+
+## 12. MCP health is a ladder, not a configuration flag
+
+Record `MCP_CONFIGURED`, `MCP_HANDSHAKE_OK`, `MCP_TOOL_LIST_OK`,
+`MCP_TOOL_CALL_OK`, and `MCP_RESULT_USEFUL` independently. Configuration is
+not a handshake, a handshake is not a callable tool, and a callable tool is
+not useful evidence. `classifyMcpHealth` provides the small structured shape;
+it does not install, upgrade, or silently change MCP configuration.
+
+## 13. Evidence boundaries
+
+Graphify and CodeGraph remain derived engineering evidence. They do not become
+product truth, a formal writer, a global quality gate, a mission registry, or
+an automatic successor trigger. When an admission stage is blocked, continue
+legal low-risk source/documentation work with an explicit source-only receipt;
+hold only the high-risk seam whose authority chain cannot be proven.
+
+## 14. Query Contract V2
+
+Decision-useful graph work starts from an exact question contract, not a broad
+natural-language probe. Every contract binds `target_sha`, a canonical seam,
+the decision before/after the query, exact path/symbol/route/schema seeds,
+expected edge types, mandatory source readback, and mandatory tests. Query
+ordering is exact path, exact symbol, exact route/schema/function, bounded
+caller/callee, changed-file adjacency, then limited-depth expansion.
+
+Each question has independent Graphify and CodeGraph receipts containing
+`command_ok`, `relevance`, `coverage`, `truncated`, and `anchors`, plus source
+readback `resolved`, `anchors`, and `unresolved`. A generic CodeGraph helper,
+an empty result, or a truncated Graphify expansion is not confirmatory. The
+question admission can be `READY`, `SOURCE_FALLBACK`, or `HOLD_THIS_SEAM`; the
+last state is mandatory when high-risk source readback is unresolved. See
+`docs/development/graph-query-contract-v2.json` and the exported
+`normalizeQuestionContract`, `buildQuestionReceipt`, and
+`admitQuestionReceipt` helpers.
+
+## 15. Canonical final MCP receipt
+
+After all direct MCP activity, recompute one final receipt with
+`normalizeMcpObservationSet`. The five checks are
+`MCP_CONFIGURED`, `MCP_HANDSHAKE`, `MCP_TOOL_LIST`, `MCP_TOOL_CALL`, and
+`MCP_RESULT_USEFUL`; each is one of `PASS`, `FAIL`, `NOT_OBSERVED`, or
+`NOT_APPLICABLE`. `NOT_OBSERVED` is not a failure. Configuration-only local
+evidence therefore remains `PASS_WITH_LIMITS` and cannot be upgraded to an
+operational tool-call claim. The machine output is `mcp-final-receipt.json`
+under the external evidence root; no receipt is committed into the repository.
