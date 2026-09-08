@@ -1,0 +1,26 @@
+{
+  "schema_version": "GraphQuestionContractV2.1",
+  "purpose": "Decision-specific, risk-routed graph evidence with independent execution and admission states",
+  "execution_status": ["PASS", "FAIL", "NOT_RUN"],
+  "relevance": ["RELEVANT", "NO_RELEVANCE", "AMBIGUOUS", "NOT_APPLICABLE", "UNKNOWN"],
+  "coverage": [
+    "COMPLETE",
+    "PARTIAL",
+    "NODE_SET_TRUNCATED",
+    "EDGE_DETAIL_TRUNCATED",
+    "OUTPUT_TRUNCATED",
+    "DEPTH_BOUNDED",
+    "UNKNOWN",
+    "NOT_APPLICABLE"
+  ],
+  "question_admission": ["READY", "SOURCE_FALLBACK", "HOLD_THIS_SEAM"],
+  "invariants": [
+    "command success does not imply question admission",
+    "PASS plus NO_RELEVANCE remains PASS plus SOURCE_FALLBACK",
+    "PASS plus truncation remains PASS plus SOURCE_FALLBACK",
+    "an unresolved G3 authority chain is HOLD_THIS_SEAM",
+    "G0 and G1 tool unavailability does not globally hold unrelated seams",
+    "historical receipts with a mismatched target SHA are never admitted"
+  ],
+  "source_readback": "Graph evidence is navigation and scope discovery only; source, contract, and tests decide the engineering conclusion."
+}
