@@ -141,4 +141,18 @@ describe("IM-O1 Industry Model diagnostic readiness contract", () => {
     expect(student).not.toHaveProperty("provability");
     expect(serialized).not.toContain("model-qualification-diagnostics");
   });
+
+  it("accepts the Student-safe qualified producer admission status array", () => {
+    const validate = new Ajv2020({ allErrors: true, strict: false }).compile(schema);
+    const fixture = createEvidenceAdoptionServiceFixture();
+    const student = fixture.service.getIndustryModelDiagnosticReadiness(
+      EVIDENCE_ADOPTION_STUDENT,
+      EVIDENCE_ADOPTION_SCOPE,
+      { ...exactContext, qualification_id: fixture.primary.qualificationA.qualification_id }
+    );
+    expect(student.student_summary?.qualified_producer_admission_statuses).toEqual([
+      "QUALIFICATION_NOT_PROVEN"
+    ]);
+    expect(validate(student), JSON.stringify(validate.errors)).toBe(true);
+  });
 });

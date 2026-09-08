@@ -55,7 +55,7 @@ function createW5Draft() {
 }
 
 describe("IM-O4 exact W5/CAN/REALIZED producer integration", () => {
-  it("appends distinct WANT, CAN, and REALIZED reference producers to one exact context", () => {
+  it("keeps raw producer classes qualification-scoped until exact typed lineage is proven", () => {
     const base = createEvidenceAdoptionServiceFixture();
     const w5Fixture = createW5Draft();
     const service = new ModelQualificationService(createEvidenceAdoptionClock(), base.persistence, {
@@ -99,9 +99,15 @@ describe("IM-O4 exact W5/CAN/REALIZED producer integration", () => {
 
     expect(result.provability?.map((entry) => entry.classification)).toEqual([
       "NOT_PROVEN",
-      "WANT_EVIDENCE",
-      "REALIZED_REFERENCE",
-      "CAN_EVIDENCE"
+      "NOT_PROVEN",
+      "NOT_PROVEN",
+      "NOT_PROVEN"
+    ]);
+    expect(result.qualified_producer_admission?.map((entry) => entry.status)).toEqual([
+      "QUALIFICATION_NOT_PROVEN",
+      "QUALIFICATION_NOT_PROVEN",
+      "QUALIFICATION_NOT_PROVEN",
+      "QUALIFICATION_NOT_PROVEN"
     ]);
     expect(result.provability?.find((entry) => entry.producer_id === "w5-governed-demand-candidate"))
       .toMatchObject({ known_limits: expect.arrayContaining(["WANT_NOT_CALIBRATED"]) });

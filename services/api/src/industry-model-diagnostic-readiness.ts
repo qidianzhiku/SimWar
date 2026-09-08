@@ -1,5 +1,9 @@
 import { createHash } from "node:crypto";
-import type { ModelArtifactReference, ModelVersionReference } from "@simwar/shared-contracts";
+import type {
+  IndustryQualifiedProducerAdmissionDto,
+  ModelArtifactReference,
+  ModelVersionReference
+} from "@simwar/shared-contracts";
 
 export type IndustryDiagnosticClassification =
   | "WANT_EVIDENCE"
@@ -58,6 +62,7 @@ export interface IndustryModelDiagnosticReadinessInput {
   readonly identity_movements: readonly string[];
   readonly official_truth_write: false;
   readonly provider_calls: 0;
+  readonly qualified_producer_admission?: readonly IndustryQualifiedProducerAdmissionDto[];
 }
 
 export interface IndustryDiagnosticProvabilityEntry {
@@ -83,6 +88,7 @@ export interface IndustryModelDiagnosticReadiness {
   readonly diagnostic_evidence_digest: string;
   readonly interpretation_policy_digest: string;
   readonly provability: readonly IndustryDiagnosticProvabilityEntry[];
+  readonly qualified_producer_admission?: readonly IndustryQualifiedProducerAdmissionDto[];
   readonly known_limits: readonly string[];
   readonly provider: "OFF";
   readonly official_truth_write: false;
@@ -183,6 +189,9 @@ export function buildIndustryModelDiagnosticReadiness(
     diagnostic_evidence_digest: input.diagnostic_evidence_digest,
     interpretation_policy_digest: input.interpretation_policy_digest,
     provability,
+    ...(input.qualified_producer_admission
+      ? { qualified_producer_admission: input.qualified_producer_admission }
+      : {}),
     known_limits: [...knownLimits].sort(),
     provider: "OFF" as const,
     official_truth_write: false as const

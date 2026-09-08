@@ -15,6 +15,11 @@ export type IndustryDiagnosticReadinessStatus =
   | "BLOCKED"
   | "REBASE_REQUIRED";
 
+export type IndustryQualifiedProducerAdmissionStatus =
+  | "QUALIFICATION_COMPATIBLE"
+  | "QUALIFICATION_NOT_PROVEN"
+  | "REBASE_REQUIRED";
+
 export interface IndustryDiagnosticContextDto {
   readonly tenant_id: string;
   readonly course_id: string;
@@ -36,10 +41,18 @@ export interface IndustryDiagnosticProvabilityDto {
   readonly known_limits?: readonly string[];
 }
 
+export interface IndustryQualifiedProducerAdmissionDto {
+  readonly producer_id: string;
+  readonly status: IndustryQualifiedProducerAdmissionStatus;
+  readonly admission_digest: string;
+  readonly known_limits: readonly string[];
+}
+
 export interface IndustryDiagnosticStudentSummaryDto {
   readonly visibility: "ROLE_SAFE_STUDENT";
   readonly readiness_class: IndustryDiagnosticReadinessStatus;
   readonly evidence_classes: readonly IndustryDiagnosticClassification[];
+  readonly qualified_producer_admission_statuses?: readonly IndustryQualifiedProducerAdmissionStatus[];
   readonly known_limits: readonly string[];
 }
 
@@ -66,6 +79,7 @@ export interface IndustryModelDiagnosticReadinessDto {
   readonly diagnostic_evidence_digest?: string;
   readonly interpretation_policy_digest?: string;
   readonly provability?: readonly IndustryDiagnosticProvabilityDto[];
+  readonly qualified_producer_admission?: readonly IndustryQualifiedProducerAdmissionDto[];
   readonly student_summary?: IndustryDiagnosticStudentSummaryDto;
   readonly known_limits: readonly string[];
   readonly provider: "OFF";

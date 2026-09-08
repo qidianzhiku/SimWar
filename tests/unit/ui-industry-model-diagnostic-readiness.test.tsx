@@ -70,6 +70,14 @@ const teacherData = {
       freshness: "FRESH" as const
     }
   ],
+  qualified_producer_admission: [
+    {
+      producer_id: "producer-a",
+      status: "QUALIFICATION_NOT_PROVEN" as const,
+      admission_digest: "2".repeat(64),
+      known_limits: ["PRODUCER_MODEL_QUALIFICATION_NOT_PROVEN"]
+    }
+  ],
   known_limits: ["DIAGNOSTIC_PASS_IS_NOT_BUSINESS_TRUTH"],
   provider: "OFF" as const,
   official_truth_write: false as const,
@@ -121,6 +129,8 @@ describe("IM-O1 diagnostic readiness consumer", () => {
     expect(host.textContent).toContain("NOT_PROVEN");
     expect(host.textContent).toContain("qualification-a");
     expect(host.textContent).toContain("producer=producer-a");
+    expect(host.textContent).toContain("QUALIFICATION_NOT_PROVEN");
+    expect(host.textContent).toContain(`admission_digest=${"2".repeat(64)}`);
     expect(fetchMock.mock.calls[0]?.[0]).toContain("runId=run-a");
     expect(fetchMock.mock.calls[0]?.[0]).toContain("qualificationId=qualification-a");
     expect(fetchMock.mock.calls[0]?.[0]).toContain("w5DraftId=w5_draft_exact");
@@ -136,6 +146,7 @@ describe("IM-O1 diagnostic readiness consumer", () => {
         visibility: "ROLE_SAFE_STUDENT" as const,
         readiness_class: "BLOCKED" as const,
         evidence_classes: ["NOT_PROVEN" as const],
+        qualified_producer_admission_statuses: ["QUALIFICATION_NOT_PROVEN" as const],
         known_limits: ["DIAGNOSTIC_PASS_IS_NOT_BUSINESS_TRUTH"]
       }
     };

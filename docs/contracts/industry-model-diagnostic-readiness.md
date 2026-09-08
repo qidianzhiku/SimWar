@@ -40,6 +40,28 @@ Simulation Core REALIZED reference producer entries. Each entry retains its
 own authority and known limits; CAN `UNKNOWN` remains `UNKNOWN`, WANT remains
 synthetic and uncalibrated, and the realized value remains reference-only.
 
+## O5 qualified producer admission
+
+The O5 extension adds a qualification-scoped admission decision for every
+producer entry. A producer is `QUALIFICATION_COMPATIBLE` only when its exact
+typed `ModelVersionReference`, exact `ModelArtifactReference`, and
+qualification id/digest match the server-resolved `ModelQualification`.
+The legacy W5 runtime identity string (for example,
+`eldercare_w5_governed_v1@1.1.0`) is evidence about the W5 producer only; it
+is not parsed or implicitly mapped to a Model Qualification identity.
+
+Missing or mismatched typed lineage is `QUALIFICATION_NOT_PROVEN`, and an
+observed producer/model/artifact/qualification identity movement is
+`REBASE_REQUIRED`. The service keeps the raw O3/O4 adapter classification for
+the adapter contract tests, but the qualification-scoped diagnostic
+projection downgrades an unproven entry to `NOT_PROVEN` and publishes its
+deterministic admission digest. No admission result writes qualification,
+adoption, settlement, official truth, or provider state.
+
+Teacher and Admin receive the producer id, admission status, digest, and
+known limits. Student receives only the status class and safe limits; internal
+producer, qualification, artifact, and provenance identities remain omitted.
+
 Teacher and Admin receive exact model, qualification, adoption, producer,
 provenance, and digest fields for governed interpretation. Student receives
 only readiness, evidence classes, bounded limits, exact context, `Provider=OFF`,

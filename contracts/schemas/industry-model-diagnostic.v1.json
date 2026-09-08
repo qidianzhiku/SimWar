@@ -32,6 +32,23 @@
     "classification": {
       "enum": ["WANT_EVIDENCE", "CAN_EVIDENCE", "REALIZED_REFERENCE", "NOT_PROVEN"]
     },
+    "qualifiedProducerAdmissionStatus": {
+      "enum": ["QUALIFICATION_COMPATIBLE", "QUALIFICATION_NOT_PROVEN", "REBASE_REQUIRED"]
+    },
+    "qualifiedProducerAdmission": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["producer_id", "status", "admission_digest", "known_limits"],
+        "properties": {
+          "producer_id": { "$ref": "#/$defs/nonEmptyString" },
+          "status": { "$ref": "#/$defs/qualifiedProducerAdmissionStatus" },
+          "admission_digest": { "$ref": "#/$defs/digest" },
+          "known_limits": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } }
+        }
+      }
+    },
     "provability": {
       "type": "array",
       "items": {
@@ -77,6 +94,10 @@
         "visibility": { "const": "ROLE_SAFE_STUDENT" },
         "readiness_class": { "$ref": "#/$defs/status" },
         "evidence_classes": { "type": "array", "items": { "$ref": "#/$defs/classification" } },
+        "qualified_producer_admission_statuses": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/qualifiedProducerAdmissionStatus" }
+        },
         "known_limits": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } }
       }
     },
@@ -117,9 +138,10 @@
             "model_artifact_reference",
             "qualification",
             "adoption",
-            "diagnostic_evidence_digest",
-            "interpretation_policy_digest",
-            "provability"
+        "diagnostic_evidence_digest",
+        "interpretation_policy_digest",
+        "provability",
+        "qualified_producer_admission"
           ],
           "properties": {
             "operation_id": {
@@ -137,25 +159,41 @@
             },
             "diagnostic_evidence_digest": { "$ref": "#/$defs/digest" },
             "interpretation_policy_digest": { "$ref": "#/$defs/digest" },
-            "provability": { "$ref": "#/$defs/provability" }
+            "provability": { "$ref": "#/$defs/provability" },
+            "qualified_producer_admission": { "$ref": "#/$defs/qualifiedProducerAdmission" }
           }
         }
       ]
     },
     "student": {
-      "allOf": [
-        { "$ref": "#/$defs/base" },
-        {
-          "type": "object",
-          "unevaluatedProperties": false,
-          "required": ["operation_id", "role", "student_summary"],
-          "properties": {
-            "operation_id": { "const": "INDUSTRY_MODEL_DIAGNOSTIC_STUDENT_GET_V1" },
-            "role": { "const": "student" },
-            "student_summary": { "$ref": "#/$defs/studentSummary" }
-          }
-        }
-      ]
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "operation_id",
+        "role",
+        "readiness_status",
+        "rebase_required",
+        "exact_context",
+        "known_limits",
+        "provider",
+        "official_truth_write",
+        "readiness_digest",
+        "student_summary"
+      ],
+      "properties": {
+        "schema_version": { "const": "industry-model-diagnostic-readiness.v1" },
+        "operation_id": { "const": "INDUSTRY_MODEL_DIAGNOSTIC_STUDENT_GET_V1" },
+        "role": { "const": "student" },
+        "readiness_status": { "$ref": "#/$defs/status" },
+        "rebase_required": { "type": "boolean" },
+        "exact_context": { "$ref": "#/$defs/context" },
+        "known_limits": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "provider": { "const": "OFF" },
+        "official_truth_write": { "const": false },
+        "readiness_digest": { "$ref": "#/$defs/digest" },
+        "student_summary": { "$ref": "#/$defs/studentSummary" }
+      }
     }
   }
 }
