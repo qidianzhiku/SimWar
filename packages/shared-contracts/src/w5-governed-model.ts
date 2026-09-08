@@ -2,6 +2,7 @@ import type { ActorRole } from "./index.js";
 import type { ParameterSetReference } from "./parameter-set-authority.js";
 import type { ScenarioPackageReference } from "./scenario-package-authority.js";
 import type { W5FormalRebaseClassification } from "./w5-formal-rebase.js";
+import type { ModelArtifactReference, ModelVersionReference } from "./model-governance.js";
 
 export const W5_GOVERNED_MODEL_SCHEMA_VERSION = "w5-governed-model.v1" as const;
 export const W5_MODEL_VERSION_REF = "eldercare_w5_governed_v1@1.1.0" as const;
@@ -202,6 +203,18 @@ export interface W5MutationReceipt {
   writes_formal_truth: false;
 }
 
+/**
+ * Intrinsic producer lineage is emitted by the canonical W5 producer and is
+ * intentionally separate from the consumer-owned ModelQualification binding.
+ * It is not included in the student projection.
+ */
+export interface W5ProducerIntrinsicLineage {
+  model_artifact_reference: ModelArtifactReference;
+  model_version_reference: ModelVersionReference;
+  producer_source_ref: string;
+  runtime_binding_digest: string;
+}
+
 export interface W5ConvergenceProjection {
   can: {
     constraints: readonly string[];
@@ -218,6 +231,7 @@ export interface W5ConvergenceProjection {
   };
   known_limits: readonly string[];
   model_version_ref: typeof W5_MODEL_VERSION_REF;
+  producer_intrinsic_lineage?: W5ProducerIntrinsicLineage;
   provenance: {
     data_classification: W5DataClassification;
     exact_binding_digest: string | null;

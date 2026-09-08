@@ -252,6 +252,8 @@ export function evaluateDemandRuntime(
       model_version_id: input.model_version.model_version_id,
       version: input.model_version.version
     },
+    model_artifact_reference: input.model_version.artifact,
+    exact_binding: input.exact_binding,
     replay_input_digest: digest(input)
   };
   if (input.plane === "OFF") {
