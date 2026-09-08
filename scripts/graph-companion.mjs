@@ -2308,6 +2308,12 @@ export function routeGraphSupportQuestion(input = {}) {
   const sourceResolved = value.source_readback_resolved === true || value.sourceResolved === true;
   const codegraphAvailable = value.codegraph_available !== false;
   const codegraphObserved = value.codegraph_observed === true || value.codegraph_admitted === true;
+  const codegraphAdmitted =
+    value.codegraph_admitted === true ||
+    (value.codegraph_observed === true &&
+      value.codegraph_execution_status === "PASS" &&
+      ["RELEVANT", "NOT_APPLICABLE"].includes(value.codegraph_relevance) &&
+      ["COMPLETE", "NOT_APPLICABLE"].includes(value.codegraph_coverage));
   const graphifyApplicable = value.graphify_applicable !== false;
   let questionAdmission = "SOURCE_FALLBACK";
   if (defaults.source_readback_required && !sourceResolved) questionAdmission = "HOLD_THIS_SEAM";
@@ -2315,7 +2321,7 @@ export function routeGraphSupportQuestion(input = {}) {
     questionAdmission = sourceResolved === false ? "SOURCE_FALLBACK" : "READY";
   else if (
     !codegraphAvailable ||
-    (["G2", "G3"].includes(riskClass) && !codegraphObserved)
+    (["G2", "G3"].includes(riskClass) && !codegraphAdmitted)
   )
     questionAdmission = sourceResolved ? "SOURCE_FALLBACK" : "HOLD_THIS_SEAM";
   else if (sourceResolved) questionAdmission = "READY";
@@ -2343,6 +2349,7 @@ export function routeGraphSupportQuestion(input = {}) {
     question_admission: questionAdmission,
     codegraph_available: codegraphAvailable,
     codegraph_observed: codegraphObserved,
+    codegraph_admitted: codegraphAdmitted,
     graphify_applicable: graphifyApplicable
   };
 }

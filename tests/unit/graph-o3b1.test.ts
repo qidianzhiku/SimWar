@@ -104,12 +104,26 @@ describe("KG-O3B1 Query Contract V2.1", () => {
     expect(route.question_admission).toBe("SOURCE_FALLBACK");
   });
 
+  it("does not treat an unqualified observation flag as CodeGraph admission", () => {
+    const route = routeGraphSupportQuestion({
+      risk_class: "G3",
+      source_readback_resolved: true,
+      codegraph_available: true,
+      codegraph_observed: true
+    });
+    expect(route.codegraph_admitted).toBe(false);
+    expect(route.question_admission).toBe("SOURCE_FALLBACK");
+  });
+
   it("treats non-applicable Graphify as neutral when CodeGraph and source are ready", () => {
     const route = routeGraphSupportQuestion({
       risk_class: "G2",
       source_readback_resolved: true,
       codegraph_available: true,
       codegraph_observed: true,
+      codegraph_execution_status: "PASS",
+      codegraph_relevance: "RELEVANT",
+      codegraph_coverage: "COMPLETE",
       graphify_applicable: false
     });
     expect(route.question_admission).toBe("READY");
