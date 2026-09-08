@@ -23,6 +23,20 @@ type DiagnosticIdentity = {
   interpretationPolicyDigest: string;
 };
 
+type QualifiedProducerAdmissionView = {
+  producer_id: string;
+  status: "QUALIFICATION_COMPATIBLE" | "QUALIFICATION_NOT_PROVEN" | "REBASE_REQUIRED";
+  admission_digest: string;
+  known_limits: readonly string[];
+};
+
+type DiagnosticWithQualifiedProducerAdmission = IndustryModelDiagnosticReadinessDto & {
+  qualified_producer_admission?: readonly QualifiedProducerAdmissionView[];
+  student_summary?: IndustryModelDiagnosticReadinessDto["student_summary"] & {
+    qualified_producer_admission_statuses?: readonly QualifiedProducerAdmissionView["status"][];
+  };
+};
+
 function nonBlank(value: string | null | undefined): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
@@ -207,6 +221,10 @@ export function IndustryModelDiagnosticReadinessPanel(
       ) : null}
       {loadState === "ready" && data ? (
         <>
+          {(() => {
+            const qualifiedData = data as DiagnosticWithQualifiedProducerAdmission;
+            return (
+              <>
           <div className="summary-grid" data-testid="industry-diagnostic-readiness">
             <article>
               <span>Readiness</span>
@@ -252,12 +270,28 @@ export function IndustryModelDiagnosticReadinessPanel(
               ))}
             </div>
           ) : null}
+          {role !== "student" && qualifiedData.qualified_producer_admission?.length ? (
+            <div className="evidence-list" data-testid="industry-diagnostic-qualified-admission">
+              {qualifiedData.qualified_producer_admission.map((entry) => (
+                <article className="evidence-note" key={`${entry.producer_id}:${entry.admission_digest}`}>
+                  <strong>{entry.status}</strong>
+                  <div>producer={entry.producer_id}</div>
+                  <div>admission_digest={entry.admission_digest}</div>
+                  {entry.known_limits.length ? (
+                    <div>limits={entry.known_limits.join(" · ")}</div>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          ) : null}
           <p className="evidence-note">
             诊断 PASS 不等于业务真值或因果证明；WANT / CAN / REALIZED 只按已证明的 producer 分类。
           </p>
           {role === "student" && data.student_summary ? (
-            <p className="evidence-note">
-              visibility={data.student_summary.visibility} · advisory-only
+            <p className="evidence-note" data-testid="industry-diagnostic-qualified-admission-safe">
+              visibility={data.student_summary.visibility} · advisory-only · qualification admission=
+              {qualifiedData.student_summary?.qualified_producer_admission_statuses?.join(" / ") ||
+                "NOT_PROVEN"}
             </p>
           ) : null}
           <ul>
@@ -265,6 +299,9 @@ export function IndustryModelDiagnosticReadinessPanel(
               <li key={limit}>{limit}</li>
             ))}
           </ul>
+              </>
+            );
+          })()}
         </>
       ) : null}
     </section>
