@@ -915,6 +915,16 @@ export class W5GovernedModelService {
       },
       known_limits: [...DEFAULT_KNOWN_LIMITS],
       model_version_ref: this.modelVersion.model_version_ref,
+      producer_intrinsic_lineage: {
+        model_version_reference: {
+          model_version_id: candidateRuntime.model_version_ref.model_version_id,
+          version: candidateRuntime.model_version_ref.version,
+          content_digest: candidateRuntime.model_version_ref.content_digest
+        },
+        model_artifact_reference: candidateRuntime.model_artifact_reference,
+        producer_source_ref: "services/simulation-core/src/model-candidates/governed-demand",
+        runtime_binding_digest: candidateRuntime.exact_binding.binding_digest
+      },
       provenance: {
         data_classification: draft.data_classification,
         exact_binding_digest: binding.binding_digest,

@@ -110,7 +110,16 @@ describe("IM-O4 exact W5/CAN/REALIZED producer integration", () => {
       "QUALIFICATION_NOT_PROVEN"
     ]);
     expect(result.provability?.find((entry) => entry.producer_id === "w5-governed-demand-candidate"))
-      .toMatchObject({ known_limits: expect.arrayContaining(["WANT_NOT_CALIBRATED"]) });
+      .toMatchObject({
+        known_limits: expect.arrayContaining(["WANT_NOT_CALIBRATED"]),
+        producer_model_version_reference: {
+          model_version_id: "o3-governed-demand-v1",
+          version: "1.0.0"
+        },
+        producer_model_artifact_reference: {
+          artifact_id: "artifact:o3-governed-demand-v1:1.0.0"
+        }
+      });
     expect(result.provability?.find((entry) => entry.producer_id === "can-service-feasibility"))
       .toMatchObject({ known_limits: expect.arrayContaining(["CAN_STATUS_UNKNOWN_NOT_FEASIBLE"]) });
     expect(result.provability?.find((entry) => entry.producer_id === "can-service-feasibility"))

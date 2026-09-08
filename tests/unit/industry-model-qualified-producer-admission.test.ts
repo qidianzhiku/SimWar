@@ -55,6 +55,27 @@ describe("reconcileQualifiedProducerEvidence", () => {
     expect(result.admission_digest).toMatch(/^[a-f0-9]{64}$/u);
   });
 
+  it("keeps qualification binding consumer-owned when the producer supplies only intrinsic typed lineage", () => {
+    const result = reconcileQualifiedProducerEvidence({
+      qualification: {
+        qualification_id: "qualification-1",
+        qualification_digest: "q".repeat(64),
+        model_version_reference: modelVersion,
+        model_artifact_reference: artifact
+      },
+      producer: {
+        ...candidate,
+        producer_model_version_reference: modelVersion,
+        producer_model_artifact_reference: artifact
+      }
+    });
+
+    expect(result.status).toBe("QUALIFICATION_COMPATIBLE");
+    expect(result.producer.candidate_classification).toBe("WANT_EVIDENCE");
+    expect(result.official_truth_write).toBe(false);
+    expect(result.provider_calls).toBe(0);
+  });
+
   it("fails closed when a producer only carries the W5 runtime string or no typed lineage", () => {
     const result = reconcileQualifiedProducerEvidence({
       qualification: {

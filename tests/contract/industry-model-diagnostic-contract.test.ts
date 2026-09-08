@@ -72,6 +72,36 @@ describe("IM-O1 Industry Model diagnostic readiness contract", () => {
     }
   });
 
+  it("accepts typed intrinsic producer lineage only on the governed role contract", () => {
+    const validate = new Ajv2020({ allErrors: true, strict: false }).compile(schema);
+    const fixture = createEvidenceAdoptionServiceFixture();
+    const teacher = fixture.service.getIndustryModelDiagnosticReadiness(
+      fixture.primary.actor,
+      fixture.primary.scope,
+      { ...exactContext, qualification_id: fixture.primary.qualificationA.qualification_id }
+    );
+    const entry = teacher.provability?.[0];
+    expect(validate({
+      ...teacher,
+      provability: [
+        {
+          ...entry,
+          producer_model_version_reference: {
+            model_version_id: "producer-model",
+            version: "1.0.0",
+            content_digest: "a".repeat(64)
+          },
+          producer_model_artifact_reference: {
+            artifact_id: "producer-artifact",
+            content_digest: "b".repeat(64),
+            format: "typescript-boundary",
+            source_ref: "artifact://producer"
+          }
+        }
+      ]
+    })).toBe(true);
+  });
+
   it("derives blocked NOT_PROVEN readiness from current producer evidence without inventing WANT/CAN", () => {
     const fixture = createEvidenceAdoptionServiceFixture();
     const input = {

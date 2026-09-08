@@ -97,6 +97,21 @@ const convergence = {
   experience_profile: "STANDARD" as const,
   fallback: { applied: false, official_path_continues: true as const, plane: "ON" as const },
   known_limits: ["synthetic"],
+  producer_intrinsic_lineage: {
+    model_version_reference: {
+      model_version_id: "o3-governed-demand-v1",
+      version: "1.0.0",
+      content_digest: "m".repeat(64)
+    },
+    model_artifact_reference: {
+      artifact_id: "artifact:o3-governed-demand-v1:1.0.0",
+      content_digest: "m".repeat(64),
+      format: "governed-demand-typescript-candidate",
+      source_ref: "services/simulation-core/src/model-candidates/governed-demand"
+    },
+    producer_source_ref: "services/simulation-core/src/model-candidates/governed-demand",
+    runtime_binding_digest: binding.binding_digest
+  },
   model_version_ref: "eldercare_w5_governed_v1@1.1.0",
   provenance: {
     data_classification: "SYNTHETIC" as const,
@@ -126,6 +141,12 @@ describe("W5 industry diagnostic producer adapter", () => {
     expect(result.producers[0]?.known_limits).toContain("WANT_IS_SYNTHETIC_HEURISTIC");
     expect(result.producers[1]?.authority_owner).toBe("SIMULATION_CORE");
     expect(result.producers[1]?.official_truth_write).toBe(false);
+    expect(result.producers[0]?.producer_model_version_reference).toMatchObject({
+      model_version_id: "o3-governed-demand-v1",
+      version: "1.0.0"
+    });
+    expect(result.producers[1]?.producer_model_version_reference).toBeUndefined();
+    expect(result.producers[1]?.producer_model_artifact_reference).toBeUndefined();
   });
 
   it("keeps both producers NOT_PROVEN when the exact draft context is missing", () => {

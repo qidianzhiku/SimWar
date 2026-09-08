@@ -1,4 +1,9 @@
-import type { W5ConvergenceProjection, W5ScenarioDraft } from "@simwar/shared-contracts";
+import type {
+  ModelArtifactReference,
+  ModelVersionReference,
+  W5ConvergenceProjection,
+  W5ScenarioDraft
+} from "@simwar/shared-contracts";
 
 export interface W5IndustryDiagnosticContext {
   readonly tenant_id: string;
@@ -21,6 +26,8 @@ export interface W5IndustryDiagnosticProducerEvidence {
   readonly freshness: "FRESH" | "UNKNOWN";
   readonly official_truth_write: false;
   readonly known_limits: readonly string[];
+  readonly producer_model_version_reference?: ModelVersionReference;
+  readonly producer_model_artifact_reference?: ModelArtifactReference;
 }
 
 export interface W5IndustryDiagnosticProducerResult {
@@ -42,6 +49,10 @@ function notProven(producer_id: string, diagnostic_family: string, known_limits:
     official_truth_write: false,
     known_limits: [...known_limits]
   };
+}
+
+function intrinsicLineage(convergence: W5ConvergenceProjection) {
+  return convergence.producer_intrinsic_lineage;
 }
 
 function exactBindingMovements(context: W5IndustryDiagnosticContext, draft: W5ScenarioDraft, convergence: W5ConvergenceProjection): string[] {
@@ -104,7 +115,13 @@ export function adaptW5IndustryDiagnosticProducers(input: { context: W5IndustryD
         source: { path: "services/api/src/w5-governed-model-service.ts", symbol: "W5GovernedModelService.evaluate" },
         freshness: "FRESH",
         official_truth_write: false,
-        known_limits: baseLimits
+        known_limits: baseLimits,
+        ...(intrinsicLineage(input.convergence)?.model_version_reference
+          ? { producer_model_version_reference: intrinsicLineage(input.convergence)!.model_version_reference }
+          : {}),
+        ...(intrinsicLineage(input.convergence)?.model_artifact_reference
+          ? { producer_model_artifact_reference: intrinsicLineage(input.convergence)!.model_artifact_reference }
+          : {})
       },
       {
         producer_id: realizedId,
@@ -115,7 +132,10 @@ export function adaptW5IndustryDiagnosticProducers(input: { context: W5IndustryD
         source: { path: "services/simulation-core/src/w5-governed-convergence.ts", symbol: "evaluateW5CoreRealization" },
         freshness: "FRESH",
         official_truth_write: false,
-        known_limits: baseLimits
+        // The current Simulation Core realization contract does not expose a
+        // typed model/artifact lineage of its own. Do not copy the governed
+        // demand producer's identity onto the separate REALIZED reference.
+        known_limits: [...baseLimits, "REALIZED_TYPED_LINEAGE_NOT_EXPOSED_BY_CORE"]
       }
     ],
     known_limits: baseLimits,

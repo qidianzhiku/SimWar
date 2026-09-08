@@ -16,18 +16,17 @@ const artifact: ModelArtifactReference = {
 };
 
 describe("readQualifiedProducerLineage", () => {
-  it("preserves explicit typed producer lineage without mutation", () => {
+  it("proves typed producer lineage without requiring a producer-owned qualification claim", () => {
     const result = readQualifiedProducerLineage({
       producer_model_version_reference: modelVersion,
-      producer_model_artifact_reference: artifact,
-      producer_qualification_id: "qualification-1",
-      producer_qualification_digest: "q".repeat(64)
+      producer_model_artifact_reference: artifact
     });
 
     expect(result.proof_status).toBe("COMPLETE");
     expect(result.model_version_reference).toEqual(modelVersion);
     expect(result.model_artifact_reference).toEqual(artifact);
-    expect(result.qualification_id).toBe("qualification-1");
+    expect(result.qualification_id).toBeNull();
+    expect(result.qualification_digest).toBeNull();
   });
 
   it("does not infer typed identity from a legacy runtime model-version string", () => {

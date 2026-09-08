@@ -133,7 +133,9 @@ export interface GovernedDemandRuntimeOutput {
     source_classification: "SYNTHETIC_GOLDEN";
   };
   markets: readonly DemandCandidateMarketOutput[];
+  model_artifact_reference: DemandModelVersion["artifact"];
   model_version_ref: { content_digest: string; model_version_id: string; version: string };
+  exact_binding: DemandExactBinding;
   replay_input_digest: string;
   status: "FALLBACK" | "PASS";
 }
