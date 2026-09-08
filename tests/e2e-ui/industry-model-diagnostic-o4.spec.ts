@@ -112,7 +112,7 @@ async function createQualifiedEvidence(request: APIRequestContext, teacherToken:
   return qualificationId;
 }
 
-test("IM-O4 exact W5 producers are consumed through real Teacher, Student, and Admin BFF surfaces", async ({
+test("IM-O4 producers remain qualification-scoped through real Teacher, Student, and Admin BFF surfaces", async ({
   page,
   request
 }) => {
@@ -205,13 +205,13 @@ test("IM-O4 exact W5 producers are consumed through real Teacher, Student, and A
     name: "Industry Model diagnostic readiness"
   });
   await expect(teacherDiagnostic.getByTestId("industry-diagnostic-producers")).toContainText(
-    "WANT_EVIDENCE"
+    "NOT_PROVEN"
   );
   await expect(teacherDiagnostic.getByTestId("industry-diagnostic-producers")).toContainText(
-    "CAN_EVIDENCE"
+    "PRODUCER_MODEL_QUALIFICATION_NOT_PROVEN"
   );
-  await expect(teacherDiagnostic.getByTestId("industry-diagnostic-producers")).toContainText(
-    "REALIZED_REFERENCE"
+  await expect(teacherDiagnostic.getByTestId("industry-diagnostic-qualified-admission")).toContainText(
+    "QUALIFICATION_NOT_PROVEN"
   );
   await expect(teacherDiagnostic.getByTestId("industry-diagnostic-producers")).toContainText(
     "NOT_CALIBRATED"
@@ -222,9 +222,9 @@ test("IM-O4 exact W5 producers are consumed through real Teacher, Student, and A
   );
   expect(teacherResponse.ok()).toBe(true);
   const teacherJson = JSON.stringify(await teacherResponse.json());
-  expect(teacherJson).toContain("WANT_EVIDENCE");
-  expect(teacherJson).toContain("CAN_EVIDENCE");
-  expect(teacherJson).toContain("REALIZED_REFERENCE");
+  expect(teacherJson).toContain("NOT_PROVEN");
+  expect(teacherJson).toContain("QUALIFICATION_NOT_PROVEN");
+  expect(teacherJson).not.toContain("QUALIFICATION_COMPATIBLE");
   expect(teacherJson).toContain("REALIZED_WRITES_FORMAL_RESULT_FALSE");
 
   const student = await login(request, "student");
@@ -255,13 +255,10 @@ test("IM-O4 exact W5 producers are consumed through real Teacher, Student, and A
     name: "Industry Model diagnostic readiness"
   });
   await expect(adminDiagnostic.getByTestId("industry-diagnostic-producers")).toContainText(
-    "WANT_EVIDENCE"
+    "NOT_PROVEN"
   );
-  await expect(adminDiagnostic.getByTestId("industry-diagnostic-producers")).toContainText(
-    "CAN_EVIDENCE"
-  );
-  await expect(adminDiagnostic.getByTestId("industry-diagnostic-producers")).toContainText(
-    "REALIZED_REFERENCE"
+  await expect(adminDiagnostic.getByTestId("industry-diagnostic-qualified-admission")).toContainText(
+    "QUALIFICATION_NOT_PROVEN"
   );
   const adminResponse = await request.get(
     `${apiBaseUrl}/api/v1/bff/admin/model-qualification/diagnostic-readiness?courseId=course_demo&runId=${encodeURIComponent(exactBoundRunId ?? "")}&teamId=${encodeURIComponent(exactBoundTeam?.team_id ?? "")}&roundId=${encodeURIComponent(exactBoundRound?.round_id ?? "")}&scenarioPackageId=${encodeURIComponent(exactBoundRun?.scenario_package_id ?? "")}&parameterSetId=${encodeURIComponent(exactBoundRun?.parameter_set_id ?? "")}&qualificationId=${encodeURIComponent(qualificationId)}&w5DraftId=${encodeURIComponent(draftId ?? "")}`,
