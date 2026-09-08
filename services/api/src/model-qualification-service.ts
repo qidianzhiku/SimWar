@@ -260,6 +260,8 @@ function toDiagnosticProducer(
     readonly authority_owner: string;
     readonly source: { readonly path: string; readonly symbol: string };
     readonly freshness: "FRESH" | "STALE" | "UNKNOWN";
+    readonly producer_model_version_reference?: ModelVersionReference;
+    readonly producer_model_artifact_reference?: ModelArtifactReference;
     readonly known_limits?: readonly string[];
   },
   contract: string,
@@ -276,6 +278,12 @@ function toDiagnosticProducer(
     freshness: producer.freshness,
     authority_owner: producer.authority_owner,
     candidate_classification: producer.classification,
+    ...(producer.producer_model_version_reference
+      ? { producer_model_version_reference: producer.producer_model_version_reference }
+      : {}),
+    ...(producer.producer_model_artifact_reference
+      ? { producer_model_artifact_reference: producer.producer_model_artifact_reference }
+      : {}),
     ...(producer.known_limits ? { known_limits: [...producer.known_limits] } : {})
   };
 }
@@ -361,6 +369,12 @@ function reconcileDiagnosticProducer(input: {
       authority_owner: reconciled.producer.authority_owner,
       source: reconciled.producer.source,
       freshness: reconciled.producer.freshness,
+      ...(reconciled.producer.producer_model_version_reference
+        ? { producer_model_version_reference: reconciled.producer.producer_model_version_reference }
+        : {}),
+      ...(reconciled.producer.producer_model_artifact_reference
+        ? { producer_model_artifact_reference: reconciled.producer.producer_model_artifact_reference }
+        : {}),
       known_limits: reconciled.known_limits
     },
     input.contract,

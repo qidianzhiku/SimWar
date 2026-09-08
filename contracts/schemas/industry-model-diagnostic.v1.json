@@ -6,6 +6,27 @@
   "$defs": {
     "nonEmptyString": { "type": "string", "minLength": 1 },
     "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "modelVersionReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model_version_id", "version", "content_digest"],
+      "properties": {
+        "model_version_id": { "$ref": "#/$defs/nonEmptyString" },
+        "version": { "$ref": "#/$defs/nonEmptyString" },
+        "content_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "modelArtifactReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "content_digest", "format", "source_ref"],
+      "properties": {
+        "artifact_id": { "$ref": "#/$defs/nonEmptyString" },
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "format": { "$ref": "#/$defs/nonEmptyString" },
+        "source_ref": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
     "context": {
       "type": "object",
       "additionalProperties": false,
@@ -79,6 +100,8 @@
             }
           },
           "freshness": { "enum": ["FRESH", "STALE", "UNKNOWN"] },
+          "producer_model_version_reference": { "$ref": "#/$defs/modelVersionReference" },
+          "producer_model_artifact_reference": { "$ref": "#/$defs/modelArtifactReference" },
           "known_limits": {
             "type": "array",
             "items": { "$ref": "#/$defs/nonEmptyString" }

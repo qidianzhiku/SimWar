@@ -38,6 +38,8 @@ export interface IndustryDiagnosticProducerEvidence {
   readonly freshness: "FRESH" | "STALE" | "UNKNOWN";
   readonly authority_owner: string;
   readonly candidate_classification: IndustryDiagnosticClassification;
+  readonly producer_model_version_reference?: ModelVersionReference;
+  readonly producer_model_artifact_reference?: ModelArtifactReference;
   readonly known_limits?: readonly string[];
 }
 
@@ -73,6 +75,8 @@ export interface IndustryDiagnosticProvabilityEntry {
   readonly authority_owner: string;
   readonly source: { readonly path: string; readonly symbol: string };
   readonly freshness: IndustryDiagnosticProducerEvidence["freshness"];
+  readonly producer_model_version_reference?: ModelVersionReference;
+  readonly producer_model_artifact_reference?: ModelArtifactReference;
   readonly known_limits?: readonly string[];
 }
 
@@ -132,6 +136,12 @@ function buildEntry(
     authority_owner: producer.authority_owner,
     source: { path: producer.current_source_path, symbol: producer.exact_symbol },
     freshness: producer.freshness,
+    ...(producer.producer_model_version_reference
+      ? { producer_model_version_reference: producer.producer_model_version_reference }
+      : {}),
+    ...(producer.producer_model_artifact_reference
+      ? { producer_model_artifact_reference: producer.producer_model_artifact_reference }
+      : {}),
     ...(producer.known_limits ? { known_limits: [...producer.known_limits] } : {})
   };
 }

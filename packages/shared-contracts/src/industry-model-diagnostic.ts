@@ -38,6 +38,11 @@ export interface IndustryDiagnosticProvabilityDto {
   readonly authority_owner: string;
   readonly source: { readonly path: string; readonly symbol: string };
   readonly freshness: "FRESH" | "STALE" | "UNKNOWN";
+  /** Producer-owned intrinsic lineage; qualification membership remains a
+   * separate consumer admission decision. This field is never emitted in the
+   * Student projection. */
+  readonly producer_model_version_reference?: ModelVersionReference;
+  readonly producer_model_artifact_reference?: ModelArtifactReference;
   readonly known_limits?: readonly string[];
 }
 
