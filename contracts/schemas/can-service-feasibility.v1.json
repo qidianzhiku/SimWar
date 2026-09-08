@@ -284,6 +284,7 @@
         "candidate_id": { "$ref": "#/$defs/identity" },
         "constraints": { "type": "array", "items": { "$ref": "#/$defs/constraint" } },
         "exact_binding": { "$ref": "#/$defs/exactBinding" },
+        "producer_intrinsic_lineage": { "$ref": "#/$defs/producerIntrinsicLineage" },
         "queue": {
           "type": "object",
           "additionalProperties": false,
@@ -295,6 +296,43 @@
         },
         "status": { "enum": ["FEASIBLE", "INFEASIBLE", "UNKNOWN"] },
         "why_not": { "type": "array", "items": { "$ref": "#/$defs/whyNot" } }
+      }
+    },
+    "modelVersionReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "model_version_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "model_version_id": { "$ref": "#/$defs/identity" },
+        "version": { "$ref": "#/$defs/identity" }
+      }
+    },
+    "modelArtifactReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "content_digest", "format", "source_ref"],
+      "properties": {
+        "artifact_id": { "$ref": "#/$defs/identity" },
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "format": { "type": "string", "minLength": 1 },
+        "source_ref": { "type": "string", "minLength": 1 }
+      }
+    },
+    "producerIntrinsicLineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model_artifact_reference",
+        "model_version_reference",
+        "producer_source_ref",
+        "lineage_digest"
+      ],
+      "properties": {
+        "model_artifact_reference": { "$ref": "#/$defs/modelArtifactReference" },
+        "model_version_reference": { "$ref": "#/$defs/modelVersionReference" },
+        "producer_source_ref": { "type": "string", "minLength": 1 },
+        "lineage_digest": { "$ref": "#/$defs/digest" }
       }
     },
     "teacherProjection": {

@@ -55,6 +55,10 @@ function intrinsicLineage(convergence: W5ConvergenceProjection) {
   return convergence.producer_intrinsic_lineage;
 }
 
+function realizedIntrinsicLineage(convergence: W5ConvergenceProjection) {
+  return convergence.realized.producer_intrinsic_lineage;
+}
+
 function exactBindingMovements(context: W5IndustryDiagnosticContext, draft: W5ScenarioDraft, convergence: W5ConvergenceProjection): string[] {
   const binding = draft.exact_runtime_binding;
   const movements: string[] = [];
@@ -83,6 +87,7 @@ export function adaptW5IndustryDiagnosticProducers(input: { context: W5IndustryD
     "REALIZED_IS_REFERENCE_ONLY",
     "REALIZED_WRITES_FORMAL_RESULT_FALSE"
   ];
+  const realizedLineage = input.convergence ? realizedIntrinsicLineage(input.convergence) : undefined;
   if (!input.draft || !input.convergence) {
     return {
       producers: [
@@ -132,10 +137,15 @@ export function adaptW5IndustryDiagnosticProducers(input: { context: W5IndustryD
         source: { path: "services/simulation-core/src/w5-governed-convergence.ts", symbol: "evaluateW5CoreRealization" },
         freshness: "FRESH",
         official_truth_write: false,
-        // The current Simulation Core realization contract does not expose a
-        // typed model/artifact lineage of its own. Do not copy the governed
-        // demand producer's identity onto the separate REALIZED reference.
-        known_limits: [...baseLimits, "REALIZED_TYPED_LINEAGE_NOT_EXPOSED_BY_CORE"]
+        known_limits: realizedLineage
+          ? baseLimits
+          : [...baseLimits, "REALIZED_TYPED_LINEAGE_NOT_EXPOSED_BY_CORE"],
+        ...(realizedLineage?.model_version_reference
+          ? { producer_model_version_reference: realizedLineage.model_version_reference }
+          : {}),
+        ...(realizedLineage?.model_artifact_reference
+          ? { producer_model_artifact_reference: realizedLineage.model_artifact_reference }
+          : {})
       }
     ],
     known_limits: baseLimits,

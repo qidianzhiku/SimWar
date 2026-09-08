@@ -207,6 +207,41 @@ function exactBinding(value: unknown): value is CanServiceFeasibilityExactBindin
   );
 }
 
+function exactModelVersionReference(value: unknown): value is ModelVersionReference {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const reference = value as Record<string, unknown>;
+  return (
+    exactId(reference.model_version_id) &&
+    exactId(reference.version) &&
+    digest(reference.content_digest)
+  );
+}
+
+function exactModelArtifactReference(value: unknown): value is ModelArtifactReference {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const reference = value as Record<string, unknown>;
+  return (
+    exactId(reference.artifact_id) &&
+    digest(reference.content_digest) &&
+    typeof reference.format === "string" &&
+    reference.format.trim().length > 0 &&
+    typeof reference.source_ref === "string" &&
+    reference.source_ref.trim().length > 0
+  );
+}
+
+function exactProducerIntrinsicLineage(value: unknown): value is CanProducerIntrinsicLineage {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const lineage = value as Record<string, unknown>;
+  return (
+    exactModelVersionReference(lineage.model_version_reference) &&
+    exactModelArtifactReference(lineage.model_artifact_reference) &&
+    typeof lineage.producer_source_ref === "string" &&
+    lineage.producer_source_ref.trim().length > 0 &&
+    digest(lineage.lineage_digest)
+  );
+}
+
 function candidate(value: unknown): value is CanServiceFeasibilityCandidate {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const item = value as Record<string, unknown>;
@@ -222,6 +257,8 @@ function candidate(value: unknown): value is CanServiceFeasibilityCandidate {
     Array.isArray(item.constraints) &&
     item.constraints.every((constraint) => constraint && typeof constraint === "object") &&
     exactBinding(item.exact_binding) &&
+    (item.producer_intrinsic_lineage === undefined ||
+      exactProducerIntrinsicLineage(item.producer_intrinsic_lineage)) &&
     (item.queue as Record<string, unknown> | undefined)?.claim === "NOT_CLAIMED" &&
     (item.queue as Record<string, unknown> | undefined)?.reason ===
       "EXACT_QUEUE_INPUT_NOT_AVAILABLE" &&

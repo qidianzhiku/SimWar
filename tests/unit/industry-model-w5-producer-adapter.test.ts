@@ -89,7 +89,27 @@ const convergence = {
     mechanism: {
       want: { candidate_value: 12, official: false as const, source_plane: "SYNTHETIC_HEURISTIC" as const },
       can: { constraints: ["capacity=10"], eligible: true, official: false as const, source_plane: "CAPACITY_WORKFORCE_QUALITY_ELIGIBILITY" as const },
-      realized: { authority: "SIMULATION_CORE" as const, official: true as const, replay_relevant_digest: "r".repeat(64), writes_formal_result: false as const }
+      realized: {
+        authority: "SIMULATION_CORE" as const,
+        official: true as const,
+        producer_intrinsic_lineage: {
+          model_version_reference: {
+            model_version_id: "eldercare_core_model_v1",
+            version: "1.0.0",
+            content_digest: "m".repeat(64)
+          },
+          model_artifact_reference: {
+            artifact_id: "eldercare_core_model_v1_artifact",
+            content_digest: "n".repeat(64),
+            format: "typescript-simulation-core",
+            source_ref: "services/simulation-core/src/eldercare-core-model.ts"
+          },
+          producer_source_ref: "services/simulation-core/src/eldercare-core-model.ts",
+          runtime_binding_digest: binding.binding_digest
+        },
+        replay_relevant_digest: "r".repeat(64),
+        writes_formal_result: false as const
+      }
     },
     explanation: [],
     known_limits: ["synthetic"]
@@ -121,7 +141,27 @@ const convergence = {
     scenario_package_reference: binding.scenario_package_reference,
     seed: 7
   },
-  realized: { authority: "SIMULATION_CORE" as const, official: true as const, replay_relevant_digest: "r".repeat(64), writes_formal_result: false as const },
+  realized: {
+    authority: "SIMULATION_CORE" as const,
+    official: true as const,
+    producer_intrinsic_lineage: {
+      model_version_reference: {
+        model_version_id: "eldercare_core_model_v1",
+        version: "1.0.0",
+        content_digest: "m".repeat(64)
+      },
+      model_artifact_reference: {
+        artifact_id: "eldercare_core_model_v1_artifact",
+        content_digest: "n".repeat(64),
+        format: "typescript-simulation-core",
+        source_ref: "services/simulation-core/src/eldercare-core-model.ts"
+      },
+      producer_source_ref: "services/simulation-core/src/eldercare-core-model.ts",
+      runtime_binding_digest: binding.binding_digest
+    },
+    replay_relevant_digest: "r".repeat(64),
+    writes_formal_result: false as const
+  },
   replay: { differential: "NON_OFFICIAL" as const, exact_identity: "READY" as const, replay_writes_official_results: false as const },
   security: { activity: "r1", actor: "teacher-1", course: context.course_id, dimensions: [], role: "teacher" as const, round: 1, run: context.run_id, team: context.team_id, tenant: context.tenant_id },
   shadow: { non_official: true, overwrites_official_result: false, plane: "SYSTEM_DYNAMICS" as const },
@@ -145,8 +185,13 @@ describe("W5 industry diagnostic producer adapter", () => {
       model_version_id: "o3-governed-demand-v1",
       version: "1.0.0"
     });
-    expect(result.producers[1]?.producer_model_version_reference).toBeUndefined();
-    expect(result.producers[1]?.producer_model_artifact_reference).toBeUndefined();
+    expect(result.producers[1]?.producer_model_version_reference).toMatchObject({
+      model_version_id: "eldercare_core_model_v1",
+      version: "1.0.0"
+    });
+    expect(result.producers[1]?.producer_model_artifact_reference).toMatchObject({
+      artifact_id: "eldercare_core_model_v1_artifact"
+    });
   });
 
   it("keeps both producers NOT_PROVEN when the exact draft context is missing", () => {

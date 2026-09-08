@@ -429,6 +429,7 @@
               "properties": {
                 "authority": { "const": "SIMULATION_CORE" },
                 "official": { "const": true },
+                "producer_intrinsic_lineage": { "$ref": "#/$defs/producerIntrinsicLineage" },
                 "replay_relevant_digest": { "$ref": "#/$defs/digest" },
                 "writes_formal_result": { "const": false }
               }

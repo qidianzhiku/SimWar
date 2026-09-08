@@ -42,8 +42,11 @@ function candidate() {
 
 describe("O7 CAN producer intrinsic lineage", () => {
   it("emits deterministic typed model and artifact identity owned by CAN", () => {
-    const first = candidate() as typeof candidate extends () => infer T ? T & { producer_intrinsic_lineage: Record<string, any> } : never;
-    const second = candidate() as typeof first;
+    const first = candidate();
+    const second = candidate();
+    if (!first.producer_intrinsic_lineage || !second.producer_intrinsic_lineage) {
+      throw new Error("CAN_PRODUCER_INTRINSIC_LINEAGE_MISSING");
+    }
 
     expect(first.producer_intrinsic_lineage).toEqual(second.producer_intrinsic_lineage);
     expect(first.producer_intrinsic_lineage.model_version_reference).toEqual({
@@ -71,7 +74,10 @@ describe("O7 CAN producer intrinsic lineage", () => {
     const result = evaluateCanServiceFeasibility({
       ...candidateInput(),
       available_capacity_units: undefined
-    }) as typeof candidate extends () => infer T ? T & { producer_intrinsic_lineage: Record<string, any> } : never;
+    });
+    if (!result.producer_intrinsic_lineage) {
+      throw new Error("CAN_PRODUCER_INTRINSIC_LINEAGE_MISSING");
+    }
 
     expect(result.status).toBe("UNKNOWN");
     expect(result.producer_intrinsic_lineage.model_artifact_reference.source_ref).toBe(

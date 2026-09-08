@@ -6,10 +6,8 @@ import {
 
 describe("O7 Simulation Core realized intrinsic lineage", () => {
   it("emits deterministic Core-owned typed model and artifact identity", () => {
-    const first = evaluateW5CoreRealization(createDefaultEldercareModelInput()) as typeof evaluateW5CoreRealization extends (...args: any[]) => infer T
-      ? T & { producer_intrinsic_lineage: Record<string, any> }
-      : never;
-    const second = evaluateW5CoreRealization(createDefaultEldercareModelInput()) as typeof first;
+    const first = evaluateW5CoreRealization(createDefaultEldercareModelInput());
+    const second = evaluateW5CoreRealization(createDefaultEldercareModelInput());
 
     expect(first.producer_intrinsic_lineage).toEqual(second.producer_intrinsic_lineage);
     expect(first.producer_intrinsic_lineage.model_version_reference).toEqual({
@@ -30,9 +28,7 @@ describe("O7 Simulation Core realized intrinsic lineage", () => {
   });
 
   it("does not copy the governed-demand umbrella identity into Core lineage", () => {
-    const result = evaluateW5CoreRealization() as typeof evaluateW5CoreRealization extends (...args: any[]) => infer T
-      ? T & { producer_intrinsic_lineage: Record<string, any> }
-      : never;
+    const result = evaluateW5CoreRealization();
 
     expect(result.producer_intrinsic_lineage.model_version_reference.model_version_id).not.toBe(
       "eldercare_w5_governed_v1@1.1.0"

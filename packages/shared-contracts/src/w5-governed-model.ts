@@ -167,6 +167,7 @@ export interface W5DemandRealizationProjection {
     realized: {
       authority: "SIMULATION_CORE";
       official: true;
+      producer_intrinsic_lineage?: W5ProducerIntrinsicLineage;
       replay_relevant_digest: string;
       writes_formal_result: false;
     };
