@@ -34,6 +34,11 @@ import {
   type IndustryModelDiagnosticReadinessInput
 } from "./industry-model-diagnostic-readiness.js";
 import { interpretIndustryModelDiagnostics } from "./industry-model-diagnostic-interpretation.js";
+import { readQualifiedProducerLineage } from "./industry-model-qualified-producer-lineage.js";
+import {
+  reconcileQualifiedProducerEvidence,
+  type QualifiedProducerEvidenceCandidate
+} from "./industry-model-qualified-producer-admission.js";
 import {
   buildModelQualificationCoursePortfolio,
   type ModelQualificationAuthorizedCourse,
@@ -102,6 +107,7 @@ import type {
   ModelQualificationSourcePackage,
   ModelQualificationRollbackOutcomeResolution,
   ModelQualificationRollbackOutcomeStudentSummary,
+  IndustryQualifiedProducerAdmissionDto,
   IndustryModelDiagnosticReadinessDto,
   IndustryModelRealityJoinDto,
   IndustryModelRealityJoinSupportEvidenceDto,
@@ -271,6 +277,103 @@ function toDiagnosticProducer(
     authority_owner: producer.authority_owner,
     candidate_classification: producer.classification,
     ...(producer.known_limits ? { known_limits: [...producer.known_limits] } : {})
+  };
+}
+
+function reconcileDiagnosticProducer(input: {
+  readonly producer: {
+    readonly producer_id: string;
+    readonly diagnostic_family: string;
+    readonly classification: IndustryModelDiagnosticReadinessInput["producers"][number]["candidate_classification"];
+    readonly evidence_identity: string;
+    readonly authority_owner: string;
+    readonly source: { readonly path: string; readonly symbol: string };
+    readonly freshness: "FRESH" | "STALE" | "UNKNOWN";
+    readonly known_limits?: readonly string[];
+    readonly official_truth_write?: false;
+    readonly producer_model_version_reference?: ModelVersionReference;
+    readonly producer_model_artifact_reference?: ModelArtifactReference;
+    readonly producer_qualification_id?: string;
+    readonly producer_qualification_digest?: string;
+  };
+  readonly identity_movements: readonly string[];
+  readonly qualification: {
+    readonly qualification_id: string;
+    readonly qualification_digest: string;
+    readonly model_version_reference: ModelVersionReference;
+    readonly model_artifact_reference: ModelArtifactReference;
+  };
+  readonly contract: string;
+  readonly tests: readonly string[];
+}): {
+  readonly producer: IndustryModelDiagnosticReadinessInput["producers"][number];
+  readonly admission: IndustryQualifiedProducerAdmissionDto;
+} {
+  const lineage = readQualifiedProducerLineage({
+    ...(input.producer.producer_model_version_reference
+      ? { producer_model_version_reference: input.producer.producer_model_version_reference }
+      : {}),
+    ...(input.producer.producer_model_artifact_reference
+      ? { producer_model_artifact_reference: input.producer.producer_model_artifact_reference }
+      : {}),
+    ...(input.producer.producer_qualification_id
+      ? { producer_qualification_id: input.producer.producer_qualification_id }
+      : {}),
+    ...(input.producer.producer_qualification_digest
+      ? { producer_qualification_digest: input.producer.producer_qualification_digest }
+      : {}),
+    identity_movements: input.identity_movements
+  });
+  const candidate: QualifiedProducerEvidenceCandidate = {
+    producer_id: input.producer.producer_id,
+    diagnostic_family: input.producer.diagnostic_family,
+    candidate_classification: input.producer.classification,
+    evidence_identity: input.producer.evidence_identity,
+    authority_owner: input.producer.authority_owner,
+    source: input.producer.source,
+    freshness: input.producer.freshness,
+    ...(input.producer.known_limits ? { known_limits: [...input.producer.known_limits] } : {}),
+    official_truth_write: false,
+    ...(lineage.model_version_reference
+      ? { producer_model_version_reference: lineage.model_version_reference }
+      : {}),
+    ...(lineage.model_artifact_reference
+      ? { producer_model_artifact_reference: lineage.model_artifact_reference }
+      : {}),
+    ...(lineage.qualification_id ? { producer_qualification_id: lineage.qualification_id } : {}),
+    ...(lineage.qualification_digest
+      ? { producer_qualification_digest: lineage.qualification_digest }
+      : {}),
+    ...(lineage.identity_movements.length > 0
+      ? { identity_movements: lineage.identity_movements }
+      : {})
+  };
+  const reconciled = reconcileQualifiedProducerEvidence({
+    qualification: input.qualification,
+    producer: candidate
+  });
+  const producer = toDiagnosticProducer(
+    {
+      producer_id: reconciled.producer.producer_id,
+      diagnostic_family: reconciled.producer.diagnostic_family,
+      classification: reconciled.producer.candidate_classification,
+      evidence_identity: reconciled.producer.evidence_identity,
+      authority_owner: reconciled.producer.authority_owner,
+      source: reconciled.producer.source,
+      freshness: reconciled.producer.freshness,
+      known_limits: reconciled.known_limits
+    },
+    input.contract,
+    input.tests
+  );
+  return {
+    producer,
+    admission: {
+      producer_id: reconciled.producer.producer_id,
+      status: reconciled.status,
+      admission_digest: reconciled.admission_digest,
+      known_limits: reconciled.known_limits
+    }
   };
 }
 
@@ -1978,7 +2081,7 @@ export class ModelQualificationService {
       ...(w5Producers?.identity_movements ?? []),
       ...(canProducer?.identity_movements ?? [])
     ];
-    const producer: IndustryModelDiagnosticReadinessInput["producers"][number] = {
+    const baseProducer: IndustryModelDiagnosticReadinessInput["producers"][number] = {
       producer_id: "model-qualification-diagnostics",
       current_source_path: "services/api/src/model-qualification-service.ts",
       exact_symbol: "deriveModelQualificationDiagnostics",
@@ -1990,6 +2093,61 @@ export class ModelQualificationService {
       authority_owner: "SIMWAR-MODEL-QUALIFICATION-PLANE",
       candidate_classification: "NOT_PROVEN"
     };
+    const qualificationIdentity = {
+      qualification_id: qualification.qualification_id,
+      qualification_digest: qualification.content_digest,
+      model_version_reference: qualification.model_version_reference,
+      model_artifact_reference: qualification.artifact
+    };
+    const qualificationAdmission = reconcileDiagnosticProducer({
+      producer: {
+        producer_id: baseProducer.producer_id,
+        diagnostic_family: baseProducer.diagnostic_family,
+        classification: baseProducer.candidate_classification,
+        evidence_identity: baseProducer.evidence_identity,
+        authority_owner: baseProducer.authority_owner,
+        source: { path: baseProducer.current_source_path, symbol: baseProducer.exact_symbol },
+        freshness: baseProducer.freshness,
+        ...(baseProducer.known_limits ? { known_limits: baseProducer.known_limits } : {})
+      },
+      identity_movements: [],
+      qualification: qualificationIdentity,
+      contract: baseProducer.contract,
+      tests: baseProducer.tests
+    });
+    const w5Qualified = (w5Producers?.producers ?? []).map((item) =>
+      reconcileDiagnosticProducer({
+        producer: item,
+        identity_movements: w5Producers?.identity_movements ?? [],
+        qualification: qualificationIdentity,
+        contract: "W5IndustryDiagnosticProducerEvidence",
+        tests: ["tests/unit/industry-model-w5-producer-adapter.test.ts"]
+      })
+    );
+    const canQualified = canProducer?.producer
+      ? [
+          reconcileDiagnosticProducer({
+            producer: canProducer.producer,
+            identity_movements: canProducer.identity_movements,
+            qualification: qualificationIdentity,
+            contract: "CanServiceFeasibilityCandidate",
+            tests: [
+              "tests/unit/industry-model-can-producer-adapter.test.ts",
+              "tests/unit/can-service-feasibility-service.test.ts"
+            ]
+          })
+        ]
+      : [];
+    const qualifiedProducers = [
+      qualificationAdmission.producer,
+      ...w5Qualified.map((item) => item.producer),
+      ...canQualified.map((item) => item.producer)
+    ];
+    const qualifiedProducerAdmissions = [
+      qualificationAdmission.admission,
+      ...w5Qualified.map((item) => item.admission),
+      ...canQualified.map((item) => item.admission)
+    ];
     const readiness = buildIndustryModelDiagnosticReadiness({
       context: {
         tenant_id: scope.tenant_id,
@@ -2012,25 +2170,11 @@ export class ModelQualificationService {
       adoption: currentAdoption,
       diagnostic_evidence_digest: diagnosticEvidenceDigest,
       interpretation_policy_digest: interpretationPolicyDigest,
-      producers: [
-        producer,
-        ...(w5Producers?.producers ?? []).map((item) =>
-          toDiagnosticProducer(item, "W5IndustryDiagnosticProducerEvidence", [
-            "tests/unit/industry-model-w5-producer-adapter.test.ts"
-          ])
-        ),
-        ...(canProducer?.producer
-          ? [
-              toDiagnosticProducer(canProducer.producer, "CanServiceFeasibilityCandidate", [
-                "tests/unit/industry-model-can-producer-adapter.test.ts",
-                "tests/unit/can-service-feasibility-service.test.ts"
-              ])
-            ]
-          : [])
-      ],
+      producers: qualifiedProducers,
       identity_movements: identityMovements,
       official_truth_write: false,
-      provider_calls: 0
+      provider_calls: 0,
+      qualified_producer_admission: qualifiedProducerAdmissions
     });
     const interpretation = interpretIndustryModelDiagnostics({
       context: {
@@ -2067,7 +2211,11 @@ export class ModelQualificationService {
       rebase_required: readiness.rebase_required,
       exact_context: readiness.bound_context,
       known_limits: [
-        ...new Set([...readiness.known_limits, ...interpretation.known_limits])
+        ...new Set([
+          ...readiness.known_limits,
+          ...interpretation.known_limits,
+          ...qualifiedProducerAdmissions.flatMap((item) => item.known_limits)
+        ])
       ].sort(),
       provider: "OFF" as const,
       official_truth_write: false as const,
@@ -2078,7 +2226,12 @@ export class ModelQualificationService {
         ...common,
         operation_id: "INDUSTRY_MODEL_DIAGNOSTIC_STUDENT_GET_V1",
         role: "student",
-        student_summary: interpretation.student
+         student_summary: {
+           ...interpretation.student,
+           qualified_producer_admission_statuses: qualifiedProducerAdmissions.map(
+             (item) => item.status
+           )
+         }
       };
     }
     return {
@@ -2100,7 +2253,8 @@ export class ModelQualificationService {
       adoption: currentAdoption,
       diagnostic_evidence_digest: diagnosticEvidenceDigest,
       interpretation_policy_digest: interpretationPolicyDigest,
-      provability: readiness.provability
+      provability: readiness.provability,
+      qualified_producer_admission: qualifiedProducerAdmissions
     };
   }
 

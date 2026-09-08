@@ -32,6 +32,23 @@
     "classification": {
       "enum": ["WANT_EVIDENCE", "CAN_EVIDENCE", "REALIZED_REFERENCE", "NOT_PROVEN"]
     },
+    "qualifiedProducerAdmissionStatus": {
+      "enum": ["QUALIFICATION_COMPATIBLE", "QUALIFICATION_NOT_PROVEN", "REBASE_REQUIRED"]
+    },
+    "qualifiedProducerAdmission": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["producer_id", "status", "admission_digest", "known_limits"],
+        "properties": {
+          "producer_id": { "$ref": "#/$defs/nonEmptyString" },
+          "status": { "$ref": "#/$defs/qualifiedProducerAdmissionStatus" },
+          "admission_digest": { "$ref": "#/$defs/digest" },
+          "known_limits": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } }
+        }
+      }
+    },
     "provability": {
       "type": "array",
       "items": {
@@ -117,9 +134,10 @@
             "model_artifact_reference",
             "qualification",
             "adoption",
-            "diagnostic_evidence_digest",
-            "interpretation_policy_digest",
-            "provability"
+        "diagnostic_evidence_digest",
+        "interpretation_policy_digest",
+        "provability",
+        "qualified_producer_admission"
           ],
           "properties": {
             "operation_id": {
@@ -137,7 +155,8 @@
             },
             "diagnostic_evidence_digest": { "$ref": "#/$defs/digest" },
             "interpretation_policy_digest": { "$ref": "#/$defs/digest" },
-            "provability": { "$ref": "#/$defs/provability" }
+            "provability": { "$ref": "#/$defs/provability" },
+            "qualified_producer_admission": { "$ref": "#/$defs/qualifiedProducerAdmission" }
           }
         }
       ]
