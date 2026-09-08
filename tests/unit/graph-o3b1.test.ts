@@ -79,6 +79,43 @@ describe("KG-O3B1 Query Contract V2.1", () => {
     });
   });
 
+  it("never admits a failed NOT_APPLICABLE required observation", () => {
+    const value = normalizeQueryObservationV21({
+      command_ok: false,
+      relevance: "NOT_APPLICABLE",
+      coverage: "NOT_APPLICABLE",
+      risk_class: "G3",
+      source_readback_resolved: true
+    });
+    expect(value).toMatchObject({
+      execution_status: "FAIL",
+      question_admission: "SOURCE_FALLBACK"
+    });
+  });
+
+  it("requires an observed CodeGraph result before admitting G2/G3", () => {
+    const route = routeGraphSupportQuestion({
+      risk_class: "G2",
+      source_readback_resolved: true,
+      codegraph_available: true,
+      codegraph_observed: false,
+      graphify_applicable: false
+    });
+    expect(route.question_admission).toBe("SOURCE_FALLBACK");
+  });
+
+  it("treats non-applicable Graphify as neutral when CodeGraph and source are ready", () => {
+    const route = routeGraphSupportQuestion({
+      risk_class: "G2",
+      source_readback_resolved: true,
+      codegraph_available: true,
+      codegraph_observed: true,
+      graphify_applicable: false
+    });
+    expect(route.question_admission).toBe("READY");
+    expect(route.graphify_route).toBe("NOT_APPLICABLE");
+  });
+
   it("treats an applicable-unavailable graph as NOT_APPLICABLE, not a failure", () => {
     const value = normalizeQueryObservationV21({
       command_ok: true,
@@ -214,5 +251,16 @@ describe("KG-O3B1 blind value comparison", () => {
     expect(result.contribution).toBe("CONFIRMATORY");
     expect(result.finding_correct).toBe(true);
     expect(result.statistics).toBe("NOT_COMPUTED");
+  });
+
+  it("records a control-only miss as treatment gain rather than false negative", () => {
+    const result = compareBlindInvestigationCells({
+      control: { finding_correct: false, total_investigation_ms: 120 },
+      treatment: { finding_correct: true, total_investigation_ms: 140 }
+    });
+    expect(result.finding_correct).toBe(true);
+    expect(result.finding_missed).toBe(false);
+    expect(result.false_negative).toBe(false);
+    expect(result.contribution).toBe("MATERIAL");
   });
 });

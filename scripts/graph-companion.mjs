@@ -2234,7 +2234,8 @@ export function normalizeQueryObservationV21(input = {}) {
     (coverage === "COMPLETE" || coverage === "NOT_APPLICABLE");
   let questionAdmission = "SOURCE_FALLBACK";
   if (riskClass === "G3" && sourceRequired && !sourceResolved) questionAdmission = "HOLD_THIS_SEAM";
-  else if (relevance === "NOT_APPLICABLE" && sourceResolved) questionAdmission = "READY";
+  else if (executionStatus === "PASS" && relevance === "NOT_APPLICABLE" && sourceResolved)
+    questionAdmission = "READY";
   else if (toolUseful && (!sourceRequired || sourceResolved)) questionAdmission = "READY";
   else if (executionStatus === "NOT_RUN" && riskClass === "G3" && !sourceResolved)
     questionAdmission = "HOLD_THIS_SEAM";
@@ -2306,6 +2307,7 @@ export function routeGraphSupportQuestion(input = {}) {
   const defaults = ROUTER_DEFAULTS[riskClass] || ROUTER_DEFAULTS.G1;
   const sourceResolved = value.source_readback_resolved === true || value.sourceResolved === true;
   const codegraphAvailable = value.codegraph_available !== false;
+  const codegraphObserved = value.codegraph_observed === true || value.codegraph_admitted === true;
   const graphifyApplicable = value.graphify_applicable !== false;
   let questionAdmission = "SOURCE_FALLBACK";
   if (defaults.source_readback_required && !sourceResolved) questionAdmission = "HOLD_THIS_SEAM";
@@ -2313,7 +2315,7 @@ export function routeGraphSupportQuestion(input = {}) {
     questionAdmission = sourceResolved === false ? "SOURCE_FALLBACK" : "READY";
   else if (
     !codegraphAvailable ||
-    (defaults.graphify_route !== "NOT_NEEDED" && graphifyApplicable === false)
+    (["G2", "G3"].includes(riskClass) && !codegraphObserved)
   )
     questionAdmission = sourceResolved ? "SOURCE_FALLBACK" : "HOLD_THIS_SEAM";
   else if (sourceResolved) questionAdmission = "READY";
@@ -2340,6 +2342,7 @@ export function routeGraphSupportQuestion(input = {}) {
     fallback_policy: defaults.fallback_policy,
     question_admission: questionAdmission,
     codegraph_available: codegraphAvailable,
+    codegraph_observed: codegraphObserved,
     graphify_applicable: graphifyApplicable
   };
 }
@@ -2429,26 +2432,31 @@ export function buildGraphSupportEnvelopeV11(input = {}) {
 
 /** Compare blinded source-only and router+graph investigations without fake statistics. */
 export function compareBlindInvestigationCells({ control = {}, treatment = {} } = {}) {
-  const findingCorrect = control.finding_correct === true && treatment.finding_correct === true;
-  const findingMissed = control.finding_correct === false || treatment.finding_correct === false;
+  const treatmentCorrect = treatment.finding_correct === true;
+  const treatmentMissed = treatment.finding_correct === false;
+  const controlMissed = control.finding_correct === false;
   const scopeDelta = Number(treatment.scope_delta ?? 0) - Number(control.scope_delta ?? 0);
   const testDelta =
     Number(treatment.mandatory_test_delta ?? 0) - Number(control.mandatory_test_delta ?? 0);
   const authorityDelta =
     Number(treatment.authority_delta ?? 0) - Number(control.authority_delta ?? 0);
-  const material = findingCorrect && (scopeDelta !== 0 || testDelta !== 0 || authorityDelta !== 0);
-  const contribution = findingMissed
-    ? "FN"
-    : material
-      ? "MATERIAL"
-      : findingCorrect
-        ? "CONFIRMATORY"
-        : "NO_MATERIAL";
+  const material =
+    (treatmentCorrect && controlMissed) ||
+    (treatmentCorrect && (scopeDelta !== 0 || testDelta !== 0 || authorityDelta !== 0));
+  const contribution = treatment.false_positive === true
+    ? "FP"
+    : treatmentMissed
+      ? "FN"
+      : material
+        ? "MATERIAL"
+        : treatmentCorrect
+          ? "CONFIRMATORY"
+          : "NO_MATERIAL";
   return {
-    finding_correct: findingCorrect,
-    finding_missed: findingMissed,
+    finding_correct: treatmentCorrect,
+    finding_missed: treatmentMissed,
     false_positive: treatment.false_positive === true,
-    false_negative: findingMissed,
+    false_negative: treatmentMissed,
     scope_delta: scopeDelta,
     mandatory_test_delta: testDelta,
     authority_delta: authorityDelta,
