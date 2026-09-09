@@ -1817,7 +1817,13 @@ export function normalizeQuestionContract(input) {
   for (const field of QUESTION_CONTRACT_FIELDS) {
     if (!(field in input)) throw new Error(`Query Contract V2 missing ${field}`);
   }
-  for (const field of ["question_id", "risk_class", "canonical_seam", "decision_before", "decision_needed"]) {
+  for (const field of [
+    "question_id",
+    "risk_class",
+    "canonical_seam",
+    "decision_before",
+    "decision_needed"
+  ]) {
     if (typeof input[field] !== "string" || !input[field].trim())
       throw new Error(`Query Contract V2 ${field} must be a non-empty string`);
   }
@@ -1825,9 +1831,14 @@ export function normalizeQuestionContract(input) {
     throw new Error("Query Contract V2 target_sha must be a 40-character commit SHA");
   const seedFields = ["seed_paths", "seed_symbols", "seed_routes", "seed_schemas"];
   const normalized = Object.fromEntries(
-    ["question_id", "risk_class", "target_sha", "canonical_seam", "decision_before", "decision_needed"].map(
-      (field) => [field, input[field].trim()]
-    )
+    [
+      "question_id",
+      "risk_class",
+      "target_sha",
+      "canonical_seam",
+      "decision_before",
+      "decision_needed"
+    ].map((field) => [field, input[field].trim()])
   );
   for (const field of seedFields) normalized[field] = stringArray(input[field], field);
   if (!seedFields.some((field) => normalized[field].length > 0))
@@ -1870,7 +1881,10 @@ function normalizeCoverage(value, truncated) {
 
 function normalizeToolQuestionEvidence(input) {
   const value = input && typeof input === "object" ? input : {};
-  const hasCommandStatus = typeof value.command_ok === "boolean" || value.exit_code !== undefined || value.exitCode !== undefined;
+  const hasCommandStatus =
+    typeof value.command_ok === "boolean" ||
+    value.exit_code !== undefined ||
+    value.exitCode !== undefined;
   const commandOk =
     typeof value.command_ok === "boolean"
       ? value.command_ok
@@ -1879,19 +1893,26 @@ function normalizeToolQuestionEvidence(input) {
         : false;
   const executionStatus = hasCommandStatus ? (commandOk ? "PASS" : "FAIL") : "NOT_RUN";
   const anchors = Array.isArray(value.anchors)
-    ? value.anchors.filter((anchor) => typeof anchor === "string" && anchor.trim()).map((anchor) => anchor.trim())
+    ? value.anchors
+        .filter((anchor) => typeof anchor === "string" && anchor.trim())
+        .map((anchor) => anchor.trim())
     : [];
   const edgeTypes = Array.isArray(value.edge_types)
-    ? value.edge_types.filter((edge) => typeof edge === "string" && edge.trim()).map((edge) => edge.trim())
+    ? value.edge_types
+        .filter((edge) => typeof edge === "string" && edge.trim())
+        .map((edge) => edge.trim())
     : Array.isArray(value.edgeTypes)
-      ? value.edgeTypes.filter((edge) => typeof edge === "string" && edge.trim()).map((edge) => edge.trim())
+      ? value.edgeTypes
+          .filter((edge) => typeof edge === "string" && edge.trim())
+          .map((edge) => edge.trim())
       : [];
   return {
     command_ok: commandOk,
     execution_status: executionStatus,
     relevance: normalizeRelevance(value.relevance, value.generic === true),
     coverage: normalizeCoverage(value.coverage, value.truncated === true),
-    truncated: value.truncated === true || String(value.coverage || "").toUpperCase() === "TRUNCATED",
+    truncated:
+      value.truncated === true || String(value.coverage || "").toUpperCase() === "TRUNCATED",
     anchors,
     edge_types: edgeTypes
   };
@@ -1902,7 +1923,9 @@ function normalizeSourceReadback(input) {
   return {
     resolved: value.resolved === true,
     anchors: Array.isArray(value.anchors)
-      ? value.anchors.filter((anchor) => typeof anchor === "string" && anchor.trim()).map((anchor) => anchor.trim())
+      ? value.anchors
+          .filter((anchor) => typeof anchor === "string" && anchor.trim())
+          .map((anchor) => anchor.trim())
       : [],
     unresolved: Array.isArray(value.unresolved)
       ? value.unresolved
@@ -1956,10 +1979,16 @@ export function admitQuestionReceipt(receipt) {
     ...(Array.isArray(receipt?.seed_schemas) ? receipt.seed_schemas : [])
   ];
   const anchorMatches = (requirement, anchors) => {
-    const expected = String(requirement ?? "").trim().replaceAll("\\", "/").toLowerCase();
+    const expected = String(requirement ?? "")
+      .trim()
+      .replaceAll("\\", "/")
+      .toLowerCase();
     if (!expected) return false;
     return anchors.some((anchor) => {
-      const actual = String(anchor ?? "").trim().replaceAll("\\", "/").toLowerCase();
+      const actual = String(anchor ?? "")
+        .trim()
+        .replaceAll("\\", "/")
+        .toLowerCase();
       return actual === expected || actual.includes(expected) || expected.endsWith(actual);
     });
   };
@@ -1967,26 +1996,32 @@ export function admitQuestionReceipt(receipt) {
     exactSeeds.length > 0 &&
     exactSeeds.every((seed) => anchorMatches(seed, graphAnchors)) &&
     (Array.isArray(receipt?.expected_edge_types) ? receipt.expected_edge_types : []).every((edge) =>
-      graphEdgeTypes.some((observed) => String(observed).toLowerCase() === String(edge).toLowerCase())
+      graphEdgeTypes.some(
+        (observed) => String(observed).toLowerCase() === String(edge).toLowerCase()
+      )
     );
-  const graphReady = [receipt?.graphify, receipt?.codegraph].every(
-    (tool) =>
-      tool?.command_ok === true &&
-      tool.relevance === "RELEVANT" &&
-      tool.coverage === "COMPLETE" &&
-      tool.truncated !== true
-  ) && graphEvidenceMatchesContract;
-  const sourceReadbackRequired = !Array.isArray(receipt?.mandatory_source_readback) ||
+  const graphReady =
+    [receipt?.graphify, receipt?.codegraph].every(
+      (tool) =>
+        tool?.command_ok === true &&
+        tool.relevance === "RELEVANT" &&
+        tool.coverage === "COMPLETE" &&
+        tool.truncated !== true
+    ) && graphEvidenceMatchesContract;
+  const sourceReadbackRequired =
+    !Array.isArray(receipt?.mandatory_source_readback) ||
     receipt.mandatory_source_readback.length > 0;
   if (!sourceReadbackRequired) return graphReady ? "READY" : "SOURCE_FALLBACK";
   const sourceResolved =
     receipt?.source_readback?.resolved === true &&
     Array.isArray(receipt.source_readback.anchors) &&
     receipt.source_readback.anchors.length > 0 &&
-    (!Array.isArray(receipt.source_readback.unresolved) || receipt.source_readback.unresolved.length === 0) &&
-    (Array.isArray(receipt?.mandatory_source_readback) ? receipt.mandatory_source_readback : []).every((required) =>
-      anchorMatches(required, receipt.source_readback.anchors)
-    );
+    (!Array.isArray(receipt.source_readback.unresolved) ||
+      receipt.source_readback.unresolved.length === 0) &&
+    (Array.isArray(receipt?.mandatory_source_readback)
+      ? receipt.mandatory_source_readback
+      : []
+    ).every((required) => anchorMatches(required, receipt.source_readback.anchors));
   if (!sourceResolved) return "HOLD_THIS_SEAM";
   return graphReady ? "READY" : "SOURCE_FALLBACK";
 }
@@ -2006,15 +2041,20 @@ export function normalizeQueryEvidenceForAdmission({ queryEvidence, targetSha } 
         : Array.isArray(queryEvidence?.queries)
           ? queryEvidence.queries
           : [];
-  const candidates = candidateSource.filter((item) => item?.schema_version === "GraphQuestionReceiptV2");
-  const legacyQueries = candidateSource === queryEvidence?.queries
-    ? candidateSource.filter((item) => item?.schema_version !== "GraphQuestionReceiptV2")
-    : [
-        ...candidateSource.filter((item) => item?.schema_version !== "GraphQuestionReceiptV2"),
-        ...(Array.isArray(queryEvidence?.queries)
-          ? queryEvidence.queries.filter((item) => item?.schema_version !== "GraphQuestionReceiptV2")
-          : [])
-      ];
+  const candidates = candidateSource.filter(
+    (item) => item?.schema_version === "GraphQuestionReceiptV2"
+  );
+  const legacyQueries =
+    candidateSource === queryEvidence?.queries
+      ? candidateSource.filter((item) => item?.schema_version !== "GraphQuestionReceiptV2")
+      : [
+          ...candidateSource.filter((item) => item?.schema_version !== "GraphQuestionReceiptV2"),
+          ...(Array.isArray(queryEvidence?.queries)
+            ? queryEvidence.queries.filter(
+                (item) => item?.schema_version !== "GraphQuestionReceiptV2"
+              )
+            : [])
+        ];
   if (candidates.length === 0) {
     return {
       query_contract_v2: false,
@@ -2038,18 +2078,20 @@ export function normalizeQueryEvidenceForAdmission({ queryEvidence, targetSha } 
       : executionStatuses.some((status) => status === "FAIL")
         ? "FAIL"
         : "NOT_RUN";
-    const toolCoverage = tools.map((tool) => normalizeCoverage(tool?.coverage, tool?.truncated === true));
-    const actualTruncated = tools.some(
-      (tool, index) => tool?.truncated === true || [
-        "TRUNCATED",
-        "NODE_SET_TRUNCATED",
-        "EDGE_DETAIL_TRUNCATED",
-        "OUTPUT_TRUNCATED"
-      ].includes(toolCoverage[index])
+    const toolCoverage = tools.map((tool) =>
+      normalizeCoverage(tool?.coverage, tool?.truncated === true)
     );
-    const actualCoverage = tools.length === 2 && toolCoverage.every((coverage) => coverage === "COMPLETE")
-      ? "COMPLETE"
-      : toolCoverage.find((coverage) => coverage !== "COMPLETE") || "UNKNOWN";
+    const actualTruncated = tools.some(
+      (tool, index) =>
+        tool?.truncated === true ||
+        ["TRUNCATED", "NODE_SET_TRUNCATED", "EDGE_DETAIL_TRUNCATED", "OUTPUT_TRUNCATED"].includes(
+          toolCoverage[index]
+        )
+    );
+    const actualCoverage =
+      tools.length === 2 && toolCoverage.every((coverage) => coverage === "COMPLETE")
+        ? "COMPLETE"
+        : toolCoverage.find((coverage) => coverage !== "COMPLETE") || "UNKNOWN";
     const toolRelevance = tools.map((tool) => tool?.relevance);
     const actualRelevance = toolRelevance.includes("NO_RELEVANCE")
       ? "NO_RELEVANCE"
@@ -2067,7 +2109,9 @@ export function normalizeQueryEvidenceForAdmission({ queryEvidence, targetSha } 
       normalized_query: {
         execution_status: executionStatus,
         exit_code: executionStatus === "PASS" ? 0 : executionStatus === "FAIL" ? 1 : null,
-        output: ready ? "exact question contract admitted" : `question contract ${admission.toLowerCase()}`,
+        output: ready
+          ? "exact question contract admitted"
+          : `question contract ${admission.toLowerCase()}`,
         relevant: ready,
         relevance: actualRelevance,
         coverage: actualCoverage,
@@ -2130,6 +2174,307 @@ export function normalizeMcpObservationSet(observations = {}) {
     status,
     ...checks,
     checks
+  };
+}
+
+const QUERY_V21_EXECUTION = new Set(["PASS", "FAIL", "NOT_RUN"]);
+const QUERY_V21_RELEVANCE = new Set(["RELEVANT", "NO_RELEVANCE", "AMBIGUOUS", "NOT_APPLICABLE"]);
+const QUERY_V21_COVERAGE = new Set([
+  "COMPLETE",
+  "PARTIAL",
+  "NODE_SET_TRUNCATED",
+  "EDGE_DETAIL_TRUNCATED",
+  "OUTPUT_TRUNCATED",
+  "DEPTH_BOUNDED",
+  "UNKNOWN",
+  "NOT_APPLICABLE"
+]);
+
+function normalizeV21Coverage(value) {
+  const raw = typeof value === "string" ? value.toUpperCase() : value;
+  if (raw === "TRUNCATED") return "OUTPUT_TRUNCATED";
+  return QUERY_V21_COVERAGE.has(raw) ? raw : "UNKNOWN";
+}
+
+/**
+ * Normalize one tool observation while keeping process execution separate from
+ * the question admission decision. A successful command may still require a
+ * source-only fallback when its result is generic or incomplete.
+ */
+export function normalizeQueryObservationV21(input = {}) {
+  const value = input && typeof input === "object" ? input : {};
+  const hasCommandStatus =
+    typeof value.command_ok === "boolean" ||
+    value.exit_code !== undefined ||
+    value.exitCode !== undefined;
+  const commandOk =
+    typeof value.command_ok === "boolean"
+      ? value.command_ok
+      : hasCommandStatus
+        ? Number(value.exit_code ?? value.exitCode) === 0
+        : false;
+  const executionStatus = hasCommandStatus ? (commandOk ? "PASS" : "FAIL") : "NOT_RUN";
+  const relevanceRaw =
+    typeof value.relevance === "string" ? value.relevance.toUpperCase() : value.relevance;
+  const relevance = QUERY_V21_RELEVANCE.has(relevanceRaw)
+    ? relevanceRaw
+    : value.generic === true
+      ? "NO_RELEVANCE"
+      : "UNKNOWN";
+  const coverage = normalizeV21Coverage(
+    value.coverage ?? (value.truncated === true ? "OUTPUT_TRUNCATED" : undefined)
+  );
+  const sourceResolved = value.source_readback_resolved === true || value.sourceResolved === true;
+  const riskClass = String(value.risk_class ?? "").toUpperCase();
+  const sourceRequired =
+    value.source_readback_required === true || ["G2", "G3"].includes(riskClass);
+  const toolUseful =
+    executionStatus === "PASS" &&
+    (relevance === "RELEVANT" || relevance === "NOT_APPLICABLE") &&
+    (coverage === "COMPLETE" || coverage === "NOT_APPLICABLE");
+  let questionAdmission = "SOURCE_FALLBACK";
+  if (riskClass === "G3" && sourceRequired && !sourceResolved) questionAdmission = "HOLD_THIS_SEAM";
+  else if (executionStatus === "PASS" && relevance === "NOT_APPLICABLE" && sourceResolved)
+    questionAdmission = "READY";
+  else if (toolUseful && (!sourceRequired || sourceResolved)) questionAdmission = "READY";
+  else if (executionStatus === "NOT_RUN" && riskClass === "G3" && !sourceResolved)
+    questionAdmission = "HOLD_THIS_SEAM";
+  const anchors = Array.isArray(value.anchors)
+    ? value.anchors
+        .filter((anchor) => typeof anchor === "string" && anchor.trim())
+        .map((anchor) => anchor.trim())
+    : [];
+  return {
+    execution_status: QUERY_V21_EXECUTION.has(executionStatus) ? executionStatus : "NOT_RUN",
+    command_ok: commandOk,
+    exit_code: executionStatus === "PASS" ? 0 : executionStatus === "FAIL" ? 1 : null,
+    relevance,
+    coverage,
+    truncated: coverage.endsWith("_TRUNCATED"),
+    anchors,
+    source_readback_resolved: sourceResolved,
+    question_admission: questionAdmission
+  };
+}
+
+const ROUTER_DEFAULTS = {
+  G0: {
+    codegraph_route: "NOT_NEEDED",
+    graphify_route: "NOT_NEEDED",
+    source_readback_required: false,
+    mandatory_safety_floors: ["source_validation"],
+    time_budget: "short",
+    fallback_policy: "source_only"
+  },
+  G1: {
+    codegraph_route: "OPTIONAL_OR_FIRST",
+    graphify_route: "NOT_NEEDED",
+    source_readback_required: false,
+    mandatory_safety_floors: ["exact_target_identity"],
+    time_budget: "bounded",
+    fallback_policy: "source_only"
+  },
+  G2: {
+    codegraph_route: "REQUIRED",
+    graphify_route: "OPTIONAL_BY_APPLICABILITY",
+    source_readback_required: true,
+    mandatory_safety_floors: ["exact_target_identity", "source_readback", "contract_anchor_match"],
+    time_budget: "bounded",
+    fallback_policy: "source_fallback"
+  },
+  G3: {
+    codegraph_route: "REQUIRED",
+    graphify_route: "IF_APPLICABLE",
+    source_readback_required: true,
+    mandatory_safety_floors: [
+      "exact_target_identity",
+      "source_readback",
+      "writer_or_authority_chain",
+      "cross_cell_convergence"
+    ],
+    time_budget: "extended",
+    fallback_policy: "source_fallback_or_hold"
+  }
+};
+
+/**
+ * Select a seam-local support route. Tool failure affects only the requested
+ * seam; G0/G1 work remains actionable when the graph tools are unavailable.
+ */
+export function routeGraphSupportQuestion(input = {}) {
+  const value = input && typeof input === "object" ? input : {};
+  const riskClass = String(value.risk_class ?? "G1").toUpperCase();
+  const defaults = ROUTER_DEFAULTS[riskClass] || ROUTER_DEFAULTS.G1;
+  const sourceResolved = value.source_readback_resolved === true || value.sourceResolved === true;
+  const codegraphAvailable = value.codegraph_available !== false;
+  const codegraphObserved = value.codegraph_observed === true || value.codegraph_admitted === true;
+  const codegraphAdmitted =
+    value.codegraph_admitted === true ||
+    (value.codegraph_observed === true &&
+      value.codegraph_execution_status === "PASS" &&
+      ["RELEVANT", "NOT_APPLICABLE"].includes(value.codegraph_relevance) &&
+      ["COMPLETE", "NOT_APPLICABLE"].includes(value.codegraph_coverage));
+  const graphifyApplicable = value.graphify_applicable !== false;
+  let questionAdmission = "SOURCE_FALLBACK";
+  if (defaults.source_readback_required && !sourceResolved) questionAdmission = "HOLD_THIS_SEAM";
+  else if (riskClass === "G0" || riskClass === "G1")
+    questionAdmission = sourceResolved === false ? "SOURCE_FALLBACK" : "READY";
+  else if (
+    !codegraphAvailable ||
+    (["G2", "G3"].includes(riskClass) && !codegraphAdmitted)
+  )
+    questionAdmission = sourceResolved ? "SOURCE_FALLBACK" : "HOLD_THIS_SEAM";
+  else if (sourceResolved) questionAdmission = "READY";
+  return {
+    schema_version: "GraphRiskRouterV1",
+    question_id: typeof value.question_id === "string" ? value.question_id : null,
+    risk_class: riskClass,
+    risk_reasons: Array.isArray(value.risk_reasons)
+      ? value.risk_reasons
+          .filter((reason) => typeof reason === "string" && reason.trim())
+          .map((reason) => reason.trim())
+      : [],
+    codegraph_route: defaults.codegraph_route,
+    graphify_route:
+      defaults.graphify_route === "NOT_NEEDED"
+        ? "NOT_NEEDED"
+        : graphifyApplicable
+          ? defaults.graphify_route
+          : "NOT_APPLICABLE",
+    contract_overlay_route: ["G2", "G3"].includes(riskClass) ? "REQUIRED" : "NOT_NEEDED",
+    source_readback_required: defaults.source_readback_required,
+    mandatory_safety_floors: [...defaults.mandatory_safety_floors],
+    time_budget: defaults.time_budget,
+    fallback_policy: defaults.fallback_policy,
+    question_admission: questionAdmission,
+    codegraph_available: codegraphAvailable,
+    codegraph_observed: codegraphObserved,
+    codegraph_admitted: codegraphAdmitted,
+    graphify_applicable: graphifyApplicable
+  };
+}
+
+/**
+ * Keep cross-layer findings compact and source/contract anchored. This overlay
+ * is diagnostic evidence only; it cannot promote a graph result to authority.
+ */
+export function evaluateContractProvenanceOverlay({
+  target_sha: targetSha = null,
+  findings = []
+} = {}) {
+  const normalizedFindings = (Array.isArray(findings) ? findings : [])
+    .slice(0, 50)
+    .map((finding, index) => ({
+      id:
+        typeof finding?.id === "string" && finding.id.trim()
+          ? finding.id.trim()
+          : `finding-${index + 1}`,
+      category: typeof finding?.category === "string" ? finding.category.trim() : "unspecified",
+      path: typeof finding?.path === "string" ? finding.path.trim() : null,
+      symbol: typeof finding?.symbol === "string" ? finding.symbol.trim() : null,
+      field: typeof finding?.field === "string" ? finding.field.trim() : null,
+      source_anchors: Array.isArray(finding?.source_anchors)
+        ? finding.source_anchors
+            .filter((anchor) => typeof anchor === "string" && anchor.trim())
+            .slice(0, 10)
+        : [],
+      contract_anchors: Array.isArray(finding?.contract_anchors)
+        ? finding.contract_anchors
+            .filter((anchor) => typeof anchor === "string" && anchor.trim())
+            .slice(0, 10)
+        : [],
+      confidence:
+        typeof finding?.confidence === "string" ? finding.confidence.toUpperCase() : "UNKNOWN",
+      reason: typeof finding?.reason === "string" ? finding.reason.trim() : ""
+    }));
+  return {
+    schema_version: "SIMWAR_CONTRACT_PROVENANCE_OVERLAY_V1",
+    target_sha: typeof targetSha === "string" ? targetSha : null,
+    status: normalizedFindings.length > 0 ? "FINDINGS" : "NO_FINDINGS",
+    graph_evidence_authoritative: false,
+    findings: normalizedFindings
+  };
+}
+
+function boundedStrings(value, limit) {
+  if (!Array.isArray(value)) return [];
+  return [
+    ...new Set(
+      value.filter((item) => typeof item === "string" && item.trim()).map((item) => item.trim())
+    )
+  ].slice(0, limit);
+}
+
+/** Build the compact, lane-neutral Graph Support Envelope V1.1. */
+export function buildGraphSupportEnvelopeV11(input = {}) {
+  const value = input && typeof input === "object" ? input : {};
+  return {
+    schema_version: "SIMWAR_GRAPH_SUPPORT_ENVELOPE_V1_1",
+    mission_id: value.mission_id ?? null,
+    lane: value.lane ?? null,
+    target_sha: value.target_sha ?? null,
+    target_tree: value.target_tree ?? null,
+    risk_class: value.risk_class ?? null,
+    risk_reasons: boundedStrings(value.risk_reasons, 10),
+    canonical_seam: value.canonical_seam ?? null,
+    decision_needed: value.decision_needed ?? null,
+    tool_route: {
+      codegraph: value.tool_route?.codegraph ?? "NOT_NEEDED",
+      graphify: value.tool_route?.graphify ?? "NOT_NEEDED",
+      contract_overlay: value.tool_route?.contract_overlay ?? "NOT_NEEDED"
+    },
+    source_anchors: boundedStrings(value.source_anchors, 10),
+    consumer_paths: boundedStrings(value.consumer_paths, 10),
+    shared_authorities: boundedStrings(value.shared_authorities, 10),
+    writer_paths: boundedStrings(value.writer_paths, 10),
+    cross_cell_convergence: boundedStrings(value.cross_cell_convergence, 10),
+    mandatory_tests: boundedStrings(value.mandatory_tests, 15),
+    candidate_tests: boundedStrings(value.candidate_tests, 15),
+    unresolved: boundedStrings(value.unresolved, 10),
+    admission: value.admission ?? "SOURCE_FALLBACK",
+    contribution: value.contribution ?? "NO_MATERIAL",
+    cost: value.cost ?? { total_investigation_ms: null, cache_reused: false }
+  };
+}
+
+/** Compare blinded source-only and router+graph investigations without fake statistics. */
+export function compareBlindInvestigationCells({ control = {}, treatment = {} } = {}) {
+  const treatmentCorrect = treatment.finding_correct === true;
+  const treatmentMissed = treatment.finding_correct === false;
+  const controlMissed = control.finding_correct === false;
+  const scopeDelta = Number(treatment.scope_delta ?? 0) - Number(control.scope_delta ?? 0);
+  const testDelta =
+    Number(treatment.mandatory_test_delta ?? 0) - Number(control.mandatory_test_delta ?? 0);
+  const authorityDelta =
+    Number(treatment.authority_delta ?? 0) - Number(control.authority_delta ?? 0);
+  const material =
+    (treatmentCorrect && controlMissed) ||
+    (treatmentCorrect && (scopeDelta !== 0 || testDelta !== 0 || authorityDelta !== 0));
+  const contribution = treatment.false_positive === true
+    ? "FP"
+    : treatmentMissed
+      ? "FN"
+      : material
+        ? "MATERIAL"
+        : treatmentCorrect
+          ? "CONFIRMATORY"
+          : "NO_MATERIAL";
+  return {
+    finding_correct: treatmentCorrect,
+    finding_missed: treatmentMissed,
+    false_positive: treatment.false_positive === true,
+    false_negative: treatmentMissed,
+    scope_delta: scopeDelta,
+    mandatory_test_delta: testDelta,
+    authority_delta: authorityDelta,
+    control_total_investigation_ms: Number.isFinite(Number(control.total_investigation_ms))
+      ? Number(control.total_investigation_ms)
+      : null,
+    treatment_total_investigation_ms: Number.isFinite(Number(treatment.total_investigation_ms))
+      ? Number(treatment.total_investigation_ms)
+      : null,
+    contribution,
+    statistics: "NOT_COMPUTED"
   };
 }
 
@@ -2560,7 +2905,9 @@ export function runCompanion({
     sourceAvailable: true
   });
   const graphAdmissionTargetSha = resolveGraphAdmissionTarget({ mode, current, analysisTarget });
-  const targetTreeSha = git(root, ["rev-parse", `${graphAdmissionTargetSha}^{tree}`], { allowFailure: true });
+  const targetTreeSha = git(root, ["rev-parse", `${graphAdmissionTargetSha}^{tree}`], {
+    allowFailure: true
+  });
   const codeGraphOperation = codegraph.command?.match(/\b(init|sync)$/u)?.[1] || null;
   const expectedConfigDigest =
     codeGraphOperation && codegraph.version
