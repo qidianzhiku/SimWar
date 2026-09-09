@@ -11,7 +11,6 @@ import {
   readdirSync,
   readlinkSync,
   realpathSync,
-  statSync,
   writeFileSync
 } from "node:fs";
 import { basename, isAbsolute, relative, resolve, sep } from "node:path";
@@ -159,11 +158,15 @@ class BoundedLog {
 }
 
 const sha256File = (path) => {
-  if (!existsSync(path) || !statSync(path).isFile()) return null;
-  const hash = createHash("sha256");
-  const input = readFileSync(path);
-  hash.update(input);
-  return hash.digest("hex");
+  try {
+    const input = readFileSync(path);
+    return createHash("sha256").update(input).digest("hex");
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      return null;
+    }
+    throw error;
+  }
 };
 
 const readPackageVersion = (path) => {

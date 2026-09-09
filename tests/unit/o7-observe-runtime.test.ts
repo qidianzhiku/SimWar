@@ -1,15 +1,30 @@
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 const repositoryRoot = resolve(".");
 const observerPath = resolve(repositoryRoot, "scripts/o7-observe-runtime.mjs");
+const workflowPath = resolve(repositoryRoot, ".github/workflows/ci.yml");
 const fixtures: string[] = [];
 
 const createEvidenceRoot = () => {
   const path = mkdtempSync(join(tmpdir(), "simwar-o7-observer-"));
+  fixtures.push(path);
+  return path;
+};
+
+const createRepositoryFixture = () => {
+  const path = mkdtempSync(join(tmpdir(), "simwar-o7-observer-repository-"));
   fixtures.push(path);
   return path;
 };
@@ -21,6 +36,31 @@ const readJsonLines = (path: string) =>
     .filter(Boolean)
     .map((line) => JSON.parse(line) as Record<string, unknown>);
 
+const findRunnerContextInJobEnvironment = (source: string) => {
+  const violations: Array<{ job: string; line: number }> = [];
+  let currentJob: string | null = null;
+  let inJobEnvironment = false;
+  for (const [index, line] of source.split(/\r?\n/).entries()) {
+    const jobMatch = line.match(/^ {2}([A-Za-z0-9_-]+):\s*(?:#.*)?$/);
+    if (jobMatch) {
+      currentJob = jobMatch[1];
+      inJobEnvironment = false;
+      continue;
+    }
+    if (currentJob && /^ {4}env:\s*(?:#.*)?$/.test(line)) {
+      inJobEnvironment = true;
+      continue;
+    }
+    if (inJobEnvironment && /^(?:\S| {0,4}\S)/.test(line) && line.trim() !== "") {
+      inJobEnvironment = false;
+    }
+    if (currentJob && inJobEnvironment && /\$\{\{\s*runner\./.test(line)) {
+      violations.push({ job: currentJob, line: index + 1 });
+    }
+  }
+  return violations;
+};
+
 afterEach(() => {
   for (const path of fixtures.splice(0)) {
     rmSync(path, { recursive: true, force: true });
@@ -28,6 +68,10 @@ afterEach(() => {
 });
 
 describe("O7 runtime observer", () => {
+  it("keeps runner-only contexts out of job-level workflow environment", () => {
+    expect(findRunnerContextInJobEnvironment(readFileSync(workflowPath, "utf8"))).toEqual([]);
+  });
+
   it("runs the child once, preserves its exit code and output, and records lifecycle evidence", () => {
     const evidenceRoot = createEvidenceRoot();
     const childSource = [
@@ -164,6 +208,44 @@ describe("O7 runtime observer", () => {
     expect(serialized).not.toContain("SECRET_SHOULD_NOT_LEAK");
     expect(serialized).not.toContain("private");
     expect(resolve(evidenceRoot).startsWith(repositoryRoot)).toBe(false);
+  });
+
+  it("treats missing optional hash inputs as bounded unavailable evidence", () => {
+    const repositoryFixture = createRepositoryFixture();
+    const evidenceRoot = createEvidenceRoot();
+    const result = spawnSync(
+      process.execPath,
+      [observerPath, "--record-environment", "--evidence-root", evidenceRoot],
+      { cwd: repositoryFixture, encoding: "utf8" }
+    );
+
+    expect(result.status).toBe(0);
+    const environment = JSON.parse(
+      readFileSync(join(evidenceRoot, "environment.json"), "utf8")
+    ) as Record<string, unknown>;
+    expect(environment).toEqual(
+      expect.objectContaining({
+        package_lock_sha256: null,
+        playwright_config_sha256: null,
+        ci_workflow_sha256: null
+      })
+    );
+  });
+
+  it("fails environment capture instead of swallowing unrelated hash input errors", () => {
+    const repositoryFixture = createRepositoryFixture();
+    const evidenceRoot = createEvidenceRoot();
+    mkdirSync(join(repositoryFixture, "package-lock.json"));
+
+    const result = spawnSync(
+      process.execPath,
+      [observerPath, "--record-environment", "--evidence-root", evidenceRoot],
+      { cwd: repositoryFixture, encoding: "utf8" }
+    );
+
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("O7 observer failed:");
+    expect(existsSync(join(evidenceRoot, "environment.json"))).toBe(false);
   });
 
   it("records explicit suite markers without starting another process", () => {

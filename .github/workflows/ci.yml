@@ -170,7 +170,7 @@ jobs:
       PR4_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       PR4_EVIDENCE_ROOT: /tmp/simwar-pr4-browser-${{ github.run_id }}
       SIMWAR_PLAYWRIGHT_STORE_FILE: /tmp/simwar-playwright/pr4-${{ github.run_id }}/playwright-store.json
-      O7_OBS_EVIDENCE_ROOT: ${{ runner.temp }}/simwar-o7-observability-${{ github.run_id }}-${{ github.run_attempt }}
+      O7_OBS_EVIDENCE_ROOT: /tmp/simwar-o7-observability-${{ github.run_id }}-${{ github.run_attempt }}
       O7_OBS_PRODUCT_BASE_SHA: 3fe42976246fae8a366056df51c0803d3699fd4b
       O7_OBSERVED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
