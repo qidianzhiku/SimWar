@@ -2523,8 +2523,13 @@ export function deriveCodeGraphAdmission(input = {}) {
     reason = targetTree && observedTargetTree ? "TARGET_TREE_MISMATCH" : "TARGET_TREE_NOT_BOUND";
     admitted = false;
   } else if (!targetBindingSupplied) {
+    // Preserve the V2 qualified-observation contract for legacy callers that
+    // do not carry target identity fields. Exact identity remains enforced
+    // whenever the caller supplies it (or explicitly requires it), while a
+    // qualified observed result is still materially distinct from a caller's
+    // self-attested `codegraph_admitted` flag.
     reason = "TARGET_BINDING_NOT_PROVIDED";
-    admitted = false;
+    admitted = true;
   }
 
   return {
