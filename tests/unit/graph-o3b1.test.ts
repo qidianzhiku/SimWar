@@ -10,6 +10,7 @@ import {
 } from "../../scripts/graph-companion.mjs";
 
 const TARGET = "a".repeat(40);
+const TARGET_TREE = "b".repeat(40);
 
 describe("KG-O3B1 Query Contract V2.1", () => {
   it("keeps command success separate from admission when relevance is absent", () => {
@@ -124,6 +125,10 @@ describe("KG-O3B1 Query Contract V2.1", () => {
       codegraph_execution_status: "PASS",
       codegraph_relevance: "RELEVANT",
       codegraph_coverage: "COMPLETE",
+      target_sha: TARGET,
+      codegraph_target_sha: TARGET,
+      target_tree: TARGET_TREE,
+      codegraph_target_tree: TARGET_TREE,
       graphify_applicable: false
     });
     expect(route.question_admission).toBe("READY");

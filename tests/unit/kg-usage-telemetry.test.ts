@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -135,6 +135,14 @@ describe("KG-O3B2 usage event DAG", () => {
     expect(JSON.stringify(stored)).not.toContain("secret-value");
     expect(JSON.stringify(stored)).not.toContain("abc.def.ghi");
     expect(redacted.redactions.length).toBeGreaterThan(0);
+
+    expect(() =>
+      createUsageEvent({
+        eventRoot,
+        productRepoRoot,
+        event: makeEvent("event-005-camel-case", { payload: { accessToken: "secret-value" } })
+      })
+    ).toThrow(/secret|redact/iu);
   });
 
   it("EV-006 rejects a duplicate event id whose immutable content conflicts", () => {
@@ -209,6 +217,38 @@ describe("KG-O3B2 usage event DAG", () => {
     expect(receipt.receipt_hash).toMatch(/^[0-9a-f]{64}$/u);
     expect(receipt.authority).toBe("DERIVED_ENGINEERING_EVIDENCE_ONLY");
   });
+
+  it("EV-011 rejects a finalized artifact whose stored event hash is missing", () => {
+    const eventRoot = makeRoot();
+    const staged = createUsageEvent({ eventRoot, productRepoRoot, event: makeEvent("event-011") });
+    const finalized = finalizeUsageEvent({ eventRoot, eventId: staged.event_id });
+    const artifact = JSON.parse(readFileSync(finalized.final_path, "utf8"));
+    delete artifact.event_hash;
+    writeFileSync(finalized.final_path, `${JSON.stringify(artifact)}\n`, "utf8");
+
+    expect(() => compileUsageReceipt({ eventRoot, productRepoRoot })).toThrow(/hash|missing/iu);
+  });
+
+  it("EV-012 retains cyclic finalized events in the receipt while reporting the cycle", () => {
+    const eventRoot = makeRoot();
+    const first = createUsageEvent({
+      eventRoot,
+      productRepoRoot,
+      event: makeEvent("event-012-a", { parents: ["event-012-b"] })
+    });
+    const second = createUsageEvent({
+      eventRoot,
+      productRepoRoot,
+      event: makeEvent("event-012-b", { parents: ["event-012-a"] })
+    });
+    finalizeUsageEvent({ eventRoot, eventId: first.event_id });
+    finalizeUsageEvent({ eventRoot, eventId: second.event_id });
+
+    const receipt = compileUsageReceipt({ eventRoot, productRepoRoot });
+    expect(receipt.status).toBe("BLOCKED_CYCLE");
+    expect(receipt.event_ids).toEqual(["event-012-a", "event-012-b"]);
+    expect(receipt.unresolved_cycles).toEqual(["event-012-a", "event-012-b"]);
+  });
 });
 
 describe("KG-O3B2 receipt determinism and review boundary", () => {
@@ -256,6 +296,32 @@ describe("KG-O3B2 value reconciliation", () => {
     expect(result.status).toBe("DEVELOPMENT_VALUE_NOT_PROVEN");
     expect(result.missing).toEqual(expect.arrayContaining(["changed_artifact", "actual_action"]));
     expect(result.statistics).toBe("NOT_COMPUTED");
+  });
+
+  it("does not prove value from placeholder objects without typed evidence", () => {
+    const result = reconcileValue({
+      knowledge_card: {},
+      source: {},
+      before_judgement: {},
+      after_judgement: {},
+      changed_artifact: {},
+      actual_action: {},
+      counterfactual: { available: true }
+    });
+
+    expect(result.status).toBe("DEVELOPMENT_VALUE_NOT_PROVEN");
+    expect(result.chain_complete).toBe(false);
+    expect(result.missing).toEqual(
+      expect.arrayContaining([
+        "knowledge_card",
+        "source",
+        "before_judgement",
+        "after_judgement",
+        "changed_artifact",
+        "actual_action",
+        "counterfactual"
+      ])
+    );
   });
 
   it("proves development value only when the full source-to-action chain reconciles", () => {

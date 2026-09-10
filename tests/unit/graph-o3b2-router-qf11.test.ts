@@ -188,6 +188,18 @@ describe("QF-11 identity and digest semantics", () => {
     );
   });
 
+  it("QF-11 flags omitted identity and digest scopes when no scopes are declared", () => {
+    const findings = analyzeIdentityDigestSemantics({
+      ...coherentInput,
+      contract: { ...coherentInput.contract, identity_scope: [], digest_scope: [] },
+      observation: { ...coherentInput.observation, identity_scope: [], digest_scope: [] }
+    });
+
+    expect(findings).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: "SCOPE_TOO_NARROW", severity: "HIGH" })])
+    );
+  });
+
   it("QF-11 reports scope-too-broad identity semantics", () => {
     const findings = analyzeIdentityDigestSemantics({
       ...coherentInput,

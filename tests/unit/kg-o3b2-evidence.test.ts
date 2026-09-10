@@ -90,6 +90,21 @@ describe("KG-O3B2 historical evidence isolation", () => {
     expect(compared.answer_key).toEqual(answerKey);
   });
 
+  it("rejects a sealed cell whose seal hash does not match its contents", () => {
+    const control = sealHistoricalCell({ cell: createHistoricalCell(makeCellInput("control")) });
+    const treatment = sealHistoricalCell({ cell: createHistoricalCell(makeCellInput("treatment")) });
+    const tampered = { ...control, observation: { ...control.observation, scope_delta: 99 } };
+
+    const result = compareHistoricalCells({
+      control: tampered,
+      treatment,
+      answer_key: { finding_id: "lineage-finding", category: "context_propagation_gap" }
+    });
+
+    expect(result.status).toBe("SEALED_HASH_MISMATCH");
+    expect(result).not.toHaveProperty("answer_key");
+  });
+
   it("classifies HC-07 from the historical cells without treating the repaired source as input", () => {
     const control = sealHistoricalCell({ cell: createHistoricalCell(makeCellInput("control")) });
     const treatment = sealHistoricalCell({ cell: createHistoricalCell(makeCellInput("treatment")) });

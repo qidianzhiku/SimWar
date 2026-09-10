@@ -2523,13 +2523,8 @@ export function deriveCodeGraphAdmission(input = {}) {
     reason = targetTree && observedTargetTree ? "TARGET_TREE_MISMATCH" : "TARGET_TREE_NOT_BOUND";
     admitted = false;
   } else if (!targetBindingSupplied) {
-    // Preserve the V2 qualified-observation contract for legacy callers that
-    // do not carry target identity fields. Exact identity remains enforced
-    // whenever the caller supplies it (or explicitly requires it), while a
-    // qualified observed result is still materially distinct from a caller's
-    // self-attested `codegraph_admitted` flag.
     reason = "TARGET_BINDING_NOT_PROVIDED";
-    admitted = true;
+    admitted = false;
   }
 
   return {
@@ -2700,9 +2695,9 @@ export function analyzeIdentityDigestSemantics(input = {}) {
     if (findings.length < 10) findings.push(finding);
   };
   const missingIdentity =
-    identityScope.length > 0 ? required.filter((field) => !identityScope.includes(field)) : [];
+    required.filter((field) => !identityScope.includes(field));
   const missingDigest =
-    digestScope.length > 0 ? required.filter((field) => !digestScope.includes(field)) : [];
+    required.filter((field) => !digestScope.includes(field));
   if (missingIdentity.length > 0 || missingDigest.length > 0) {
     add(
       qf11Finding({

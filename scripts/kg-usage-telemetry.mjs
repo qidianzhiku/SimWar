@@ -41,6 +41,12 @@ const EVENT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/iu;
 const VALIDATED_ROOTS = new Map();
 
+function isSecretKey(key) {
+  if (typeof key !== "string") return false;
+  const normalized = key.replace(/([a-z0-9])([A-Z])/gu, "$1_$2").toLowerCase();
+  return SECRET_KEY_PATTERN.test(normalized) || /(?:^|_)(?:auth|access|refresh|api|client)?_?(?:token|secret|password|passwd|key)(?:$|_)/u.test(normalized);
+}
+
 export class UsageTelemetryError extends Error {
   constructor(code, message, details = {}) {
     super(message);
@@ -273,7 +279,7 @@ function sanitizeValue(value, { policy, path = "$", redactions, seen }) {
     const keyPath = `${path}.${key}`;
     if (STORAGE_FIELDS.has(key))
       throw new UsageTelemetryError("IMMUTABLE_FIELD_REJECTED", `${key} is reserved for storage`);
-    if (SECRET_KEY_PATTERN.test(key)) {
+    if (isSecretKey(key)) {
       if (policy === "reject")
         throw new UsageTelemetryError(
           "SECRET_REJECTED",
@@ -457,6 +463,11 @@ function eventRecordFromStorage(path, expectedStatus) {
   const event = immutableEvent(record);
   const eventId = assertSafeEventId(event.event_id);
   const eventHash = sha256(event);
+  if ((expectedStatus === "COMPLETE" || expectedStatus === "FINALIZED") && !record.event_hash)
+    throw new UsageTelemetryError(
+      "HASH_MISMATCH",
+      `${expectedStatus} event ${eventId} is missing its stored event hash`
+    );
   if (record.event_hash && record.event_hash !== eventHash)
     throw new UsageTelemetryError(
       "HASH_MISMATCH",
@@ -738,7 +749,12 @@ export function compileUsageReceipt(input, options = {}) {
   const root = assertExternalEventRoot(eventRoot, productRepoRoot);
   const records = readFinalEvents(root.root);
   const order = topologicalOrder(records);
-  const events = order.ordered.map((record) => ({
+  const byId = new Map(records.map((record) => [record.event_id, record]));
+  const orderedRecords = [
+    ...order.ordered,
+    ...order.cycleIds.map((eventId) => byId.get(eventId)).filter(Boolean)
+  ];
+  const events = orderedRecords.map((record) => ({
     ...record.event,
     event_hash: record.event_hash,
     unresolved_parents: order.unresolvedParents
@@ -815,6 +831,34 @@ function hasStrongEvidence(value, fields = []) {
   });
 }
 
+function hasStringField(value, fields) {
+  return isObject(value) && fields.some((field) => typeof value[field] === "string" && value[field].trim());
+}
+
+function hasTypedValueEvidence(value) {
+  const knowledgeCard = value.knowledge_card;
+  const source = value.source;
+  const before = value.before_judgement ?? value.beforeJudgement;
+  const after = value.after_judgement ?? value.afterJudgement;
+  const changed = value.changed_artifact ?? value.changedArtifact;
+  const action = value.actual_action ?? value.actualAction;
+  const counterfactual = value.counterfactual;
+  return (
+    hasStringField(knowledgeCard, ["id", "ref"]) &&
+    hasStringField(knowledgeCard, ["claim"]) &&
+    hasStringField(source, ["ref", "path", "id"]) &&
+    hasStringField(source, ["digest"]) &&
+    hasStringField(before, ["id", "evidence_ref", "ref", "result"]) &&
+    hasStringField(after, ["id", "evidence_ref", "ref", "result"]) &&
+    hasStringField(changed, ["ref", "path", "id"]) &&
+    hasStringField(changed, ["digest"]) &&
+    hasStringField(action, ["action_id", "id"]) &&
+    hasStringField(action, ["outcome"]) &&
+    counterfactual?.available === true &&
+    hasStringField(counterfactual, ["id", "ref", "result"])
+  );
+}
+
 /**
  * Reconcile development value without treating graph usage, advice, or shadow
  * observations as proof. Actual value requires the complete source-to-action
@@ -822,6 +866,7 @@ function hasStrongEvidence(value, fields = []) {
  */
 export function reconcileValue(input = {}) {
   const value = requireObject(input, "value reconciliation");
+  const typedComplete = hasTypedValueEvidence(value);
   const checks = [
     [
       "knowledge_card",
@@ -867,7 +912,11 @@ export function reconcileValue(input = {}) {
     ]),
     counterfactual: evidenceReference(value.counterfactual, ["id", "ref"])
   };
-  const chainComplete = missing.length === 0;
+  const chainComplete = missing.length === 0 && typedComplete;
+  if (!typedComplete) {
+    for (const field of ["knowledge_card", "source", "before_judgement", "after_judgement", "changed_artifact", "actual_action", "counterfactual"])
+      if (!missing.includes(field)) missing.push(field);
+  }
   return {
     schema_version: "SIMWAR_KG_VALUE_RECONCILIATION_V1",
     authority: DERIVED_AUTHORITY,

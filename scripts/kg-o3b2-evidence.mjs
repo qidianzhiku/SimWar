@@ -19,6 +19,7 @@ const HISTORICAL_CELL_SCHEMA = "SIMWAR_KG_HISTORICAL_CELL_V1";
 const HISTORICAL_COMPARISON_SCHEMA = "SIMWAR_KG_HISTORICAL_COMPARISON_V1";
 const FORWARD_SELECTOR_SCHEMA = "SIMWAR_KG_FORWARD_PILOT_SELECTOR_V1";
 const SHA_RE = /^[0-9a-f]{40}$/iu;
+const SHA256_RE = /^[0-9a-f]{64}$/iu;
 const MAX_STRING = 512;
 const MAX_LIST = 32;
 const MAX_EXCLUDED_TASKS = 64;
@@ -312,6 +313,12 @@ function validateCellForComparison(cell, name) {
       return { ok: false, reason: "HISTORICAL_SOURCE_TARGET_MISMATCH" };
     if (source?.tree && source.tree !== target.tree)
       return { ok: false, reason: "HISTORICAL_SOURCE_TREE_MISMATCH" };
+    if (cellStatus(cell) === "SEALED") {
+      if (!SHA256_RE.test(cell.seal_hash ?? "")) return { ok: false, reason: "SEALED_HASH_REQUIRED" };
+      const withoutSeal = safeClone(cell);
+      delete withoutSeal.seal_hash;
+      if (sha256(withoutSeal) !== cell.seal_hash) return { ok: false, reason: "SEALED_HASH_MISMATCH" };
+    }
     return { ok: true, target, source };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -332,8 +339,6 @@ function cellObservation(cell) {
 
 function observedFindingCorrect(cell, answerKey) {
   const observation = cellObservation(cell);
-  if (typeof observation.finding_correct === "boolean") return observation.finding_correct;
-  if (typeof observation.findingCorrect === "boolean") return observation.findingCorrect;
   const observed = observation.finding_id ?? observation.findingId ?? observation.finding;
   const expected =
     answerKey?.finding_id ??
@@ -341,6 +346,12 @@ function observedFindingCorrect(cell, answerKey) {
     answerKey?.expected_finding_id ??
     answerKey?.expectedFindingId;
   if (typeof observed === "string" && typeof expected === "string") return observed === expected;
+  const expectedByCell = answerKey?.finding_correct ?? answerKey?.findingCorrect;
+  if (isRecord(expectedByCell)) {
+    const cellId = cell?.cell_id ?? cell?.cellId;
+    if (typeof cellId === "string" && typeof expectedByCell[cellId] === "boolean")
+      return expectedByCell[cellId];
+  }
   return null;
 }
 
