@@ -23,6 +23,23 @@ paths:
       responses:
         "200":
           description: Teacher-safe receipt
+  /api/v1/bff/teacher/gsi/candidates/compare:
+    get:
+      summary: Read an exact descriptive cross-round comparison
+      parameters:
+        - $ref: "#/components/parameters/FromCandidateId"
+        - $ref: "#/components/parameters/ToCandidateId"
+        - $ref: "#/components/parameters/ActivityId"
+        - $ref: "#/components/parameters/RoleKey"
+        - $ref: "#/components/parameters/ExpectedComparisonDigest"
+        - $ref: "#/components/parameters/ExpectedContextDigest"
+      responses:
+        "200":
+          description: Teacher-safe cross-round comparison
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GSICrossRoundTeacherProjection"
   /api/v1/bff/student/gsi/candidates/{candidateId}:
     get:
       summary: Read published role-safe GSI projection
@@ -31,6 +48,23 @@ paths:
       responses:
         "200":
           description: Student-safe projection
+  /api/v1/bff/student/gsi/candidates/compare:
+    get:
+      summary: Read a role-safe descriptive cross-round comparison
+      parameters:
+        - $ref: "#/components/parameters/FromCandidateId"
+        - $ref: "#/components/parameters/ToCandidateId"
+        - $ref: "#/components/parameters/ActivityId"
+        - $ref: "#/components/parameters/RoleKey"
+        - $ref: "#/components/parameters/ExpectedComparisonDigest"
+        - $ref: "#/components/parameters/ExpectedContextDigest"
+      responses:
+        "200":
+          description: Student-safe cross-round comparison
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GSICrossRoundStudentProjection"
   /api/v1/bff/admin/gsi/audit:
     get:
       summary: Read tenant-safe GSI provenance
@@ -43,6 +77,23 @@ paths:
       responses:
         "200":
           description: Admin-safe projection
+  /api/v1/bff/admin/gsi/candidates/compare:
+    get:
+      summary: Read an exact cross-round comparison with audit context
+      parameters:
+        - $ref: "#/components/parameters/FromCandidateId"
+        - $ref: "#/components/parameters/ToCandidateId"
+        - $ref: "#/components/parameters/ActivityId"
+        - $ref: "#/components/parameters/RoleKey"
+        - $ref: "#/components/parameters/ExpectedComparisonDigest"
+        - $ref: "#/components/parameters/ExpectedContextDigest"
+      responses:
+        "200":
+          description: Admin-safe cross-round comparison
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GSICrossRoundAdminProjection"
 components:
   parameters:
     CandidateId:
@@ -51,6 +102,36 @@ components:
       required: true
       schema:
         type: string
+    FromCandidateId:
+      in: query
+      name: from_candidate_id
+      required: true
+      schema: { type: string }
+    ToCandidateId:
+      in: query
+      name: to_candidate_id
+      required: true
+      schema: { type: string }
+    ActivityId:
+      in: query
+      name: activity_id
+      required: true
+      schema: { type: string }
+    RoleKey:
+      in: query
+      name: role_key
+      required: true
+      schema: { type: string }
+    ExpectedComparisonDigest:
+      in: query
+      name: expected_comparison_digest
+      required: false
+      schema: { type: string, pattern: "^[a-f0-9]{64}$" }
+    ExpectedContextDigest:
+      in: query
+      name: expected_context_digest
+      required: false
+      schema: { type: string, pattern: "^[a-f0-9]{64}$" }
   schemas:
     GSIRequest:
       type: object
@@ -120,3 +201,214 @@ components:
               influence: { type: number, minimum: -1, maximum: 1 }
               summary: { type: string, minLength: 1, maxLength: 240 }
         idempotency_key: { type: string }
+    GSICrossRoundMovement:
+      type: object
+      additionalProperties: false
+      required: [signal_key, stakeholder_type, intent, direction]
+      properties:
+        signal_key: { type: string }
+        stakeholder_type: { enum: [customer, regulator, bank, employee, media] }
+        intent:
+          {
+            enum:
+              [
+                protect_demand,
+                reduce_regulatory_risk,
+                preserve_liquidity,
+                retain_workforce,
+                protect_reputation
+              ]
+          }
+        from_value: { type: number, minimum: -1, maximum: 1 }
+        to_value: { type: number, minimum: -1, maximum: 1 }
+        delta: { type: number, minimum: -2, maximum: 2 }
+        direction: { enum: [NEW, REMOVED, INCREASED, DECREASED, STABLE] }
+    GSICrossRoundComparison:
+      type: object
+      additionalProperties: false
+      required:
+        [discriminator, pair, movements, comparison_digest, non_causal, causal_proof, known_limits]
+      properties:
+        discriminator: { const: gsi_cross_round_comparison }
+        pair: { type: object }
+        movements:
+          type: array
+          items: { $ref: "#/components/schemas/GSICrossRoundMovement" }
+        comparison_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        non_causal: { const: true }
+        causal_proof: { const: false }
+        known_limits: { type: array, minItems: 1, items: { type: string } }
+    GSICrossRoundContext:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          status,
+          anchors,
+          context_digest,
+          non_causal,
+          causal_proof,
+          official_outcome_recomputed,
+          official_truth_write,
+          recovery,
+          known_limits
+        ]
+      properties:
+        status: { enum: [AVAILABLE, CONTEXT_UNAVAILABLE, REBASE_REQUIRED] }
+        context:
+          type: object
+          additionalProperties: false
+          required:
+            [activity_id, course_id, role_key, round_id, round_no, run_id, team_id, tenant_id]
+          properties:
+            activity_id: { type: string }
+            course_id: { type: string }
+            role_key: { type: string }
+            round_id: { type: string }
+            round_no: { type: integer, minimum: 1 }
+            run_id: { type: string }
+            team_id: { type: string }
+            tenant_id: { type: string }
+        anchors: { type: array, items: { type: object } }
+        context_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        non_causal: { const: true }
+        causal_proof: { const: false }
+        official_outcome_recomputed: { const: false }
+        official_truth_write: { const: false }
+        recovery: { enum: [RELOAD_EXACT_CONTEXT, WAIT_FOR_PUBLICATION] }
+        known_limits: { type: array, minItems: 1, items: { type: string } }
+    GSICrossRoundAdminContext:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          status,
+          context,
+          anchors,
+          context_digest,
+          non_causal,
+          causal_proof,
+          official_outcome_recomputed,
+          official_truth_write,
+          recovery,
+          known_limits,
+          context_binding
+        ]
+      properties:
+        status: { enum: [AVAILABLE, CONTEXT_UNAVAILABLE, REBASE_REQUIRED] }
+        context:
+          type: object
+          additionalProperties: false
+          required:
+            [activity_id, course_id, role_key, round_id, round_no, run_id, team_id, tenant_id]
+          properties:
+            activity_id: { type: string }
+            course_id: { type: string }
+            role_key: { type: string }
+            round_id: { type: string }
+            round_no: { type: integer, minimum: 1 }
+            run_id: { type: string }
+            team_id: { type: string }
+            tenant_id: { type: string }
+        anchors: { type: array, items: { type: object } }
+        context_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        non_causal: { const: true }
+        causal_proof: { const: false }
+        official_outcome_recomputed: { const: false }
+        official_truth_write: { const: false }
+        recovery: { enum: [RELOAD_EXACT_CONTEXT, WAIT_FOR_PUBLICATION] }
+        known_limits: { type: array, minItems: 1, items: { type: string } }
+        context_binding:
+          type: object
+          additionalProperties: false
+          required:
+            [activity_id, course_id, role_key, round_id, round_no, run_id, team_id, tenant_id]
+          properties:
+            activity_id: { type: string }
+            course_id: { type: string }
+            role_key: { type: string }
+            round_id: { type: string }
+            round_no: { type: integer, minimum: 1 }
+            run_id: { type: string }
+            team_id: { type: string }
+            tenant_id: { type: string }
+    GSICrossRoundTeacherProjection:
+      type: object
+      required:
+        [surface, comparison, context, provider, official_truth_write, known_limits, recovery]
+      properties:
+        surface: { const: teacher }
+        comparison: { $ref: "#/components/schemas/GSICrossRoundComparison" }
+        context: { $ref: "#/components/schemas/GSICrossRoundContext" }
+        provider: { const: OFF }
+        official_truth_write: { const: false }
+        known_limits: { type: array, minItems: 1, items: { type: string } }
+        recovery: { enum: [RELOAD_EXACT_CONTEXT, WAIT_FOR_PUBLICATION] }
+    GSICrossRoundStudentProjection:
+      type: object
+      required:
+        [
+          surface,
+          movements,
+          context_status,
+          non_causal,
+          causal_proof,
+          provider,
+          official_truth_write,
+          known_limits,
+          recovery
+        ]
+      properties:
+        surface: { const: student }
+        movements:
+          { type: array, items: { $ref: "#/components/schemas/GSIStudentCrossRoundMovement" } }
+        context_status: { enum: [AVAILABLE, CONTEXT_UNAVAILABLE, REBASE_REQUIRED] }
+        non_causal: { const: true }
+        causal_proof: { const: false }
+        provider: { const: OFF }
+        official_truth_write: { const: false }
+        known_limits: { type: array, minItems: 1, items: { type: string } }
+        recovery: { enum: [RELOAD_EXACT_CONTEXT, WAIT_FOR_PUBLICATION] }
+    GSICrossRoundAdminProjection:
+      type: object
+      required:
+        [
+          surface,
+          tenant_id,
+          comparison,
+          context,
+          provider,
+          official_truth_write,
+          known_limits,
+          recovery
+        ]
+      properties:
+        surface: { const: admin }
+        tenant_id: { type: string }
+        comparison: { $ref: "#/components/schemas/GSICrossRoundComparison" }
+        context: { $ref: "#/components/schemas/GSICrossRoundAdminContext" }
+        provider: { const: OFF }
+        official_truth_write: { const: false }
+        known_limits: { type: array, minItems: 1, items: { type: string } }
+        recovery: { enum: [RELOAD_EXACT_CONTEXT, WAIT_FOR_PUBLICATION] }
+    GSIStudentCrossRoundMovement:
+      type: object
+      additionalProperties: false
+      required: [stakeholder_type, intent, direction]
+      properties:
+        stakeholder_type: { enum: [customer, regulator, bank, employee, media] }
+        intent:
+          {
+            enum:
+              [
+                protect_demand,
+                reduce_regulatory_risk,
+                preserve_liquidity,
+                retain_workforce,
+                protect_reputation
+              ]
+          }
+        from_value: { type: number, minimum: -1, maximum: 1 }
+        to_value: { type: number, minimum: -1, maximum: 1 }
+        delta: { type: number, minimum: -2, maximum: 2 }
+        direction: { enum: [NEW, REMOVED, INCREASED, DECREASED, STABLE] }

@@ -140,6 +140,127 @@ export interface GSIReceipt {
   known_limits: string[];
 }
 
+export type GSICrossRoundMovementDirection =
+  | "NEW"
+  | "REMOVED"
+  | "INCREASED"
+  | "DECREASED"
+  | "STABLE";
+
+export interface GSICrossRoundMovement {
+  signal_key: string;
+  stakeholder_type: GSIStakeholderType;
+  intent: GSIIntent;
+  from_value?: number;
+  to_value?: number;
+  delta?: number;
+  direction: GSICrossRoundMovementDirection;
+}
+
+export interface GSICrossRoundPair {
+  tenant_id: string;
+  course_id: string;
+  run_id: string;
+  team_id: string;
+  from: {
+    candidate_id: string;
+    candidate_digest: string;
+    round_id: string;
+    round_no: number;
+  };
+  to: {
+    candidate_id: string;
+    candidate_digest: string;
+    round_id: string;
+    round_no: number;
+  };
+}
+
+export interface GSICrossRoundContextAnchor {
+  source: "W3" | "M2P5";
+  context_digest: string;
+  status: "PUBLISHED";
+}
+
+export interface GSICrossRoundContextProjection {
+  status: "AVAILABLE" | "CONTEXT_UNAVAILABLE" | "REBASE_REQUIRED";
+  context: {
+    activity_id: string;
+    course_id: string;
+    role_key: string;
+    round_id: string;
+    round_no: number;
+    run_id: string;
+    team_id: string;
+    tenant_id: string;
+  };
+  anchors: readonly GSICrossRoundContextAnchor[];
+  context_digest: string;
+  non_causal: true;
+  causal_proof: false;
+  official_outcome_recomputed: false;
+  official_truth_write: false;
+  recovery: "RELOAD_EXACT_CONTEXT" | "WAIT_FOR_PUBLICATION";
+  known_limits: readonly string[];
+}
+
+export interface GSICrossRoundComparison {
+  discriminator: "gsi_cross_round_comparison";
+  pair: GSICrossRoundPair;
+  movements: readonly GSICrossRoundMovement[];
+  comparison_digest: string;
+  non_causal: true;
+  causal_proof: false;
+  known_limits: readonly string[];
+}
+
+export interface GSICrossRoundTeacherProjection {
+  surface: "teacher";
+  comparison: GSICrossRoundComparison;
+  context: GSICrossRoundContextProjection;
+  provider: typeof GSI_PROVIDER;
+  official_truth_write: false;
+  known_limits: readonly string[];
+  recovery: "RELOAD_EXACT_CONTEXT" | "WAIT_FOR_PUBLICATION";
+}
+
+export interface GSICrossRoundAdminProjection {
+  surface: "admin";
+  tenant_id: string;
+  comparison: GSICrossRoundComparison;
+  context: GSICrossRoundContextProjection & {
+    context_binding: {
+      activity_id: string;
+      course_id: string;
+      role_key: string;
+      round_id: string;
+      round_no: number;
+      run_id: string;
+      team_id: string;
+      tenant_id: string;
+    };
+  };
+  provider: typeof GSI_PROVIDER;
+  official_truth_write: false;
+  known_limits: readonly string[];
+  recovery: "RELOAD_EXACT_CONTEXT" | "WAIT_FOR_PUBLICATION";
+}
+
+export interface GSICrossRoundStudentProjection {
+  surface: "student";
+  movements: readonly Pick<
+    GSICrossRoundMovement,
+    "stakeholder_type" | "intent" | "from_value" | "to_value" | "delta" | "direction"
+  >[];
+  context_status: GSICrossRoundContextProjection["status"];
+  non_causal: true;
+  causal_proof: false;
+  provider: typeof GSI_PROVIDER;
+  official_truth_write: false;
+  known_limits: readonly string[];
+  recovery: "RELOAD_EXACT_CONTEXT" | "WAIT_FOR_PUBLICATION";
+}
+
 export interface GSIRecord {
   discriminator: "gsi_stakeholder_shadow_record";
   tenant_id: string;
