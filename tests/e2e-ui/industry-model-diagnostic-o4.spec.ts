@@ -226,6 +226,9 @@ test("IM-O4 producers remain qualification-scoped through real Teacher, Student,
   expect(teacherJson).toContain("QUALIFICATION_NOT_PROVEN");
   expect(teacherJson).not.toContain("QUALIFICATION_COMPATIBLE");
   expect(teacherJson).toContain("REALIZED_WRITES_FORMAL_RESULT_FALSE");
+  expect(teacherJson).toContain("can_service_feasibility_v1");
+  expect(teacherJson).toContain("eldercare_core_model_v1");
+  expect(teacherJson).toContain("eldercare_core_model_v1_artifact");
 
   const student = await login(request, "student");
   await page.goto(
@@ -245,6 +248,9 @@ test("IM-O4 producers remain qualification-scoped through real Teacher, Student,
   const studentJson = JSON.stringify(await studentResponse.json());
   expect(studentJson).not.toContain(draftId ?? "w5_draft_");
   expect(studentJson).not.toContain("source_ref");
+  expect(studentJson).not.toContain("can_service_feasibility_v1");
+  expect(studentJson).not.toContain("eldercare_core_model_v1");
+  expect(studentJson).not.toContain("content_digest");
 
   const admin = await login(request, "admin");
   await page.goto(
@@ -265,6 +271,10 @@ test("IM-O4 producers remain qualification-scoped through real Teacher, Student,
     { headers: { authorization: `Bearer ${admin.access_token}`, "x-tenant-id": tenantId } }
   );
   expect(adminResponse.ok()).toBe(true);
+  const adminJson = JSON.stringify(await adminResponse.json());
+  expect(adminJson).toContain("can_service_feasibility_v1");
+  expect(adminJson).toContain("eldercare_core_model_v1");
+  expect(adminJson).toContain("eldercare_core_model_v1_artifact");
 
   const requiredViewports = [
     { width: 1440, height: 1000 },

@@ -170,6 +170,9 @@ jobs:
       PR4_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       PR4_EVIDENCE_ROOT: /tmp/simwar-pr4-browser-${{ github.run_id }}
       SIMWAR_PLAYWRIGHT_STORE_FILE: /tmp/simwar-playwright/pr4-${{ github.run_id }}/playwright-store.json
+      O7_OBS_EVIDENCE_ROOT: /tmp/simwar-o7-observability-${{ github.run_id }}-${{ github.run_attempt }}
+      O7_OBS_PRODUCT_BASE_SHA: 3fe42976246fae8a366056df51c0803d3699fd4b
+      O7_OBSERVED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -181,6 +184,8 @@ jobs:
       - name: Verify PR4 exact head
         run: node scripts/check-pr4-exact-head.mjs "$EXPECTED_PR_HEAD_SHA"
       - run: npm ci
+      - name: Record O7 observation environment
+        run: node scripts/o7-observe-runtime.mjs --record-environment --evidence-root "$O7_OBS_EVIDENCE_ROOT"
       - name: Prepare external PR4 Playwright store
         run: mkdir -p "$(dirname "$SIMWAR_PLAYWRIGHT_STORE_FILE")"
       - run: npx playwright install --with-deps chromium
@@ -202,7 +207,14 @@ jobs:
             --store "/tmp/simwar-playwright/pr4-base-${GITHUB_RUN_ID}/playwright-store.json"
           mkdir -p "$PR4_EVIDENCE_ROOT/baseline"
           cp "$PR4_EVIDENCE_ROOT/base-capture/candidate/"*.png "$PR4_EVIDENCE_ROOT/baseline/"
+      - name: Mark O7 core browser start
+        run: node scripts/o7-observe-runtime.mjs --record-event test_command_start --evidence-root "$O7_OBS_EVIDENCE_ROOT"
       - run: npm run test:e2e:ui:core
+        env:
+          O7_OBS_ENABLE_API_WRAPPER: "true"
+      - name: Mark O7 core browser end
+        if: always()
+        run: node scripts/o7-observe-runtime.mjs --record-event test_command_end --evidence-root "$O7_OBS_EVIDENCE_ROOT"
       - name: Run SP-O3 real-BFF browser journey with isolated M4 fixture
         env:
           SIMWAR_PLAYWRIGHT_M4: "true"
@@ -289,4 +301,12 @@ jobs:
           name: playwright-pr4-integration
           path: ${{ env.PR4_EVIDENCE_ROOT }}
           if-no-files-found: ignore
+          retention-days: 14
+      - name: Upload O7 observability evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: o7-observability-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.O7_OBS_EVIDENCE_ROOT }}
+          if-no-files-found: error
           retention-days: 14

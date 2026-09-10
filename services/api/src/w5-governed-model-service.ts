@@ -869,6 +869,7 @@ export class W5GovernedModelService {
         realized: {
           authority: core.authority,
           official: true as const,
+          producer_intrinsic_lineage: core.producer_intrinsic_lineage,
           replay_relevant_digest: realizedDigest,
           writes_formal_result: false as const
         }
@@ -936,6 +937,7 @@ export class W5GovernedModelService {
       realized: {
         authority: core.authority,
         official: true,
+        producer_intrinsic_lineage: core.producer_intrinsic_lineage,
         replay_relevant_digest: realizedDigest,
         writes_formal_result: false
       },
@@ -965,15 +967,28 @@ export class W5GovernedModelService {
     experienceProfile: W5ExperienceProfile
   ): W5GovernedModelStudentProjection {
     const convergence = this.evaluate(actor, scope, draftId, experienceProfile);
+    const studentRealized = {
+      authority: convergence.realized.authority,
+      official: convergence.realized.official,
+      replay_relevant_digest: convergence.realized.replay_relevant_digest,
+      writes_formal_result: convergence.realized.writes_formal_result
+    };
+    const studentDemandRealization = {
+      ...convergence.demand_realization,
+      mechanism: {
+        ...convergence.demand_realization.mechanism,
+        realized: studentRealized
+      }
+    };
     return {
       convergence: {
         can: convergence.can,
-        demand_realization: convergence.demand_realization,
+        demand_realization: studentDemandRealization,
         experience_profile: convergence.experience_profile,
         fallback: convergence.fallback,
         known_limits: convergence.known_limits,
         model_version_ref: convergence.model_version_ref,
-        realized: convergence.realized,
+        realized: studentRealized,
         replay: convergence.replay,
         shadow: convergence.shadow,
         want: convergence.want

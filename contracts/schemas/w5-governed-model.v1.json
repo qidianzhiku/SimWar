@@ -41,6 +41,7 @@
         "runtime_binding_digest"
       ],
       "properties": {
+        "intrinsic_lineage_digest": { "$ref": "#/$defs/digest" },
         "model_artifact_reference": { "$ref": "#/$defs/modelArtifactReference" },
         "model_version_reference": { "$ref": "#/$defs/modelVersionReference" },
         "producer_source_ref": { "type": "string", "minLength": 1 },
@@ -429,6 +430,7 @@
               "properties": {
                 "authority": { "const": "SIMULATION_CORE" },
                 "official": { "const": true },
+                "producer_intrinsic_lineage": { "$ref": "#/$defs/producerIntrinsicLineage" },
                 "replay_relevant_digest": { "$ref": "#/$defs/digest" },
                 "writes_formal_result": { "const": false }
               }

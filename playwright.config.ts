@@ -11,6 +11,11 @@ const teacherBaseUrl = `http://127.0.0.1:${teacherPort}`;
 const studentBaseUrl = `http://127.0.0.1:${studentPort}`;
 const phase7NativeValidation = process.env.SIMWAR_PHASE7_NATIVE_VALIDATION === "true";
 const playwrightStoreFile = resolvePlaywrightStoreFile();
+const observeApiRuntime = process.env.O7_OBS_ENABLE_API_WRAPPER === "true";
+const apiDevCommand =
+  observeApiRuntime && process.env.O7_OBS_EVIDENCE_ROOT
+    ? `node scripts/o7-observe-runtime.mjs --role api --evidence-root ${JSON.stringify(process.env.O7_OBS_EVIDENCE_ROOT)} --port ${apiPort} -- npm run dev:api`
+    : "npm run dev:api";
 
 export default defineConfig({
   testDir: "./tests/e2e-ui",
@@ -54,8 +59,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command:
-        "npm run build -w @simwar/shared-contracts && npm run build -w @simwar/simulation-core && node --import tsx tests/e2e-ui/store-isolation.ts && npm run dev:api",
+      command: `npm run build -w @simwar/shared-contracts && npm run build -w @simwar/simulation-core && node --import tsx tests/e2e-ui/store-isolation.ts && ${apiDevCommand}`,
       env: {
         API_PORT: `${apiPort}`,
         API_HOST: "127.0.0.1",

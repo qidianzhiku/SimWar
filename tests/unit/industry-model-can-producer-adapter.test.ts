@@ -51,6 +51,21 @@ const candidate: CanServiceFeasibilityCandidate = {
     seed: 7,
     tenant_id: context.tenant_id
   },
+  producer_intrinsic_lineage: {
+    model_version_reference: {
+      model_version_id: "can_service_feasibility_v1",
+      version: "1.0.0",
+      content_digest: "m".repeat(64)
+    },
+    model_artifact_reference: {
+      artifact_id: "can_service_feasibility_evaluator",
+      content_digest: "n".repeat(64),
+      format: "typescript-simulation-core",
+      source_ref: "services/simulation-core/src/can-service-feasibility.ts"
+    },
+    producer_source_ref: "services/simulation-core/src/can-service-feasibility.ts",
+    lineage_digest: "l".repeat(64)
+  },
   queue: { claim: "NOT_CLAIMED", reason: "EXACT_QUEUE_INPUT_NOT_AVAILABLE" },
   status: "FEASIBLE",
   why_not: []
@@ -83,6 +98,18 @@ describe("CAN industry diagnostic producer adapter", () => {
     expect(result.producer.classification).toBe("NOT_PROVEN");
     expect(result.producer.evidence_identity).toBe("NOT_PROVEN");
     expect(result.known_limits).toContain("CAN_EXACT_SOURCE_REQUIRED");
+  });
+
+  it("fails closed when a legacy-shaped CAN candidate has no typed producer lineage", () => {
+    const legacyCandidate = { ...candidate };
+    delete legacyCandidate.producer_intrinsic_lineage;
+    const result = adaptCanIndustryDiagnosticProducer({
+      context,
+      candidate: legacyCandidate
+    });
+
+    expect(result.producer.classification).toBe("NOT_PROVEN");
+    expect(result.producer.known_limits).toContain("CAN_TYPED_LINEAGE_NOT_EXPOSED_BY_PRODUCER");
   });
 
   it("requires rebase for a context or team movement", () => {
