@@ -8,7 +8,7 @@ import {
   writeFileSync
 } from "node:fs";
 import { createHash } from "node:crypto";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 export const USAGE_EVENT_SCHEMA_VERSION = "SIMWAR_KG_USAGE_EVENT_V2";
 export const USAGE_RECEIPT_SCHEMA_VERSION = "SIMWAR_KG_USAGE_RECEIPT_V2";

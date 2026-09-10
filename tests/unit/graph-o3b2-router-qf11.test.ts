@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   analyzeIdentityDigestSemantics,
-  deriveCodeGraphAdmission,
   routeGraphSupportQuestion
 } from "../../scripts/graph-companion.mjs";
 
