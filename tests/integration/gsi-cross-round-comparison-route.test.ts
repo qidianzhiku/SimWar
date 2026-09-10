@@ -186,4 +186,41 @@ describe("GSI cross-round comparison route", () => {
     expect(current.statusCode).toBe(422);
     expect(invoked).toBe(false);
   });
+
+  it("passes the authorized selected tenant context to the service", async () => {
+    const current = response();
+    let selectedTenant: string | undefined;
+    const service = {
+      compareCandidates: async (_actor: CurrentUser, _query: unknown, tenantId?: string) => {
+        selectedTenant = tenantId;
+        return teacherProjection();
+      }
+    } as unknown as GSIStakeholderShadowPlaneService;
+
+    await handleGSIStakeholderShadowPlaneRoute(
+      service,
+      { method: "GET" } as never,
+      current as never,
+      new URL(`http://localhost/api/v1/bff/admin/gsi/candidates/compare?${comparisonQuery}`),
+      {
+        requestId: "req_platform_admin_compare",
+        tenantId: "tenant_selected",
+        actor: { ...teacher, roles: ["platform_admin"], tenant_id: "tenant_home" }
+      },
+      {
+        readJson: async () => ({}),
+        sendJson: (_target: unknown, status: number, payload: unknown) => {
+          current.statusCode = status;
+          current.body = JSON.stringify(payload);
+        },
+        createEnvelope: (_context: unknown, payload: unknown) => ({ code: "OK", data: payload }),
+        requireStudent: () => undefined,
+        requireTeacher: () => undefined,
+        requireAdmin: () => undefined
+      }
+    );
+
+    expect(current.statusCode).toBe(200);
+    expect(selectedTenant).toBe("tenant_selected");
+  });
 });

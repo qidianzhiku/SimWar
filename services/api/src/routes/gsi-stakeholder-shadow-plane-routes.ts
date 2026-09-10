@@ -111,7 +111,8 @@ export async function handleGSIStakeholderShadowPlaneRoute(
       if (request.method === "GET" && isComparePath(url.pathname, TEACHER_PREFIX)) {
         const projection = await service.compareCandidates(
           context.actor,
-          parseComparisonQuery(url)
+          parseComparisonQuery(url),
+          context.tenantId
         );
         helpers.sendJson(response, 200, helpers.createEnvelope(context, projection));
         return true;
@@ -129,7 +130,8 @@ export async function handleGSIStakeholderShadowPlaneRoute(
       if (request.method === "GET" && isComparePath(url.pathname, STUDENT_PREFIX)) {
         const projection = await service.compareCandidates(
           context.actor,
-          parseComparisonQuery(url)
+          parseComparisonQuery(url),
+          context.tenantId
         );
         helpers.sendJson(response, 200, helpers.createEnvelope(context, projection));
         return true;
@@ -144,7 +146,11 @@ export async function handleGSIStakeholderShadowPlaneRoute(
     }
     helpers.requireAdmin(context);
     if (request.method === "GET" && isComparePath(url.pathname, ADMIN_PREFIX)) {
-      const projection = await service.compareCandidates(context.actor, parseComparisonQuery(url));
+      const projection = await service.compareCandidates(
+        context.actor,
+        parseComparisonQuery(url),
+        context.tenantId
+      );
       helpers.sendJson(response, 200, helpers.createEnvelope(context, projection));
       return true;
     }

@@ -522,7 +522,8 @@ export class GSIStakeholderShadowPlaneService {
 
   async compareCandidates(
     actor: GSIActor,
-    input: GSICrossRoundComparisonQuery
+    input: GSICrossRoundComparisonQuery,
+    tenantId = actor.tenant_id
   ): Promise<
     GSICrossRoundTeacherProjection | GSICrossRoundAdminProjection | GSICrossRoundStudentProjection
   > {
@@ -534,6 +535,9 @@ export class GSIStakeholderShadowPlaneService {
           ? "teacher"
           : null;
     if (!surface) throw new GSIStakeholderShadowPlaneError("GSI_FORBIDDEN");
+    if (tenantId !== actor.tenant_id && !actor.roles.includes("platform_admin")) {
+      throw new GSIStakeholderShadowPlaneError("GSI_FORBIDDEN");
+    }
     if (
       !input.from_candidate_id ||
       !input.to_candidate_id ||
@@ -546,24 +550,37 @@ export class GSIStakeholderShadowPlaneService {
       throw new GSIStakeholderShadowPlaneError("GSI_COMPARISON_INVALID");
     }
     const [fromRecord, toRecord] = await Promise.all([
-      this.getRecord(actor.tenant_id, input.from_candidate_id),
-      this.getRecord(actor.tenant_id, input.to_candidate_id)
+      this.getRecord(tenantId, input.from_candidate_id),
+      this.getRecord(tenantId, input.to_candidate_id)
     ]);
+    if (
+      fromRecord.request.binding.tenant_id !== tenantId ||
+      toRecord.request.binding.tenant_id !== tenantId
+    ) {
+      throw new GSIStakeholderShadowPlaneError("GSI_FORBIDDEN");
+    }
     if (fromRecord.request.binding.team_id !== toRecord.request.binding.team_id) {
       throw new GSIStakeholderShadowPlaneError("GSI_COMPARISON_INVALID");
+    }
+    if (
+      surface === "student" &&
+      (fromRecord.request.publication_status !== "PUBLISHED" ||
+        toRecord.request.publication_status !== "PUBLISHED")
+    ) {
+      throw new GSIStakeholderShadowPlaneError("GSI_NOT_PUBLISHED");
     }
     if (surface === "student" && fromRecord.request.binding.team_id !== actor.team_id) {
       throw new GSIStakeholderShadowPlaneError("GSI_FORBIDDEN");
     }
     const [fromSnapshot, toSnapshot] = await Promise.all([
       this.dependencies.roleWorkflow.readRoleWorkflow({
-        tenant_id: actor.tenant_id,
+        tenant_id: tenantId,
         run_id: fromRecord.request.binding.run_id,
         round_id: fromRecord.request.binding.round_id,
         team_id: fromRecord.request.binding.team_id
       }),
       this.dependencies.roleWorkflow.readRoleWorkflow({
-        tenant_id: actor.tenant_id,
+        tenant_id: tenantId,
         run_id: toRecord.request.binding.run_id,
         round_id: toRecord.request.binding.round_id,
         team_id: toRecord.request.binding.team_id
@@ -573,6 +590,20 @@ export class GSIStakeholderShadowPlaneService {
     assertContext(toRecord.request.binding, toSnapshot);
     if (!fromSnapshot.round || !toSnapshot.round) {
       throw new GSIStakeholderShadowPlaneError("GSI_CONTEXT_NOT_FOUND");
+    }
+    if (
+      surface === "student" &&
+      [fromSnapshot, toSnapshot].some(
+        (snapshot) =>
+          !snapshot.assignments.some(
+            (assignment) =>
+              assignment.status === "active" &&
+              assignment.user_id === actor.user_id &&
+              assignment.role_key === input.role_key
+          )
+      )
+    ) {
+      throw new GSIStakeholderShadowPlaneError("GSI_FORBIDDEN");
     }
     const fromCandidate: GSIComparisonCandidate = {
       candidate_id: fromRecord.candidate_id,
@@ -619,7 +650,7 @@ export class GSIStakeholderShadowPlaneService {
       round_no: toSnapshot.round.round_no,
       run_id: toRecord.request.binding.run_id,
       team_id: toRecord.request.binding.team_id,
-      tenant_id: actor.tenant_id
+      tenant_id: tenantId
     };
     let contextProjection;
     try {
@@ -642,7 +673,16 @@ export class GSIStakeholderShadowPlaneService {
     if (surface === "student") {
       return {
         surface,
-        movements: comparison.movements.map((movement) => ({ ...movement })),
+        movements: comparison.movements.map(
+          ({ stakeholder_type, intent, from_value, to_value, delta, direction }) => ({
+            stakeholder_type,
+            intent,
+            ...(from_value === undefined ? {} : { from_value }),
+            ...(to_value === undefined ? {} : { to_value }),
+            ...(delta === undefined ? {} : { delta }),
+            direction
+          })
+        ),
         context_status: contextProjection.status,
         non_causal: true,
         causal_proof: false,

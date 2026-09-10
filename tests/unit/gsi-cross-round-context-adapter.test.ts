@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createM2P5ContextDigest,
   GSICrossRoundContextAdapter,
   GSICrossRoundContextError,
   type GSIContextBinding
@@ -54,6 +55,49 @@ describe("GSI cross-round context adapter", () => {
     await expect(adapter.read({ context })).rejects.toThrowError(
       new GSICrossRoundContextError("GSI_CONTEXT_REBASE_REQUIRED")
     );
+  });
+
+  it("requires rebase when role-safe M2P5 learning state moved", async () => {
+    const baseLearning = {
+      gate: "BLOCKED",
+      reflection_status: "MISSING",
+      teacher_confirmation_status: "PENDING",
+      evidence_selection_status: "MISSING",
+      student_learning_report_status: "MISSING",
+      next_round_hypothesis_status: "MISSING"
+    } as const;
+    const changedLearning = { ...baseLearning, gate: "READY" };
+    const baseObservation = {
+      ...observation("M2P5"),
+      context_digest: createM2P5ContextDigest({
+        context,
+        publication: { status: "PUBLISHED" },
+        record_id: "m2p5_record_demo",
+        source: { canonical_decision_ref: "decision_demo" },
+        learning: baseLearning
+      })
+    };
+    const changedObservation = {
+      ...baseObservation,
+      context_digest: createM2P5ContextDigest({
+        context,
+        publication: { status: "PUBLISHED" },
+        record_id: "m2p5_record_demo",
+        source: { canonical_decision_ref: "decision_demo" },
+        learning: changedLearning
+      })
+    };
+    const baseline = await new GSICrossRoundContextAdapter({
+      readW3: async () => null,
+      readM2P5: async () => baseObservation
+    }).read({ context });
+
+    await expect(
+      new GSICrossRoundContextAdapter({
+        readW3: async () => null,
+        readM2P5: async () => changedObservation
+      }).read({ context, expected_context_digest: baseline.context_digest })
+    ).rejects.toThrowError(new GSICrossRoundContextError("GSI_CONTEXT_REBASE_REQUIRED"));
   });
 
   it("rejects an implicit selector in the context", async () => {

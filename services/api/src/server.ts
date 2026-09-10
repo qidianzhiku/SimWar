@@ -194,7 +194,8 @@ import { GovernedAdvisoryService } from "./w020-advisory-service.js";
 import { GSIStakeholderShadowPlaneService } from "./gsi-stakeholder-shadow-plane-service.js";
 import {
   GSICrossRoundContextAdapter,
-  type GSIContextBinding
+  type GSIContextBinding,
+  createM2P5ContextDigest
 } from "./gsi-cross-round-context-adapter.js";
 import { ExecutiveStrategyLabService } from "./executive-strategy-lab-service.js";
 import { StrategicPortfolioDivergenceService } from "./strategic-portfolio-divergence-service.js";
@@ -1421,11 +1422,12 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
               ? ("PUBLISHED" as const)
               : ("UNPUBLISHED" as const),
           context: official.record.context,
-          context_digest: contextDigest({
+          context_digest: createM2P5ContextDigest({
             context: official.record.context,
             publication: official.record.publication,
             record_id: official.record.record_id,
-            source: official.record.source
+            source: official.record.source,
+            learning: result.learning
           })
         };
       } catch {

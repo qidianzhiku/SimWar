@@ -63,12 +63,17 @@ function binding(roundId: string) {
   };
 }
 
-function candidateRequest(roundId: string, idempotencyKey: string, influence: number) {
+function candidateRequest(
+  roundId: string,
+  idempotencyKey: string,
+  influence: number,
+  publicationStatus: "DRAFT" | "PUBLISHED" = "PUBLISHED"
+) {
   return {
     discriminator: "gsi_stakeholder_shadow_request",
     binding: binding(roundId),
     plane_mode: "OFF",
-    publication_status: "PUBLISHED",
+    publication_status: publicationStatus,
     proposals: [
       {
         proposal_id: `${idempotencyKey}_customer`,
@@ -178,6 +183,7 @@ describe("GSI cross-round comparison real BFF", () => {
       );
       expect(student.status).toBe(200);
       expect(student.body.data.movements[0]?.direction).toBe("INCREASED");
+      expect(student.body.data.movements[0]).not.toHaveProperty("signal_key");
       const studentJson = JSON.stringify(student.body.data);
       expect(studentJson).not.toContain(from.body.data.candidate_id);
       expect(studentJson).not.toContain("comparison_digest");
@@ -193,6 +199,67 @@ describe("GSI cross-round comparison real BFF", () => {
       expect(admin.body.data.context.context_binding.course_id).toBe("course_demo");
       expect(admin.body.data.provider).toBe("OFF");
       expect(admin.body.data.official_truth_write).toBe(false);
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve()))
+      );
+    }
+  });
+
+  it("keeps Student comparison unpublished and unassigned contexts fail closed", async () => {
+    const { baseUrl, server } = await startServer();
+    try {
+      const teacherToken = await login(baseUrl, "teacher");
+      const studentToken = await login(baseUrl, "student");
+      const draft = await request<GSIReceipt>(baseUrl, "/api/v1/bff/teacher/gsi/candidates", {
+        body: candidateRequest("round_gsi_o2_1", "gsi_o2_draft", 0.25, "DRAFT"),
+        method: "POST",
+        token: teacherToken
+      });
+      const published = await request<GSIReceipt>(baseUrl, "/api/v1/bff/teacher/gsi/candidates", {
+        body: candidateRequest("round_gsi_o2_2", "gsi_o2_published", 0.75),
+        method: "POST",
+        token: teacherToken
+      });
+      expect(draft.status).toBe(201);
+      expect(published.status).toBe(201);
+      const draftQuery = new URLSearchParams({
+        from_candidate_id: draft.body.data.candidate_id,
+        to_candidate_id: published.body.data.candidate_id,
+        activity_id: "activity_gsi_o2",
+        role_key: "CEO"
+      });
+      const unpublished = await request(
+        baseUrl,
+        `/api/v1/bff/student/gsi/candidates/compare?${draftQuery}`,
+        { token: studentToken }
+      );
+      expect(unpublished.status).toBe(409);
+      expect(unpublished.body.data.code).toBe("GSI_NOT_PUBLISHED");
+
+      const from = await request<GSIReceipt>(baseUrl, "/api/v1/bff/teacher/gsi/candidates", {
+        body: candidateRequest("round_gsi_o2_1", "gsi_o2_unassigned_from", 0.25),
+        method: "POST",
+        token: teacherToken
+      });
+      const to = await request<GSIReceipt>(baseUrl, "/api/v1/bff/teacher/gsi/candidates", {
+        body: candidateRequest("round_gsi_o2_2", "gsi_o2_unassigned_to", 0.75),
+        method: "POST",
+        token: teacherToken
+      });
+      const unassignedQuery = new URLSearchParams({
+        from_candidate_id: from.body.data.candidate_id,
+        to_candidate_id: to.body.data.candidate_id,
+        activity_id: "activity_gsi_o2",
+        role_key: "CEO"
+      });
+      const unassigned = await request(
+        baseUrl,
+        `/api/v1/bff/student/gsi/candidates/compare?${unassignedQuery}`,
+        { token: studentToken }
+      );
+      expect(unassigned.status).toBe(403);
+      expect(unassigned.body.data.code).toBe("GSI_FORBIDDEN");
     } finally {
       await new Promise<void>((resolve, reject) =>
         server.close((error) => (error ? reject(error) : resolve()))

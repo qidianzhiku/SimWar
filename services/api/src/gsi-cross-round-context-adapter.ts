@@ -68,6 +68,16 @@ function canonicalize(value: unknown): string {
 function digest(value: unknown): string {
   return createHash("sha256").update(canonicalize(value), "utf8").digest("hex");
 }
+
+export function createM2P5ContextDigest(input: {
+  readonly context: GSIContextBinding;
+  readonly publication: unknown;
+  readonly record_id: string;
+  readonly source: unknown;
+  readonly learning: unknown;
+}): string {
+  return digest(input);
+}
 function identity(value: string): boolean {
   return (
     value.length > 0 &&
