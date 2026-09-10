@@ -1,0 +1,58 @@
+{
+  "schema_version": "QF11IdentityDigestSemanticsV1",
+  "purpose": "Bounded source/contract anchored checks for graph identity and digest meaning",
+  "authority": "DERIVED_ENGINEERING_EVIDENCE_ONLY",
+  "input": {
+    "target_binding": ["target_sha", "target_tree"],
+    "source_anchors": "source_readback.anchors or explicit source_anchors",
+    "contract_anchors": "contract.anchors or explicit contract_anchors",
+    "identity_scope": "fields represented by snapshot identity",
+    "digest_scope": "fields represented by content/observation digest",
+    "source_kind": "static/index/manifest versus runtime claim",
+    "invocation_bound": "whether the graph invocation is bound to exact target SHA/tree",
+    "identity_field": "field carrying identity semantics",
+    "digest_field": "field carrying digest semantics",
+    "semantic_name": "observed semantic label compared with contract semantic_name"
+  },
+  "finding_codes": {
+    "SCOPE_TOO_NARROW": "Required repository/target/config identity scope is omitted",
+    "SCOPE_TOO_BROAD": "Volatile invocation or command fields are included in identity/digest scope",
+    "STATIC_AS_RUNTIME": "Static source or index evidence is labelled as runtime state",
+    "INVOCATION_NOT_BOUND": "Graph invocation lacks exact target SHA/tree binding",
+    "IDENTITY_DIGEST_CONFLATION": "Identity and content/observation digest share a field or value",
+    "SEMANTIC_NAME_MISMATCH": "Observed semantic name differs from the contract or static evidence meaning"
+  },
+  "output": {
+    "type": "bounded_finding_list",
+    "max_items": 10,
+    "max_source_anchors_per_finding": 5,
+    "max_contract_anchors_per_finding": 5,
+    "finding_fields": [
+      "id",
+      "code",
+      "finding_code",
+      "category",
+      "severity",
+      "status",
+      "reason",
+      "source_anchors",
+      "contract_anchors"
+    ]
+  },
+  "invariants": [
+    "Caller-supplied codegraph_admitted is never read as authority",
+    "An analyzer finding is diagnostic evidence and cannot grant Product or runtime admission",
+    "A coherent source- and contract-anchored identity can produce an empty finding list",
+    "Findings are deterministic and ordered by check category",
+    "Missing or unresolved graph evidence is not silently promoted to runtime truth"
+  ],
+  "non_goals": [
+    "Product Truth",
+    "formal writer",
+    "settlement",
+    "score",
+    "rank",
+    "runtime activation",
+    "Graphify or CodeGraph as an independent authority"
+  ]
+}

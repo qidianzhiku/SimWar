@@ -1,0 +1,70 @@
+{
+  "schema_version": "SIMWAR_KG_USAGE_RECEIPT_V2",
+  "authority": "DERIVED_ENGINEERING_EVIDENCE_ONLY",
+  "purpose": "Deterministic compiled receipt over finalized external usage events",
+  "required_fields": [
+    "schema_version",
+    "authority",
+    "event_root_external",
+    "event_root_ref",
+    "event_count",
+    "event_ids",
+    "compile_order",
+    "events",
+    "unresolved_parents",
+    "unresolved_cycles",
+    "status",
+    "limits",
+    "excluded_from_truth_hash",
+    "controller",
+    "evidence_store",
+    "receipt_hash"
+  ],
+  "status_values": ["PASS", "PASS_WITH_LIMITS", "BLOCKED_CYCLE"],
+  "compile_order": {
+    "algorithm": "topological parent-first",
+    "tie_breaker": "event_id ascending",
+    "same_input_same_hash": true,
+    "receipt_path_is_excluded_from_hash": true
+  },
+  "unresolved_parent_shape": {
+    "required_fields": ["event_id", "parent_id"],
+    "meaning": "The child is retained, but the referenced parent is not present in finalized external events."
+  },
+  "integrity": {
+    "event_hashes_recomputed": true,
+    "receipt_hash_algorithm": "SHA-256",
+    "receipt_hash_input": "canonical receipt fields excluding receipt_hash"
+  },
+  "pre_review": {
+    "seal_function": "sealPreReviewDecision",
+    "approval_granted_by_seal": false,
+    "product_truth_write": false,
+    "formal_writer": false,
+    "settlement_mutation": false
+  },
+  "excluded_from_truth_hash": [
+    "knowledge_card",
+    "recommendation",
+    "role_draft",
+    "learning_evidence",
+    "billing",
+    "entitlement",
+    "data_policy",
+    "case_candidate",
+    "pre_review_decision"
+  ],
+  "invariants": [
+    "A receipt is recomputed from finalized external events and has no generated timestamp.",
+    "Unresolved parents and cycles are explicit limits, not silently discarded edges.",
+    "Usage receipt presence does not prove development value or Product acceptance.",
+    "No receipt field is a second evidence store or controller."
+  ],
+  "non_goals": [
+    "Product Truth",
+    "formal writer authorization",
+    "settlement result",
+    "statistical significance",
+    "development value without an actual action and changed artifact"
+  ]
+}

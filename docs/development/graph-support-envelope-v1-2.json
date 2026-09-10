@@ -1,0 +1,86 @@
+{
+  "schema_version": "SIMWAR_GRAPH_SUPPORT_ENVELOPE_V1_2",
+  "extends": "SIMWAR_GRAPH_SUPPORT_ENVELOPE_V1_1",
+  "authority": "DERIVED_ENGINEERING_EVIDENCE_ONLY",
+  "purpose": "Compact graph support evidence envelope with external usage and bounded value-review context",
+  "required_fields": [
+    "mission_id",
+    "lane",
+    "target_sha",
+    "target_tree",
+    "risk_class",
+    "risk_reasons",
+    "canonical_seam",
+    "decision_needed",
+    "tool_route",
+    "source_anchors",
+    "consumer_paths",
+    "shared_authorities",
+    "writer_paths",
+    "cross_cell_convergence",
+    "mandatory_tests",
+    "candidate_tests",
+    "unresolved",
+    "admission",
+    "usage_receipt",
+    "value_reconciliation",
+    "pre_review_seal",
+    "external_event_dag"
+  ],
+  "limits": {
+    "source_anchors": 10,
+    "consumer_paths": 10,
+    "shared_authorities": 10,
+    "writer_paths": 10,
+    "cross_cell_convergence": 10,
+    "mandatory_tests": 15,
+    "candidate_tests": 15,
+    "unresolved": 10,
+    "usage_receipt": 1,
+    "value_reconciliation": 1,
+    "pre_review_seal": 1
+  },
+  "usage_receipt": {
+    "allowed_fields": [
+      "receipt_hash",
+      "event_count",
+      "status",
+      "unresolved_parent_count",
+      "event_root_external"
+    ],
+    "raw_events_allowed": false,
+    "external_only": true
+  },
+  "value_reconciliation": {
+    "allowed_status": ["DEVELOPMENT_VALUE_PROVEN", "DEVELOPMENT_VALUE_NOT_PROVEN"],
+    "statistics": "NOT_COMPUTED",
+    "recommendation_or_shadow_is_not_proof": true
+  },
+  "pre_review_seal": {
+    "approval": "NOT_GRANTED",
+    "product_truth_write": false,
+    "formal_writer": false
+  },
+  "external_event_dag": {
+    "storage": "EXTERNAL_APPEND_ONLY",
+    "controller": "NONE",
+    "evidence_store": "EXTERNAL_EVENT_DAG_ONLY"
+  },
+  "non_goals": [
+    "product truth",
+    "formal writer",
+    "settlement",
+    "score",
+    "rank",
+    "raw graph dump",
+    "second evidence store",
+    "global controller",
+    "development value without actual action"
+  ],
+  "invariants": [
+    "Source, contracts, tests, and runtime remain authority for engineering conclusions.",
+    "The envelope carries references and bounded summaries, never the event DAG as a competing store.",
+    "A pre-review seal is not Product acceptance, merge approval, production readiness, or value proof.",
+    "Missing or unresolved evidence remains explicit as SOURCE_FALLBACK, HOLD_THIS_SEAM, or NOT_PROVEN."
+  ]
+}
