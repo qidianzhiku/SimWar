@@ -1,0 +1,273 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/gsi-cross-round-comparison.v1.json",
+  "oneOf": [
+    { "$ref": "#/$defs/teacher" },
+    { "$ref": "#/$defs/admin" },
+    { "$ref": "#/$defs/student" }
+  ],
+  "$defs": {
+    "exactString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!latest$)(?!current$)(?!default$)(?!fallback$)(?!first$)(?!last$)(?!newest$)\\S(?:.*\\S)?$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "movement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["signal_key", "stakeholder_type", "intent", "direction"],
+      "properties": {
+        "signal_key": { "$ref": "#/$defs/exactString" },
+        "stakeholder_type": { "enum": ["customer", "regulator", "bank", "employee", "media"] },
+        "intent": {
+          "enum": [
+            "protect_demand",
+            "reduce_regulatory_risk",
+            "preserve_liquidity",
+            "retain_workforce",
+            "protect_reputation"
+          ]
+        },
+        "from_value": { "type": "number", "minimum": -1, "maximum": 1 },
+        "to_value": { "type": "number", "minimum": -1, "maximum": 1 },
+        "delta": { "type": "number", "minimum": -2, "maximum": 2 },
+        "direction": { "enum": ["NEW", "REMOVED", "INCREASED", "DECREASED", "STABLE"] }
+      }
+    },
+    "studentMovement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stakeholder_type", "intent", "direction"],
+      "properties": {
+        "stakeholder_type": { "enum": ["customer", "regulator", "bank", "employee", "media"] },
+        "intent": {
+          "enum": [
+            "protect_demand",
+            "reduce_regulatory_risk",
+            "preserve_liquidity",
+            "retain_workforce",
+            "protect_reputation"
+          ]
+        },
+        "from_value": { "type": "number", "minimum": -1, "maximum": 1 },
+        "to_value": { "type": "number", "minimum": -1, "maximum": 1 },
+        "delta": { "type": "number", "minimum": -2, "maximum": 2 },
+        "direction": { "enum": ["NEW", "REMOVED", "INCREASED", "DECREASED", "STABLE"] }
+      }
+    },
+    "pair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tenant_id", "course_id", "run_id", "team_id", "from", "to"],
+      "properties": {
+        "tenant_id": { "$ref": "#/$defs/exactString" },
+        "course_id": { "$ref": "#/$defs/exactString" },
+        "run_id": { "$ref": "#/$defs/exactString" },
+        "team_id": { "$ref": "#/$defs/exactString" },
+        "from": { "$ref": "#/$defs/pairSide" },
+        "to": { "$ref": "#/$defs/pairSide" }
+      }
+    },
+    "pairSide": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_id", "candidate_digest", "round_id", "round_no"],
+      "properties": {
+        "candidate_id": { "$ref": "#/$defs/exactString" },
+        "candidate_digest": { "$ref": "#/$defs/digest" },
+        "round_id": { "$ref": "#/$defs/exactString" },
+        "round_no": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "discriminator",
+        "pair",
+        "movements",
+        "comparison_digest",
+        "non_causal",
+        "causal_proof",
+        "known_limits"
+      ],
+      "properties": {
+        "discriminator": { "const": "gsi_cross_round_comparison" },
+        "pair": { "$ref": "#/$defs/pair" },
+        "movements": { "type": "array", "items": { "$ref": "#/$defs/movement" } },
+        "comparison_digest": { "$ref": "#/$defs/digest" },
+        "non_causal": { "const": true },
+        "causal_proof": { "const": false },
+        "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "context",
+        "anchors",
+        "context_digest",
+        "non_causal",
+        "causal_proof",
+        "official_outcome_recomputed",
+        "official_truth_write",
+        "recovery",
+        "known_limits"
+      ],
+      "properties": {
+        "status": { "enum": ["AVAILABLE", "CONTEXT_UNAVAILABLE", "REBASE_REQUIRED"] },
+        "context": { "$ref": "#/$defs/contextBinding" },
+        "anchors": { "type": "array", "items": { "$ref": "#/$defs/anchor" } },
+        "context_digest": { "$ref": "#/$defs/digest" },
+        "non_causal": { "const": true },
+        "causal_proof": { "const": false },
+        "official_outcome_recomputed": { "const": false },
+        "official_truth_write": { "const": false },
+        "recovery": { "enum": ["RELOAD_EXACT_CONTEXT", "WAIT_FOR_PUBLICATION"] },
+        "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+      }
+    },
+    "contextBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "activity_id",
+        "course_id",
+        "role_key",
+        "round_id",
+        "round_no",
+        "run_id",
+        "team_id",
+        "tenant_id"
+      ],
+      "properties": {
+        "activity_id": { "$ref": "#/$defs/exactString" },
+        "course_id": { "$ref": "#/$defs/exactString" },
+        "role_key": { "$ref": "#/$defs/exactString" },
+        "round_id": { "$ref": "#/$defs/exactString" },
+        "round_no": { "type": "integer", "minimum": 1 },
+        "run_id": { "$ref": "#/$defs/exactString" },
+        "team_id": { "$ref": "#/$defs/exactString" },
+        "tenant_id": { "$ref": "#/$defs/exactString" }
+      }
+    },
+    "adminContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "context",
+        "anchors",
+        "context_digest",
+        "non_causal",
+        "causal_proof",
+        "official_outcome_recomputed",
+        "official_truth_write",
+        "recovery",
+        "known_limits",
+        "context_binding"
+      ],
+      "properties": {
+        "status": { "enum": ["AVAILABLE", "CONTEXT_UNAVAILABLE", "REBASE_REQUIRED"] },
+        "context": { "$ref": "#/$defs/contextBinding" },
+        "anchors": { "type": "array", "items": { "$ref": "#/$defs/anchor" } },
+        "context_digest": { "$ref": "#/$defs/digest" },
+        "non_causal": { "const": true },
+        "causal_proof": { "const": false },
+        "official_outcome_recomputed": { "const": false },
+        "official_truth_write": { "const": false },
+        "recovery": { "enum": ["RELOAD_EXACT_CONTEXT", "WAIT_FOR_PUBLICATION"] },
+        "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "context_binding": { "$ref": "#/$defs/contextBinding" }
+      }
+    },
+    "anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "context_digest", "status"],
+      "properties": {
+        "source": { "enum": ["W3", "M2P5"] },
+        "context_digest": { "$ref": "#/$defs/digest" },
+        "status": { "const": "PUBLISHED" }
+      }
+    },
+    "teacher": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "comparison",
+        "context",
+        "provider",
+        "official_truth_write",
+        "known_limits",
+        "recovery"
+      ],
+      "properties": {
+        "surface": { "const": "teacher" },
+        "comparison": { "$ref": "#/$defs/comparison" },
+        "context": { "$ref": "#/$defs/context" },
+        "provider": { "const": "OFF" },
+        "official_truth_write": { "const": false },
+        "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "recovery": { "enum": ["RELOAD_EXACT_CONTEXT", "WAIT_FOR_PUBLICATION"] }
+      }
+    },
+    "admin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "tenant_id",
+        "comparison",
+        "context",
+        "provider",
+        "official_truth_write",
+        "known_limits",
+        "recovery"
+      ],
+      "properties": {
+        "surface": { "const": "admin" },
+        "tenant_id": { "$ref": "#/$defs/exactString" },
+        "comparison": { "$ref": "#/$defs/comparison" },
+        "context": { "$ref": "#/$defs/adminContext" },
+        "provider": { "const": "OFF" },
+        "official_truth_write": { "const": false },
+        "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "recovery": { "enum": ["RELOAD_EXACT_CONTEXT", "WAIT_FOR_PUBLICATION"] }
+      }
+    },
+    "student": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "movements",
+        "context_status",
+        "non_causal",
+        "causal_proof",
+        "provider",
+        "official_truth_write",
+        "known_limits",
+        "recovery"
+      ],
+      "properties": {
+        "surface": { "const": "student" },
+        "movements": { "type": "array", "items": { "$ref": "#/$defs/studentMovement" } },
+        "context_status": { "enum": ["AVAILABLE", "CONTEXT_UNAVAILABLE", "REBASE_REQUIRED"] },
+        "non_causal": { "const": true },
+        "causal_proof": { "const": false },
+        "provider": { "const": "OFF" },
+        "official_truth_write": { "const": false },
+        "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "recovery": { "enum": ["RELOAD_EXACT_CONTEXT", "WAIT_FOR_PUBLICATION"] }
+      }
+    }
+  }
+}

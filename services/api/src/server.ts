@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { publicRun } from "./qualified-run-admission-snapshot.js";
 import { createAdoptedFormalBoundRunWithinAdmission } from "./formal-bound-run-creation-service.js";
@@ -191,6 +192,10 @@ import { ShanghaiC0ConversionService } from "./shanghai-c0-conversion-service.js
 import { handleOperatingWorldRoute } from "./routes/operating-world-routes.js";
 import { GovernedAdvisoryService } from "./w020-advisory-service.js";
 import { GSIStakeholderShadowPlaneService } from "./gsi-stakeholder-shadow-plane-service.js";
+import {
+  GSICrossRoundContextAdapter,
+  type GSIContextBinding
+} from "./gsi-cross-round-context-adapter.js";
 import { ExecutiveStrategyLabService } from "./executive-strategy-lab-service.js";
 import { StrategicPortfolioDivergenceService } from "./strategic-portfolio-divergence-service.js";
 import { W3OfficialConsequenceLearningService } from "./w3-official-consequence-learning.js";
@@ -756,16 +761,6 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
       createJsonGovernedAdvisoryRepositoryPort(store),
     roleWorkflow: repositoryProvider.ports.roleWorkflow
   });
-  const gsiStakeholder = new GSIStakeholderShadowPlaneService({
-    repository:
-      repositoryProvider.ports.gsiStakeholders ?? createJsonGSIStakeholderRepositoryPort(store),
-    roleWorkflow: repositoryProvider.ports.roleWorkflow,
-    exactReferences: {
-      getScenarioPackage: repositoryProvider.ports.scenarios.getScenarioPackage,
-      getParameterSet: repositoryProvider.ports.parameterSets.getParameterSet
-    }
-  });
-
   const w027DecisionExperience = new W027DecisionExperienceService({
     repository:
       repositoryProvider.ports.decisionExperience ??
@@ -1377,6 +1372,76 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
         team_id: context.team_id,
         tenant_id: context.tenant_id
       })
+  });
+  const contextDigest = (value: unknown): string =>
+    createHash("sha256").update(JSON.stringify(value), "utf8").digest("hex");
+  const toW3Actor = (context: GSIContextBinding) => ({
+    roles: ["teacher"] as const,
+    tenant_id: context.tenant_id,
+    user_id: "gsi-cross-round-context-reader"
+  });
+  const crossRoundContextAdapter = new GSICrossRoundContextAdapter({
+    readW3: async (context) => {
+      try {
+        const result = await w3OfficialConsequence.getConsequenceExact(
+          toW3Actor(context),
+          context,
+          "teacher"
+        );
+        return {
+          source: "W3" as const,
+          status:
+            result.record.publication.status === "PUBLISHED"
+              ? ("PUBLISHED" as const)
+              : ("UNPUBLISHED" as const),
+          context: result.record.context,
+          context_digest: contextDigest({
+            context: result.record.context,
+            publication: result.record.publication,
+            record_id: result.record.record_id,
+            source: result.record.source
+          })
+        };
+      } catch {
+        return null;
+      }
+    },
+    readM2P5: async (context) => {
+      try {
+        const result = await m2p5DecisionLearning.getJourney({
+          actor: toW3Actor(context),
+          context,
+          surface: "teacher"
+        });
+        const official = result.official_consequence;
+        return {
+          source: "M2P5" as const,
+          status:
+            official.record.publication.status === "PUBLISHED"
+              ? ("PUBLISHED" as const)
+              : ("UNPUBLISHED" as const),
+          context: official.record.context,
+          context_digest: contextDigest({
+            context: official.record.context,
+            publication: official.record.publication,
+            record_id: official.record.record_id,
+            source: official.record.source
+          })
+        };
+      } catch {
+        return null;
+      }
+    }
+  });
+  const gsiStakeholder = new GSIStakeholderShadowPlaneService({
+    repository:
+      repositoryProvider.ports.gsiStakeholders ?? createJsonGSIStakeholderRepositoryPort(store),
+    roleWorkflow: repositoryProvider.ports.roleWorkflow,
+    exactReferences: {
+      getScenarioPackage: repositoryProvider.ports.scenarios.getScenarioPackage,
+      getParameterSet: repositoryProvider.ports.parameterSets.getParameterSet
+    },
+    crossRoundContextAdapter
   });
   const projectLibrary = new ProjectLibraryService(store);
   const resolveStudentDecisionContextEvidence = async ({
