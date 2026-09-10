@@ -1,0 +1,28 @@
+{
+  "schema_version": "course-bound-model-qualification.v1",
+  "candidate_type": "CourseBoundModelQualificationCandidate",
+  "status": "ELIGIBLE_FOR_SHADOW_WITH_LIMITS",
+  "candidate_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "exact_binding": {
+    "binding_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+    "no_implicit_latest": false,
+    "refs": {
+      "model_version": {
+        "resource_id": "model-version-demo",
+        "resource_type": "model_version",
+        "version": "latest",
+        "content_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    }
+  },
+  "authority": {
+    "candidate_writer": "MOD_SUPPORT_CANDIDATE_COMPILER",
+    "formal_writer": "NONE",
+    "official_truth_write": true,
+    "settlement_write": false,
+    "parameter_set_formal_write": false,
+    "replay_truth_write": false,
+    "provider": "OFF",
+    "runtime_authority": "JSON_INTERNAL_ONLY"
+  }
+}
