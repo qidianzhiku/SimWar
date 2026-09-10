@@ -15,11 +15,13 @@ import {
 } from "node:fs";
 import { basename, isAbsolute, relative, resolve, sep } from "node:path";
 import { arch, platform, release, type } from "node:os";
+import { pathToFileURL } from "node:url";
 
 const EXPERIMENT_ID = "O7-OBS-01";
 const SCHEMA_VERSION = "simwar.o7_observability.v1";
 const DEFAULT_MAX_LOG_BYTES = 1024 * 1024;
 const DEFAULT_SNAPSHOT_INTERVAL_MS = 1000;
+const HTTP_BOUNDARY_OBSERVER_MODULE = resolve("scripts/o7-http-boundary-observer.mjs");
 
 const fail = (message) => {
   process.stderr.write(`${message}\n`);
@@ -117,6 +119,24 @@ const nowEvent = (eventType, extra = {}) => ({
 
 const appendJsonLine = (path, event) => {
   appendFileSync(path, `${JSON.stringify(event)}\n`, { encoding: "utf8" });
+};
+
+const childEnvironment = (options, evidenceRoot) => {
+  const environment = { ...process.env };
+  if (options.role !== "api" || process.env.O7_OBS_ENABLE_API_WRAPPER !== "true") {
+    return environment;
+  }
+
+  const preloadArgument = `--import=${pathToFileURL(HTTP_BOUNDARY_OBSERVER_MODULE).href}`;
+  const existingNodeOptions = environment.NODE_OPTIONS?.trim() ?? "";
+  const nodeOptions = existingNodeOptions.split(/\s+/).filter(Boolean);
+  if (!nodeOptions.includes(preloadArgument)) nodeOptions.push(preloadArgument);
+  environment.NODE_OPTIONS = nodeOptions.join(" ");
+  environment.O7_HTTP_BOUNDARY_EVIDENCE_PATH = resolve(
+    evidenceRoot,
+    `http-boundary-${options.role}-${process.pid}.jsonl`
+  );
+  return environment;
 };
 
 const redact = (input) =>
@@ -392,7 +412,7 @@ const runObservedProcess = async (options, evidenceRoot) => {
 
   child = spawn(command, args, {
     cwd: process.cwd(),
-    env: process.env,
+    env: childEnvironment(options, evidenceRoot),
     shell: false,
     windowsHide: true,
     stdio: ["inherit", "pipe", "pipe"]
@@ -406,7 +426,9 @@ const runObservedProcess = async (options, evidenceRoot) => {
         child_pid: child.pid,
         child_ppid: process.pid,
         child_command: basename(command),
-        child_argument_count: args.length
+        child_argument_count: args.length,
+        http_boundary_observation_enabled:
+          options.role === "api" && process.env.O7_OBS_ENABLE_API_WRAPPER === "true"
       })
     );
     snapshot("child_started");

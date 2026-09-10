@@ -115,6 +115,52 @@ describe("O7 runtime observer", () => {
     );
   });
 
+  it("preloads the HTTP boundary observer inside the API child without changing its exit", () => {
+    const evidenceRoot = createEvidenceRoot();
+    const childSource = [
+      "const http = require('node:http')",
+      "const server = http.createServer((req, res) => res.end('ok'))",
+      "server.listen(3312, '127.0.0.1', () => fetch('http://127.0.0.1:3312/healthz?secret=value').then(() => server.close(() => process.exit(0))))"
+    ].join(";");
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        observerPath,
+        "--role",
+        "api",
+        "--evidence-root",
+        evidenceRoot,
+        "--port",
+        "3312",
+        "--",
+        process.execPath,
+        "-e",
+        childSource
+      ],
+      {
+        cwd: repositoryRoot,
+        encoding: "utf8",
+        env: { ...process.env, O7_OBS_ENABLE_API_WRAPPER: "true" }
+      }
+    );
+
+    expect(result.status).toBe(0);
+    const boundaryName = readdirSync(evidenceRoot).find((name) =>
+      /^http-boundary-api-\d+\.jsonl$/.test(name)
+    );
+    expect(boundaryName).toBeTruthy();
+    const events = readJsonLines(join(evidenceRoot, boundaryName!));
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ event_type: "http_request_start" }),
+        expect.objectContaining({ event_type: "http_response_finish", status_code: 200 })
+      ])
+    );
+    expect(JSON.stringify(events)).not.toContain("secret");
+    expect(JSON.stringify(events)).not.toContain("value");
+  });
+
   it("bounds and redacts captured output without changing child failure sensitivity", () => {
     const evidenceRoot = createEvidenceRoot();
     const secret = "synthetic-sensitive-value";
