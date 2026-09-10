@@ -105,6 +105,34 @@ describe("KG-O3B2 historical evidence isolation", () => {
     expect(result).not.toHaveProperty("answer_key");
   });
 
+  it("derives finding correctness from the sealed answer key, not a cell self-report", () => {
+    const control = sealHistoricalCell({ cell: createHistoricalCell(makeCellInput("control")) });
+    const treatment = sealHistoricalCell({
+      cell: createHistoricalCell(
+        makeCellInput("treatment", {
+          observation: {
+            finding_id: "wrong-finding",
+            finding_correct: true,
+            total_investigation_ms: 140,
+            scope_delta: 1,
+            mandatory_test_delta: 1,
+            authority_delta: 0
+          }
+        })
+      )
+    });
+
+    const result = compareHistoricalCells({
+      control,
+      treatment,
+      answer_key: { finding_id: "lineage-finding", category: "context_propagation_gap" }
+    });
+
+    expect(result.finding_correct).toBe(false);
+    expect(result.finding_missed).toBe(true);
+    expect(result.contribution).toBe("FN");
+  });
+
   it("classifies HC-07 from the historical cells without treating the repaired source as input", () => {
     const control = sealHistoricalCell({ cell: createHistoricalCell(makeCellInput("control")) });
     const treatment = sealHistoricalCell({ cell: createHistoricalCell(makeCellInput("treatment")) });
