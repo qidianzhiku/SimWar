@@ -1,0 +1,35 @@
+{
+  "schema_version": "SIMWAR_GRAPH_SUPPORT_ENVELOPE_V1_1",
+  "authority": "DERIVED_ENGINEERING_EVIDENCE_ONLY",
+  "required_fields": [
+    "mission_id",
+    "lane",
+    "target_sha",
+    "target_tree",
+    "risk_class",
+    "risk_reasons",
+    "canonical_seam",
+    "decision_needed",
+    "tool_route",
+    "source_anchors",
+    "consumer_paths",
+    "shared_authorities",
+    "writer_paths",
+    "cross_cell_convergence",
+    "mandatory_tests",
+    "candidate_tests",
+    "unresolved",
+    "admission"
+  ],
+  "limits": {
+    "source_anchors": 10,
+    "consumer_paths": 10,
+    "shared_authorities": 10,
+    "writer_paths": 10,
+    "cross_cell_convergence": 10,
+    "mandatory_tests": 15,
+    "candidate_tests": 15,
+    "unresolved": 10
+  },
+  "non_goals": ["product truth", "formal writer", "settlement", "score", "rank", "raw graph dump"]
+}

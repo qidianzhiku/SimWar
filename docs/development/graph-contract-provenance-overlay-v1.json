@@ -1,0 +1,24 @@
+{
+  "schema_version": "SIMWAR_CONTRACT_PROVENANCE_OVERLAY_V1",
+  "authority": "DERIVED_ENGINEERING_EVIDENCE_ONLY",
+  "finding_categories": [
+    "context_propagation_gap",
+    "declared_producer_not_actual_path",
+    "runtime_parameter_missing_openapi",
+    "runtime_field_missing_schema",
+    "role_safe_type_schema_mismatch",
+    "authority_contract_disagreement",
+    "cross_evidence_lineage_contamination"
+  ],
+  "required_finding_fields": [
+    "id",
+    "category",
+    "path",
+    "symbol",
+    "source_anchors",
+    "contract_anchors",
+    "confidence",
+    "reason"
+  ],
+  "resolution_rule": "A finding is a review lead until source, contract, and tests confirm it; the overlay never promotes graph evidence to Product Truth or Writer authority."
+}
