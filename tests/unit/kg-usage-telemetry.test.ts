@@ -249,6 +249,38 @@ describe("KG-O3B2 usage event DAG", () => {
     expect(receipt.event_ids).toEqual(["event-012-a", "event-012-b"]);
     expect(receipt.unresolved_cycles).toEqual(["event-012-a", "event-012-b"]);
   });
+
+  it("EV-013 rejects non-object payloads and non-ISO occurred_at values", () => {
+    const eventRoot = makeRoot();
+    expect(() =>
+      createUsageEvent({
+        eventRoot,
+        productRepoRoot,
+        event: makeEvent("event-013-payload", { payload: "raw" })
+      })
+    ).toThrow(/payload|object/iu);
+
+    expect(() =>
+      createUsageEvent({
+        eventRoot,
+        productRepoRoot,
+        event: makeEvent("event-013-time", { occurred_at: "not-a-date" })
+      })
+    ).toThrow(/occurred_at|ISO|timestamp/iu);
+  });
+
+  it("EV-014 rejects raw unrestricted command output fields", () => {
+    const eventRoot = makeRoot();
+    expect(() =>
+      createUsageEvent({
+        eventRoot,
+        productRepoRoot,
+        event: makeEvent("event-014-raw", {
+          payload: { command: "npm test", stdout: "raw output", stderr: "raw error" }
+        })
+      })
+    ).toThrow(/raw|command|output/iu);
+  });
 });
 
 describe("KG-O3B2 receipt determinism and review boundary", () => {
@@ -365,5 +397,18 @@ describe("KG-O3B2 Graph Support Envelope V1.2", () => {
     expect(envelope.usage_receipt).toMatchObject({ receipt_hash: "c".repeat(64) });
     expect(envelope.value_reconciliation.status).toBe("DEVELOPMENT_VALUE_NOT_PROVEN");
     expect(envelope.non_goals).toContain("product truth");
+  });
+
+  it("does not promote a caller-supplied value summary to proven", () => {
+    const envelope = buildGraphSupportEnvelopeV12({
+      value_reconciliation: {
+        status: "DEVELOPMENT_VALUE_PROVEN",
+        chain_complete: true,
+        missing: []
+      }
+    });
+
+    expect(envelope.value_reconciliation.status).toBe("DEVELOPMENT_VALUE_NOT_PROVEN");
+    expect(envelope.value_reconciliation.chain_complete).toBe(false);
   });
 });

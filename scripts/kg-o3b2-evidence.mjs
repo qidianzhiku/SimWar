@@ -26,14 +26,7 @@ const MAX_EXCLUDED_TASKS = 64;
 const MAX_OBJECT_DEPTH = 5;
 
 const CELL_KINDS = new Set(["SOURCE_ONLY", "KG_ASSISTED"]);
-const TERMINAL_TASK_STATUSES = new Set([
-  "CLOSED",
-  "COMPLETE",
-  "COMPLETED",
-  "MERGED",
-  "CANCELLED",
-  "ARCHIVED"
-]);
+const OPEN_TASK_STATUSES = new Set(["OPEN"]);
 
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -304,11 +297,27 @@ function cellStatus(cell) {
 
 function validateCellForComparison(cell, name) {
   try {
+    if (!isRecord(cell)) return { ok: false, reason: "HISTORICAL_CELL_REQUIRED" };
     assertNoAnswerKey(cell, name);
+    const cellId = firstString(cell, ["cell_id", "cellId"], {});
+    const cellRole = cellId?.toLowerCase();
+    if (cellRole !== "control" && cellRole !== "treatment")
+      return { ok: false, reason: "CELL_ROLE_REQUIRED" };
+    const cellKind = normalizedUpper(cell.cell_kind ?? cell.cellKind, "");
+    const expectedKind = cellRole === "control" ? "SOURCE_ONLY" : "KG_ASSISTED";
+    if (cellKind !== expectedKind) return { ok: false, reason: "CELL_ROLE_MISMATCH" };
+    const sourceSnapshot = isRecord(cell.source_snapshot)
+      ? cell.source_snapshot
+      : isRecord(cell.sourceSnapshot)
+        ? cell.sourceSnapshot
+        : null;
+    if (!sourceSnapshot || normalizedUpper(sourceSnapshot.provenance, "") !== "HISTORICAL_SNAPSHOT")
+      return { ok: false, reason: "HISTORICAL_SOURCE_PROVENANCE_REQUIRED" };
     const target = cellTarget(cell);
     const source = cellSource(cell);
     if (!target.sha || !target.tree) return { ok: false, reason: "HISTORICAL_TARGET_REQUIRED" };
-    if (source?.current) return { ok: false, reason: "CURRENT_REPAIRED_SOURCE_FORBIDDEN" };
+    if (source?.current || cell.current_repaired_source_used === true)
+      return { ok: false, reason: "CURRENT_REPAIRED_SOURCE_FORBIDDEN" };
     if (source?.sha && source.sha !== target.sha)
       return { ok: false, reason: "HISTORICAL_SOURCE_TARGET_MISMATCH" };
     if (source?.tree && source.tree !== target.tree)
@@ -328,7 +337,6 @@ function validateCellForComparison(cell, name) {
     return { ok: false, reason: "HISTORICAL_TARGET_INVALID" };
   }
 }
-
 function cellObservation(cell) {
   if (!isRecord(cell)) return {};
   if (isRecord(cell.observation)) return cell.observation;
@@ -769,7 +777,7 @@ export function selectForwardPilot(input = {}) {
     else if (candidateHasNonExactTarget(task)) reason = "NON_EXACT_TARGET";
     else if (!candidateIsProduct(task)) reason = "NOT_A_PRODUCT_TASK";
     else if (!candidateIsPreReview(task)) reason = "NOT_PRE_REVIEW";
-    else if (TERMINAL_TASK_STATUSES.has(candidateStatus(task))) reason = "TASK_NOT_OPEN";
+    else if (!OPEN_TASK_STATUSES.has(candidateStatus(task))) reason = "TASK_NOT_OPEN";
     else if (task?.review_complete === true || task?.reviewComplete === true || task?.post_review === true)
       reason = "REVIEW_ALREADY_STARTED";
     if (reason) excluded.push({ task_id: taskId, reason });

@@ -2779,7 +2779,7 @@ export function analyzeIdentityDigestSemantics(input = {}) {
   const invocationHasTarget =
     nonEmpty(firstDefined(invocation.target_sha, invocation.targetSha, invocation.repo_sha, invocation.repoSha)) &&
     nonEmpty(firstDefined(invocation.target_tree, invocation.targetTree, invocation.tree_sha, invocation.treeSha));
-  if (invocationBound === false || (Object.keys(invocation).length > 0 && !invocationHasTarget)) {
+  if (invocationBound !== true || Object.keys(invocation).length === 0 || !invocationHasTarget) {
     add(
       qf11Finding({
         code: "INVOCATION_NOT_BOUND",

@@ -38,7 +38,21 @@ const SECRET_VALUE_PATTERNS = [
   /\b[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{12,}\b/gu
 ];
 const EVENT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
+const ISO_TIMESTAMP_PATTERN =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?(?:Z|[+-]\d{2}:\d{2})$/u;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/iu;
+const RAW_PAYLOAD_KEYS = new Set([
+  "command",
+  "command_line",
+  "shell_command",
+  "script",
+  "stdout",
+  "stderr",
+  "raw_output",
+  "raw_command",
+  "command_output",
+  "terminal_output"
+]);
 const VALIDATED_ROOTS = new Map();
 
 function isSecretKey(key) {
@@ -46,6 +60,12 @@ function isSecretKey(key) {
   const normalized = key.replace(/([a-z0-9])([A-Z])/gu, "$1_$2").toLowerCase();
   return SECRET_KEY_PATTERN.test(normalized) || /(?:^|_)(?:auth|access|refresh|api|client)?_?(?:token|secret|password|passwd|key)(?:$|_)/u.test(normalized);
 }
+function isRawPayloadKey(key) {
+  if (typeof key !== "string") return false;
+  const normalized = key.replace(/([a-z0-9])([A-Z])/gu, "$1_$2").toLowerCase();
+  return RAW_PAYLOAD_KEYS.has(normalized);
+}
+
 
 export class UsageTelemetryError extends Error {
   constructor(code, message, details = {}) {
@@ -277,6 +297,11 @@ function sanitizeValue(value, { policy, path = "$", redactions, seen }) {
   const result = {};
   for (const [key, entry] of Object.entries(value)) {
     const keyPath = `${path}.${key}`;
+    if (isRawPayloadKey(key))
+      throw new UsageTelemetryError(
+        "RAW_PAYLOAD_REJECTED",
+        `Raw command/output payload field is not allowed at ${keyPath}`
+      );
     if (STORAGE_FIELDS.has(key))
       throw new UsageTelemetryError("IMMUTABLE_FIELD_REJECTED", `${key} is reserved for storage`);
     if (isSecretKey(key)) {
@@ -357,6 +382,11 @@ function normalizeEvent(event, policy) {
   const eventId = assertSafeEventId(event.event_id ?? event.eventId);
   const eventType = normalizeText(event.event_type ?? event.eventType, "event_type");
   const occurredAt = normalizeText(event.occurred_at ?? event.occurredAt, "occurred_at");
+  if (!ISO_TIMESTAMP_PATTERN.test(occurredAt) || !Number.isFinite(Date.parse(occurredAt)))
+    throw new UsageTelemetryError(
+      "INVALID_INPUT",
+      "occurred_at must be an ISO-8601 timestamp with timezone"
+    );
   const parents = event.parents ?? event.parent_ids ?? event.parentIds ?? [];
   if (
     !Array.isArray(parents) ||
@@ -369,6 +399,8 @@ function normalizeEvent(event, policy) {
   const parentIds = [...new Set(parents.map((parent) => assertSafeEventId(parent)))].sort(
     (left, right) => left.localeCompare(right)
   );
+  const payload = event.payload ?? {};
+  requireObject(payload, "payload");
   const eventRecord = {
     ...event,
     schema_version: event.schema_version ?? USAGE_EVENT_SCHEMA_VERSION,
@@ -376,7 +408,7 @@ function normalizeEvent(event, policy) {
     event_type: eventType,
     occurred_at: occurredAt,
     parents: parentIds,
-    payload: event.payload ?? {}
+    payload
   };
   if (eventRecord.schema_version !== USAGE_EVENT_SCHEMA_VERSION)
     throw new UsageTelemetryError(
@@ -967,18 +999,7 @@ function summarizeUsageReceipt(value) {
 }
 
 function summarizeValueReconciliation(value) {
-  if (!isObject(value)) return reconcileValue({});
-  return {
-    schema_version: value.schema_version ?? "SIMWAR_KG_VALUE_RECONCILIATION_V1",
-    authority: DERIVED_AUTHORITY,
-    status:
-      value.status === "DEVELOPMENT_VALUE_PROVEN"
-        ? "DEVELOPMENT_VALUE_PROVEN"
-        : "DEVELOPMENT_VALUE_NOT_PROVEN",
-    chain_complete: value.chain_complete === true,
-    missing: boundedStrings(value.missing, 10),
-    statistics: "NOT_COMPUTED"
-  };
+  return reconcileValue(isObject(value) ? value : {});
 }
 
 /** Build a compact V1.2 graph envelope; it remains derived evidence only. */

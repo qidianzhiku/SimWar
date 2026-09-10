@@ -192,4 +192,40 @@ describe("KG-O3B2 historical evidence isolation", () => {
     expect(result.selected_task).toMatchObject({ task_id: "PRODUCT-002" });
     expect(result.eligible_count).toBe(2);
   });
+
+  it("rejects comparison cells without historical provenance or the expected blind role", () => {
+    const control = makeCellInput("control");
+    const treatment = makeCellInput("treatment");
+    delete (control.source_snapshot as Record<string, unknown>).provenance;
+    expect(() =>
+      sealHistoricalCell({ cell: control, sealed_at: "2026-09-10T00:00:00.000Z" })
+    ).toThrow(/historical|provenance/iu);
+
+    expect(() =>
+      sealHistoricalCell({
+        cell: makeCellInput("control", { cell_kind: "KG_ASSISTED" }),
+        sealed_at: "2026-09-10T00:00:00.000Z"
+      })
+    ).toThrow(/role|control|SOURCE_ONLY/iu);
+
+    const invalid = compareHistoricalCells({
+      control: makeCellInput("control", { source_snapshot: {} }),
+      treatment,
+      answer_key: { finding_id: "lineage-finding" }
+    });
+    expect(invalid.status).toBe("HISTORICAL_SOURCE_PROVENANCE_REQUIRED");
+  });
+
+  it("excludes forward Product tasks without an explicit OPEN status", () => {
+    const result = selectForwardPilot({
+      current_repaired_source_sha: CURRENT_REPAIRED_SOURCE_SHA,
+      tasks: [{ task_id: "unknown-status", kind: "PRODUCT", pre_review: true }]
+    });
+
+    expect(result.state).toBe("WAITING_FOR_NEXT_PRE_REVIEW_PRODUCT_TASK");
+    expect(result.selected_task).toBeNull();
+    expect(result.excluded_tasks).toEqual(
+      expect.arrayContaining([{ task_id: "unknown-status", reason: "TASK_NOT_OPEN" }])
+    );
+  });
 });

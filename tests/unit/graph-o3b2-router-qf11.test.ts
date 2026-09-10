@@ -162,7 +162,8 @@ describe("QF-11 identity and digest semantics", () => {
       invocation_bound: true,
       identity_field: "snapshot_identity",
       digest_field: "snapshot_digest",
-      semantic_name: "codegraph_snapshot_digest"
+      semantic_name: "codegraph_snapshot_digest",
+      invocation: { bound: true, target_sha: TARGET_SHA, target_tree: TARGET_TREE }
     }
   };
 
@@ -245,6 +246,19 @@ describe("QF-11 identity and digest semantics", () => {
         invocation_bound: false
       }
     });
+
+    expect(findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "INVOCATION_NOT_BOUND", severity: "HIGH" })
+      ])
+    );
+  });
+
+  it("QF-11 reports a completely omitted invocation binding", () => {
+    const input = { ...coherentInput, observation: { ...coherentInput.observation } };
+    delete (input.observation as Record<string, unknown>).invocation_bound;
+    delete (input.observation as Record<string, unknown>).invocation;
+    const findings = analyzeIdentityDigestSemantics(input);
 
     expect(findings).toEqual(
       expect.arrayContaining([
