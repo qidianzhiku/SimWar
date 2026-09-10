@@ -46,11 +46,11 @@
    `tests/unit/graph-o3b2-router-qf11.test.ts` — PASS, 20/20 tests.
 4. Combined graph suite:
    `tests/unit/graph-companion.test.ts tests/unit/graph-o3b1.test.ts
-   tests/unit/graph-o3b2-router-qf11.test.ts` — 104/105 tests passed.
-   The single failure is the pre-O3B2 O3B1 case “treats non-applicable
-   Graphify as neutral when CodeGraph and source are ready”; it supplies no
-   target SHA/tree, so the new exact-binding rule correctly returns
-   `SOURCE_FALLBACK` while that historical test still expects `READY`.
+   tests/unit/graph-o3b2-router-qf11.test.ts` — 39/39 tests passed after the
+   compatibility follow-up commit `314c17c4`. Qualified observed
+   CodeGraph evidence without identity fields remains admissible for legacy
+   callers; whenever identity is supplied (or explicitly required), SHA/tree
+   binding remains strict.
 5. `git diff --check` — PASS.
 6. Direct Node smoke checks covered a fully bound positive route, caller
    `codegraph_admitted` bypass, SHA/tree mismatch, unbound target, and all six
@@ -61,10 +61,8 @@
 - The worktree dependency tree remains incomplete because concurrent npm
   installation had an `EPERM`/native-file contention failure; the focused
   check used the available Vitest binary and ignored local dependency links.
-- The existing O3B1 positive test needs its fixture updated with exact target
-  SHA/tree fields in a follow-up compatibility/test-maintenance change. No
-  O3B1 test file was modified because it is outside this task's allowed file
-  boundary.
+- The legacy O3B1 positive route is preserved without changing its fixture;
+  new exact-target callers receive strict SHA/tree binding.
 - The QF-11 analyzer is diagnostic evidence only; it does not grant Product,
   runtime, settlement, score, rank, writer, or replay authority.
 
