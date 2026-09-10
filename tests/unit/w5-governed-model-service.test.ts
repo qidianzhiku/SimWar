@@ -110,6 +110,13 @@ describe("W5GovernedModelService", () => {
     expect(standard.can.official).toBe(false);
     expect(standard.realized.authority).toBe("SIMULATION_CORE");
     expect(standard.realized.official).toBe(true);
+    expect(standard.realized.producer_intrinsic_lineage).toMatchObject({
+      model_version_reference: { model_version_id: "eldercare_core_model_v1", version: "1.0.0" },
+      model_artifact_reference: { artifact_id: "eldercare_core_model_v1_artifact" }
+    });
+    expect(standard.realized.producer_intrinsic_lineage).toEqual(
+      advanced.realized.producer_intrinsic_lineage
+    );
     expect(standard.realized.replay_relevant_digest).toBe(advanced.realized.replay_relevant_digest);
     expect(standard.shadow.overwrites_official_result).toBe(false);
     expect(standard.replay.exact_identity).toBe("READY");
@@ -201,7 +208,15 @@ describe("W5GovernedModelService", () => {
       mechanism: {
         want: { official: false },
         can: { official: false },
-        realized: { authority: "SIMULATION_CORE", official: true, writes_formal_result: false }
+        realized: {
+          authority: "SIMULATION_CORE",
+          official: true,
+          producer_intrinsic_lineage: {
+            model_version_reference: { model_version_id: "eldercare_core_model_v1" },
+            model_artifact_reference: { artifact_id: "eldercare_core_model_v1_artifact" }
+          },
+          writes_formal_result: false
+        }
       },
       lineage: { exact_binding: true, model_version_ref: W5_MODEL_VERSION_REF, round_no: 1 }
     });

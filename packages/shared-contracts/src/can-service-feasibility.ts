@@ -1,5 +1,6 @@
 import type { ParameterSetReference } from "./parameter-set-authority.js";
 import type { ScenarioPackageReference } from "./scenario-package-authority.js";
+import type { ModelArtifactReference, ModelVersionReference } from "./model-governance.js";
 
 export const CAN_SERVICE_FEASIBILITY_SCHEMA_VERSION = "r1-can-service-feasibility.v1" as const;
 export const CAN_SERVICE_FEASIBILITY_OPERATION_ID = "R1_CAN_SERVICE_FEASIBILITY_GET_V1" as const;
@@ -81,9 +82,22 @@ export interface CanServiceFeasibilityCandidate {
   candidate_id: string;
   constraints: readonly CanConstraintEvidence[];
   exact_binding: CanServiceFeasibilityExactBinding;
+  /** Producer-owned identity; optional only for backwards-compatible historical receipts. */
+  producer_intrinsic_lineage?: CanProducerIntrinsicLineage;
   queue: CanQueueDisclosure;
   status: CanServiceFeasibilityStatus;
   why_not: readonly CanWhyNotReason[];
+}
+
+/**
+ * CAN's intrinsic model/artifact identity is producer-owned and is deliberately
+ * separate from the consumer-owned ModelQualification binding.
+ */
+export interface CanProducerIntrinsicLineage {
+  model_artifact_reference: ModelArtifactReference;
+  model_version_reference: ModelVersionReference;
+  producer_source_ref: string;
+  lineage_digest: string;
 }
 
 export interface CanServiceFeasibilityAuthority {
@@ -193,6 +207,41 @@ function exactBinding(value: unknown): value is CanServiceFeasibilityExactBindin
   );
 }
 
+function exactModelVersionReference(value: unknown): value is ModelVersionReference {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const reference = value as Record<string, unknown>;
+  return (
+    exactId(reference.model_version_id) &&
+    exactId(reference.version) &&
+    digest(reference.content_digest)
+  );
+}
+
+function exactModelArtifactReference(value: unknown): value is ModelArtifactReference {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const reference = value as Record<string, unknown>;
+  return (
+    exactId(reference.artifact_id) &&
+    digest(reference.content_digest) &&
+    typeof reference.format === "string" &&
+    reference.format.trim().length > 0 &&
+    typeof reference.source_ref === "string" &&
+    reference.source_ref.trim().length > 0
+  );
+}
+
+function exactProducerIntrinsicLineage(value: unknown): value is CanProducerIntrinsicLineage {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const lineage = value as Record<string, unknown>;
+  return (
+    exactModelVersionReference(lineage.model_version_reference) &&
+    exactModelArtifactReference(lineage.model_artifact_reference) &&
+    typeof lineage.producer_source_ref === "string" &&
+    lineage.producer_source_ref.trim().length > 0 &&
+    digest(lineage.lineage_digest)
+  );
+}
+
 function candidate(value: unknown): value is CanServiceFeasibilityCandidate {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const item = value as Record<string, unknown>;
@@ -208,6 +257,8 @@ function candidate(value: unknown): value is CanServiceFeasibilityCandidate {
     Array.isArray(item.constraints) &&
     item.constraints.every((constraint) => constraint && typeof constraint === "object") &&
     exactBinding(item.exact_binding) &&
+    (item.producer_intrinsic_lineage === undefined ||
+      exactProducerIntrinsicLineage(item.producer_intrinsic_lineage)) &&
     (item.queue as Record<string, unknown> | undefined)?.claim === "NOT_CLAIMED" &&
     (item.queue as Record<string, unknown> | undefined)?.reason ===
       "EXACT_QUEUE_INPUT_NOT_AVAILABLE" &&

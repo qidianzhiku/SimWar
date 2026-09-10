@@ -70,4 +70,37 @@ describe("R1 CAN service-feasibility contract", () => {
     };
     expect(validate(adminWithStudent)).toBe(false);
   });
+
+  it("rejects malformed producer-owned typed lineage at both schema and runtime boundaries", () => {
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(
+      readJson("contracts/schemas/can-service-feasibility.v1.json")
+    );
+    const fixture = readJson("contracts/fixtures/can-service-feasibility.valid.json") as Record<
+      string,
+      unknown
+    >;
+    const malformed = structuredClone(fixture) as Record<string, unknown>;
+    const candidate = malformed.candidate;
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+      throw new Error("CAN_FIXTURE_CANDIDATE_MISSING");
+    }
+    (candidate as Record<string, unknown>).producer_intrinsic_lineage = {
+      model_version_reference: {
+        model_version_id: "can_service_feasibility_v1",
+        version: "1.0.0",
+        content_digest: "not-a-digest"
+      },
+      model_artifact_reference: {
+        artifact_id: "can_service_feasibility_evaluator",
+        content_digest: "b".repeat(64),
+        format: "typescript-simulation-core",
+        source_ref: "services/simulation-core/src/can-service-feasibility.ts"
+      },
+      producer_source_ref: "services/simulation-core/src/can-service-feasibility.ts",
+      lineage_digest: "c".repeat(64)
+    };
+
+    expect(validate(malformed)).toBe(false);
+    expect(isCanServiceFeasibilityResponse(malformed)).toBe(false);
+  });
 });

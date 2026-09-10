@@ -167,6 +167,7 @@ export interface W5DemandRealizationProjection {
     realized: {
       authority: "SIMULATION_CORE";
       official: true;
+      producer_intrinsic_lineage?: W5ProducerIntrinsicLineage;
       replay_relevant_digest: string;
       writes_formal_result: false;
     };
@@ -209,9 +210,12 @@ export interface W5MutationReceipt {
  * It is not included in the student projection.
  */
 export interface W5ProducerIntrinsicLineage {
+  /** Stable producer implementation identity, independent of one invocation. */
+  intrinsic_lineage_digest?: string;
   model_artifact_reference: ModelArtifactReference;
   model_version_reference: ModelVersionReference;
   producer_source_ref: string;
+  /** Exact runtime input/binding identity for this producer invocation. */
   runtime_binding_digest: string;
 }
 
@@ -243,6 +247,7 @@ export interface W5ConvergenceProjection {
   realized: {
     authority: "SIMULATION_CORE";
     official: true;
+    producer_intrinsic_lineage?: W5ProducerIntrinsicLineage;
     replay_relevant_digest: string;
     writes_formal_result: false;
   };

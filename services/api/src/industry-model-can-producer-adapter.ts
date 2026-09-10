@@ -1,4 +1,8 @@
-import type { CanServiceFeasibilityCandidate } from "@simwar/shared-contracts";
+import type {
+  CanServiceFeasibilityCandidate,
+  ModelArtifactReference,
+  ModelVersionReference
+} from "@simwar/shared-contracts";
 
 export interface CanIndustryDiagnosticContext {
   readonly tenant_id: string;
@@ -23,6 +27,8 @@ export interface CanIndustryDiagnosticProducerEvidence {
   readonly official_truth_write: false;
   readonly known_limits: readonly string[];
   readonly derived_status: "FEASIBLE" | "INFEASIBLE" | "UNKNOWN" | "NOT_PROVEN";
+  readonly producer_model_version_reference?: ModelVersionReference;
+  readonly producer_model_artifact_reference?: ModelArtifactReference;
 }
 
 export interface CanIndustryDiagnosticProducerResult {
@@ -33,7 +39,18 @@ export interface CanIndustryDiagnosticProducerResult {
 }
 
 function notProven(limits: readonly string[]): CanIndustryDiagnosticProducerEvidence {
-  return { producer_id: "can-service-feasibility", diagnostic_family: "CAN service feasibility", classification: "NOT_PROVEN", evidence_identity: "NOT_PROVEN", authority_owner: "UNPROVEN", source: { path: "UNPROVEN", symbol: "UNPROVEN" }, freshness: "UNKNOWN", official_truth_write: false, known_limits: [...limits], derived_status: "NOT_PROVEN" };
+  return {
+    producer_id: "can-service-feasibility",
+    diagnostic_family: "CAN service feasibility",
+    classification: "NOT_PROVEN",
+    evidence_identity: "NOT_PROVEN",
+    authority_owner: "UNPROVEN",
+    source: { path: "UNPROVEN", symbol: "UNPROVEN" },
+    freshness: "UNKNOWN",
+    official_truth_write: false,
+    known_limits: [...limits],
+    derived_status: "NOT_PROVEN"
+  };
 }
 
 function identityMovements(context: CanIndustryDiagnosticContext, candidate: CanServiceFeasibilityCandidate): string[] {
@@ -65,6 +82,14 @@ export function adaptCanIndustryDiagnosticProducer(input: { context: CanIndustry
     const limits = ["CAN_IDENTITY_MOVED_REQUIRES_REBASE"];
     return { producer: notProven(limits), known_limits: limits, identity_movements: movements, rebase_required: true };
   }
+  const intrinsicLineage = candidate.producer_intrinsic_lineage;
+  if (!intrinsicLineage?.model_version_reference || !intrinsicLineage.model_artifact_reference) {
+    const limits = [
+      "CAN_TYPED_LINEAGE_NOT_EXPOSED_BY_PRODUCER",
+      "CAN_PRODUCER_MODEL_QUALIFICATION_NOT_PROVEN"
+    ];
+    return { producer: notProven(limits), known_limits: limits, identity_movements: [], rebase_required: false };
+  }
   const limits = ["CAN_IS_CANDIDATE_FEASIBILITY_NOT_OFFICIAL_TRUTH", ...(candidate.status === "UNKNOWN" ? ["CAN_STATUS_UNKNOWN_NOT_FEASIBLE"] : [])];
   const producer: CanIndustryDiagnosticProducerEvidence = {
     producer_id: "can-service-feasibility",
@@ -79,7 +104,9 @@ export function adaptCanIndustryDiagnosticProducer(input: { context: CanIndustry
     freshness: "FRESH",
     official_truth_write: false,
     known_limits: limits,
-    derived_status: candidate.status
+    derived_status: candidate.status,
+    producer_model_version_reference: intrinsicLineage.model_version_reference,
+    producer_model_artifact_reference: intrinsicLineage.model_artifact_reference
   };
   return { producer, known_limits: limits, identity_movements: [], rebase_required: false };
 }
