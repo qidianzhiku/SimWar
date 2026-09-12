@@ -46,13 +46,3 @@ export { IndustryModelDiagnosticReadinessPanel } from "./components/IndustryMode
 export type { IndustryModelDiagnosticReadinessPanelProps } from "./components/IndustryModelDiagnosticReadinessPanel.js";
 export { IndustryModelRealityJoinPanel } from "./components/IndustryModelRealityJoinPanel.js";
 export type { IndustryModelRealityJoinPanelProps } from "./components/IndustryModelRealityJoinPanel.js";
-export { GsiCrossRoundInsightPanel } from "./components/GsiCrossRoundInsightPanel.js";
-export type {
-  GsiCrossRoundInsightPanelProps,
-  GsiCrossRoundCandidateOption,
-  GsiCrossRoundSelection,
-  GsiCrossRoundSelectors,
-  GsiCrossRoundSelectionState,
-  GsiCrossRoundSurface
-} from "./components/GsiCrossRoundInsightPanel.js";
-export { buildGsiCrossRoundHandoffHref } from "./components/GsiCrossRoundInsightPanel.js";

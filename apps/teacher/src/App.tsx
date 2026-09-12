@@ -20,18 +20,14 @@ import {
   validateReauthIdentity,
   type ReauthContext
 } from "@simwar/shared-contracts";
-import {
-  GsiCrossRoundInsightPanel,
-  StatePanel,
-  type GsiCrossRoundCandidateOption
-} from "@simwar/ui";
+import { StatePanel } from "@simwar/ui";
 import type {
   ApiEnvelope,
   AuthSession,
+  BffDtoScenarioReference,
   CoursePackageVersionCloneInput,
   CoursePackageVersionTeacherDto,
   GSIExactBinding,
-  GSIReceipt,
   ESLExactBinding,
   P0DemoState,
   R7TeacherScenarioPackageCandidateDto,
@@ -158,8 +154,6 @@ import {
 import { buildTeacherW3Context, resolveActiveTeacherTeamId } from "./teacher-team-context";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
-const STUDENT_APP_BASE_URL = import.meta.env.VITE_STUDENT_APP_URL ?? "http://127.0.0.1:3102";
-const GSI_ACTIVITY_OPTIONS = ["activity_gsi_o3"] as const;
 const SHANGHAI_C0_MACRO_IDS = new Set(["M13", "M14", "M15", "M16", "M17", "M18"] as const);
 const SHANGHAI_C0_MACRO_ID: ShanghaiC0MacroId | null =
   typeof window === "undefined"
@@ -174,6 +168,83 @@ const O4_ENABLED =
   import.meta.env.VITE_SIMWAR_O4_ENABLED === "true" ||
   (typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("o4") === "true");
+
+export interface ExactTeacherGsiBindingInput {
+  tenantId: string;
+  selectedRun?:
+    | Pick<Run, "run_id" | "tenant_id" | "course_id" | "scenario_package_id" | "parameter_set_id">
+    | null
+    | undefined;
+  selectedRound?: Pick<Round, "round_id" | "tenant_id" | "run_id"> | null | undefined;
+  teams: readonly { team_id: string }[];
+  selectedTeamId?: string | null | undefined;
+  persistedTeamId?: string | null | undefined;
+  scenarioReference?:
+    | Pick<
+        BffDtoScenarioReference,
+        "scenario_package_id" | "scenario_version" | "parameter_set_id" | "parameter_set_version"
+      >
+    | null
+    | undefined;
+}
+
+export function buildExactTeacherGsiBinding(
+  input: ExactTeacherGsiBindingInput
+): GSIExactBinding | undefined {
+  const selectedRun = input.selectedRun;
+  const selectedRound = input.selectedRound;
+  const reference = input.scenarioReference;
+  const teamIds = new Set(input.teams.map((team) => team.team_id));
+  const teamId = [input.selectedTeamId, input.persistedTeamId].find(
+    (candidate): candidate is string => Boolean(candidate && teamIds.has(candidate))
+  );
+  const scenarioVersion = reference?.scenario_version?.trim();
+  const parameterSetVersion = reference?.parameter_set_version?.trim();
+
+  if (
+    !input.tenantId.trim() ||
+    !selectedRun ||
+    !selectedRound ||
+    selectedRun.tenant_id !== input.tenantId ||
+    selectedRound.tenant_id !== input.tenantId ||
+    selectedRound.run_id !== selectedRun.run_id ||
+    !teamId ||
+    reference?.scenario_package_id !== selectedRun.scenario_package_id ||
+    reference.parameter_set_id !== selectedRun.parameter_set_id ||
+    !scenarioVersion ||
+    !parameterSetVersion
+  ) {
+    return undefined;
+  }
+
+  return {
+    tenant_id: input.tenantId,
+    course_id: selectedRun.course_id,
+    run_id: selectedRun.run_id,
+    round_id: selectedRound.round_id,
+    team_id: teamId,
+    scenario_package_id: selectedRun.scenario_package_id,
+    scenario_version: scenarioVersion,
+    parameter_set_id: selectedRun.parameter_set_id,
+    parameter_set_version: parameterSetVersion,
+    model_version_id: "gsi-stakeholder-resolver-v1",
+    model_version: "1.0.0",
+    model_artifact_id: "artifact:gsi-stakeholder-resolver-v1:1.0.0",
+    model_artifact_version: "1.0.0"
+  };
+}
+
+export function TeacherGsiMissingContextPanel() {
+  return (
+    <section className="panel form-panel" aria-label="GSI-XR missing context">
+      <p className="eyebrow">GSI-XR · MISSING_CONTEXT</p>
+      <h3>尚未具备精确的 GSI 上下文</h3>
+      <p className="muted">
+        请重新选择明确的课程、Run、回合和队伍；在完整上下文恢复前，不会载入 GSI 比较结果。
+      </p>
+    </section>
+  );
+}
 
 function readStoredReauthContext(): ReauthContext | null {
   if (typeof window === "undefined") return null;
@@ -708,7 +779,6 @@ export function App() {
   const [formalRunSeed, setFormalRunSeed] = useState("20260729");
   const [qualifiedRunAdmissionSelection, setQualifiedRunAdmissionSelection] =
     useState<ModelQualificationRunAdmissionSelection | null>(null);
-  const [gsiReceipts, setGsiReceipts] = useState<GSIReceipt[]>([]);
   const [coursePackageList, setCoursePackageList] = useState<TeacherCoursePackageListState>({
     phase: "IDLE"
   });
@@ -869,9 +939,6 @@ export function App() {
     selectedTeacherTeamId,
     reauthContext?.team_id
   );
-  useEffect(() => {
-    setGsiReceipts([]);
-  }, [activeTeacherTeamId, login.tenantId, selectedRun?.run_id]);
   const latestResult = state?.latest_result;
   const selectedResult = latestResult?.run_id === selectedRun?.run_id ? latestResult : undefined;
   const resultRows = workspace?.teacher_replay_summary.authorized_result_snapshot ?? [];
@@ -896,68 +963,15 @@ export function App() {
   const replaySummary = workspace?.teacher_replay_summary;
   const isTeacher = session?.user.roles.includes("teacher") ?? false;
   const w3Team = teacherTeamsForRun.find((candidate) => candidate.team_id === activeTeacherTeamId);
-  const gsiTeam =
-    teacherTeamsForRun.find((candidate) => candidate.team_id === activeTeacherTeamId) ??
-    teacherTeamsForRun[0];
-  const gsiBinding: GSIExactBinding | undefined =
-    selectedRun && selectedRound && gsiTeam
-      ? {
-          tenant_id: login.tenantId,
-          course_id: selectedRun.course_id,
-          run_id: selectedRun.run_id,
-          round_id: selectedRound.round_id,
-          team_id: gsiTeam.team_id,
-          scenario_package_id: selectedRun.scenario_package_id,
-          scenario_version:
-            workspace?.course_workspace?.scenario_reference?.scenario_version ?? "1.0.0",
-          parameter_set_id: selectedRun.parameter_set_id,
-          parameter_set_version:
-            workspace?.course_workspace?.scenario_reference?.parameter_set_version ?? "1.0.0",
-          model_version_id: "gsi-stakeholder-resolver-v1",
-          model_version: "1.0.0",
-          model_artifact_id: "artifact:gsi-stakeholder-resolver-v1:1.0.0",
-          model_artifact_version: "1.0.0"
-        }
-      : undefined;
-  const gsiCandidateOptions = useMemo<readonly GsiCrossRoundCandidateOption[]>(() => {
-    if (!selectedRun || !gsiTeam) return [];
-    const roundsById = new Map(selectedRunRounds.map((round) => [round.round_id, round]));
-    return gsiReceipts
-      .filter(
-        (receipt) =>
-          receipt.binding.tenant_id === login.tenantId &&
-          receipt.binding.course_id === selectedRun.course_id &&
-          receipt.binding.run_id === selectedRun.run_id &&
-          receipt.binding.team_id === gsiTeam.team_id
-      )
-      .map((receipt): GsiCrossRoundCandidateOption | null => {
-        const round = roundsById.get(receipt.binding.round_id);
-        return round
-          ? {
-              candidate_id: receipt.candidate_id,
-              candidate_digest: receipt.resolver.candidate_digest,
-              round_id: round.round_id,
-              round_no: round.round_no
-            }
-          : null;
-      })
-      .filter((option): option is GsiCrossRoundCandidateOption => option !== null)
-      .sort(
-        (left, right) =>
-          left.round_no - right.round_no || left.candidate_id.localeCompare(right.candidate_id)
-      );
-  }, [gsiReceipts, gsiTeam, login.tenantId, selectedRun, selectedRunRounds]);
-  const gsiRoleOptions = useMemo(
-    () => [...new Set(gsiTeam?.members.map((member) => member.role_slot) ?? [])].sort(),
-    [gsiTeam]
-  );
-  const handleGsiCandidateCreated = useCallback((receipt: GSIReceipt) => {
-    setGsiReceipts((current) =>
-      current.some((candidate) => candidate.candidate_id === receipt.candidate_id)
-        ? current
-        : [...current, receipt]
-    );
-  }, []);
+  const gsiBinding = buildExactTeacherGsiBinding({
+    tenantId: login.tenantId,
+    selectedRun,
+    selectedRound,
+    teams: teacherTeamsForRun,
+    selectedTeamId: selectedTeacherTeamId,
+    persistedTeamId: reauthContext?.team_id,
+    scenarioReference: workspace?.course_workspace?.scenario_reference
+  });
   const eslBinding: ESLExactBinding | undefined =
     gsiBinding && eslSourceRound
       ? {
@@ -2667,14 +2681,17 @@ export function App() {
             />
           </Suspense>
         ) : null}
-        {isTeacher && session && gsiBinding ? (
-          <GovernedStakeholderIntelligenceWorkspace
-            apiBase={API_BASE}
-            binding={gsiBinding}
-            tenantId={login.tenantId}
-            token={session.access_token}
-            onCandidateCreated={handleGsiCandidateCreated}
-          />
+        {isTeacher && session ? (
+          gsiBinding ? (
+            <GovernedStakeholderIntelligenceWorkspace
+              apiBase={API_BASE}
+              binding={gsiBinding}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+          ) : (
+            <TeacherGsiMissingContextPanel />
+          )
         ) : null}
         {isTeacher && session && eslBinding ? (
           <Suspense fallback={<p className="muted">正在载入 Executive Strategy Lab…</p>}>
@@ -3831,19 +3848,6 @@ export function App() {
       </TeacherLocation>
 
       <TeacherLocation id="teacher-debrief">
-        {isTeacher && session ? (
-          <GsiCrossRoundInsightPanel
-            key={`${selectedRun?.run_id ?? "no-run"}:${gsiTeam?.team_id ?? "no-team"}`}
-            apiBase={API_BASE}
-            surface="teacher"
-            tenantId={login.tenantId}
-            token={session.access_token}
-            candidateOptions={gsiCandidateOptions}
-            activityOptions={GSI_ACTIVITY_OPTIONS}
-            roleOptions={gsiRoleOptions}
-            studentAppBaseUrl={STUDENT_APP_BASE_URL}
-          />
-        ) : null}
         {isTeacher && session ? (
           <Suspense fallback={<p className="muted">正在载入教师复盘…</p>}>
             <TeacherDebriefWorkspace

@@ -26,9 +26,21 @@ paths:
   /api/v1/bff/teacher/gsi/candidates/compare:
     get:
       summary: Read an exact descriptive cross-round comparison
+      x-gsi-query-modes:
+        - name: exact_candidate_pair
+          required: [from_candidate_id, to_candidate_id, activity_id, role_key]
+          forbidden: [from_round_id, to_round_id, course_id, run_id, team_id]
+        - name: exact_round_pair
+          required: [course_id, run_id, team_id, from_round_id, to_round_id, activity_id, role_key]
+          forbidden: [from_candidate_id, to_candidate_id]
       parameters:
         - $ref: "#/components/parameters/FromCandidateId"
         - $ref: "#/components/parameters/ToCandidateId"
+        - $ref: "#/components/parameters/FromRoundId"
+        - $ref: "#/components/parameters/ToRoundId"
+        - $ref: "#/components/parameters/CourseId"
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/TeamId"
         - $ref: "#/components/parameters/ActivityId"
         - $ref: "#/components/parameters/RoleKey"
         - $ref: "#/components/parameters/ExpectedComparisonDigest"
@@ -40,6 +52,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GSICrossRoundTeacherProjection"
+  /api/v1/bff/teacher/gsi/candidates/pair-options:
+    get:
+      summary: Read server-governed exact round options for Teacher comparison
+      parameters:
+        - $ref: "#/components/parameters/PairOptionsCourseId"
+        - $ref: "#/components/parameters/PairOptionsRunId"
+        - $ref: "#/components/parameters/PairOptionsTeamId"
+        - $ref: "#/components/parameters/PairOptionsActivityId"
+        - $ref: "#/components/parameters/PairOptionsRoleKey"
+      responses:
+        "200":
+          description: Safe round options without candidate identifiers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GSICrossRoundPairOptions"
   /api/v1/bff/student/gsi/candidates/{candidateId}:
     get:
       summary: Read published role-safe GSI projection
@@ -51,9 +79,21 @@ paths:
   /api/v1/bff/student/gsi/candidates/compare:
     get:
       summary: Read a role-safe descriptive cross-round comparison
+      x-gsi-query-modes:
+        - name: exact_candidate_pair
+          required: [from_candidate_id, to_candidate_id, activity_id, role_key]
+          forbidden: [from_round_id, to_round_id, course_id, run_id, team_id]
+        - name: exact_round_pair
+          required: [course_id, run_id, team_id, from_round_id, to_round_id, activity_id, role_key]
+          forbidden: [from_candidate_id, to_candidate_id]
       parameters:
         - $ref: "#/components/parameters/FromCandidateId"
         - $ref: "#/components/parameters/ToCandidateId"
+        - $ref: "#/components/parameters/FromRoundId"
+        - $ref: "#/components/parameters/ToRoundId"
+        - $ref: "#/components/parameters/CourseId"
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/TeamId"
         - $ref: "#/components/parameters/ActivityId"
         - $ref: "#/components/parameters/RoleKey"
         - $ref: "#/components/parameters/ExpectedComparisonDigest"
@@ -65,6 +105,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GSICrossRoundStudentProjection"
+  /api/v1/bff/student/gsi/candidates/pair-options:
+    get:
+      summary: Read published active-role-safe round options for Student comparison
+      parameters:
+        - $ref: "#/components/parameters/PairOptionsCourseId"
+        - $ref: "#/components/parameters/PairOptionsRunId"
+        - $ref: "#/components/parameters/PairOptionsTeamId"
+        - $ref: "#/components/parameters/PairOptionsActivityId"
+        - $ref: "#/components/parameters/PairOptionsRoleKey"
+      responses:
+        "200":
+          description: Student-safe round options without candidate identifiers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GSICrossRoundPairOptions"
   /api/v1/bff/admin/gsi/audit:
     get:
       summary: Read tenant-safe GSI provenance
@@ -80,9 +136,21 @@ paths:
   /api/v1/bff/admin/gsi/candidates/compare:
     get:
       summary: Read an exact cross-round comparison with audit context
+      x-gsi-query-modes:
+        - name: exact_candidate_pair
+          required: [from_candidate_id, to_candidate_id, activity_id, role_key]
+          forbidden: [from_round_id, to_round_id, course_id, run_id, team_id]
+        - name: exact_round_pair
+          required: [course_id, run_id, team_id, from_round_id, to_round_id, activity_id, role_key]
+          forbidden: [from_candidate_id, to_candidate_id]
       parameters:
         - $ref: "#/components/parameters/FromCandidateId"
         - $ref: "#/components/parameters/ToCandidateId"
+        - $ref: "#/components/parameters/FromRoundId"
+        - $ref: "#/components/parameters/ToRoundId"
+        - $ref: "#/components/parameters/CourseId"
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/TeamId"
         - $ref: "#/components/parameters/ActivityId"
         - $ref: "#/components/parameters/RoleKey"
         - $ref: "#/components/parameters/ExpectedComparisonDigest"
@@ -94,6 +162,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GSICrossRoundAdminProjection"
+  /api/v1/bff/admin/gsi/candidates/pair-options:
+    get:
+      summary: Read tenant-authorized exact round options for Admin comparison
+      parameters:
+        - $ref: "#/components/parameters/PairOptionsCourseId"
+        - $ref: "#/components/parameters/PairOptionsRunId"
+        - $ref: "#/components/parameters/PairOptionsTeamId"
+        - $ref: "#/components/parameters/PairOptionsActivityId"
+        - $ref: "#/components/parameters/PairOptionsRoleKey"
+      responses:
+        "200":
+          description: Admin-safe round options without candidate identifiers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GSICrossRoundPairOptions"
 components:
   parameters:
     CandidateId:
@@ -105,12 +189,37 @@ components:
     FromCandidateId:
       in: query
       name: from_candidate_id
-      required: true
+      required: false
       schema: { type: string }
     ToCandidateId:
       in: query
       name: to_candidate_id
-      required: true
+      required: false
+      schema: { type: string }
+    FromRoundId:
+      in: query
+      name: from_round_id
+      required: false
+      schema: { type: string }
+    ToRoundId:
+      in: query
+      name: to_round_id
+      required: false
+      schema: { type: string }
+    CourseId:
+      in: query
+      name: course_id
+      required: false
+      schema: { type: string }
+    RunId:
+      in: query
+      name: run_id
+      required: false
+      schema: { type: string }
+    TeamId:
+      in: query
+      name: team_id
+      required: false
       schema: { type: string }
     ActivityId:
       in: query
@@ -118,6 +227,31 @@ components:
       required: true
       schema: { type: string }
     RoleKey:
+      in: query
+      name: role_key
+      required: true
+      schema: { type: string }
+    PairOptionsCourseId:
+      in: query
+      name: course_id
+      required: true
+      schema: { type: string }
+    PairOptionsRunId:
+      in: query
+      name: run_id
+      required: true
+      schema: { type: string }
+    PairOptionsTeamId:
+      in: query
+      name: team_id
+      required: true
+      schema: { type: string }
+    PairOptionsActivityId:
+      in: query
+      name: activity_id
+      required: true
+      schema: { type: string }
+    PairOptionsRoleKey:
       in: query
       name: role_key
       required: true
@@ -369,6 +503,47 @@ components:
         official_truth_write: { const: false }
         known_limits: { type: array, minItems: 1, items: { type: string } }
         recovery: { enum: [RELOAD_EXACT_CONTEXT, WAIT_FOR_PUBLICATION] }
+    GSICrossRoundPairOptions:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          surface,
+          context,
+          rounds,
+          provider,
+          official_truth_write,
+          non_causal,
+          causal_proof,
+          known_limits
+        ]
+      properties:
+        surface: { enum: [teacher, student, admin] }
+        context:
+          type: object
+          additionalProperties: false
+          required: [tenant_id, course_id, run_id, team_id, activity_id, role_key]
+          properties:
+            tenant_id: { type: string, minLength: 1 }
+            course_id: { type: string, minLength: 1 }
+            run_id: { type: string, minLength: 1 }
+            team_id: { type: string, minLength: 1 }
+            activity_id: { type: string, minLength: 1 }
+            role_key: { type: string, minLength: 1 }
+        rounds:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [round_id, round_no]
+            properties:
+              round_id: { type: string, minLength: 1 }
+              round_no: { type: integer, minimum: 1 }
+        provider: { const: OFF }
+        official_truth_write: { const: false }
+        non_causal: { const: true }
+        causal_proof: { const: false }
+        known_limits: { type: array, minItems: 1, items: { type: string } }
     GSICrossRoundAdminProjection:
       type: object
       required:
