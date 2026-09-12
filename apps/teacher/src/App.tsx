@@ -973,11 +973,24 @@ export function App() {
     scenarioReference: workspace?.course_workspace?.scenario_reference
   });
   const eslBinding: ESLExactBinding | undefined =
-    gsiBinding && eslSourceRound
+    selectedRun && eslSourceRound && w3Team
       ? {
-          ...gsiBinding,
+          tenant_id: login.tenantId,
+          course_id: selectedRun.course_id,
+          run_id: selectedRun.run_id,
+          team_id: w3Team.team_id,
           round_id: eslSourceRound.round_id,
           round_no: eslSourceRound.round_no,
+          scenario_package_id: selectedRun.scenario_package_id,
+          scenario_version:
+            workspace?.course_workspace?.scenario_reference?.scenario_version ?? "1.0.0",
+          parameter_set_id: selectedRun.parameter_set_id,
+          parameter_set_version:
+            workspace?.course_workspace?.scenario_reference?.parameter_set_version ?? "1.0.0",
+          model_version_id: "gsi-stakeholder-resolver-v1",
+          model_version: "1.0.0",
+          model_artifact_id: "artifact:gsi-stakeholder-resolver-v1:1.0.0",
+          model_artifact_version: "1.0.0",
           engine_id: "toy_logit_wellness_v1",
           plugin_ids: ["plugin_wellness_stub"],
           seed: 79
