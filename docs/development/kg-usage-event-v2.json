@@ -1,0 +1,82 @@
+{
+  "schema_version": "SIMWAR_KG_USAGE_EVENT_V2",
+  "authority": "DERIVED_ENGINEERING_EVIDENCE_ONLY",
+  "purpose": "External append-only usage telemetry for Graph Companion investigations and bounded value review",
+  "required_fields": [
+    "schema_version",
+    "event_id",
+    "event_type",
+    "occurred_at",
+    "parents",
+    "payload"
+  ],
+  "field_types": {
+    "schema_version": "string",
+    "event_id": "path-safe string",
+    "event_type": "string",
+    "occurred_at": "ISO-8601 string",
+    "actor": "object or null",
+    "mission_id": "string or null",
+    "lane": "string or null",
+    "target_sha": "string or null",
+    "target_tree": "string or null",
+    "parents": "array of event_id strings",
+    "payload": "object"
+  },
+  "storage": {
+    "location": "caller-owned external event root",
+    "product_repository_write": false,
+    "layout": {
+      "staging": "staging/<event_id>.json",
+      "complete": "complete/<event_id>.json",
+      "finalized": "final/<event_id>.json"
+    },
+    "transition": ["STAGED", "COMPLETE", "FINALIZED"],
+    "write_modes": {
+      "staging": "exclusive create",
+      "complete": "exclusive create",
+      "finalized": "exclusive create"
+    }
+  },
+  "hashing": {
+    "algorithm": "SHA-256",
+    "input": "canonical immutable event fields only",
+    "excluded_storage_fields": [
+      "storage_status",
+      "event_hash",
+      "storage_redactions",
+      "unresolved_parents",
+      "parent_resolution",
+      "complete_hash",
+      "finalized_at"
+    ],
+    "event_hash_immutable": true
+  },
+  "secret_policy": {
+    "default": "REJECT",
+    "explicit_alternative": "REDACT",
+    "sensitive_key_values_are_never_persisted": true,
+    "redaction_marker": "[REDACTED]"
+  },
+  "dag_rules": [
+    "Parent references are event_id values and are canonicalized deterministically.",
+    "Finalization does not invent a parent; unresolved parents remain explicit in the event and receipt.",
+    "Known parents compile before children; event_id ascending is the deterministic tie-breaker.",
+    "Cycles are reported as BLOCKED_CYCLE and never silently treated as a valid order."
+  ],
+  "invariants": [
+    "A duplicate event_id with a different immutable hash is DUPLICATE_CONFLICT.",
+    "An identical event_id and hash is idempotently REUSED without overwriting an artifact.",
+    "Equal, nested, symlinked, and reparse-point roots are rejected when they resolve to the Product repository.",
+    "Telemetry events are evidence context and cannot write Product Truth, SettlementResult, score, rank, or a formal writer."
+  ],
+  "non_goals": [
+    "Product Truth",
+    "settlement",
+    "score",
+    "rank",
+    "second evidence store",
+    "global controller",
+    "model training approval"
+  ]
+}

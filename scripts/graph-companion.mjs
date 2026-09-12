@@ -2297,6 +2297,602 @@ const ROUTER_DEFAULTS = {
   }
 };
 
+function firstDefined(...values) {
+  return values.find((value) => value !== undefined && value !== null);
+}
+
+function normalizedString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizedUpper(value) {
+  return normalizedString(value).toUpperCase();
+}
+
+function readCodeGraphValue(value, keys) {
+  const codegraph = value?.codegraph && typeof value.codegraph === "object" ? value.codegraph : {};
+  const observation =
+    value?.codegraph_observation && typeof value.codegraph_observation === "object"
+      ? value.codegraph_observation
+      : {};
+  return firstDefined(
+    ...keys.flatMap((key) => [value?.[key], codegraph[key], observation[key]])
+  );
+}
+
+function readTargetValue(value, keys, { includeCodegraph = true } = {}) {
+  const target = value?.target && typeof value.target === "object" ? value.target : {};
+  const codegraph = value?.codegraph && typeof value.codegraph === "object" ? value.codegraph : {};
+  const codegraphTarget =
+    codegraph.target && typeof codegraph.target === "object"
+      ? codegraph.target
+      : value?.codegraph_target && typeof value.codegraph_target === "object"
+        ? value.codegraph_target
+        : {};
+  const sources = includeCodegraph ? [value, target, codegraph, codegraphTarget] : [value, target];
+  return firstDefined(
+    ...keys.flatMap((key) => sources.map((source) => source?.[key]))
+  );
+}
+
+function readObservedTargetValue(value, keys) {
+  const codegraph = value?.codegraph && typeof value.codegraph === "object" ? value.codegraph : {};
+  const codegraphTarget =
+    codegraph.target && typeof codegraph.target === "object"
+      ? codegraph.target
+      : value?.codegraph_target && typeof value.codegraph_target === "object"
+        ? value.codegraph_target
+        : {};
+  const explicitKeys = keys.filter((key) => key.startsWith("codegraph") || key.startsWith("observed"));
+  return firstDefined(
+    ...explicitKeys.map((key) => value?.[key]),
+    ...keys.flatMap((key) => [codegraph[key], codegraphTarget[key]])
+  );
+}
+
+function hasAnyTargetBindingValue(value) {
+  const expectedTargetSha = readTargetValue(
+    value,
+    ["target_sha", "targetSha", "expected_target_sha", "expectedTargetSha", "repo_sha", "repoSha", "sha"],
+    { includeCodegraph: false }
+  );
+  const observedTargetSha = readObservedTargetValue(value, [
+    "codegraph_target_sha",
+    "codegraphTargetSha",
+    "observed_target_sha",
+    "observedTargetSha",
+    "codegraph_repo_sha",
+    "codegraphRepoSha",
+    "target_sha",
+    "targetSha",
+    "repo_sha",
+    "repoSha",
+    "sha"
+  ]);
+  const expectedTargetTree = readTargetValue(
+    value,
+    [
+      "target_tree",
+      "targetTree",
+      "target_tree_sha",
+      "targetTreeSha",
+      "expected_target_tree",
+      "expectedTargetTree",
+      "tree_sha",
+      "treeSha",
+      "tree"
+    ],
+    { includeCodegraph: false }
+  );
+  const observedTargetTree = readObservedTargetValue(value, [
+    "codegraph_target_tree",
+    "codegraphTargetTree",
+    "observed_target_tree",
+    "observedTargetTree",
+    "codegraph_tree_sha",
+    "codegraphTreeSha",
+    "target_tree",
+    "targetTree",
+    "tree_sha",
+    "treeSha",
+    "tree"
+  ]);
+  return nonEmpty(expectedTargetSha) || nonEmpty(observedTargetSha) || nonEmpty(expectedTargetTree) || nonEmpty(observedTargetTree);
+}
+
+/**
+ * Derive CodeGraph admission from independently observed evidence.
+ *
+ * `codegraph_admitted` is deliberately not read here. It is a caller-owned
+ * assertion and therefore cannot be allowed to become an authority signal.
+ * Target binding is strict whenever either side supplies identity fields:
+ * both the expected target and the observed CodeGraph target must be present
+ * and equal. The legacy route shape omits identity entirely; that shape is
+ * kept distinguishable as TARGET_BINDING_NOT_PROVIDED so callers can choose a
+ * source-only fallback without pretending that a target was verified.
+ */
+export function deriveCodeGraphAdmission(input = {}) {
+  const value = input && typeof input === "object" ? input : {};
+  const observed =
+    value.codegraph_observed === true ||
+    value.codegraphObserved === true ||
+    value.codegraph?.observed === true ||
+    value.codegraph?.observed_result === true ||
+    value.codegraph_observation?.observed === true;
+  const executionStatus = normalizedUpper(
+    readCodeGraphValue(value, ["codegraph_execution_status", "codegraphExecutionStatus", "execution_status"])
+  );
+  const normalizedExecutionStatus =
+    executionStatus ||
+    (readCodeGraphValue(value, ["codegraph_command_ok", "codegraphCommandOk", "command_ok"]) === true
+      ? "PASS"
+      : "");
+  const relevance = normalizedUpper(
+    readCodeGraphValue(value, ["codegraph_relevance", "codegraphRelevance", "relevance"])
+  );
+  const coverage = normalizedUpper(
+    readCodeGraphValue(value, ["codegraph_coverage", "codegraphCoverage", "coverage"])
+  );
+  const targetSha = normalizedString(
+    readTargetValue(
+      value,
+      ["target_sha", "targetSha", "expected_target_sha", "expectedTargetSha", "repo_sha", "repoSha", "sha"],
+      { includeCodegraph: false }
+    )
+  );
+  const observedTargetSha = normalizedString(
+    readObservedTargetValue(value, [
+      "codegraph_target_sha",
+      "codegraphTargetSha",
+      "observed_target_sha",
+      "observedTargetSha",
+      "codegraph_repo_sha",
+      "codegraphRepoSha",
+      "target_sha",
+      "targetSha",
+      "repo_sha",
+      "repoSha",
+      "sha"
+    ])
+  );
+  const targetTree = normalizedString(
+    readTargetValue(
+      value,
+      [
+        "target_tree",
+        "targetTree",
+        "target_tree_sha",
+        "targetTreeSha",
+        "expected_target_tree",
+        "expectedTargetTree",
+        "tree_sha",
+        "treeSha",
+        "tree"
+      ],
+      { includeCodegraph: false }
+    )
+  );
+  const observedTargetTree = normalizedString(
+    readObservedTargetValue(value, [
+      "codegraph_target_tree",
+      "codegraphTargetTree",
+      "observed_target_tree",
+      "observedTargetTree",
+      "codegraph_tree_sha",
+      "codegraphTreeSha",
+      "target_tree",
+      "targetTree",
+      "tree_sha",
+      "treeSha",
+      "tree"
+    ])
+  );
+  const targetBindingSupplied =
+    hasAnyTargetBindingValue(value) ||
+    value.require_exact_target_binding === true ||
+    value.requireExactTargetBinding === true;
+  const targetShaMatch =
+    targetSha && observedTargetSha ? targetSha.toLowerCase() === observedTargetSha.toLowerCase() : null;
+  const targetTreeMatch =
+    targetTree && observedTargetTree
+      ? targetTree.toLowerCase() === observedTargetTree.toLowerCase()
+      : null;
+  const sourceReadbackResolved =
+    value.source_readback_resolved === true ||
+    value.sourceResolved === true ||
+    value.source_readback?.resolved === true;
+
+  let reason = "CODEGRAPH_ADMITTED";
+  let admitted = observed;
+  if (!observed) {
+    reason = "CODEGRAPH_NOT_OBSERVED";
+    admitted = false;
+  } else if (normalizedExecutionStatus !== "PASS") {
+    reason = "CODEGRAPH_EXECUTION_NOT_PASS";
+    admitted = false;
+  } else if (relevance !== "RELEVANT") {
+    reason = "CODEGRAPH_RELEVANCE_NOT_RELEVANT";
+    admitted = false;
+  } else if (coverage !== "COMPLETE") {
+    reason = "CODEGRAPH_COVERAGE_NOT_COMPLETE";
+    admitted = false;
+  } else if (targetBindingSupplied && !targetShaMatch) {
+    reason = targetSha && observedTargetSha ? "TARGET_SHA_MISMATCH" : "TARGET_SHA_NOT_BOUND";
+    admitted = false;
+  } else if (targetBindingSupplied && !targetTreeMatch) {
+    reason = targetTree && observedTargetTree ? "TARGET_TREE_MISMATCH" : "TARGET_TREE_NOT_BOUND";
+    admitted = false;
+  } else if (!targetBindingSupplied) {
+    reason = "TARGET_BINDING_NOT_PROVIDED";
+    admitted = false;
+  }
+
+  return {
+    observed,
+    admitted,
+    reason,
+    execution_status: normalizedExecutionStatus || "UNKNOWN",
+    relevance: relevance || "UNKNOWN",
+    coverage: coverage || "UNKNOWN",
+    target_sha_match: targetShaMatch,
+    target_tree_match: targetTreeMatch,
+    target_binding_supplied: targetBindingSupplied,
+    source_readback_resolved: sourceReadbackResolved
+  };
+}
+
+/*
+ * The rest of this helper is intentionally kept below the exported function;
+ * the implementation above is the only authority used by the router.
+ */
+
+const QF11_REQUIRED_SCOPE = ["repository", "target_sha", "target_tree", "config_digest"];
+const QF11_VOLATILE_SCOPE = new Set([
+  "occurred_at",
+  "generated_at",
+  "timestamp",
+  "command_output",
+  "raw_output",
+  "stdout",
+  "stderr",
+  "cwd",
+  "process_id",
+  "pid",
+  "host",
+  "request_id"
+]);
+const QF11_STATIC_SOURCES = new Set([
+  "STATIC",
+  "STATIC_SOURCE",
+  "INDEX",
+  "INDEX_SNAPSHOT",
+  "GRAPH_SNAPSHOT",
+  "MANIFEST",
+  "GRAPHIFY",
+  "CODEGRAPH"
+]);
+
+function stringList(value) {
+  if (Array.isArray(value))
+    return value
+      .flatMap((item) => stringList(item))
+      .filter(Boolean);
+  if (typeof value === "string")
+    return value
+      .split(/[\s,]+/u)
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean);
+  if (value && typeof value === "object")
+    return Object.entries(value)
+      .filter(([, enabled]) => enabled === true)
+      .map(([key]) => key.trim().toLowerCase())
+      .filter(Boolean);
+  return [];
+}
+
+function normalizeQf11ScopeField(value) {
+  const field = normalizedString(value).toLowerCase().replaceAll("-", "_");
+  if (["repo", "repository_id", "repository_ref"].includes(field)) return "repository";
+  if (["repo_sha", "source_sha", "commit_sha", "commit", "target", "target_sha"].includes(field))
+    return "target_sha";
+  if (["tree", "tree_sha", "target_tree", "target_tree_sha"].includes(field)) return "target_tree";
+  if (["config", "config_hash", "config_digest"].includes(field)) return "config_digest";
+  return field;
+}
+
+function firstObject(...values) {
+  return values.find((value) => value && typeof value === "object" && !Array.isArray(value)) || {};
+}
+
+function firstList(...values) {
+  for (const value of values) {
+    const list = stringList(value);
+    if (list.length > 0) return list;
+  }
+  return [];
+}
+
+function qf11ScopeList(...values) {
+  return firstList(...values).map(normalizeQf11ScopeField);
+}
+
+function qf11Flag(...values) {
+  return values.find((value) => typeof value === "boolean");
+}
+
+function qf11Finding({ code, severity, reason, sourceAnchors, contractAnchors }) {
+  return {
+    id: `QF-11-${code}`,
+    code,
+    finding_code: code,
+    category: "identity_digest_semantics",
+    severity,
+    status: "FINDING",
+    reason,
+    source_anchors: sourceAnchors.slice(0, 5),
+    contract_anchors: contractAnchors.slice(0, 5)
+  };
+}
+
+/**
+ * Inspect identity/digest claims without promoting them to Product or runtime
+ * authority. The result is a deterministic, source/contract-anchored list
+ * capped at ten findings for safe inclusion in compact support envelopes.
+ */
+export function analyzeIdentityDigestSemantics(input = {}) {
+  const value = input && typeof input === "object" ? input : {};
+  const contract = firstObject(value.contract, value.contract_spec, value.contractSpec);
+  const observation = firstObject(
+    value.observation,
+    value.observed,
+    value.evidence,
+    value.identity_digest,
+    value.identityDigest
+  );
+  const sourceAnchors = firstList(
+    value.source_anchors,
+    value.sourceAnchors,
+    value.source_readback?.anchors,
+    observation.source_anchors,
+    observation.sourceAnchors,
+    contract.source_anchors,
+    contract.sourceAnchors
+  );
+  const contractAnchors = firstList(
+    value.contract_anchors,
+    value.contractAnchors,
+    contract.anchors,
+    contract.contract_anchors,
+    contract.contractAnchors
+  );
+  const requiredScope = qf11ScopeList(
+    value.required_scope,
+    value.requiredScope,
+    contract.required_scope,
+    contract.requiredScope,
+    contract.identity_scope,
+    contract.identityScope
+  );
+  const required = requiredScope.length > 0 ? requiredScope : QF11_REQUIRED_SCOPE;
+  const identityScope = qf11ScopeList(
+    value.identity_scope,
+    value.identityScope,
+    observation.identity_scope,
+    observation.identityScope,
+    observation.identity_fields,
+    observation.identityFields
+  );
+  const digestScope = qf11ScopeList(
+    value.digest_scope,
+    value.digestScope,
+    observation.digest_scope,
+    observation.digestScope,
+    observation.digest_fields,
+    observation.digestFields
+  );
+  const findings = [];
+  const add = (finding) => {
+    if (findings.length < 10) findings.push(finding);
+  };
+  const missingIdentity =
+    required.filter((field) => !identityScope.includes(field));
+  const missingDigest =
+    required.filter((field) => !digestScope.includes(field));
+  if (missingIdentity.length > 0 || missingDigest.length > 0) {
+    add(
+      qf11Finding({
+        code: "SCOPE_TOO_NARROW",
+        severity: "HIGH",
+        reason: `identity/digest scope omits required fields: ${[...missingIdentity, ...missingDigest].join(", ")}`,
+        sourceAnchors,
+        contractAnchors
+      })
+    );
+  }
+  const broadFields = [...identityScope, ...digestScope].filter((field) =>
+    QF11_VOLATILE_SCOPE.has(field)
+  );
+  if (broadFields.length > 0) {
+    add(
+      qf11Finding({
+        code: "SCOPE_TOO_BROAD",
+        severity: "MEDIUM",
+        reason: `identity/digest scope includes volatile fields: ${[...new Set(broadFields)].join(", ")}`,
+        sourceAnchors,
+        contractAnchors
+      })
+    );
+  }
+
+  const sourceKind = normalizedUpper(
+    firstDefined(
+      value.source_kind,
+      value.sourceKind,
+      observation.source_kind,
+      observation.sourceKind,
+      observation.kind
+    )
+  );
+  const runtimeClaim =
+    qf11Flag(
+      value.runtime_claim,
+      value.runtimeClaim,
+      value.as_runtime,
+      value.asRuntime,
+      observation.runtime_claim,
+      observation.runtimeClaim,
+      observation.as_runtime,
+      observation.asRuntime,
+      observation.is_runtime,
+      observation.isRuntime
+    ) === true ||
+    ["RUNTIME", "RUNTIME_STATE", "RUNTIME_HEALTH", "LIVE"].includes(
+      normalizedUpper(firstDefined(value.semantic_kind, value.semanticKind, observation.semantic_kind, observation.semanticKind))
+    );
+  const staticSource =
+    QF11_STATIC_SOURCES.has(sourceKind) ||
+    /(?:STATIC|SNAPSHOT|INDEX|MANIFEST|GRAPHIFY|CODEGRAPH)/u.test(sourceKind);
+  if (runtimeClaim && (staticSource || sourceKind === "")) {
+    add(
+      qf11Finding({
+        code: "STATIC_AS_RUNTIME",
+        severity: "HIGH",
+        reason: "static source/index evidence is labelled or consumed as runtime state",
+        sourceAnchors,
+        contractAnchors
+      })
+    );
+  }
+
+  const invocation = firstObject(value.invocation, value.query_invocation, observation.invocation);
+  const invocationBound = qf11Flag(
+    value.invocation_bound,
+    value.invocationBound,
+    value.target_bound,
+    value.targetBound,
+    observation.invocation_bound,
+    observation.invocationBound,
+    observation.target_bound,
+    observation.targetBound,
+    invocation.bound
+  );
+  const invocationHasTarget =
+    nonEmpty(firstDefined(invocation.target_sha, invocation.targetSha, invocation.repo_sha, invocation.repoSha)) &&
+    nonEmpty(firstDefined(invocation.target_tree, invocation.targetTree, invocation.tree_sha, invocation.treeSha));
+  if (invocationBound !== true || Object.keys(invocation).length === 0 || !invocationHasTarget) {
+    add(
+      qf11Finding({
+        code: "INVOCATION_NOT_BOUND",
+        severity: "HIGH",
+        reason: "the graph invocation lacks an exact target SHA/tree binding",
+        sourceAnchors,
+        contractAnchors
+      })
+    );
+  }
+
+  const identityField = normalizedString(
+    firstDefined(
+      value.identity_field,
+      value.identityField,
+      observation.identity_field,
+      observation.identityField,
+      observation.identity_name,
+      observation.identityName
+    )
+  ).toLowerCase();
+  const digestField = normalizedString(
+    firstDefined(
+      value.digest_field,
+      value.digestField,
+      observation.digest_field,
+      observation.digestField,
+      observation.digest_name,
+      observation.digestName
+    )
+  ).toLowerCase();
+  const identityValue = firstDefined(value.identity_value, value.identityValue, observation.identity_value, observation.identityValue);
+  const digestValue = firstDefined(value.digest_value, value.digestValue, observation.digest_value, observation.digestValue);
+  const explicitConflation =
+    qf11Flag(
+      value.identity_digest_conflated,
+      value.identityDigestConflated,
+      value.conflated,
+      observation.identity_digest_conflated,
+      observation.identityDigestConflated,
+      observation.conflated
+    ) === true;
+  const candidateDigestMisuse = [identityField, digestField].some((field) =>
+    field.includes("candidate_digest")
+  );
+  if (
+    explicitConflation ||
+    (identityField && digestField && identityField === digestField) ||
+    (nonEmpty(identityValue) && nonEmpty(digestValue) && identityValue === digestValue) ||
+    candidateDigestMisuse
+  ) {
+    add(
+      qf11Finding({
+        code: "IDENTITY_DIGEST_CONFLATION",
+        severity: "HIGH",
+        reason: "identity and content/observation digest semantics share one field or value",
+        sourceAnchors,
+        contractAnchors
+      })
+    );
+  }
+
+  const expectedName = normalizedString(
+    firstDefined(
+      value.expected_semantic_name,
+      value.expectedSemanticName,
+      value.expected_name,
+      value.expectedName,
+      contract.semantic_name,
+      contract.semanticName,
+      contract.identity_semantic_name,
+      contract.identitySemanticName
+    )
+  ).toLowerCase();
+  const actualName = normalizedString(
+    firstDefined(
+      value.semantic_name,
+      value.semanticName,
+      value.actual_semantic_name,
+      value.actualSemanticName,
+      value.actual_name,
+      value.actualName,
+      observation.semantic_name,
+      observation.semanticName,
+      observation.field_name,
+      observation.fieldName
+    )
+  ).toLowerCase();
+  const semanticNameMismatch = expectedName && actualName && expectedName !== actualName;
+  const runtimeNameOnStatic =
+    QF11_STATIC_SOURCES.has(sourceKind) && /(?:^|[_-])(runtime|live|current|health)(?:$|[_-])/u.test(actualName);
+  if (semanticNameMismatch || runtimeNameOnStatic) {
+    add(
+      qf11Finding({
+        code: "SEMANTIC_NAME_MISMATCH",
+        severity: "MEDIUM",
+        reason: semanticNameMismatch
+          ? `observed semantic name ${actualName} differs from contract name ${expectedName}`
+          : `semantic name ${actualName} does not describe static ${sourceKind.toLowerCase()} evidence`,
+        sourceAnchors,
+        contractAnchors
+      })
+    );
+  }
+
+  Object.defineProperties(findings, {
+    schema_version: { value: "QF11IdentityDigestSemanticsV1", enumerable: false },
+    status: { value: findings.length > 0 ? "FINDINGS" : "NO_FINDINGS", enumerable: false },
+    findings: { value: findings, enumerable: false }
+  });
+  return findings;
+}
+
 /**
  * Select a seam-local support route. Tool failure affects only the requested
  * seam; G0/G1 work remains actionable when the graph tools are unavailable.
@@ -2305,15 +2901,14 @@ export function routeGraphSupportQuestion(input = {}) {
   const value = input && typeof input === "object" ? input : {};
   const riskClass = String(value.risk_class ?? "G1").toUpperCase();
   const defaults = ROUTER_DEFAULTS[riskClass] || ROUTER_DEFAULTS.G1;
-  const sourceResolved = value.source_readback_resolved === true || value.sourceResolved === true;
+  const sourceResolved =
+    value.source_readback_resolved === true ||
+    value.sourceResolved === true ||
+    value.source_readback?.resolved === true;
   const codegraphAvailable = value.codegraph_available !== false;
-  const codegraphObserved = value.codegraph_observed === true || value.codegraph_admitted === true;
-  const codegraphAdmitted =
-    value.codegraph_admitted === true ||
-    (value.codegraph_observed === true &&
-      value.codegraph_execution_status === "PASS" &&
-      ["RELEVANT", "NOT_APPLICABLE"].includes(value.codegraph_relevance) &&
-      ["COMPLETE", "NOT_APPLICABLE"].includes(value.codegraph_coverage));
+  const codegraphAdmission = deriveCodeGraphAdmission(value);
+  const codegraphObserved = codegraphAdmission.observed;
+  const codegraphAdmitted = codegraphAdmission.admitted;
   const graphifyApplicable = value.graphify_applicable !== false;
   let questionAdmission = "SOURCE_FALLBACK";
   if (defaults.source_readback_required && !sourceResolved) questionAdmission = "HOLD_THIS_SEAM";
@@ -2350,6 +2945,7 @@ export function routeGraphSupportQuestion(input = {}) {
     codegraph_available: codegraphAvailable,
     codegraph_observed: codegraphObserved,
     codegraph_admitted: codegraphAdmitted,
+    codegraph_admission_reason: codegraphAdmission.reason,
     graphify_applicable: graphifyApplicable
   };
 }
