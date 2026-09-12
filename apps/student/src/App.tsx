@@ -31,6 +31,7 @@ import type {
   DecisionPayloadFieldPath,
   StudentBffCockpitDTO,
   StudentDecisionContextEvidence,
+  GSICrossRoundSelectionContext,
   W5GovernedModelStudentProjection,
   W3OfficialConsequenceContext
 } from "@simwar/shared-contracts";
@@ -84,10 +85,6 @@ const SHANGHAI_C0_RECEIPT_ID =
   typeof window === "undefined"
     ? ""
     : (new URLSearchParams(window.location.search).get("shanghaiC0ReceiptId")?.trim() ?? "");
-const GSI_CANDIDATE_ID =
-  typeof window === "undefined"
-    ? ""
-    : (new URLSearchParams(window.location.search).get("gsiCandidateId") ?? "");
 const ESL_CANDIDATE_ID =
   typeof window === "undefined"
     ? ""
@@ -100,6 +97,24 @@ const MODEL_QUALIFICATION_ID =
   typeof window === "undefined"
     ? ""
     : (new URLSearchParams(window.location.search).get("modelQualificationId") ?? "");
+
+export function readGSISelectionContext():
+  | Pick<
+      GSICrossRoundSelectionContext,
+      "course_id" | "run_id" | "team_id" | "activity_id" | "role_key"
+    >
+  | undefined {
+  if (typeof window === "undefined") return undefined;
+  const params = new URLSearchParams(window.location.search);
+  const values = {
+    course_id: params.get("gsi_course_id")?.trim() ?? "",
+    run_id: params.get("gsi_run_id")?.trim() ?? "",
+    team_id: params.get("gsi_team_id")?.trim() ?? "",
+    activity_id: params.get("gsi_activity_id")?.trim() ?? "",
+    role_key: params.get("gsi_role_key")?.trim() ?? ""
+  };
+  return Object.values(values).every(Boolean) ? values : undefined;
+}
 function readStoredReauthContext(): ReauthContext | null {
   if (typeof window === "undefined") return null;
   try {
@@ -513,6 +528,7 @@ export function App() {
     (assignedW3RoleKey ?? "CEO") as Parameters<typeof normalizeW027RoleKey>[0]
   );
   const w3QueryContext = readW3QueryContext();
+  const gsiSelectionContext = readGSISelectionContext();
   const w3Context =
     w3QueryContext ??
     (latestRun && latestRound && team
@@ -1226,9 +1242,9 @@ export function App() {
         {hasStudentSurface ? (
           <GovernedStakeholderIntelligenceProjection
             apiBase={API_BASE}
-            candidateId={GSI_CANDIDATE_ID}
             tenantId={login.tenantId}
             token={activeSession?.access_token ?? ""}
+            selectionContext={gsiSelectionContext}
           />
         ) : null}
 
