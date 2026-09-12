@@ -1,11 +1,13 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import type { ApiEnvelope, AuthSession, GSIReceipt } from "@simwar/shared-contracts";
+import type {
+  ApiEnvelope,
+  AuthSession,
+  GSIReceipt,
+  P0DemoState,
+  Round,
+  Run
+} from "@simwar/shared-contracts";
 import { cleanupPlaywrightStore } from "./store-isolation";
-import {
-  M2P5_ROUND_1_ID,
-  M2P5_ROUND_2_ID,
-  M2P5_RUN_ID
-} from "./m2-p5-decision-learning-crossround-fixture";
 
 const apiBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_API_PORT ?? 3100}`;
 const teacherBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_TEACHER_PORT ?? 3101}`;
@@ -59,18 +61,23 @@ async function signIn(page: Page, label: "教师登录" | "学员登录" | "管�
   }
 }
 
-function gsiCandidateRequest(roundId: string, idempotencyKey: string, influence: number) {
+function gsiCandidateRequest(
+  context: Pick<Run, "run_id" | "scenario_package_id" | "parameter_set_id">,
+  roundId: string,
+  idempotencyKey: string,
+  influence: number
+) {
   return {
     discriminator: "gsi_stakeholder_shadow_request",
     binding: {
       tenant_id: tenantId,
       course_id: "course_demo",
-      run_id: M2P5_RUN_ID,
+      run_id: context.run_id,
       round_id: roundId,
       team_id: "team_alpha",
-      scenario_package_id: "scenario_eldercare_demo",
+      scenario_package_id: context.scenario_package_id,
       scenario_version: "1.0.0",
-      parameter_set_id: "param_toy_approved_1",
+      parameter_set_id: context.parameter_set_id,
       parameter_set_version: "1.0.0",
       model_version_id: "gsi-stakeholder-resolver-v1",
       model_version: "1.0.0",
@@ -91,6 +98,122 @@ function gsiCandidateRequest(roundId: string, idempotencyKey: string, influence:
     ],
     idempotency_key: idempotencyKey
   };
+}
+
+async function publishRoundOne(
+  request: APIRequestContext,
+  teacherToken: string,
+  runId: string,
+  roundId: string
+): Promise<void> {
+  await api<Round>(request, `/api/v1/runs/${runId}/rounds/1/start`, {
+    method: "POST",
+    token: teacherToken
+  });
+
+  const roleParticipants = [
+    {
+      password: "student",
+      payload: { strategy_statement: "complete the first round before continuing the same Run" },
+      roleKey: "CEO",
+      userId: "usr_student",
+      username: "student"
+    },
+    {
+      password: "default_cfo",
+      payload: { cash_buffer_target: 0.16, service_quality_budget: 160000 },
+      roleKey: "CFO",
+      userId: "usr_default_cfo",
+      username: "default_cfo"
+    },
+    {
+      password: "default_cmo",
+      payload: { marketing_budget: 180000, pricing: { base_price: 12800 } },
+      roleKey: "CMO",
+      userId: "usr_default_cmo",
+      username: "default_cmo"
+    },
+    {
+      password: "default_coo",
+      payload: { capacity_plan: "expand" },
+      roleKey: "COO",
+      userId: "usr_default_coo",
+      username: "default_coo"
+    }
+  ] as const;
+
+  for (const participant of roleParticipants) {
+    await api(request, "/api/v1/bff/teacher/role-workflows/assignments", {
+      body: {
+        course_id: "course_demo",
+        role_key: participant.roleKey,
+        run_id: runId,
+        team_id: "team_alpha",
+        user_id: participant.userId
+      },
+      method: "PUT",
+      token: teacherToken
+    });
+    const participantToken = await loginApi(request, participant.username, participant.password);
+    const section = await api<{ version: number }>(
+      request,
+      "/api/v1/bff/student/role-workspace/section",
+      {
+        body: {
+          expected_version: 0,
+          payload: participant.payload,
+          round_id: roundId,
+          run_id: runId,
+          team_id: "team_alpha"
+        },
+        method: "PUT",
+        token: participantToken
+      }
+    );
+    await api<unknown>(request, "/api/v1/bff/student/role-workspace/ready", {
+      body: {
+        expected_version: section.version,
+        round_id: roundId,
+        run_id: runId,
+        team_id: "team_alpha"
+      },
+      method: "POST",
+      token: participantToken
+    });
+  }
+
+  const ceoToken = await loginApi(request, "student", "student");
+  const merge = await api<{ merge_commit_id: string }>(
+    request,
+    "/api/v1/bff/student/role-workspace/merge",
+    {
+      body: { round_id: roundId, run_id: runId, team_id: "team_alpha" },
+      method: "POST",
+      token: ceoToken
+    }
+  );
+  await api<unknown>(request, "/api/v1/bff/student/role-workspace/confirm", {
+    body: {
+      merge_commit_id: merge.merge_commit_id,
+      round_id: roundId,
+      run_id: runId,
+      team_id: "team_alpha"
+    },
+    method: "POST",
+    token: ceoToken
+  });
+  await api<Round>(request, `/api/v1/runs/${runId}/rounds/1/lock`, {
+    method: "POST",
+    token: teacherToken
+  });
+  await api(request, `/api/v1/runs/${runId}/rounds/1/settle`, {
+    method: "POST",
+    token: teacherToken
+  });
+  await api<Round>(request, `/api/v1/runs/${runId}/rounds/1/publish`, {
+    method: "POST",
+    token: teacherToken
+  });
 }
 
 test.afterEach(() => {
@@ -171,13 +294,45 @@ test("GSI-O3 exposes the existing cross-round compare BFF in Teacher and Student
   request
 }) => {
   const teacherToken = await loginApi(request, "teacher", "teacher");
+  const created = await api<{ run: Run; round: Round }>(
+    request,
+    "/api/v1/courses/course_demo/runs",
+    {
+      method: "POST",
+      token: teacherToken
+    }
+  );
+  const run = created.run;
+  await publishRoundOne(request, teacherToken, run.run_id, created.round.round_id);
+
+  await page.goto(teacherBaseUrl);
+  await signIn(page, "教师登录", "teacher");
+  await page.getByLabel("run selector").selectOption(run.run_id);
+  await expect(page.getByText("Historical Run · read-only")).toBeVisible();
+  await page.getByRole("button", { name: "创建下一回合" }).click();
+  await expect(page.getByRole("status", { name: "教师操作通知" })).toContainText(
+    "下一回合已创建并切换到新回合"
+  );
+
+  const state = await api<P0DemoState>(request, "/api/v1/demo-state", {
+    token: teacherToken
+  });
+  const roundOne = state.rounds.find(
+    (candidate) => candidate.run_id === run.run_id && candidate.round_no === 1
+  );
+  const roundTwo = state.rounds.find(
+    (candidate) => candidate.run_id === run.run_id && candidate.round_no === 2
+  );
+  expect(roundOne?.status).toBe("published");
+  expect(roundTwo?.status).toBe("draft");
+
   const from = await api<GSIReceipt>(request, "/api/v1/bff/teacher/gsi/candidates", {
-    body: gsiCandidateRequest(M2P5_ROUND_1_ID, "gsi_o3_browser_from", 0.25),
+    body: gsiCandidateRequest(run, roundOne!.round_id, "gsi_o3_browser_from", 0.25),
     method: "POST",
     token: teacherToken
   });
   const to = await api<GSIReceipt>(request, "/api/v1/bff/teacher/gsi/candidates", {
-    body: gsiCandidateRequest(M2P5_ROUND_2_ID, "gsi_o3_browser_to", 0.75),
+    body: gsiCandidateRequest(run, roundTwo!.round_id, "gsi_o3_browser_to", 0.75),
     method: "POST",
     token: teacherToken
   });
