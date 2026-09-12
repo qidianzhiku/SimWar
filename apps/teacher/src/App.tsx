@@ -20,7 +20,7 @@ import {
   validateReauthIdentity,
   type ReauthContext
 } from "@simwar/shared-contracts";
-import { StatePanel } from "@simwar/ui";
+import { GsiCrossRoundInsightPanel, StatePanel } from "@simwar/ui";
 import type {
   ApiEnvelope,
   AuthSession,
@@ -3780,6 +3780,14 @@ export function App() {
       </TeacherLocation>
 
       <TeacherLocation id="teacher-debrief">
+        {isTeacher && session ? (
+          <GsiCrossRoundInsightPanel
+            apiBase={API_BASE}
+            surface="teacher"
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
+        ) : null}
         {isTeacher && session ? (
           <Suspense fallback={<p className="muted">正在载入教师复盘…</p>}>
             <TeacherDebriefWorkspace

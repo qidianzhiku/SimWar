@@ -1,6 +1,11 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import type { ApiEnvelope, AuthSession } from "@simwar/shared-contracts";
+import type { ApiEnvelope, AuthSession, GSIReceipt } from "@simwar/shared-contracts";
 import { cleanupPlaywrightStore } from "./store-isolation";
+import {
+  M2P5_ROUND_1_ID,
+  M2P5_ROUND_2_ID,
+  M2P5_RUN_ID
+} from "./m2-p5-decision-learning-crossround-fixture";
 
 const apiBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_API_PORT ?? 3100}`;
 const teacherBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_TEACHER_PORT ?? 3101}`;
@@ -52,6 +57,40 @@ async function signIn(page: Page, label: "教师登录" | "学员登录" | "管�
   } else {
     await expect(page.getByText("signed in").first()).toBeVisible();
   }
+}
+
+function gsiCandidateRequest(roundId: string, idempotencyKey: string, influence: number) {
+  return {
+    discriminator: "gsi_stakeholder_shadow_request",
+    binding: {
+      tenant_id: tenantId,
+      course_id: "course_demo",
+      run_id: M2P5_RUN_ID,
+      round_id: roundId,
+      team_id: "team_alpha",
+      scenario_package_id: "scenario_eldercare_demo",
+      scenario_version: "1.0.0",
+      parameter_set_id: "param_toy_approved_1",
+      parameter_set_version: "1.0.0",
+      model_version_id: "gsi-stakeholder-resolver-v1",
+      model_version: "1.0.0",
+      model_artifact_id: "artifact:gsi-stakeholder-resolver-v1:1.0.0",
+      model_artifact_version: "1.0.0"
+    },
+    plane_mode: "OFF",
+    publication_status: "PUBLISHED",
+    proposals: [
+      {
+        proposal_id: `${idempotencyKey}_customer`,
+        stakeholder_type: "customer",
+        intent: "protect_demand",
+        priority: 0.8,
+        influence,
+        summary: "O3 browser candidate"
+      }
+    ],
+    idempotency_key: idempotencyKey
+  };
 }
 
 test.afterEach(() => {
@@ -125,4 +164,50 @@ test("GSI product journey uses real BFF across Teacher, Student and Admin", asyn
   expect(gsiRequests.filter((url) => url.includes("/student/gsi/")).length).toBeGreaterThan(0);
   expect(gsiRequests.filter((url) => url.includes("/admin/gsi/")).length).toBeGreaterThan(0);
   expect(round.round_no).toBe(1);
+});
+
+test("GSI-O3 exposes the existing cross-round compare BFF in Teacher and Student debriefs", async ({
+  page,
+  request
+}) => {
+  const teacherToken = await loginApi(request, "teacher", "teacher");
+  const from = await api<GSIReceipt>(request, "/api/v1/bff/teacher/gsi/candidates", {
+    body: gsiCandidateRequest(M2P5_ROUND_1_ID, "gsi_o3_browser_from", 0.25),
+    method: "POST",
+    token: teacherToken
+  });
+  const to = await api<GSIReceipt>(request, "/api/v1/bff/teacher/gsi/candidates", {
+    body: gsiCandidateRequest(M2P5_ROUND_2_ID, "gsi_o3_browser_to", 0.75),
+    method: "POST",
+    token: teacherToken
+  });
+  const query = new URLSearchParams({
+    gsiFromCandidateId: from.candidate_id,
+    gsiToCandidateId: to.candidate_id,
+    gsiActivityId: "activity_gsi_o3",
+    gsiRoleKey: "CEO"
+  }).toString();
+
+  await page.goto(`${teacherBaseUrl}/?${query}#teacher-debrief`);
+  await signIn(page, "教师登录", "teacher");
+  const teacherPanel = page.getByRole("region", { name: "Teacher GSI cross-round insight" });
+  await expect(teacherPanel).toBeVisible();
+  await expect(teacherPanel).toHaveAttribute("data-state", /^(SUCCESS|CONTEXT_UNAVAILABLE)$/);
+  await expect(teacherPanel.getByTestId("gsi-o3-teacher-summary")).toBeVisible();
+  await expect(teacherPanel.getByTestId("gsi-o3-movements")).toContainText(
+    "customer / protect_demand"
+  );
+
+  await page.goto(`${studentBaseUrl}/?${query}#student-debrief`);
+  await signIn(page, "学员登录", "student");
+  const studentPanel = page.getByRole("region", { name: "Student GSI cross-round insight" });
+  await expect(studentPanel).toBeVisible();
+  await expect(studentPanel).toHaveAttribute("data-state", /^(SUCCESS|CONTEXT_UNAVAILABLE)$/);
+  await expect(studentPanel.getByTestId("gsi-o3-student-summary")).toBeVisible();
+  await expect(studentPanel.getByTestId("gsi-o3-movements")).toContainText(
+    "customer / protect_demand"
+  );
+  await expect(studentPanel).not.toContainText(from.candidate_id);
+  await expect(studentPanel).not.toContainText(to.candidate_id);
+  await expect(studentPanel).not.toContainText("comparison_digest");
 });

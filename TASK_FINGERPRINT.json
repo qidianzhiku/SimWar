@@ -1,0 +1,57 @@
+{
+  "schema_version": "simwar.task_fingerprint.v1",
+  "mission_id": "SIMWAR-LK-V4.2-MAIN-GSI-O3-CROSS-ROUND-INSIGHT-CONSUMER-ADOPTION-MACRO-06-20260911",
+  "lane": "MAIN",
+  "product_area": "GSI",
+  "captured_before_local_knowledge": true,
+  "captured_at": "2026-09-11",
+  "repository": "qidianzhiku/SimWar",
+  "base_ref": "origin/master",
+  "base_sha": "1e668f705c842e39486f46a93a9d14e0a970cb57",
+  "owner_objective": "Make the existing GSI cross-round comparison capability reachable from Teacher and Student product result/debrief surfaces without creating a new backend authority.",
+  "target_state": "GSI_O3_TEACHER_STUDENT_CROSS_ROUND_INSIGHT_UI_REACHABLE + EXISTING_GSI_COMPARE_CONTRACT_REUSED_WITHOUT_NEW_BACKEND_AUTHORITY + TEACHER_AND_STUDENT_ROLE_SAFE_STATES_VERIFIED + FRONTEND_BROWSER_VALIDATION_CLOSED + ONE_PRODUCT_PR_OPEN_WITH_CURRENT_CHECKS_CLASSIFIED + LOCAL_KNOWLEDGE_TASK_VALUE_CAUSALLY_CLASSIFIED",
+  "current_pr_or_issue": "PR #511 is merged lineage only; no current O3 product PR exists at baseline.",
+  "affected_services": [
+    "apps/teacher",
+    "apps/student",
+    "services/api GSI compare BFF (read-only reuse only)",
+    "packages/shared-contracts GSI projection types (read-only reuse only)"
+  ],
+  "affected_routes": [
+    "/api/v1/bff/teacher/gsi/candidates/compare",
+    "/api/v1/bff/student/gsi/candidates/compare"
+  ],
+  "affected_contracts": [
+    "GSICrossRoundTeacherProjection",
+    "GSICrossRoundStudentProjection",
+    "gsi-cross-round-comparison.v1"
+  ],
+  "expected_files": [
+    "apps/teacher/src/App.tsx",
+    "apps/student/src/App.tsx",
+    "apps/teacher/src/styles.css",
+    "apps/student/src/styles.css",
+    "one shared UI component under packages/ui or equivalent current UI scope",
+    "focused GSI component/browser tests"
+  ],
+  "known_baseline_gaps": [
+    "No public Teacher cross-round compare consumer found.",
+    "No public Student cross-round compare consumer found.",
+    "Existing GSI candidate create/read panels are not cross-round movement consumers.",
+    "Local Knowledge has not been queried; no knowledge-assisted value is claimed."
+  ],
+  "forbidden_changes": [
+    "services/simulation-core",
+    "settlement/replay/canonical decision truth",
+    "database migrations",
+    "new GSI backend route/service/store/registry/writer",
+    "Provider activation",
+    "Figma writes",
+    "product semantics outside GSI-O3"
+  ],
+  "baseline_decision": "EXTEND_EXISTING",
+  "baseline_decision_reason": "The exact GSI compare contract and backend seam exist; only the role-safe Teacher/Student product consumers are missing.",
+  "figma_state": "FIGMA_TARGET_UNRESOLVED_NONBLOCKING",
+  "automatic_next_start": false,
+  "merge_authorized": false
+}

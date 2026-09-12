@@ -71,6 +71,7 @@ import {
   AppShell,
   AuthorityBadge,
   ContextBar,
+  GsiCrossRoundInsightPanel,
   KnownLimitBanner,
   RoleNavigation,
   StatePanel,
@@ -1488,6 +1489,12 @@ export function App() {
 
         {hasStudentSurface ? (
           <section id="student-debrief" className="student-location" aria-label="复盘">
+            <GsiCrossRoundInsightPanel
+              apiBase={API_BASE}
+              surface="student"
+              tenantId={login.tenantId}
+              token={activeSession?.access_token ?? ""}
+            />
             <WorkbenchFrame
               ariaLabel="复盘"
               eyebrow="反馈"
