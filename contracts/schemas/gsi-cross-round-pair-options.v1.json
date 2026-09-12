@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/gsi-cross-round-pair-options.v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "surface",
+    "context",
+    "rounds",
+    "provider",
+    "official_truth_write",
+    "non_causal",
+    "causal_proof",
+    "known_limits"
+  ],
+  "properties": {
+    "surface": { "enum": ["teacher", "student", "admin"] },
+    "context": { "$ref": "#/$defs/context" },
+    "rounds": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/round" }
+    },
+    "provider": { "const": "OFF" },
+    "official_truth_write": { "const": false },
+    "non_causal": { "const": true },
+    "causal_proof": { "const": false },
+    "known_limits": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "exactString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!latest$)(?!current$)(?!default$)(?!fallback$)(?!first$)(?!last$)(?!newest$)\\S(?:.*\\S)?$"
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tenant_id", "course_id", "run_id", "team_id", "activity_id", "role_key"],
+      "properties": {
+        "tenant_id": { "$ref": "#/$defs/exactString" },
+        "course_id": { "$ref": "#/$defs/exactString" },
+        "run_id": { "$ref": "#/$defs/exactString" },
+        "team_id": { "$ref": "#/$defs/exactString" },
+        "activity_id": { "$ref": "#/$defs/exactString" },
+        "role_key": { "$ref": "#/$defs/exactString" }
+      }
+    },
+    "round": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["round_id", "round_no"],
+      "properties": {
+        "round_id": { "$ref": "#/$defs/exactString" },
+        "round_no": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

@@ -72,7 +72,11 @@ const GovernedIntelligenceAuditPanel = lazy(() =>
     })
   )
 );
-import { GovernedStakeholderIntelligenceAuditPanel } from "./GovernedStakeholderIntelligenceAuditPanel";
+const GovernedStakeholderIntelligenceAuditPanel = lazy(() =>
+  import("./GovernedStakeholderIntelligenceAuditPanel").then(
+    ({ GovernedStakeholderIntelligenceAuditPanel: Component }) => ({ default: Component })
+  )
+);
 const ExecutiveStrategyLabAuditPanel = lazy(() =>
   import("./ExecutiveStrategyLabAuditPanel").then(
     ({ ExecutiveStrategyLabAuditPanel: Component }) => ({
@@ -1232,11 +1236,13 @@ export function App() {
           />
         ) : null}
         {session && hasAdminSummaryRole ? (
-          <GovernedStakeholderIntelligenceAuditPanel
-            apiBase={API_BASE}
-            tenantId={login.tenantId}
-            token={session.access_token}
-          />
+          <Suspense fallback={<p className="muted">正在载入 GSI-XR audit…</p>}>
+            <GovernedStakeholderIntelligenceAuditPanel
+              apiBase={API_BASE}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+          </Suspense>
         ) : null}
         {session && hasAdminSummaryRole ? (
           <Suspense fallback={<p className="muted">正在载入 Governed Intelligence audit…</p>}>

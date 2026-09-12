@@ -24,6 +24,7 @@ import { StatePanel } from "@simwar/ui";
 import type {
   ApiEnvelope,
   AuthSession,
+  BffDtoScenarioReference,
   CoursePackageVersionCloneInput,
   CoursePackageVersionTeacherDto,
   GSIExactBinding,
@@ -167,6 +168,83 @@ const O4_ENABLED =
   import.meta.env.VITE_SIMWAR_O4_ENABLED === "true" ||
   (typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("o4") === "true");
+
+export interface ExactTeacherGsiBindingInput {
+  tenantId: string;
+  selectedRun?:
+    | Pick<Run, "run_id" | "tenant_id" | "course_id" | "scenario_package_id" | "parameter_set_id">
+    | null
+    | undefined;
+  selectedRound?: Pick<Round, "round_id" | "tenant_id" | "run_id"> | null | undefined;
+  teams: readonly { team_id: string }[];
+  selectedTeamId?: string | null | undefined;
+  persistedTeamId?: string | null | undefined;
+  scenarioReference?:
+    | Pick<
+        BffDtoScenarioReference,
+        "scenario_package_id" | "scenario_version" | "parameter_set_id" | "parameter_set_version"
+      >
+    | null
+    | undefined;
+}
+
+export function buildExactTeacherGsiBinding(
+  input: ExactTeacherGsiBindingInput
+): GSIExactBinding | undefined {
+  const selectedRun = input.selectedRun;
+  const selectedRound = input.selectedRound;
+  const reference = input.scenarioReference;
+  const teamIds = new Set(input.teams.map((team) => team.team_id));
+  const teamId = [input.selectedTeamId, input.persistedTeamId].find(
+    (candidate): candidate is string => Boolean(candidate && teamIds.has(candidate))
+  );
+  const scenarioVersion = reference?.scenario_version?.trim();
+  const parameterSetVersion = reference?.parameter_set_version?.trim();
+
+  if (
+    !input.tenantId.trim() ||
+    !selectedRun ||
+    !selectedRound ||
+    selectedRun.tenant_id !== input.tenantId ||
+    selectedRound.tenant_id !== input.tenantId ||
+    selectedRound.run_id !== selectedRun.run_id ||
+    !teamId ||
+    reference?.scenario_package_id !== selectedRun.scenario_package_id ||
+    reference.parameter_set_id !== selectedRun.parameter_set_id ||
+    !scenarioVersion ||
+    !parameterSetVersion
+  ) {
+    return undefined;
+  }
+
+  return {
+    tenant_id: input.tenantId,
+    course_id: selectedRun.course_id,
+    run_id: selectedRun.run_id,
+    round_id: selectedRound.round_id,
+    team_id: teamId,
+    scenario_package_id: selectedRun.scenario_package_id,
+    scenario_version: scenarioVersion,
+    parameter_set_id: selectedRun.parameter_set_id,
+    parameter_set_version: parameterSetVersion,
+    model_version_id: "gsi-stakeholder-resolver-v1",
+    model_version: "1.0.0",
+    model_artifact_id: "artifact:gsi-stakeholder-resolver-v1:1.0.0",
+    model_artifact_version: "1.0.0"
+  };
+}
+
+export function TeacherGsiMissingContextPanel() {
+  return (
+    <section className="panel form-panel" aria-label="GSI-XR missing context">
+      <p className="eyebrow">GSI-XR · MISSING_CONTEXT</p>
+      <h3>尚未具备精确的 GSI 上下文</h3>
+      <p className="muted">
+        请重新选择明确的课程、Run、回合和队伍；在完整上下文恢复前，不会载入 GSI 比较结果。
+      </p>
+    </section>
+  );
+}
 
 function readStoredReauthContext(): ReauthContext | null {
   if (typeof window === "undefined") return null;
@@ -885,17 +963,24 @@ export function App() {
   const replaySummary = workspace?.teacher_replay_summary;
   const isTeacher = session?.user.roles.includes("teacher") ?? false;
   const w3Team = teacherTeamsForRun.find((candidate) => candidate.team_id === activeTeacherTeamId);
-  const gsiTeam =
-    teacherTeamsForRun.find((candidate) => candidate.team_id === activeTeacherTeamId) ??
-    teacherTeamsForRun[0];
-  const gsiBinding: GSIExactBinding | undefined =
-    selectedRun && selectedRound && gsiTeam
+  const gsiBinding = buildExactTeacherGsiBinding({
+    tenantId: login.tenantId,
+    selectedRun,
+    selectedRound,
+    teams: teacherTeamsForRun,
+    selectedTeamId: selectedTeacherTeamId,
+    persistedTeamId: reauthContext?.team_id,
+    scenarioReference: workspace?.course_workspace?.scenario_reference
+  });
+  const eslBinding: ESLExactBinding | undefined =
+    selectedRun && eslSourceRound && w3Team
       ? {
           tenant_id: login.tenantId,
           course_id: selectedRun.course_id,
           run_id: selectedRun.run_id,
-          round_id: selectedRound.round_id,
-          team_id: gsiTeam.team_id,
+          team_id: w3Team.team_id,
+          round_id: eslSourceRound.round_id,
+          round_no: eslSourceRound.round_no,
           scenario_package_id: selectedRun.scenario_package_id,
           scenario_version:
             workspace?.course_workspace?.scenario_reference?.scenario_version ?? "1.0.0",
@@ -905,15 +990,7 @@ export function App() {
           model_version_id: "gsi-stakeholder-resolver-v1",
           model_version: "1.0.0",
           model_artifact_id: "artifact:gsi-stakeholder-resolver-v1:1.0.0",
-          model_artifact_version: "1.0.0"
-        }
-      : undefined;
-  const eslBinding: ESLExactBinding | undefined =
-    gsiBinding && eslSourceRound
-      ? {
-          ...gsiBinding,
-          round_id: eslSourceRound.round_id,
-          round_no: eslSourceRound.round_no,
+          model_artifact_version: "1.0.0",
           engine_id: "toy_logit_wellness_v1",
           plugin_ids: ["plugin_wellness_stub"],
           seed: 79
@@ -2617,13 +2694,17 @@ export function App() {
             />
           </Suspense>
         ) : null}
-        {isTeacher && session && gsiBinding ? (
-          <GovernedStakeholderIntelligenceWorkspace
-            apiBase={API_BASE}
-            binding={gsiBinding}
-            tenantId={login.tenantId}
-            token={session.access_token}
-          />
+        {isTeacher && session ? (
+          gsiBinding ? (
+            <GovernedStakeholderIntelligenceWorkspace
+              apiBase={API_BASE}
+              binding={gsiBinding}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+          ) : (
+            <TeacherGsiMissingContextPanel />
+          )
         ) : null}
         {isTeacher && session && eslBinding ? (
           <Suspense fallback={<p className="muted">正在载入 Executive Strategy Lab…</p>}>

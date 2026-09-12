@@ -214,6 +214,30 @@ export interface GSICrossRoundComparison {
   known_limits: readonly string[];
 }
 
+export interface GSICrossRoundSelectionContext {
+  course_id: string;
+  run_id: string;
+  team_id: string;
+  activity_id: string;
+  role_key: string;
+}
+
+export interface GSICrossRoundPairOption {
+  round_id: string;
+  round_no: number;
+}
+
+export interface GSICrossRoundPairOptions {
+  surface: "teacher" | "student" | "admin";
+  context: GSICrossRoundSelectionContext & { tenant_id: string };
+  rounds: readonly GSICrossRoundPairOption[];
+  provider: typeof GSI_PROVIDER;
+  official_truth_write: false;
+  non_causal: true;
+  causal_proof: false;
+  known_limits: readonly string[];
+}
+
 export interface GSICrossRoundTeacherProjection {
   surface: "teacher";
   comparison: GSICrossRoundComparison;

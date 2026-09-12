@@ -20,6 +20,8 @@ import {
   type GSITeacherProjection,
   type GSIStakeholderType,
   type GSICrossRoundAdminProjection,
+  type GSICrossRoundPairOptions,
+  type GSICrossRoundSelectionContext,
   type GSICrossRoundStudentProjection,
   type GSICrossRoundTeacherProjection,
   type W020AdvisoryContext,
@@ -60,6 +62,8 @@ export class GSIStakeholderShadowPlaneError extends Error {
       | "GSI_COMPARISON_INVALID"
       | "GSI_REBASE_REQUIRED"
       | "GSI_CONTEXT_UNAVAILABLE"
+      | "GSI_PAIR_NOT_AVAILABLE"
+      | "GSI_PAIR_AMBIGUOUS"
   ) {
     super(code);
     this.name = "GSIStakeholderShadowPlaneError";
@@ -67,6 +71,8 @@ export class GSIStakeholderShadowPlaneError extends Error {
 }
 
 type GSIActor = Pick<CurrentUser, "user_id" | "tenant_id" | "roles" | "team_id">;
+
+export type GSIRequestSurface = "teacher" | "student" | "admin";
 
 function clone<T>(value: T): T {
   return structuredClone(value);
@@ -120,6 +126,70 @@ function isTeacherLike(actor: GSIActor): boolean {
 
 function isStudentLike(actor: GSIActor): boolean {
   return actor.roles.some((role) => ["student", "learner", "team_captain"].includes(role));
+}
+
+function surfaceForActor(actor: GSIActor): "teacher" | "student" | "admin" | null {
+  return actor.roles.some((role) => ["tenant_admin", "platform_admin"].includes(role))
+    ? "admin"
+    : isStudentLike(actor)
+      ? "student"
+      : isTeacherLike(actor)
+        ? "teacher"
+        : null;
+}
+
+function surfaceForRequest(
+  actor: GSIActor,
+  requestedSurface?: GSIRequestSurface
+): GSIRequestSurface {
+  if (!requestedSurface) {
+    const inferredSurface = surfaceForActor(actor);
+    if (!inferredSurface) throw new GSIStakeholderShadowPlaneError("GSI_FORBIDDEN");
+    return inferredSurface;
+  }
+  const authorized =
+    requestedSurface === "admin"
+      ? actor.roles.some((role) => ["tenant_admin", "platform_admin"].includes(role))
+      : requestedSurface === "student"
+        ? isStudentLike(actor)
+        : isTeacherLike(actor);
+  if (!authorized) throw new GSIStakeholderShadowPlaneError("GSI_FORBIDDEN");
+  return requestedSurface;
+}
+
+function assertExactSelectionValue(value: string): void {
+  if (
+    !value ||
+    value.trim() !== value ||
+    ["latest", "current", "default", "fallback", "first", "last", "newest"].includes(
+      value.toLowerCase()
+    )
+  ) {
+    throw new GSIStakeholderShadowPlaneError("GSI_INPUT_INVALID");
+  }
+}
+
+function assertSelectionContext(input: GSICrossRoundSelectionContext): void {
+  for (const value of Object.values(input)) assertExactSelectionValue(value);
+}
+
+function sameProducerLineage(left: GSIRecord, right: GSIRecord): boolean {
+  const leftBinding = left.request.binding;
+  const rightBinding = right.request.binding;
+  return (
+    leftBinding.tenant_id === rightBinding.tenant_id &&
+    leftBinding.course_id === rightBinding.course_id &&
+    leftBinding.run_id === rightBinding.run_id &&
+    leftBinding.team_id === rightBinding.team_id &&
+    leftBinding.scenario_package_id === rightBinding.scenario_package_id &&
+    leftBinding.scenario_version === rightBinding.scenario_version &&
+    leftBinding.parameter_set_id === rightBinding.parameter_set_id &&
+    leftBinding.parameter_set_version === rightBinding.parameter_set_version &&
+    leftBinding.model_version_id === rightBinding.model_version_id &&
+    leftBinding.model_version === rightBinding.model_version &&
+    leftBinding.model_artifact_id === rightBinding.model_artifact_id &&
+    leftBinding.model_artifact_version === rightBinding.model_artifact_version
+  );
 }
 
 function assertBinding(binding: GSIExactBinding, actor: GSIActor): void {
@@ -327,6 +397,15 @@ export interface GSICrossRoundComparisonQuery {
   readonly expected_context_digest?: string;
 }
 
+export interface GSICrossRoundRoundPairQuery extends GSICrossRoundSelectionContext {
+  readonly from_round_id: string;
+  readonly to_round_id: string;
+  readonly expected_comparison_digest?: string;
+  readonly expected_context_digest?: string;
+}
+
+export type GSICrossRoundPairOptionsQuery = GSICrossRoundSelectionContext;
+
 export class GSIStakeholderShadowPlaneService {
   private readonly gateway: ReturnType<typeof createDeterministicMockGateway>;
   private readonly now: () => string;
@@ -523,18 +602,12 @@ export class GSIStakeholderShadowPlaneService {
   async compareCandidates(
     actor: GSIActor,
     input: GSICrossRoundComparisonQuery,
-    tenantId = actor.tenant_id
+    tenantId = actor.tenant_id,
+    requestedSurface?: GSIRequestSurface
   ): Promise<
     GSICrossRoundTeacherProjection | GSICrossRoundAdminProjection | GSICrossRoundStudentProjection
   > {
-    const surface = actor.roles.some((role) => ["tenant_admin", "platform_admin"].includes(role))
-      ? "admin"
-      : isStudentLike(actor)
-        ? "student"
-        : isTeacherLike(actor)
-          ? "teacher"
-          : null;
-    if (!surface) throw new GSIStakeholderShadowPlaneError("GSI_FORBIDDEN");
+    const surface = surfaceForRequest(actor, requestedSurface);
     if (tenantId !== actor.tenant_id && !actor.roles.includes("platform_admin")) {
       throw new GSIStakeholderShadowPlaneError("GSI_FORBIDDEN");
     }
@@ -546,6 +619,10 @@ export class GSIStakeholderShadowPlaneService {
     ) {
       throw new GSIStakeholderShadowPlaneError("GSI_INPUT_INVALID");
     }
+    assertExactSelectionValue(input.from_candidate_id);
+    assertExactSelectionValue(input.to_candidate_id);
+    assertExactSelectionValue(input.activity_id);
+    assertExactSelectionValue(input.role_key);
     if (input.from_candidate_id === input.to_candidate_id) {
       throw new GSIStakeholderShadowPlaneError("GSI_COMPARISON_INVALID");
     }
@@ -553,6 +630,211 @@ export class GSIStakeholderShadowPlaneService {
       this.getRecord(tenantId, input.from_candidate_id),
       this.getRecord(tenantId, input.to_candidate_id)
     ]);
+    return this.compareRecordPair(actor, surface, tenantId, input, fromRecord, toRecord);
+  }
+
+  async getPairOptions(
+    actor: GSIActor,
+    input: GSICrossRoundPairOptionsQuery,
+    tenantId = actor.tenant_id,
+    requestedSurface?: GSIRequestSurface
+  ): Promise<GSICrossRoundPairOptions> {
+    const surface = surfaceForRequest(actor, requestedSurface);
+    if (tenantId !== actor.tenant_id && !actor.roles.includes("platform_admin")) {
+      throw new GSIStakeholderShadowPlaneError("GSI_FORBIDDEN");
+    }
+    assertSelectionContext({
+      course_id: input.course_id,
+      run_id: input.run_id,
+      team_id: input.team_id,
+      activity_id: input.activity_id,
+      role_key: input.role_key
+    });
+    if (surface === "student" && input.team_id !== actor.team_id) {
+      throw new GSIStakeholderShadowPlaneError("GSI_FORBIDDEN");
+    }
+    const records = (await this.dependencies.repository.list(tenantId)).filter((record) => {
+      const binding = record.request.binding;
+      return (
+        binding.tenant_id === tenantId &&
+        binding.course_id === input.course_id &&
+        binding.run_id === input.run_id &&
+        binding.team_id === input.team_id
+      );
+    });
+    const visibleRecords: GSIRecord[] = [];
+    for (const record of records) {
+      try {
+        await this.readSelectionSnapshot(
+          actor,
+          surface,
+          tenantId,
+          input,
+          record.request.binding.round_id,
+          record
+        );
+        visibleRecords.push(record);
+      } catch (error) {
+        if (
+          surface === "student" &&
+          error instanceof GSIStakeholderShadowPlaneError &&
+          error.code === "GSI_PAIR_NOT_AVAILABLE"
+        ) {
+          continue;
+        }
+        throw error;
+      }
+    }
+    const grouped = new Map<string, GSIRecord[]>();
+    for (const record of visibleRecords) {
+      const roundRecords = grouped.get(record.request.binding.round_id) ?? [];
+      roundRecords.push(record);
+      grouped.set(record.request.binding.round_id, roundRecords);
+    }
+    const rounds: Array<{ round_id: string; round_no: number }> = [];
+    for (const [roundId, roundRecords] of grouped) {
+      if (roundRecords.length !== 1) continue;
+      const record = roundRecords[0];
+      if (!record) continue;
+      const snapshot = await this.dependencies.roleWorkflow.readRoleWorkflow({
+        tenant_id: tenantId,
+        run_id: record.request.binding.run_id,
+        round_id: record.request.binding.round_id,
+        team_id: record.request.binding.team_id
+      });
+      assertContext(record.request.binding, snapshot);
+      if (!snapshot.round) throw new GSIStakeholderShadowPlaneError("GSI_CONTEXT_NOT_FOUND");
+      rounds.push({ round_id: roundId, round_no: snapshot.round.round_no });
+    }
+    rounds.sort((left, right) => {
+      const roundDifference = left.round_no - right.round_no;
+      if (roundDifference !== 0) return roundDifference;
+      return compareStableStrings(left.round_id, right.round_id);
+    });
+    return {
+      surface,
+      context: { ...input, tenant_id: tenantId },
+      rounds,
+      provider: "OFF",
+      official_truth_write: false,
+      non_causal: true,
+      causal_proof: false,
+      known_limits: [...KNOWN_LIMITS, "回合列表只展示服务器确认的唯一、兼容且可见候选。"]
+    };
+  }
+
+  async compareRoundPair(
+    actor: GSIActor,
+    input: GSICrossRoundRoundPairQuery,
+    tenantId = actor.tenant_id,
+    requestedSurface?: GSIRequestSurface
+  ): Promise<
+    GSICrossRoundTeacherProjection | GSICrossRoundAdminProjection | GSICrossRoundStudentProjection
+  > {
+    const surface = surfaceForRequest(actor, requestedSurface);
+    if (tenantId !== actor.tenant_id && !actor.roles.includes("platform_admin")) {
+      throw new GSIStakeholderShadowPlaneError("GSI_FORBIDDEN");
+    }
+    assertSelectionContext({
+      course_id: input.course_id,
+      run_id: input.run_id,
+      team_id: input.team_id,
+      activity_id: input.activity_id,
+      role_key: input.role_key
+    });
+    assertExactSelectionValue(input.from_round_id);
+    assertExactSelectionValue(input.to_round_id);
+    if (input.from_round_id === input.to_round_id) {
+      throw new GSIStakeholderShadowPlaneError("GSI_COMPARISON_INVALID");
+    }
+    const records = (await this.dependencies.repository.list(tenantId)).filter((record) => {
+      const binding = record.request.binding;
+      return (
+        binding.tenant_id === tenantId &&
+        binding.course_id === input.course_id &&
+        binding.run_id === input.run_id &&
+        binding.team_id === input.team_id &&
+        (binding.round_id === input.from_round_id || binding.round_id === input.to_round_id)
+      );
+    });
+    const visibleRecords: GSIRecord[] = [];
+    for (const record of records) {
+      try {
+        if (surface === "student") {
+          await this.readSelectionSnapshot(
+            actor,
+            surface,
+            tenantId,
+            input,
+            record.request.binding.round_id,
+            record
+          );
+        }
+        visibleRecords.push(record);
+      } catch (error) {
+        if (
+          surface === "student" &&
+          error instanceof GSIStakeholderShadowPlaneError &&
+          error.code === "GSI_PAIR_NOT_AVAILABLE"
+        ) {
+          continue;
+        }
+        throw error;
+      }
+    }
+    const byRound = (roundId: string): GSIRecord[] =>
+      visibleRecords.filter((record) => record.request.binding.round_id === roundId);
+    const fromMatches = byRound(input.from_round_id);
+    const toMatches = byRound(input.to_round_id);
+    if (fromMatches.length === 0 || toMatches.length === 0) {
+      throw new GSIStakeholderShadowPlaneError("GSI_PAIR_NOT_AVAILABLE");
+    }
+    if (fromMatches.length > 1 || toMatches.length > 1) {
+      throw new GSIStakeholderShadowPlaneError("GSI_PAIR_AMBIGUOUS");
+    }
+    const fromRecord = fromMatches[0];
+    const toRecord = toMatches[0];
+    if (!fromRecord || !toRecord) {
+      throw new GSIStakeholderShadowPlaneError("GSI_PAIR_NOT_AVAILABLE");
+    }
+    await Promise.all([
+      this.readSelectionSnapshot(actor, surface, tenantId, input, input.from_round_id, fromRecord),
+      this.readSelectionSnapshot(actor, surface, tenantId, input, input.to_round_id, toRecord)
+    ]);
+    if (!sameProducerLineage(fromRecord, toRecord)) {
+      throw new GSIStakeholderShadowPlaneError("GSI_COMPARISON_INVALID");
+    }
+    return this.compareRecordPair(
+      actor,
+      surface,
+      tenantId,
+      {
+        from_candidate_id: fromRecord.candidate_id,
+        to_candidate_id: toRecord.candidate_id,
+        activity_id: input.activity_id,
+        role_key: input.role_key,
+        ...(input.expected_comparison_digest
+          ? { expected_comparison_digest: input.expected_comparison_digest }
+          : {}),
+        ...(input.expected_context_digest
+          ? { expected_context_digest: input.expected_context_digest }
+          : {})
+      },
+      fromRecord,
+      toRecord
+    );
+  }
+
+  private async compareRecordPair(
+    actor: GSIActor,
+    surface: "teacher" | "student" | "admin",
+    tenantId: string,
+    input: GSICrossRoundComparisonQuery,
+    fromRecord: GSIRecord,
+    toRecord: GSIRecord
+  ): Promise<
+    GSICrossRoundTeacherProjection | GSICrossRoundAdminProjection | GSICrossRoundStudentProjection
+  > {
     if (
       fromRecord.request.binding.tenant_id !== tenantId ||
       toRecord.request.binding.tenant_id !== tenantId
@@ -695,7 +977,7 @@ export class GSIStakeholderShadowPlaneService {
     if (surface === "admin") {
       return {
         surface: "admin",
-        tenant_id: actor.tenant_id,
+        tenant_id: tenantId,
         comparison,
         context: { ...contextProjection, context_binding: context },
         provider: "OFF",
@@ -714,6 +996,45 @@ export class GSIStakeholderShadowPlaneService {
       recovery: contextProjection.recovery
     };
     return teacherProjection;
+  }
+
+  private async readSelectionSnapshot(
+    actor: GSIActor,
+    surface: "teacher" | "student" | "admin",
+    tenantId: string,
+    input: GSICrossRoundSelectionContext,
+    roundId: string,
+    record: GSIRecord
+  ): Promise<RoleWorkflowRepositorySnapshot> {
+    if (record.request.binding.round_id !== roundId) {
+      throw new GSIStakeholderShadowPlaneError("GSI_CONTEXT_NOT_FOUND");
+    }
+    if (surface === "student") {
+      if (record.request.publication_status !== "PUBLISHED") {
+        throw new GSIStakeholderShadowPlaneError("GSI_PAIR_NOT_AVAILABLE");
+      }
+      if (record.request.binding.team_id !== actor.team_id) {
+        throw new GSIStakeholderShadowPlaneError("GSI_FORBIDDEN");
+      }
+    }
+    const snapshot = await this.dependencies.roleWorkflow.readRoleWorkflow({
+      tenant_id: tenantId,
+      run_id: record.request.binding.run_id,
+      round_id: record.request.binding.round_id,
+      team_id: record.request.binding.team_id
+    });
+    assertContext(record.request.binding, snapshot);
+    if (!snapshot.round) throw new GSIStakeholderShadowPlaneError("GSI_CONTEXT_NOT_FOUND");
+    if (surface === "student") {
+      const assignment = snapshot.assignments.some(
+        (candidate) =>
+          candidate.status === "active" &&
+          candidate.user_id === actor.user_id &&
+          candidate.role_key === input.role_key
+      );
+      if (!assignment) throw new GSIStakeholderShadowPlaneError("GSI_PAIR_NOT_AVAILABLE");
+    }
+    return snapshot;
   }
 
   private async getRecord(tenantId: string, candidateId: string): Promise<GSIRecord> {
