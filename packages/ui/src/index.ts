@@ -49,8 +49,10 @@ export type { IndustryModelRealityJoinPanelProps } from "./components/IndustryMo
 export { GsiCrossRoundInsightPanel } from "./components/GsiCrossRoundInsightPanel.js";
 export type {
   GsiCrossRoundInsightPanelProps,
+  GsiCrossRoundCandidateOption,
   GsiCrossRoundSelection,
   GsiCrossRoundSelectors,
   GsiCrossRoundSelectionState,
   GsiCrossRoundSurface
 } from "./components/GsiCrossRoundInsightPanel.js";
+export { buildGsiCrossRoundHandoffHref } from "./components/GsiCrossRoundInsightPanel.js";

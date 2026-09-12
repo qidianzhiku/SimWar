@@ -1,12 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import type {
-  ApiEnvelope,
-  AuthSession,
-  GSIReceipt,
-  P0DemoState,
-  Round,
-  Run
-} from "@simwar/shared-contracts";
+import type { ApiEnvelope, AuthSession, Round, Run } from "@simwar/shared-contracts";
 import { cleanupPlaywrightStore } from "./store-isolation";
 
 const apiBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_API_PORT ?? 3100}`;
@@ -59,45 +52,6 @@ async function signIn(page: Page, label: "教师登录" | "学员登录" | "管�
   } else {
     await expect(page.getByText("signed in").first()).toBeVisible();
   }
-}
-
-function gsiCandidateRequest(
-  context: Pick<Run, "run_id" | "scenario_package_id" | "parameter_set_id">,
-  roundId: string,
-  idempotencyKey: string,
-  influence: number
-) {
-  return {
-    discriminator: "gsi_stakeholder_shadow_request",
-    binding: {
-      tenant_id: tenantId,
-      course_id: "course_demo",
-      run_id: context.run_id,
-      round_id: roundId,
-      team_id: "team_alpha",
-      scenario_package_id: context.scenario_package_id,
-      scenario_version: "1.0.0",
-      parameter_set_id: context.parameter_set_id,
-      parameter_set_version: "1.0.0",
-      model_version_id: "gsi-stakeholder-resolver-v1",
-      model_version: "1.0.0",
-      model_artifact_id: "artifact:gsi-stakeholder-resolver-v1:1.0.0",
-      model_artifact_version: "1.0.0"
-    },
-    plane_mode: "OFF",
-    publication_status: "PUBLISHED",
-    proposals: [
-      {
-        proposal_id: `${idempotencyKey}_customer`,
-        stakeholder_type: "customer",
-        intent: "protect_demand",
-        priority: 0.8,
-        influence,
-        summary: "O3 browser candidate"
-      }
-    ],
-    idempotency_key: idempotencyKey
-  };
 }
 
 async function publishRoundOne(
@@ -289,7 +243,7 @@ test("GSI product journey uses real BFF across Teacher, Student and Admin", asyn
   expect(round.round_no).toBe(1);
 });
 
-test("GSI-O3 exposes the existing cross-round compare BFF in Teacher and Student debriefs", async ({
+test("GSI-O3B reaches exact cross-round compare through Teacher selection and Student handoff", async ({
   page,
   request
 }) => {
@@ -309,51 +263,50 @@ test("GSI-O3 exposes the existing cross-round compare BFF in Teacher and Student
   await signIn(page, "教师登录", "teacher");
   await page.getByLabel("run selector").selectOption(run.run_id);
   await expect(page.getByText("Historical Run · read-only")).toBeVisible();
+
+  const teacherCandidatePanel = page.getByRole("region", {
+    name: "Governed Stakeholder Intelligence"
+  });
+  await expect(teacherCandidatePanel).toBeVisible();
+  await teacherCandidatePanel.getByRole("button", { name: "冻结受控利益相关方候选" }).click();
+  await expect(teacherCandidatePanel.getByText("候选已冻结并可供角色投影")).toBeVisible();
+  const fromCandidateId = await teacherCandidatePanel.locator("code").first().textContent();
+  expect(fromCandidateId).toMatch(/^gsi_candidate_[a-f0-9]{16}$/);
+
   await page.getByRole("button", { name: "创建下一回合" }).click();
   await expect(page.getByRole("status", { name: "教师操作通知" })).toContainText(
     "下一回合已创建并切换到新回合"
   );
 
-  const state = await api<P0DemoState>(request, "/api/v1/demo-state", {
-    token: teacherToken
-  });
-  const roundOne = state.rounds.find(
-    (candidate) => candidate.run_id === run.run_id && candidate.round_no === 1
-  );
-  const roundTwo = state.rounds.find(
-    (candidate) => candidate.run_id === run.run_id && candidate.round_no === 2
-  );
-  expect(roundOne?.status).toBe("published");
-  expect(roundTwo?.status).toBe("draft");
-
-  const from = await api<GSIReceipt>(request, "/api/v1/bff/teacher/gsi/candidates", {
-    body: gsiCandidateRequest(run, roundOne!.round_id, "gsi_o3_browser_from", 0.25),
-    method: "POST",
-    token: teacherToken
-  });
-  const to = await api<GSIReceipt>(request, "/api/v1/bff/teacher/gsi/candidates", {
-    body: gsiCandidateRequest(run, roundTwo!.round_id, "gsi_o3_browser_to", 0.75),
-    method: "POST",
-    token: teacherToken
-  });
-  const query = new URLSearchParams({
-    gsiFromCandidateId: from.candidate_id,
-    gsiToCandidateId: to.candidate_id,
-    gsiActivityId: "activity_gsi_o3",
-    gsiRoleKey: "CEO"
-  }).toString();
-
-  await page.goto(`${teacherBaseUrl}/?${query}#teacher-debrief`);
-  await signIn(page, "教师登录", "teacher");
+  await expect(
+    teacherCandidatePanel.getByRole("button", { name: "冻结受控利益相关方候选" })
+  ).toBeVisible();
+  await teacherCandidatePanel.getByRole("button", { name: "冻结受控利益相关方候选" }).click();
+  await expect(teacherCandidatePanel.getByText("候选已冻结并可供角色投影")).toBeVisible();
+  const toCandidateId = await teacherCandidatePanel.locator("code").first().textContent();
+  expect(toCandidateId).toMatch(/^gsi_candidate_[a-f0-9]{16}$/);
+  expect(toCandidateId).not.toBe(fromCandidateId);
   const teacherPanel = page.getByRole("region", { name: "Teacher GSI cross-round insight" });
   await expect(teacherPanel).toBeVisible();
+  await teacherPanel.getByLabel("from candidate selector").selectOption(fromCandidateId!);
+  await teacherPanel.getByLabel("to candidate selector").selectOption(toCandidateId!);
+  await teacherPanel.getByLabel("activity selector").selectOption("activity_gsi_o3");
+  await teacherPanel.getByLabel("role selector").selectOption("CEO");
+  await teacherPanel.getByRole("button", { name: "查看精确跨轮比较" }).click();
   await expect(teacherPanel).toHaveAttribute("data-state", /^(SUCCESS|CONTEXT_UNAVAILABLE)$/);
   await expect(teacherPanel.getByTestId("gsi-o3-teacher-summary")).toBeVisible();
   await expect(teacherPanel.getByTestId("gsi-o3-movements")).toContainText(
     "customer / protect_demand"
   );
 
-  await page.goto(`${studentBaseUrl}/?${query}#student-debrief`);
+  const studentHandoff = teacherPanel.getByTestId("gsi-o3-student-handoff").getByRole("link");
+  await expect(studentHandoff).toBeVisible();
+  const handoffHref = await studentHandoff.getAttribute("href");
+  expect(handoffHref).toContain(`gsiFromCandidateId=${encodeURIComponent(fromCandidateId!)}`);
+  expect(handoffHref).toContain(`gsiToCandidateId=${encodeURIComponent(toCandidateId!)}`);
+  expect(handoffHref).toContain("gsiActivityId=activity_gsi_o3");
+  expect(handoffHref).toContain("gsiRoleKey=CEO");
+  await studentHandoff.click();
   await signIn(page, "学员登录", "student");
   const studentPanel = page.getByRole("region", { name: "Student GSI cross-round insight" });
   await expect(studentPanel).toBeVisible();
@@ -362,7 +315,7 @@ test("GSI-O3 exposes the existing cross-round compare BFF in Teacher and Student
   await expect(studentPanel.getByTestId("gsi-o3-movements")).toContainText(
     "customer / protect_demand"
   );
-  await expect(studentPanel).not.toContainText(from.candidate_id);
-  await expect(studentPanel).not.toContainText(to.candidate_id);
+  await expect(studentPanel).not.toContainText(fromCandidateId!);
+  await expect(studentPanel).not.toContainText(toCandidateId!);
   await expect(studentPanel).not.toContainText("comparison_digest");
 });

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type {
   ApiEnvelope,
   GSICrossRoundStudentProjection,
@@ -17,6 +17,13 @@ export interface GsiCrossRoundSelectors {
   expected_context_digest?: string;
 }
 
+export interface GsiCrossRoundCandidateOption {
+  candidate_id: string;
+  candidate_digest?: string;
+  round_id: string;
+  round_no: number;
+}
+
 export type GsiCrossRoundSelectionState = "MISSING" | "INVALID" | "READY";
 
 export interface GsiCrossRoundSelection {
@@ -30,6 +37,10 @@ export interface GsiCrossRoundInsightPanelProps {
   tenantId: string;
   token: string;
   selectors?: GsiCrossRoundSelectors | null;
+  candidateOptions?: readonly GsiCrossRoundCandidateOption[];
+  activityOptions?: readonly string[];
+  roleOptions?: readonly string[];
+  studentAppBaseUrl?: string;
 }
 
 type GsiCrossRoundProjection = GSICrossRoundTeacherProjection | GSICrossRoundStudentProjection;
@@ -78,6 +89,23 @@ function optionalDigest(value: string | null): string | undefined {
   return value && /^[a-f0-9]{64}$/u.test(value) ? value : undefined;
 }
 
+function areExactSelectorsValid(selectors: GsiCrossRoundSelectors): boolean {
+  const values = [
+    selectors.from_candidate_id,
+    selectors.to_candidate_id,
+    selectors.activity_id,
+    selectors.role_key
+  ];
+  return (
+    values.every((value) => isExactSelector(value)) &&
+    selectors.from_candidate_id !== selectors.to_candidate_id &&
+    (!selectors.expected_comparison_digest ||
+      /^[a-f0-9]{64}$/u.test(selectors.expected_comparison_digest)) &&
+    (!selectors.expected_context_digest ||
+      /^[a-f0-9]{64}$/u.test(selectors.expected_context_digest))
+  );
+}
+
 export function readGsiCrossRoundSelection(search?: string): GsiCrossRoundSelection {
   const query = new URLSearchParams(
     search ?? (typeof window === "undefined" ? "" : window.location.search)
@@ -112,6 +140,26 @@ export function readGsiCrossRoundSelection(search?: string): GsiCrossRoundSelect
       ...(expectedContextDigest ? { expected_context_digest: expectedContextDigest } : {})
     }
   };
+}
+
+export function buildGsiCrossRoundHandoffHref(
+  studentAppBaseUrl: string,
+  selectors: GsiCrossRoundSelectors
+): string {
+  if (!areExactSelectorsValid(selectors)) {
+    throw new Error("GSI handoff requires complete exact selectors");
+  }
+  const url = new URL(studentAppBaseUrl, "http://simwar.local");
+  url.search = new URLSearchParams({
+    gsiFromCandidateId: selectors.from_candidate_id,
+    gsiToCandidateId: selectors.to_candidate_id,
+    gsiActivityId: selectors.activity_id,
+    gsiRoleKey: selectors.role_key
+  }).toString();
+  url.hash = "student-debrief";
+  return /^https?:\/\//u.test(studentAppBaseUrl)
+    ? url.toString()
+    : `${url.pathname}${url.search}${url.hash}`;
 }
 
 export function buildGsiCrossRoundComparePath(
@@ -248,7 +296,10 @@ function movementDetails(movement: {
   return `${movement.stakeholder_type} / ${movement.intent} · ${movementLabel(movement.direction)}${values.length ? ` · ${values.join(" · ")}` : ""}`;
 }
 
-function renderTeacherBody(projection: GSICrossRoundTeacherProjection) {
+function renderTeacherBody(
+  projection: GSICrossRoundTeacherProjection,
+  studentHandoffHref?: string
+) {
   const contextStatus = getGsiCrossRoundContextStatus(projection);
   return (
     <>
@@ -280,6 +331,12 @@ function renderTeacherBody(projection: GSICrossRoundTeacherProjection) {
         ))}
       </ul>
       <p className="lifecycle-boundary">{stateMessage("SUCCESS")}</p>
+      {studentHandoffHref ? (
+        <p data-testid="gsi-o3-student-handoff" className="lifecycle-status">
+          精确上下文已准备好：
+          <a href={studentHandoffHref}>交给 Student 查看角色安全投影</a>
+        </p>
+      ) : null}
       <details>
         <summary>已知限制</summary>
         <ul className="compact-list">
@@ -332,7 +389,7 @@ function renderStudentBody(projection: GSICrossRoundStudentProjection) {
 }
 
 export function GsiCrossRoundInsightPanel(props: GsiCrossRoundInsightPanelProps) {
-  const selection = useMemo(
+  const externalSelection = useMemo(
     () =>
       props.selectors === undefined
         ? readGsiCrossRoundSelection()
@@ -341,8 +398,49 @@ export function GsiCrossRoundInsightPanel(props: GsiCrossRoundInsightPanelProps)
           : { state: "MISSING" as const },
     [props.selectors]
   );
+  const [submittedSelectors, setSubmittedSelectors] = useState<GsiCrossRoundSelectors | null>(null);
+  const [draftFromCandidateId, setDraftFromCandidateId] = useState("");
+  const [draftToCandidateId, setDraftToCandidateId] = useState("");
+  const [draftActivityId, setDraftActivityId] = useState("");
+  const [draftRoleKey, setDraftRoleKey] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
   const [projection, setProjection] = useState<GsiCrossRoundProjection | null>(null);
   const [failure, setFailure] = useState<{ code: string; status: number } | null>(null);
+
+  const selection = submittedSelectors
+    ? { state: "READY" as const, selectors: submittedSelectors }
+    : externalSelection;
+
+  const candidateOptions = props.candidateOptions ?? [];
+  const activityOptions = props.activityOptions ?? [];
+  const roleOptions = props.roleOptions ?? [];
+  const hasSelectorControls = props.surface === "teacher" && props.candidateOptions !== undefined;
+
+  function submitExplicitSelection(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const nextSelectors: GsiCrossRoundSelectors = {
+      from_candidate_id: draftFromCandidateId,
+      to_candidate_id: draftToCandidateId,
+      activity_id: draftActivityId,
+      role_key: draftRoleKey
+    };
+    const availableCandidateIds = new Set(candidateOptions.map((option) => option.candidate_id));
+    if (!areExactSelectorsValid(nextSelectors)) {
+      setFormError("必须选择两个不同的精确候选、activity 和 role；不会自动选择默认值。");
+      return;
+    }
+    if (
+      !availableCandidateIds.has(nextSelectors.from_candidate_id) ||
+      !availableCandidateIds.has(nextSelectors.to_candidate_id) ||
+      !activityOptions.includes(nextSelectors.activity_id) ||
+      !roleOptions.includes(nextSelectors.role_key)
+    ) {
+      setFormError("选择项必须来自当前产品上下文提供的候选、activity 和 role。");
+      return;
+    }
+    setFormError(null);
+    setSubmittedSelectors(nextSelectors);
+  }
 
   useEffect(() => {
     let active = true;
@@ -387,6 +485,16 @@ export function GsiCrossRoundInsightPanel(props: GsiCrossRoundInsightPanelProps)
               : "SUCCESS"
           : "LOADING";
 
+  const studentHandoffHref =
+    props.surface === "teacher" &&
+    props.studentAppBaseUrl &&
+    selection.state === "READY" &&
+    selection.selectors &&
+    projection &&
+    (state === "SUCCESS" || state === "CONTEXT_UNAVAILABLE")
+      ? buildGsiCrossRoundHandoffHref(props.studentAppBaseUrl, selection.selectors)
+      : undefined;
+
   return (
     <section
       className="summary-panel gsi-o3-cross-round-insight"
@@ -413,9 +521,116 @@ export function GsiCrossRoundInsightPanel(props: GsiCrossRoundInsightPanelProps)
       {state === "CONTEXT_UNAVAILABLE" ? (
         <StatePanel status="partial" message={stateMessage(state)} />
       ) : null}
+      {hasSelectorControls ? (
+        <form
+          className="gsi-o3-exact-selector-form"
+          aria-label="GSI exact cross-round selector"
+          onSubmit={submitExplicitSelection}
+        >
+          <fieldset>
+            <legend>显式选择跨轮比较上下文</legend>
+            <p className="lifecycle-boundary">
+              选择会直接绑定到现有 compare BFF；未选择完整 exact context 时不会发起请求。
+            </p>
+            <div className="field-grid">
+              <label>
+                <span>from candidate</span>
+                <select
+                  aria-label="from candidate selector"
+                  value={draftFromCandidateId}
+                  onChange={(event) => {
+                    setDraftFromCandidateId(event.target.value);
+                    setFormError(null);
+                  }}
+                  disabled={candidateOptions.length === 0}
+                >
+                  <option value="">选择起始候选</option>
+                  {candidateOptions.map((option) => (
+                    <option key={`from-${option.candidate_id}`} value={option.candidate_id}>
+                      第 {option.round_no} 轮 · {option.candidate_id}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>to candidate</span>
+                <select
+                  aria-label="to candidate selector"
+                  value={draftToCandidateId}
+                  onChange={(event) => {
+                    setDraftToCandidateId(event.target.value);
+                    setFormError(null);
+                  }}
+                  disabled={candidateOptions.length === 0}
+                >
+                  <option value="">选择目标候选</option>
+                  {candidateOptions.map((option) => (
+                    <option key={`to-${option.candidate_id}`} value={option.candidate_id}>
+                      第 {option.round_no} 轮 · {option.candidate_id}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>activity</span>
+                <select
+                  aria-label="activity selector"
+                  value={draftActivityId}
+                  onChange={(event) => {
+                    setDraftActivityId(event.target.value);
+                    setFormError(null);
+                  }}
+                  disabled={activityOptions.length === 0}
+                >
+                  <option value="">选择 activity</option>
+                  {activityOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>role</span>
+                <select
+                  aria-label="role selector"
+                  value={draftRoleKey}
+                  onChange={(event) => {
+                    setDraftRoleKey(event.target.value);
+                    setFormError(null);
+                  }}
+                  disabled={roleOptions.length === 0}
+                >
+                  <option value="">选择 role</option>
+                  {roleOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <button
+              type="submit"
+              disabled={
+                candidateOptions.length < 2 ||
+                activityOptions.length === 0 ||
+                roleOptions.length === 0
+              }
+            >
+              查看精确跨轮比较
+            </button>
+            {formError ? (
+              <p role="alert" className="lifecycle-error">
+                {formError}
+              </p>
+            ) : null}
+          </fieldset>
+        </form>
+      ) : null}
       {projection && state !== "REBASE_REQUIRED" && state !== "FORBIDDEN" && state !== "ERROR"
         ? props.surface === "teacher" && projection.surface === "teacher"
-          ? renderTeacherBody(projection)
+          ? renderTeacherBody(projection, studentHandoffHref)
           : props.surface === "student" && projection.surface === "student"
             ? renderStudentBody(projection)
             : null

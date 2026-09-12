@@ -1,29 +1,29 @@
-# GSI-O3 Baseline Plan (No Local Knowledge)
+# GSI-O3B Baseline Plan (No Local Knowledge)
 
-Mission: `SIMWAR-LK-V4.2-MAIN-GSI-O3-CROSS-ROUND-INSIGHT-CONSUMER-ADOPTION-MACRO-06-20260911`
+Mission: `SIMWAR-LK-V4.2-MAIN-GSI-O3B-EXPLICIT-SELECTOR-HANDOFF-REACHABILITY-MACRO-07-20260911`
 
-Baseline captured against the clean feature worktree at `origin/master` commit `1e668f705c842e39486f46a93a9d14e0a970cb57` before any Local Knowledge query.
+Baseline refreshed on 2026-09-12 against the clean feature worktree at PR #512 head `aac05c7b705d2e3a13a1b02243613935f3d1ea6a`, whose current GitHub base is `master` at `1e668f705c842e39486f46a93a9d14e0a970cb57`, before any Macro-07 Local Knowledge query.
 
 ## Current source reality
 
 - The existing GSI backend already owns the compare seam at `/api/v1/bff/{teacher|student|admin}/gsi/candidates/compare`.
 - The existing shared contract already defines `GSICrossRoundTeacherProjection` and the role-safe `GSICrossRoundStudentProjection`.
-- Teacher currently renders `GovernedStakeholderIntelligenceWorkspace`, which creates a candidate; it does not render a cross-round compare response.
-- Student currently renders `GovernedStakeholderIntelligenceProjection`, which reads one published candidate; it does not render a cross-round compare response.
+- Teacher currently renders `GovernedStakeholderIntelligenceWorkspace`, which creates a candidate; the existing cross-round panel can render a compare response only when exact selectors are already supplied.
+- Student currently renders the existing cross-round panel in debrief, but exact selectors must already be supplied; the normal Teacher flow does not hand them off.
 - Existing compare unit, route, BFF integration, contract, and backend service tests are present.
-- No exact `compareCandidates` or `/gsi/candidates/compare` consumer was found in either public `apps/teacher/src/App.tsx` or `apps/student/src/App.tsx`.
+- No visible candidate-pair selector or Teacher-to-Student explicit handoff was found in either public app.
 
-The existing candidate create/read projection is not equivalent to the requested cross-round consumer because it has no explicit pair selection, movement rendering, context status handling, or compare error recovery.
+The existing candidate create/read projection and URL-only compare consumer are not equivalent to the requested normal-flow handoff because they do not expose an explicit pair selection in the Teacher debrief or a generated Student handoff.
 
 ## No-Knowledge implementation hypothesis
 
-1. Add a small shared UI component that accepts an explicitly selected candidate pair and the existing exact activity/role context.
-2. Reuse the existing compare endpoint and shared projection types; add no route, service, store, writer, or truth authority.
-3. Render the Teacher version in the existing result/debrief area with descriptive movement and context status.
-4. Render the Student version in the existing result cockpit/debrief area with only the role-safe movement fields returned by the Student BFF.
-5. Keep the feature dormant unless all exact selectors are supplied by the URL, so there is no implicit `latest`/`current`/`default` fallback and no invented candidate discovery.
-6. Add explicit loading, success, unavailable, rebase-required, forbidden/error, and insufficient-context states.
-7. Add focused unit and browser coverage using the existing BFF route and deterministic explicit selectors.
+1. Propagate receipts from the existing Teacher candidate producer into the current exact run/team scope.
+2. Add a small shared UI selector surface that accepts an explicitly selected candidate pair and exact activity/role context.
+3. Reuse the existing compare endpoint and shared projection types; add no route, service, store, writer, or truth authority.
+4. Keep the existing URL/prop selector path backward compatible and fail closed when exact selectors are absent or reserved.
+5. Render the Teacher version in the existing debrief area with descriptive movement and context status, plus a generated Student handoff link only after explicit submission.
+6. Render the Student version with only the role-safe movement fields returned by the Student BFF; no privileged candidate identity is added.
+7. Add focused unit and browser coverage using the existing BFF route and a visible Teacher selection and handoff journey.
 
 ## Baseline judgement
 
@@ -31,7 +31,7 @@ Without Local Knowledge, the expected implementation is `EXTEND_EXISTING`: the b
 
 ## Scope and truth guardrails
 
-- Allowed: Teacher/Student UI consumer, focused tests, and minimal UI styling.
+- Allowed: Teacher/Student UI consumer, candidate-receipt state handoff, focused tests, and minimal UI styling.
 - Forbidden: simulation-core, settlement, replay truth, canonical decisions, database migrations, Provider activation, or a second GSI backend seam.
 - Compare output remains descriptive/non-causal and cannot write official truth.
 - Student output must not expose candidate IDs, comparison digest, raw proposals, or privileged provenance identifiers.
@@ -54,4 +54,4 @@ Without Local Knowledge, the expected implementation is `EXTEND_EXISTING`: the b
 
 ## Value-proof baseline
 
-`BEFORE_KNOWLEDGE_PLAN` records the judgement before any knowledge retrieval. A value event may only be recorded later when a knowledge card has source evidence, an accepted before/after delta, a changed task artifact, and an actual developer action. If retrieval only confirms this plan, the result is `CONFIRMATORY_ONLY`, not value proven.
+`BEFORE_KNOWLEDGE_PLAN` records the judgement before any Macro-07 knowledge retrieval. A value event may only be recorded later when a knowledge card has source evidence, an accepted before/after delta, a changed task artifact, and an actual developer action. If retrieval only confirms this plan, the result is `CONFIRMATORY_ONLY`, not value proven.

@@ -7,6 +7,7 @@ export interface GovernedStakeholderIntelligenceWorkspaceProps {
   tenantId: string;
   token: string;
   proposals?: readonly GSIProposal[];
+  onCandidateCreated?: (receipt: GSIReceipt) => void;
 }
 
 const DEFAULT_PROPOSALS: readonly GSIProposal[] = [
@@ -42,7 +43,8 @@ export function GovernedStakeholderIntelligenceWorkspace({
   binding,
   tenantId,
   token,
-  proposals = DEFAULT_PROPOSALS
+  proposals = DEFAULT_PROPOSALS,
+  onCandidateCreated
 }: GovernedStakeholderIntelligenceWorkspaceProps) {
   const [receipt, setReceipt] = useState<GSIReceipt | null>(null);
   const [busy, setBusy] = useState(false);
@@ -74,6 +76,7 @@ export function GovernedStakeholderIntelligenceWorkspace({
         throw new Error(payload.error?.message ?? "受控利益相关方候选创建失败");
       }
       setReceipt(payload.data);
+      onCandidateCreated?.(payload.data);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "受控利益相关方候选创建失败");
     } finally {
