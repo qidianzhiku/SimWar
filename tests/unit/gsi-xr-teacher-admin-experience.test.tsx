@@ -162,5 +162,7 @@ describe("GSI-XR Teacher/Admin experience", () => {
     expect(markup).toContain("context_binding");
     expect(markup).toContain("NON-CAUSAL");
     expect(markup).toContain("不写入正式 Decision / Settlement / Outcome");
+    expect(markup).toContain("DDT admin exact round ID");
+    expect(markup).toContain("不依赖 GSI 比较配对");
   });
 });

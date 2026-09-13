@@ -150,6 +150,28 @@ describe("Decision Thread Evidence Spine service", () => {
     );
   });
 
+  it("maps an expected missing canonical decision to bounded M2P6 unavailability", async () => {
+    const service = new DecisionThreadEvidenceSpineService(
+      readers({
+        m2p6: async () => {
+          throw new Error("W3_CANONICAL_DECISION_REQUIRED");
+        }
+      })
+    );
+    const response = await service.getSpine({
+      actor: { user_id: "teacher-001", tenant_id: context.tenant_id, roles: ["teacher"] },
+      context,
+      surface: "teacher"
+    });
+    expect(response.sources.find((source) => source.source === "M2P6")).toMatchObject({
+      status: "CONTEXT_UNAVAILABLE",
+      known_limits: expect.arrayContaining(["源能力当前未提供可用的精确上下文证据。"])
+    });
+    expect(response.sources.find((source) => source.source === "MODEL_QUALIFICATION")?.status).toBe(
+      "AVAILABLE"
+    );
+  });
+
   it("maps canonical GSI pair availability and compatibility failures locally", async () => {
     for (const code of ["GSI_PAIR_NOT_AVAILABLE", "GSI_COMPARISON_INVALID"]) {
       const service = new DecisionThreadEvidenceSpineService(
@@ -179,7 +201,11 @@ describe("Decision Thread Evidence Spine service", () => {
   });
 
   it("applies a Student allowlist and rejects a mixed-role actor on the Student surface", async () => {
-    const service = new DecisionThreadEvidenceSpineService(readers());
+    const service = new DecisionThreadEvidenceSpineService(
+      readers({
+        authorizeContext: async (actor, requestedContext) => actor.team_id === requestedContext.team_id
+      })
+    );
     const response = await service.getSpine({
       actor: {
         user_id: "student-001",
@@ -211,6 +237,17 @@ describe("Decision Thread Evidence Spine service", () => {
     ).rejects.toMatchObject<Partial<DecisionThreadEvidenceSpineError>>({
       code: "DDT_SCOPE_VIOLATION"
     });
+  });
+
+  it("allows an authorized Student context when the session lacks a singular team_id", async () => {
+    const service = new DecisionThreadEvidenceSpineService(readers());
+    const response = await service.getSpine({
+      actor: { user_id: "student-001", tenant_id: context.tenant_id, roles: ["student"] },
+      context,
+      surface: "student"
+    });
+    expect(response.surface).toBe("student");
+    expect(response.exact_context.team_id).toBe(context.team_id);
   });
 
   it("requires complete explicit GSI selection rather than a default pair", async () => {

@@ -1497,7 +1497,11 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
         user_id: actor.user_id,
         tenant_id: context.tenant_id,
         roles: actor.roles as ActorRole[],
-        ...(actor.team_id ? { team_id: actor.team_id } : {})
+        ...(surface === "student"
+          ? { team_id: context.team_id }
+          : actor.team_id
+            ? { team_id: actor.team_id }
+            : {})
       };
       const result = await m2p5DecisionLearning.getJourney({
         actor: m2p5Actor,
@@ -1717,7 +1721,11 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
         user_id: actor.user_id,
         tenant_id: actor.tenant_id,
         roles: actor.roles as ActorRole[],
-        ...(actor.team_id ? { team_id: actor.team_id } : {})
+        ...(surface === "student"
+          ? { team_id: context.team_id }
+          : actor.team_id
+            ? { team_id: actor.team_id }
+            : {})
       };
       const projection = await gsiStakeholder.compareRoundPair(
         gsiActor,
@@ -6609,6 +6617,17 @@ function requireD4Student(context: RequestContext): CurrentUser {
   return actor;
 }
 
+function requireDdtStudent(context: RequestContext): CurrentUser {
+  const actor = requireActor(context);
+  if (
+    !actorHasAnyRole(actor, ["learner", "student"]) ||
+    actor.tenant_id !== context.tenantId
+  ) {
+    throw new HttpError(403, "DDT_SCOPE_VIOLATION", "student evidence scope required");
+  }
+  return actor;
+}
+
 function requireD4Teacher(context: RequestContext): CurrentUser {
   const actor = requirePermission(context, "course:read");
   if (!actorHasAnyRole(actor, ["teacher"]) || actor.tenant_id !== context.tenantId) {
@@ -8376,7 +8395,7 @@ async function routeRequest(
       {
         createEnvelope: (routeContext, payload) =>
           createEnvelope(routeContext as RequestContext, payload),
-        requireStudent: () => requireD4Student(context),
+        requireStudent: () => requireDdtStudent(context),
         requireTeacher: () => requireD4Teacher(context),
         requireAdmin: () => requireD4Admin(context),
         sendJson

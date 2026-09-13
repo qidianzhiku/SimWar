@@ -64,7 +64,6 @@ function seed(store: SimWarStore): void {
       password_hash: hashPassword(password),
       roles: [role],
       status: "active",
-      ...(role === "student" ? { team_id: teamId } : {}),
       tenant_id: tenantId,
       updated_at: "2026-09-12T00:00:00.000Z",
       user_id: userId,

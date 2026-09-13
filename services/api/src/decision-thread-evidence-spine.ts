@@ -156,8 +156,7 @@ function assertActorScope(
   if (surface === "student") {
     if (
       (!roles.has("student") && !roles.has("learner")) ||
-      actor.tenant_id !== context.tenant_id ||
-      actor.team_id !== context.team_id
+      actor.tenant_id !== context.tenant_id
     ) {
       throw new DecisionThreadEvidenceSpineError("DDT_SCOPE_VIOLATION");
     }
@@ -182,7 +181,7 @@ function statusFromError(error: unknown): DdtEvidenceStatus | undefined {
   if (/REBASE|DIGEST|MISMATCH/u.test(code)) return "REBASE_REQUIRED";
   if (/STALE|FRESHNESS/u.test(code)) return "STALE";
   if (
-    /PUBLISHED|CONTEXT|NOT_FOUND|UNAVAILABLE|SCOPE|MODEL_QUALIFICATION_(?:BINDING_REQUIRED|EXACT_SELECTION_REQUIRED)|GSI_(?:FORBIDDEN|PAIR_AMBIGUOUS|PAIR_INVALID|PAIR_NOT_AVAILABLE|COMPARISON_INVALID)/u.test(
+    /PUBLISHED|CONTEXT|NOT_FOUND|UNAVAILABLE|SCOPE|W3_(?:CANONICAL_DECISION_REQUIRED|OFFICIAL_RESULT_REQUIRED|OFFICIAL_RESULT_NOT_PUBLISHED)|M2P5_(?:ROUND_NOT_FOUND|OFFICIAL_RESULT_NOT_PUBLISHED)|MODEL_QUALIFICATION_(?:BINDING_REQUIRED|EXACT_SELECTION_REQUIRED)|GSI_(?:FORBIDDEN|PAIR_AMBIGUOUS|PAIR_INVALID|PAIR_NOT_AVAILABLE|COMPARISON_INVALID)/u.test(
       code
     )
   ) {

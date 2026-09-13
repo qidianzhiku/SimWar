@@ -111,6 +111,8 @@ export function GovernedStakeholderIntelligenceAuditPanel({
   const [toCandidateId, setToCandidateId] = useState("");
   const [fromRoundId, setFromRoundId] = useState("");
   const [toRoundId, setToRoundId] = useState("");
+  const [ddtRoundId, setDdtRoundId] = useState("");
+  const [ddtRoundNo, setDdtRoundNo] = useState("");
   const [activityId, setActivityId] = useState("activity_gsi_xr");
   const [roleKey, setRoleKey] = useState("CEO");
   const [busy, setBusy] = useState(false);
@@ -129,18 +131,16 @@ export function GovernedStakeholderIntelligenceAuditPanel({
   const comparisonRequestId = useRef(0);
   const comparisonController = useRef<AbortController | null>(null);
   const decisionThreadContext = useMemo<DdtExactContext | undefined>(() => {
-    const selectedRound =
-      pairOptionsState.kind === "ready"
-        ? pairOptionsState.data.rounds.find((round) => round.round_id === toRoundId)
-        : undefined;
+    const roundNo = Number(ddtRoundNo.trim());
     if (
       !courseId.trim() ||
       !runId.trim() ||
       !teamId.trim() ||
       !activityId.trim() ||
       !roleKey.trim() ||
-      !toRoundId.trim() ||
-      selectedRound === undefined
+      !ddtRoundId.trim() ||
+      !Number.isSafeInteger(roundNo) ||
+      roundNo < 1
     ) {
       return undefined;
     }
@@ -148,13 +148,13 @@ export function GovernedStakeholderIntelligenceAuditPanel({
       activity_id: activityId.trim(),
       course_id: courseId.trim(),
       role_key: roleKey.trim(),
-      round_id: toRoundId.trim(),
-      round_no: selectedRound.round_no,
+      round_id: ddtRoundId.trim(),
+      round_no: roundNo,
       run_id: runId.trim(),
       team_id: teamId.trim(),
       tenant_id: tenantId
     };
-  }, [activityId, courseId, pairOptionsState, roleKey, runId, teamId, tenantId, toRoundId]);
+  }, [activityId, courseId, ddtRoundId, ddtRoundNo, roleKey, runId, teamId, tenantId]);
 
   function invalidateComparisonSelection(): void {
     comparisonRequestId.current += 1;
@@ -169,6 +169,8 @@ export function GovernedStakeholderIntelligenceAuditPanel({
     setPairOptionsState({ kind: "unavailable", message: PAIR_SELECTION_MESSAGE });
     setFromRoundId("");
     setToRoundId("");
+    setDdtRoundId("");
+    setDdtRoundNo("");
   }
 
   async function loadPairOptions() {
@@ -347,6 +349,8 @@ export function GovernedStakeholderIntelligenceAuditPanel({
     setToCandidateId("");
     setFromRoundId("");
     setToRoundId("");
+    setDdtRoundId("");
+    setDdtRoundNo("");
     setComparisonState({ kind: "unavailable", message: PAIR_SELECTION_MESSAGE });
   }
 
@@ -430,7 +434,36 @@ export function GovernedStakeholderIntelligenceAuditPanel({
               placeholder="team_id"
             />
           </label>
+          <label>
+            DDT exact round ID
+            <input
+              aria-label="DDT admin exact round ID"
+              value={ddtRoundId}
+              onChange={(event) => {
+                invalidateComparisonSelection();
+                setDdtRoundId(event.target.value);
+              }}
+              placeholder="round_id"
+            />
+          </label>
+          <label>
+            DDT exact round number
+            <input
+              aria-label="DDT admin exact round number"
+              inputMode="numeric"
+              value={ddtRoundNo}
+              onChange={(event) => {
+                invalidateComparisonSelection();
+                setDdtRoundNo(event.target.value);
+              }}
+              placeholder="round_no"
+            />
+          </label>
         </div>
+        <p className="gsi-xr-muted">
+          DDT 证据线程使用上面的精确回合上下文单独请求；服务器会校验租户、课程、运行、队伍和回合，
+          不依赖 GSI 比较配对，也不会替管理员选择 latest 或默认回合。
+        </p>
         <div className="gsi-xr-actions">
           <button type="button" onClick={() => void loadPairOptions()}>
             {pairOptionsState.kind === "loading" ? "正在加载回合…" : "加载可比较回合"}
