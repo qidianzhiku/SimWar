@@ -37,6 +37,7 @@ type Props = {
   decisionContextEvidence?: StudentDecisionContextEvidence | null;
   decisionContextEvidenceRequired?: boolean;
   m4?: readonly [courseId: string, runId: string, roundNo: number] | undefined;
+  onReauthenticate?: (() => void) | undefined;
 };
 
 type JourneyState =
@@ -79,7 +80,8 @@ export function StudentDecisionLearningJourney({
   evidenceSpineEnabled = false,
   decisionContextEvidence,
   decisionContextEvidenceRequired = false,
-  m4
+  m4,
+  onReauthenticate
 }: Props) {
   const [state, setState] = useState<JourneyState>({
     phase: getStudentLearningGate(published) === "blocked" ? "blocked" : "idle"
@@ -326,6 +328,7 @@ export function StudentDecisionLearningJourney({
           surface="student"
           tenantId={tenantId}
           token={token}
+          onReauthenticate={onReauthenticate}
         />
       ) : null}
 

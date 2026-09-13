@@ -3872,6 +3872,9 @@ export function App() {
               teamCount={teamMonitor?.visible_state?.team_count ?? teamMonitor?.teams?.length ?? 0}
               tenantId={login.tenantId}
               token={session.access_token}
+              onReauthenticate={() =>
+                document.querySelector<HTMLInputElement>('[aria-label="tenant"]')?.focus()
+              }
               advisoryContext={advisoryContext}
               governedAdvisory={
                 advisoryContext ? (

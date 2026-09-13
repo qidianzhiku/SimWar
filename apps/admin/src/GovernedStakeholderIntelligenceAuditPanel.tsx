@@ -18,6 +18,7 @@ export interface GovernedStakeholderIntelligenceAuditPanelProps {
   token: string;
   initialCandidateId?: string;
   initialComparison?: GSICrossRoundAdminProjection;
+  onReauthenticate?: (() => void) | undefined;
 }
 
 interface EnvelopeError {
@@ -98,7 +99,8 @@ export function GovernedStakeholderIntelligenceAuditPanel({
   tenantId,
   token,
   initialCandidateId = "",
-  initialComparison
+  initialComparison,
+  onReauthenticate
 }: GovernedStakeholderIntelligenceAuditPanelProps) {
   const [candidateId, setCandidateId] = useState(initialCandidateId);
   const [projection, setProjection] = useState<GSIAdminProjection | null>(null);
@@ -372,6 +374,7 @@ export function GovernedStakeholderIntelligenceAuditPanel({
         surface="admin"
         tenantId={tenantId}
         token={token}
+        onReauthenticate={onReauthenticate}
       />
       <form
         className="gsi-xr-pair-form"

@@ -1241,6 +1241,9 @@ export function App() {
               apiBase={API_BASE}
               tenantId={login.tenantId}
               token={session.access_token}
+              onReauthenticate={() =>
+                document.querySelector<HTMLInputElement>('[aria-label="tenant"]')?.focus()
+              }
             />
           </Suspense>
         ) : null}

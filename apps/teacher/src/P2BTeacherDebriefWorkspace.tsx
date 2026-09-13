@@ -41,6 +41,7 @@ type Props = {
     | undefined;
   governedAdvisory?: ReactNode | null;
   intelligenceWorkspace?: ReactNode | null;
+  onReauthenticate?: (() => void) | undefined;
 };
 
 type WorkspaceState =
@@ -74,7 +75,8 @@ export function TeacherDebriefWorkspace({
   m4Context,
   advisoryContext,
   governedAdvisory,
-  intelligenceWorkspace
+  intelligenceWorkspace,
+  onReauthenticate
 }: Props) {
   const [state, setState] = useState<WorkspaceState>(
     response ? { phase: "ready", record: response.record } : { phase: "idle" }
@@ -223,6 +225,7 @@ export function TeacherDebriefWorkspace({
           surface="teacher"
           tenantId={tenantId}
           token={token}
+          onReauthenticate={onReauthenticate}
         />
       ) : null}
       {state.phase === "idle" ? (

@@ -1524,6 +1524,9 @@ export function App() {
                   decisionContextEvidenceRequired={projectAwareEvidenceGateRequired}
                   crossRoundEnabled={W3_ENABLED && w3ContextReady}
                   evidenceSpineEnabled={W3_ENABLED && w3ContextReady}
+                  onReauthenticate={() =>
+                    document.querySelector<HTMLInputElement>('[aria-label="tenant"]')?.focus()
+                  }
                   m4={
                     latestRun &&
                     latestRound && [latestRun.course_id, latestRun.run_id, latestRound.round_no]

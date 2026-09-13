@@ -105,9 +105,7 @@ describe("Decision Thread Evidence Spine service", () => {
         modelQualification: async () => ({
           status: "AVAILABLE" as const,
           summary: "course activity qualification",
-          known_limits: [
-            "模型资格仅绑定租户、课程和活动；不证明具体运行、队伍、回合或角色绑定。"
-          ],
+          known_limits: ["模型资格仅绑定租户、课程和活动；不证明具体运行、队伍、回合或角色绑定。"],
           context_scope: "TENANT_COURSE_ACTIVITY" as const,
           source_context: context
         })
@@ -118,7 +116,9 @@ describe("Decision Thread Evidence Spine service", () => {
       context,
       surface: "teacher"
     });
-    expect(response.sources.find((source) => source.source === "MODEL_QUALIFICATION")).toMatchObject({
+    expect(
+      response.sources.find((source) => source.source === "MODEL_QUALIFICATION")
+    ).toMatchObject({
       context_scope: "TENANT_COURSE_ACTIVITY",
       known_limits: expect.arrayContaining([
         "模型资格仅绑定租户、课程和活动；不证明具体运行、队伍、回合或角色绑定。"
@@ -150,10 +150,29 @@ describe("Decision Thread Evidence Spine service", () => {
     );
   });
 
+  it("maps canonical GSI pair availability and compatibility failures locally", async () => {
+    for (const code of ["GSI_PAIR_NOT_AVAILABLE", "GSI_COMPARISON_INVALID"]) {
+      const service = new DecisionThreadEvidenceSpineService(
+        readers({
+          gsi: async () => {
+            throw new Error(code);
+          }
+        })
+      );
+      const response = await service.getSpine({
+        actor: { user_id: "teacher-001", tenant_id: context.tenant_id, roles: ["teacher"] },
+        context: { ...context, gsi_from_round_id: "round-001", gsi_to_round_id: context.round_id },
+        surface: "teacher"
+      });
+      expect(response.sources.find((source) => source.source === "GSI")?.status).toBe(
+        "CONTEXT_UNAVAILABLE"
+      );
+      expect(response.sources.find((source) => source.source === "M2P6")?.status).toBe("AVAILABLE");
+    }
+  });
+
   it("maps stale industry producer evidence to a stale spine source", () => {
-    expect(
-      classifyIndustryModelStatus("READY", [{ freshness: "STALE" }])
-    ).toBe("STALE");
+    expect(classifyIndustryModelStatus("READY", [{ freshness: "STALE" }])).toBe("STALE");
     expect(classifyIndustryModelStatus("READY_WITH_LIMITS", [{ freshness: "FRESH" }])).toBe(
       "LIMITED"
     );
