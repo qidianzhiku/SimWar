@@ -211,7 +211,10 @@ import {
   M2P5DecisionLearningCrossRoundService,
   type M2P5DecisionLearningActor
 } from "./m2p5-decision-learning-crossround.js";
-import { DecisionThreadEvidenceSpineService } from "./decision-thread-evidence-spine.js";
+import {
+  classifyIndustryModelStatus,
+  DecisionThreadEvidenceSpineService
+} from "./decision-thread-evidence-spine.js";
 import { O4CrossRoundDynamicsService } from "./o4-cross-round-dynamics.js";
 import {
   W027DecisionExperienceError,
@@ -1562,7 +1565,13 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
           surface === "student"
             ? "模型资格证据已按学员可见字段裁剪。"
             : `模型资格记录：${record.qualifications.length}；当前投影为 ${surface}-safe。`,
-        known_limits: projection.known_limits,
+        known_limits: [
+          ...new Set([
+            ...projection.known_limits,
+            "模型资格仅绑定租户、课程和活动；不证明具体运行、队伍、回合或角色绑定。"
+          ])
+        ],
+        context_scope: "TENANT_COURSE_ACTIVITY" as const,
         source_context: {
           tenant_id: context.tenant_id,
           course_id: context.course_id,
@@ -1678,14 +1687,10 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
           qualification_id: record.qualifications[0]!.qualification_id
         }
       );
-      const status =
-        projection.readiness_status === "REBASE_REQUIRED"
-          ? ("REBASE_REQUIRED" as const)
-          : projection.readiness_status === "READY"
-            ? ("AVAILABLE" as const)
-            : projection.readiness_status === "READY_WITH_LIMITS"
-              ? ("LIMITED" as const)
-              : ("CONTEXT_UNAVAILABLE" as const);
+      const status = classifyIndustryModelStatus(
+        projection.readiness_status,
+        "provability" in projection ? projection.provability : undefined
+      );
       return {
         status,
         summary: `Industry Model readiness：${projection.readiness_status}`,

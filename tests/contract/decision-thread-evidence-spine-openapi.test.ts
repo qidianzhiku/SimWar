@@ -119,6 +119,7 @@ describe("Decision Thread Evidence Spine OpenAPI contract", () => {
       source: "M2P6",
       ledger: "OFFICIAL",
       status: "AVAILABLE",
+      context_scope: "EXACT_DDT_CONTEXT",
       summary: "safe summary",
       known_limits: [],
       exact_context: {
@@ -141,5 +142,31 @@ describe("Decision Thread Evidence Spine OpenAPI contract", () => {
         }
       })
     ).toBe(false);
+  });
+
+  it("requires machine-readable source context scope", async () => {
+    const document = (await SwaggerParser.dereference(specificationPath)) as {
+      components: {
+        schemas: Record<
+          string,
+          {
+            required?: string[];
+            properties?: Record<string, { enum?: string[] }>;
+          }
+        >;
+      };
+    };
+    for (const schemaName of [
+      "DdtTeacherEvidenceSource",
+      "DdtStudentEvidenceSource",
+      "DdtAdminEvidenceSource"
+    ]) {
+      const schema = document.components.schemas[schemaName];
+      expect(schema.required).toContain("context_scope");
+      expect(schema.properties.context_scope.enum).toEqual([
+        "EXACT_DDT_CONTEXT",
+        "TENANT_COURSE_ACTIVITY"
+      ]);
+    }
   });
 });

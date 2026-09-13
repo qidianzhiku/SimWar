@@ -3,6 +3,7 @@ import type { DdtEvidenceSpineRequestContext } from "@simwar/shared-contracts";
 import {
   DecisionThreadEvidenceSpineError,
   DecisionThreadEvidenceSpineService,
+  classifyIndustryModelStatus,
   type DecisionThreadEvidenceSpineReaders
 } from "../../services/api/src/decision-thread-evidence-spine.js";
 
@@ -96,6 +97,66 @@ describe("Decision Thread Evidence Spine service", () => {
     expect(portfolio?.status).toBe("CONTEXT_UNAVAILABLE");
     expect(portfolio?.summary).not.toContain("0");
     expect(m2p6?.status).toBe("AVAILABLE");
+  });
+
+  it("preserves a source's bounded context scope instead of attributing it to the full spine context", async () => {
+    const service = new DecisionThreadEvidenceSpineService(
+      readers({
+        modelQualification: async () => ({
+          status: "AVAILABLE" as const,
+          summary: "course activity qualification",
+          known_limits: [
+            "模型资格仅绑定租户、课程和活动；不证明具体运行、队伍、回合或角色绑定。"
+          ],
+          context_scope: "TENANT_COURSE_ACTIVITY" as const,
+          source_context: context
+        })
+      })
+    );
+    const response = await service.getSpine({
+      actor: { user_id: "teacher-001", tenant_id: context.tenant_id, roles: ["teacher"] },
+      context,
+      surface: "teacher"
+    });
+    expect(response.sources.find((source) => source.source === "MODEL_QUALIFICATION")).toMatchObject({
+      context_scope: "TENANT_COURSE_ACTIVITY",
+      known_limits: expect.arrayContaining([
+        "模型资格仅绑定租户、课程和活动；不证明具体运行、队伍、回合或角色绑定。"
+      ])
+    });
+  });
+
+  it("keeps known source failures visible as source-local unavailable states", async () => {
+    const service = new DecisionThreadEvidenceSpineService(
+      readers({
+        modelQualification: async () => {
+          throw new Error("MODEL_QUALIFICATION_BINDING_REQUIRED");
+        },
+        gsi: async () => {
+          throw new Error("GSI_PAIR_AMBIGUOUS");
+        }
+      })
+    );
+    const response = await service.getSpine({
+      actor: { user_id: "teacher-001", tenant_id: context.tenant_id, roles: ["teacher"] },
+      context: { ...context, gsi_from_round_id: "round-001", gsi_to_round_id: context.round_id },
+      surface: "teacher"
+    });
+    expect(response.sources.find((source) => source.source === "MODEL_QUALIFICATION")?.status).toBe(
+      "CONTEXT_UNAVAILABLE"
+    );
+    expect(response.sources.find((source) => source.source === "GSI")?.status).toBe(
+      "CONTEXT_UNAVAILABLE"
+    );
+  });
+
+  it("maps stale industry producer evidence to a stale spine source", () => {
+    expect(
+      classifyIndustryModelStatus("READY", [{ freshness: "STALE" }])
+    ).toBe("STALE");
+    expect(classifyIndustryModelStatus("READY_WITH_LIMITS", [{ freshness: "FRESH" }])).toBe(
+      "LIMITED"
+    );
   });
 
   it("applies a Student allowlist and rejects a mixed-role actor on the Student surface", async () => {

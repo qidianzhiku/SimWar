@@ -37,6 +37,9 @@ export interface DecisionThreadEvidenceSpineProps {
   surface: DdtSurface;
   context?: DdtExactContext | undefined;
   heading?: string;
+  onRecover?: (() => void) | undefined;
+  onReauthenticate?: (() => void) | undefined;
+  onRebind?: (() => void) | undefined;
 }
 
 type ViewState =
@@ -178,10 +181,14 @@ export function DecisionThreadEvidenceSpine({
   tenantId,
   surface,
   context,
-  heading = "决策线程证据"
+  heading = "决策线程证据",
+  onRecover,
+  onReauthenticate,
+  onRebind
 }: DecisionThreadEvidenceSpineProps) {
   const [selection, setSelection] = useState({ from: "", to: "" });
   const [options, setOptions] = useState<OptionsState>({ kind: "idle" });
+  const [recoveryNonce, setRecoveryNonce] = useState(0);
   const [view, setView] = useState<ViewState>(
     context
       ? { kind: "idle" }
@@ -192,6 +199,12 @@ export function DecisionThreadEvidenceSpine({
   const contextRef = useRef(context);
   const recoveryRef = useRef(false);
   const contextIdentity = contextKey(context);
+
+  const recover = (handler?: () => void): void => {
+    recoveryRef.current = true;
+    handler?.();
+    setRecoveryNonce((current) => current + 1);
+  };
 
   useEffect(() => {
     contextRef.current = context;
@@ -248,7 +261,7 @@ export function DecisionThreadEvidenceSpine({
       });
 
     return () => controller.abort();
-  }, [apiBase, surface, tenantId, token, contextIdentity]);
+  }, [apiBase, recoveryNonce, surface, tenantId, token, contextIdentity]);
 
   useEffect(() => {
     const requestContext = contextRef.current;
@@ -312,7 +325,16 @@ export function DecisionThreadEvidenceSpine({
       });
 
     return () => controller.abort();
-  }, [apiBase, contextIdentity, selection.from, selection.to, surface, tenantId, token]);
+  }, [
+    apiBase,
+    contextIdentity,
+    recoveryNonce,
+    selection.from,
+    selection.to,
+    surface,
+    tenantId,
+    token
+  ]);
 
   const rounds = options.kind === "ready" ? options.data.rounds : [];
   const canCompare = Boolean(selection.from && selection.to && selection.from !== selection.to);
@@ -433,7 +455,34 @@ export function DecisionThreadEvidenceSpine({
                 : "证据不可用"}
           </strong>
           <p>{view.message}</p>
-          <span>安全下一步：重新选择当前上下文；不会自动重试旧请求。</span>
+          <span>
+            安全下一步：
+            {view.kind === "permission-denied"
+              ? "重新验证身份或切换到有权限的上下文。"
+              : view.kind === "rebase"
+                ? "重新绑定当前上下文；不会自动重试旧请求。"
+                : "重新加载当前上下文；不会自动重试旧请求。"}
+          </span>
+          {view.kind === "permission-denied" && onReauthenticate ? (
+            <button
+              type="button"
+              className="ddt-evidence-spine__recovery"
+              data-action="ddt:reauthenticate"
+              onClick={() => recover(onReauthenticate)}
+            >
+              重新验证身份
+            </button>
+          ) : null}
+          {view.kind !== "permission-denied" ? (
+            <button
+              type="button"
+              className="ddt-evidence-spine__recovery"
+              data-action={view.kind === "rebase" ? "ddt:rebind" : "ddt:reload"}
+              onClick={() => recover(view.kind === "rebase" ? onRebind ?? onRecover : onRecover)}
+            >
+              {view.kind === "rebase" ? "重新加载当前精确上下文" : "重新加载当前上下文"}
+            </button>
+          ) : null}
         </div>
       ) : null}
       {view.kind === "ready" || view.kind === "stale" || view.kind === "recovered" ? (
@@ -451,7 +500,19 @@ export function DecisionThreadEvidenceSpine({
                 ? "变化仅作描述，不证明因果效应。"
                 : "请以当前权限可见范围理解这份证据。"}
             </p>
-            {view.kind === "stale" ? <p>安全下一步：重新加载当前精确上下文后再继续查看。</p> : null}
+            {view.kind === "stale" ? (
+              <>
+                <p>安全下一步：重新加载当前精确上下文后再继续查看。</p>
+                <button
+                  type="button"
+                  className="ddt-evidence-spine__recovery"
+                  data-action="ddt:refresh"
+                  onClick={() => recover(onRecover)}
+                >
+                  刷新当前精确上下文
+                </button>
+              </>
+            ) : null}
           </div>
           <div className="ddt-evidence-spine__sources">
             {view.data.sources.map((source) => (
@@ -469,6 +530,12 @@ export function DecisionThreadEvidenceSpine({
                   </span>
                 </div>
                 <p>{sourceSummary(source)}</p>
+                <p className="ddt-evidence-spine__scope" data-testid="ddt-source-context-scope">
+                  证据绑定范围：
+                  {source.context_scope === "TENANT_COURSE_ACTIVITY"
+                    ? "租户、课程与活动"
+                    : "当前精确上下文"}
+                </p>
                 <ul>
                   {source.known_limits.map((limit) => (
                     <li key={limit}>{limit}</li>

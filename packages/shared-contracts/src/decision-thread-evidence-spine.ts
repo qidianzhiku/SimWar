@@ -27,6 +27,12 @@ export const DDT_EVIDENCE_LEDGERS = [
 ] as const;
 export type DdtEvidenceLedger = (typeof DDT_EVIDENCE_LEDGERS)[number];
 
+export const DDT_EVIDENCE_CONTEXT_SCOPES = [
+  "EXACT_DDT_CONTEXT",
+  "TENANT_COURSE_ACTIVITY"
+] as const;
+export type DdtEvidenceContextScope = (typeof DDT_EVIDENCE_CONTEXT_SCOPES)[number];
+
 export type DdtSurface = "teacher" | "student" | "admin";
 
 export interface DdtExactContext {
@@ -65,6 +71,8 @@ export interface DdtEvidenceSourceBase {
   readonly source: DdtEvidenceSourceName;
   readonly ledger: DdtEvidenceLedger;
   readonly status: DdtEvidenceStatus;
+  /** The source's own binding scope; it may be narrower than the DDT request context. */
+  readonly context_scope: DdtEvidenceContextScope;
   readonly summary: string;
   readonly known_limits: readonly string[];
 }

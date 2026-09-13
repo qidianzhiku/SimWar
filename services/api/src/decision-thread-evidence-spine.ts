@@ -2,6 +2,7 @@ import type {
   DdtAdminEvidenceSpineResponse,
   DdtEvidenceLedger,
   DdtEvidenceSourceName,
+  DdtEvidenceContextScope,
   DdtEvidenceSpineRequestContext,
   DdtEvidenceSpineResponse,
   DdtEvidenceStatus,
@@ -25,6 +26,7 @@ export interface DecisionThreadEvidenceSpineActor {
 export interface DdtSourceRead {
   readonly ledger?: DdtEvidenceLedger;
   readonly status: DdtEvidenceStatus;
+  readonly context_scope?: DdtEvidenceContextScope;
   readonly summary: string;
   readonly known_limits: readonly string[];
   readonly source_context: DdtExactContext;
@@ -179,10 +181,18 @@ function statusFromError(error: unknown): DdtEvidenceStatus | undefined {
   const code = error instanceof Error ? error.message : "";
   if (/REBASE|DIGEST|MISMATCH/u.test(code)) return "REBASE_REQUIRED";
   if (/STALE|FRESHNESS/u.test(code)) return "STALE";
-  if (/PUBLISHED|CONTEXT|NOT_FOUND|UNAVAILABLE|SCOPE/u.test(code)) {
+  if (
+    /PUBLISHED|CONTEXT|NOT_FOUND|UNAVAILABLE|SCOPE|MODEL_QUALIFICATION_(?:BINDING_REQUIRED|EXACT_SELECTION_REQUIRED)|GSI_(?:FORBIDDEN|PAIR_AMBIGUOUS|PAIR_INVALID)/u.test(
+      code
+    )
+  ) {
     return "CONTEXT_UNAVAILABLE";
   }
   return undefined;
+}
+
+function isDdtEvidenceContextScope(value: unknown): value is DdtEvidenceContextScope {
+  return value === "EXACT_DDT_CONTEXT" || value === "TENANT_COURSE_ACTIVITY";
 }
 
 function isDdtEvidenceStatus(value: unknown): value is DdtEvidenceStatus {
@@ -245,6 +255,9 @@ function validateSourceRead(
     throw new DecisionThreadEvidenceSpineError("DDT_OUTPUT_INVALID");
   }
   if (!isDdtEvidenceStatus(read.status)) {
+    throw new DecisionThreadEvidenceSpineError("DDT_OUTPUT_INVALID");
+  }
+  if (read.context_scope !== undefined && !isDdtEvidenceContextScope(read.context_scope)) {
     throw new DecisionThreadEvidenceSpineError("DDT_OUTPUT_INVALID");
   }
   if (
@@ -310,12 +323,14 @@ function buildStudentSource(
   source: DdtEvidenceSourceName,
   status: DdtEvidenceStatus,
   context: DdtEvidenceSpineRequestContext,
-  knownLimits: readonly string[]
+  knownLimits: readonly string[],
+  contextScope: DdtEvidenceContextScope
 ): DdtStudentEvidenceSource {
   return {
     source,
     ledger: SOURCE_LEDGERS[source],
     status,
+    context_scope: contextScope,
     summary: STUDENT_STATUS_TEXT[status],
     known_limits: knownLimits,
     exact_context: {
@@ -353,13 +368,15 @@ function readSource(
       source,
       status,
       read.source_context,
-      status === "AVAILABLE" ? [STUDENT_LIMITS[0]] : [STUDENT_LIMITS[2]]
+      status === "AVAILABLE" ? [STUDENT_LIMITS[0]] : [STUDENT_LIMITS[2]],
+      read.context_scope ?? "EXACT_DDT_CONTEXT"
     );
   }
   const base = {
     source,
     ledger: SOURCE_LEDGERS[source],
     status,
+    context_scope: read.context_scope ?? ("EXACT_DDT_CONTEXT" as const),
     summary: sourceSummary(source, status, read.summary),
     known_limits: [...new Set([...read.known_limits, ...GLOBAL_LIMITS])],
     exact_context: exactContext(read.source_context),
@@ -368,6 +385,17 @@ function readSource(
       : {})
   };
   return read.provenance ? { ...base, provenance: read.provenance } : base;
+}
+
+export function classifyIndustryModelStatus(
+  readinessStatus: string,
+  provability: readonly { readonly freshness?: string }[] | undefined
+): DdtEvidenceStatus {
+  if (provability?.some((entry) => entry.freshness === "STALE")) return "STALE";
+  if (readinessStatus === "REBASE_REQUIRED") return "REBASE_REQUIRED";
+  if (readinessStatus === "READY") return "AVAILABLE";
+  if (readinessStatus === "READY_WITH_LIMITS") return "LIMITED";
+  return "CONTEXT_UNAVAILABLE";
 }
 
 async function safeRead(

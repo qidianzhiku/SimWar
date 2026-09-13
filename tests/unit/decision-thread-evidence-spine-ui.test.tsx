@@ -274,4 +274,58 @@ describe("Decision Thread Evidence Spine UI", () => {
     await vi.waitFor(() => expect(mismatchHost.textContent).toContain("上下文与当前选择不一致"));
     await act(async () => mismatchRoot.unmount());
   });
+
+  it("offers an executable reload action for a rebase failure and announces recovery", async () => {
+    let evidenceAttempts = 0;
+    const pairOptions = {
+      surface: "teacher",
+      context: { ...context },
+      rounds: [],
+      provider: "OFF",
+      official_truth_write: false,
+      non_causal: true,
+      causal_proof: false,
+      known_limits: []
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("pair-options")) {
+        return { ok: true, json: async () => ({ data: pairOptions }) };
+      }
+      evidenceAttempts += 1;
+      if (evidenceAttempts === 1) {
+        return {
+          ok: false,
+          json: async () => ({ code: "DDT_REBASE_REQUIRED", message: "binding moved" })
+        };
+      }
+      return { ok: true, json: async () => ({ data: responseFor("teacher") }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        <DecisionThreadEvidenceSpine
+          apiBase="http://fixture"
+          context={context}
+          surface="teacher"
+          tenantId="tenant-private"
+          token="token"
+        />
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await vi.waitFor(() => expect(host.textContent).toContain("需要重新绑定"));
+    const recoveryButton = host.querySelector("button[data-action='ddt:rebind']");
+    expect(recoveryButton).not.toBeNull();
+    await act(async () => {
+      (recoveryButton as HTMLButtonElement).click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await vi.waitFor(() => expect(host.textContent).toContain("证据线程已恢复"));
+    expect(evidenceAttempts).toBe(2);
+    await act(async () => root.unmount());
+  });
 });
