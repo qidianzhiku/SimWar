@@ -3868,6 +3868,7 @@ export function App() {
               context={W3_ENABLED ? w3Context : undefined}
               blockerSummary={blockerSummary}
               crossRoundEnabled={W3_ENABLED}
+              evidenceSpineEnabled={W3_ENABLED}
               teamCount={teamMonitor?.visible_state?.team_count ?? teamMonitor?.teams?.length ?? 0}
               tenantId={login.tenantId}
               token={session.access_token}

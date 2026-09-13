@@ -5,6 +5,7 @@ import type {
   W3OfficialConsequenceRecord,
   W3OfficialConsequenceResponse
 } from "@simwar/shared-contracts";
+import { DecisionThreadEvidenceSpine } from "@simwar/ui";
 import M4MultipathCounterfactualTransferPanel from "@simwar/ui/m4-multipath-counterfactual-transfer-panel";
 import "./p2b-teacher-debrief.css";
 
@@ -25,6 +26,7 @@ type Props = {
   blockerSummary?: string;
   teamCount?: number;
   crossRoundEnabled?: boolean;
+  evidenceSpineEnabled?: boolean;
   m4Context?:
     | readonly [courseId: string, runId: string, teamId: string, roundNo: number]
     | undefined;
@@ -68,6 +70,7 @@ export function TeacherDebriefWorkspace({
   blockerSummary = "当前没有可用的回合阻断",
   teamCount = 0,
   crossRoundEnabled = false,
+  evidenceSpineEnabled = false,
   m4Context,
   advisoryContext,
   governedAdvisory,
@@ -212,6 +215,16 @@ export function TeacherDebriefWorkspace({
                   : "课堂复盘"}
         </span>
       </div>
+      {evidenceSpineEnabled ? (
+        <DecisionThreadEvidenceSpine
+          apiBase={apiBase}
+          context={context}
+          heading="复盘证据线程"
+          surface="teacher"
+          tenantId={tenantId}
+          token={token}
+        />
+      ) : null}
       {state.phase === "idle" ? (
         <div className="p2b-state-card">
           <strong>等待 exact Course / Run / Round / Team 上下文</strong>

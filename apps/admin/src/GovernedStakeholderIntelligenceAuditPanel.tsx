@@ -1,9 +1,11 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useMemo, useRef, useState, type FormEvent } from "react";
 import type {
+  DdtExactContext,
   GSIAdminProjection,
   GSICrossRoundAdminProjection,
   GSICrossRoundPairOptions
 } from "@simwar/shared-contracts";
+import { DecisionThreadEvidenceSpine } from "@simwar/ui";
 import "./gsi-xr.css";
 
 export const GSI_AUDIT_PATH = "/api/v1/bff/admin/gsi/audit";
@@ -124,6 +126,33 @@ export function GovernedStakeholderIntelligenceAuditPanel({
   const pairOptionsController = useRef<AbortController | null>(null);
   const comparisonRequestId = useRef(0);
   const comparisonController = useRef<AbortController | null>(null);
+  const decisionThreadContext = useMemo<DdtExactContext | undefined>(() => {
+    const selectedRound =
+      pairOptionsState.kind === "ready"
+        ? pairOptionsState.data.rounds.find((round) => round.round_id === toRoundId)
+        : undefined;
+    if (
+      !courseId.trim() ||
+      !runId.trim() ||
+      !teamId.trim() ||
+      !activityId.trim() ||
+      !roleKey.trim() ||
+      !toRoundId.trim() ||
+      selectedRound === undefined
+    ) {
+      return undefined;
+    }
+    return {
+      activity_id: activityId.trim(),
+      course_id: courseId.trim(),
+      role_key: roleKey.trim(),
+      round_id: toRoundId.trim(),
+      round_no: selectedRound.round_no,
+      run_id: runId.trim(),
+      team_id: teamId.trim(),
+      tenant_id: tenantId
+    };
+  }, [activityId, courseId, pairOptionsState, roleKey, runId, teamId, tenantId, toRoundId]);
 
   function invalidateComparisonSelection(): void {
     comparisonRequestId.current += 1;
@@ -336,6 +365,14 @@ export function GovernedStakeholderIntelligenceAuditPanel({
         <strong>Selected tenant</strong>
         <span>{tenantId} · tenant echo must match the authorized request context</span>
       </div>
+      <DecisionThreadEvidenceSpine
+        apiBase={apiBase}
+        context={decisionThreadContext}
+        heading="审计证据线程"
+        surface="admin"
+        tenantId={tenantId}
+        token={token}
+      />
       <form
         className="gsi-xr-pair-form"
         aria-label="GSI admin exact cross-round comparison"

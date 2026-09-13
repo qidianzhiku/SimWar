@@ -7,6 +7,7 @@ import type {
   W3OfficialConsequenceResponse
 } from "@simwar/shared-contracts";
 import { isStudentDecisionContextEvidenceScope } from "@simwar/shared-contracts";
+import { DecisionThreadEvidenceSpine } from "@simwar/ui";
 import M4MultipathCounterfactualTransferPanel from "@simwar/ui/m4-multipath-counterfactual-transfer-panel";
 import "./p2b-decision-learning.css";
 
@@ -32,6 +33,7 @@ type Props = {
   context?: W3OfficialConsequenceContext | undefined;
   published: boolean;
   crossRoundEnabled?: boolean;
+  evidenceSpineEnabled?: boolean;
   decisionContextEvidence?: StudentDecisionContextEvidence | null;
   decisionContextEvidenceRequired?: boolean;
   m4?: readonly [courseId: string, runId: string, roundNo: number] | undefined;
@@ -74,6 +76,7 @@ export function StudentDecisionLearningJourney({
   context,
   published,
   crossRoundEnabled = false,
+  evidenceSpineEnabled = false,
   decisionContextEvidence,
   decisionContextEvidenceRequired = false,
   m4
@@ -315,6 +318,16 @@ export function StudentDecisionLearningJourney({
                     : "学习旅程"}
         </span>
       </div>
+      {evidenceSpineEnabled ? (
+        <DecisionThreadEvidenceSpine
+          apiBase={apiBase}
+          context={published ? context : undefined}
+          heading="本轮证据时间线"
+          surface="student"
+          tenantId={tenantId}
+          token={token}
+        />
+      ) : null}
 
       {displayedDecisionContextEvidence ? (
         <section

@@ -170,6 +170,7 @@ import { handleGSIStakeholderShadowPlaneRoute } from "./routes/gsi-stakeholder-s
 import { handleExecutiveStrategyLabRoute } from "./routes/executive-strategy-lab-routes.js";
 import { handleW3OfficialConsequenceRoute } from "./routes/w3-official-consequence-learning-routes.js";
 import { handleM2P5DecisionLearningRoute } from "./routes/m2p5-decision-learning-crossround-routes.js";
+import { handleDecisionThreadEvidenceSpineRoute } from "./routes/decision-thread-evidence-spine-routes.js";
 import { handleO4CrossRoundDynamicsRoute } from "./routes/o4-cross-round-dynamics-routes.js";
 import { handleW4EnterpriseStateRoute } from "./routes/w4-enterprise-state-routes.js";
 import { handleM4MultipathCounterfactualTransferRoute } from "./routes/m4-multipath-counterfactual-transfer-routes.js";
@@ -210,6 +211,7 @@ import {
   M2P5DecisionLearningCrossRoundService,
   type M2P5DecisionLearningActor
 } from "./m2p5-decision-learning-crossround.js";
+import { DecisionThreadEvidenceSpineService } from "./decision-thread-evidence-spine.js";
 import { O4CrossRoundDynamicsService } from "./o4-cross-round-dynamics.js";
 import {
   W027DecisionExperienceError,
@@ -480,6 +482,7 @@ interface ApiRuntime {
   w027DecisionExperience: W027DecisionExperienceService;
   w3OfficialConsequence: W3OfficialConsequenceLearningService;
   m2p5DecisionLearning: M2P5DecisionLearningCrossRoundService;
+  decisionThreadEvidenceSpine: DecisionThreadEvidenceSpineService;
   resolveStudentDecisionContextEvidence: (input: {
     actor: M2P5DecisionLearningActor;
     context: M2P5DecisionLearningContext;
@@ -1446,6 +1449,316 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     crossRoundContextAdapter
   });
   const projectLibrary = new ProjectLibraryService(store);
+  const decisionThreadEvidenceSpine = new DecisionThreadEvidenceSpineService({
+    authorizeContext: async (actor, context, surface) => {
+      const workflow = await repositoryProvider.ports.roleWorkflow.readRoleWorkflow({
+        tenant_id: context.tenant_id,
+        run_id: context.run_id,
+        team_id: context.team_id,
+        round_id: context.round_id
+      });
+      if (
+        !workflow.course ||
+        workflow.course.course_id !== context.course_id ||
+        workflow.course.tenant_id !== context.tenant_id ||
+        !workflow.run ||
+        workflow.run.run_id !== context.run_id ||
+        workflow.run.course_id !== context.course_id ||
+        workflow.run.tenant_id !== context.tenant_id ||
+        !workflow.round ||
+        workflow.round.round_id !== context.round_id ||
+        workflow.round.run_id !== context.run_id ||
+        workflow.round.round_no !== context.round_no ||
+        workflow.round.tenant_id !== context.tenant_id ||
+        !workflow.team ||
+        workflow.team.team_id !== context.team_id ||
+        workflow.team.course_id !== context.course_id ||
+        workflow.team.tenant_id !== context.tenant_id
+      ) {
+        return false;
+      }
+      if (surface !== "student") return true;
+      return workflow.assignments.some(
+        (assignment) =>
+          assignment.status === "active" &&
+          assignment.user_id === actor.user_id &&
+          assignment.role_key === context.role_key &&
+          assignment.tenant_id === context.tenant_id &&
+          assignment.course_id === context.course_id &&
+          assignment.run_id === context.run_id &&
+          assignment.team_id === context.team_id
+      );
+    },
+    m2p6: async (actor, context, surface) => {
+      const m2p5Actor = {
+        user_id: actor.user_id,
+        tenant_id: context.tenant_id,
+        roles: actor.roles as ActorRole[],
+        ...(actor.team_id ? { team_id: actor.team_id } : {})
+      };
+      const result = await m2p5DecisionLearning.getJourney({
+        actor: m2p5Actor,
+        context,
+        surface: surface === "student" ? "student" : "teacher"
+      });
+      return {
+        status: "AVAILABLE" as const,
+        summary: `Decision Learning：${result.learning_loop.status}；Next Opening：${result.learning_loop.next_opening_state_readiness}`,
+        known_limits: result.known_limits,
+        source_context: {
+          tenant_id: context.tenant_id,
+          course_id: context.course_id,
+          run_id: context.run_id,
+          team_id: context.team_id,
+          round_id: context.round_id,
+          round_no: context.round_no,
+          role_key: context.role_key,
+          activity_id: context.activity_id
+        },
+        provenance: {
+          authority_owner: "M2P5_DECISION_LEARNING",
+          source_ref: "services/api/src/m2p5-decision-learning-crossround.ts",
+          contract_version: result.schema_version
+        }
+      };
+    },
+    modelQualification: async (actor, context, surface) => {
+      const modelActor = {
+        actor_id: actor.user_id,
+        role:
+          surface === "student"
+            ? ("student" as const)
+            : surface === "teacher"
+              ? ("teacher" as const)
+              : ("tenant_admin" as const),
+        tenant_id: context.tenant_id
+      };
+      const scope = {
+        activity_id: context.activity_id,
+        course_id: context.course_id,
+        tenant_id: context.tenant_id
+      };
+      const record = modelQualification.getRecordForScope(scope);
+      if (!record || record.qualifications.length === 0) {
+        throw new Error("MODEL_QUALIFICATION_CONTEXT_UNAVAILABLE");
+      }
+      const projection =
+        surface === "student"
+          ? record.qualifications.length === 1
+            ? modelQualification.getStudentProjection(
+                modelActor,
+                scope,
+                record.qualifications[0]!.qualification_id
+              )
+            : (() => {
+                throw new Error("MODEL_QUALIFICATION_EXACT_SELECTION_REQUIRED");
+              })()
+          : surface === "admin"
+            ? modelQualification.getAdminProjection(modelActor, scope)
+            : modelQualification.getTeacherProjection(modelActor, scope);
+      return {
+        status: "AVAILABLE" as const,
+        summary:
+          surface === "student"
+            ? "模型资格证据已按学员可见字段裁剪。"
+            : `模型资格记录：${record.qualifications.length}；当前投影为 ${surface}-safe。`,
+        known_limits: projection.known_limits,
+        source_context: {
+          tenant_id: context.tenant_id,
+          course_id: context.course_id,
+          run_id: context.run_id,
+          team_id: context.team_id,
+          round_id: context.round_id,
+          round_no: context.round_no,
+          role_key: context.role_key,
+          activity_id: context.activity_id
+        },
+        provenance: {
+          authority_owner: "MAIN_MODEL_GOVERNANCE",
+          source_ref: "services/api/src/model-qualification-service.ts",
+          contract_version: "model-qualification.v1"
+        }
+      };
+    },
+    strategicPortfolio: async (actor, context, _surface) => {
+      if (context.activity_id !== "w4-enterprise-state-strategic-evolution") {
+        throw new Error("STRATEGIC_PORTFOLIO_CONTEXT_UNAVAILABLE");
+      }
+      const projection = await w4EnterpriseStateService.getProjection(
+        {
+          actor_id: actor.user_id,
+          activity_id: context.activity_id,
+          course_id: context.course_id,
+          role_key: context.role_key,
+          run_id: context.run_id,
+          round_id: context.round_id,
+          round_no: context.round_no,
+          team_id: context.team_id,
+          tenant_id: context.tenant_id
+        },
+        { allowEmptyRound: false }
+      );
+      const portfolio = projection.strategic_portfolio;
+      const exactScope = portfolio.exact_scope;
+      const exactRoundStateRef = projection.closing_state_ref;
+      const exactRoundOutcomeRef = portfolio.persistence.closing_state_ref;
+      const hasExactRoundEvidence =
+        (exactRoundStateRef !== null && exactRoundStateRef.round_id === context.round_id) ||
+        (exactRoundOutcomeRef !== null && exactRoundOutcomeRef.round_id === context.round_id);
+      if (
+        exactScope.tenant_id !== context.tenant_id ||
+        exactScope.course_id !== context.course_id ||
+        exactScope.run_id !== context.run_id ||
+        exactScope.team_id !== context.team_id ||
+        exactScope.round_no !== context.round_no ||
+        !hasExactRoundEvidence
+      ) {
+        throw new Error("STRATEGIC_PORTFOLIO_CONTEXT_UNAVAILABLE");
+      }
+      return {
+        ledger: "DIAGNOSTIC" as const,
+        status: "AVAILABLE" as const,
+        summary: `Strategic Portfolio：${portfolio.candidate_status}；约束状态：${portfolio.constraints.status}`,
+        known_limits: portfolio.known_limits,
+        source_context: {
+          tenant_id: context.tenant_id,
+          course_id: context.course_id,
+          run_id: context.run_id,
+          team_id: context.team_id,
+          round_id: context.round_id,
+          round_no: context.round_no,
+          role_key: context.role_key,
+          activity_id: context.activity_id
+        },
+        provenance: {
+          authority_owner: "W4_ENTERPRISE_STATE_SERVICE",
+          source_ref: "services/api/src/w4-enterprise-state.ts",
+          contract_version: portfolio.schema_version
+        }
+      };
+    },
+    industryModel: async (actor, context, surface) => {
+      const run = await repositoryProvider.facade.runs.getRun(context.tenant_id, context.run_id);
+      const record = modelQualification.getRecordForScope({
+        tenant_id: context.tenant_id,
+        course_id: context.course_id
+      });
+      if (
+        !run ||
+        run.course_id !== context.course_id ||
+        !record ||
+        record.qualifications.length !== 1
+      ) {
+        throw new Error("INDUSTRY_MODEL_EXACT_CONTEXT_UNAVAILABLE");
+      }
+      const modelActor = {
+        actor_id: actor.user_id,
+        role:
+          surface === "student"
+            ? ("student" as const)
+            : surface === "teacher"
+              ? ("teacher" as const)
+              : ("tenant_admin" as const),
+        tenant_id: context.tenant_id
+      };
+      const projection = modelQualification.getIndustryModelRealityJoin(
+        modelActor,
+        {
+          activity_id: context.activity_id,
+          course_id: context.course_id,
+          tenant_id: context.tenant_id
+        },
+        {
+          run_id: context.run_id,
+          team_id: context.team_id,
+          round_id: context.round_id,
+          round_no: context.round_no,
+          scenario_package_id: run.scenario_package_id,
+          parameter_set_id: run.parameter_set_id,
+          qualification_id: record.qualifications[0]!.qualification_id
+        }
+      );
+      const status =
+        projection.readiness_status === "REBASE_REQUIRED"
+          ? ("REBASE_REQUIRED" as const)
+          : projection.readiness_status === "READY"
+            ? ("AVAILABLE" as const)
+            : projection.readiness_status === "READY_WITH_LIMITS"
+              ? ("LIMITED" as const)
+              : ("CONTEXT_UNAVAILABLE" as const);
+      return {
+        status,
+        summary: `Industry Model readiness：${projection.readiness_status}`,
+        known_limits: projection.known_limits,
+        source_context: {
+          tenant_id: context.tenant_id,
+          course_id: context.course_id,
+          run_id: context.run_id,
+          team_id: context.team_id,
+          round_id: context.round_id,
+          round_no: context.round_no,
+          role_key: context.role_key,
+          activity_id: context.activity_id
+        },
+        provenance: {
+          authority_owner: "INDUSTRY_MODEL_DIAGNOSTIC",
+          source_ref: "services/api/src/model-qualification-service.ts",
+          contract_version: projection.schema_version
+        }
+      };
+    },
+    gsi: async (actor, context, surface, selection) => {
+      const gsiActor = {
+        user_id: actor.user_id,
+        tenant_id: actor.tenant_id,
+        roles: actor.roles as ActorRole[],
+        ...(actor.team_id ? { team_id: actor.team_id } : {})
+      };
+      const projection = await gsiStakeholder.compareRoundPair(
+        gsiActor,
+        {
+          course_id: context.course_id,
+          run_id: context.run_id,
+          team_id: context.team_id,
+          activity_id: context.activity_id,
+          role_key: context.role_key,
+          from_round_id: selection.from_round_id,
+          to_round_id: selection.to_round_id
+        },
+        context.tenant_id,
+        surface
+      );
+      const movementCount =
+        "movements" in projection
+          ? projection.movements.length
+          : projection.comparison.movements.length;
+      return {
+        status: "AVAILABLE" as const,
+        summary: `GSI 跨回合变化：${movementCount} 项；变化仅作描述性证据。`,
+        known_limits: projection.known_limits,
+        source_context: {
+          tenant_id: context.tenant_id,
+          course_id: context.course_id,
+          run_id: context.run_id,
+          team_id: context.team_id,
+          round_id: context.round_id,
+          round_no: context.round_no,
+          role_key: context.role_key,
+          activity_id: context.activity_id
+        },
+        selected_round_pair: selection,
+        ...(surface === "student"
+          ? {}
+          : {
+              provenance: {
+                authority_owner: "GSI_STAKEHOLDER_SHADOW_PLANE",
+                source_ref: "services/api/src/gsi-stakeholder-shadow-plane-service.ts",
+                contract_version: "gsi-governed-stakeholder-shadow-plane.v1"
+              }
+            })
+      };
+    }
+  });
   const resolveStudentDecisionContextEvidence = async ({
     actor,
     context
@@ -1571,6 +1884,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     w027DecisionExperience,
     w3OfficialConsequence,
     m2p5DecisionLearning,
+    decisionThreadEvidenceSpine,
     resolveStudentDecisionContextEvidence,
     o4CrossRoundDynamics,
     w4EnterpriseStateRepository,
@@ -8046,6 +8360,26 @@ async function routeRequest(
     )
   )
     return;
+
+  if (
+    await handleDecisionThreadEvidenceSpineRoute(
+      runtime.decisionThreadEvidenceSpine,
+      request,
+      response,
+      url,
+      { requestId: context.requestId, tenantId: context.tenantId },
+      {
+        createEnvelope: (routeContext, payload) =>
+          createEnvelope(routeContext as RequestContext, payload),
+        requireStudent: () => requireD4Student(context),
+        requireTeacher: () => requireD4Teacher(context),
+        requireAdmin: () => requireD4Admin(context),
+        sendJson
+      }
+    )
+  ) {
+    return;
+  }
 
   if (
     await handleM2P5DecisionLearningRoute(

@@ -46,3 +46,5 @@ export { IndustryModelDiagnosticReadinessPanel } from "./components/IndustryMode
 export type { IndustryModelDiagnosticReadinessPanelProps } from "./components/IndustryModelDiagnosticReadinessPanel.js";
 export { IndustryModelRealityJoinPanel } from "./components/IndustryModelRealityJoinPanel.js";
 export type { IndustryModelRealityJoinPanelProps } from "./components/IndustryModelRealityJoinPanel.js";
+export { DecisionThreadEvidenceSpine } from "./components/DecisionThreadEvidenceSpine.js";
+export type { DecisionThreadEvidenceSpineProps } from "./components/DecisionThreadEvidenceSpine.js";
