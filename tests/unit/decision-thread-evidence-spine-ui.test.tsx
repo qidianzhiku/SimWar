@@ -377,4 +377,53 @@ describe("Decision Thread Evidence Spine UI", () => {
     expect(onReauthenticate).toHaveBeenCalledOnce();
     await act(async () => root.unmount());
   });
+
+  it("maps the existing D4 scope violation to permission recovery", async () => {
+    const pairOptions = {
+      surface: "teacher",
+      context: { ...context },
+      rounds: [],
+      provider: "OFF",
+      official_truth_write: false,
+      non_causal: true,
+      causal_proof: false,
+      known_limits: []
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("pair-options")) {
+        return { ok: true, json: async () => ({ data: pairOptions }) };
+      }
+      return {
+        ok: false,
+        json: async () => ({ code: "D4_REPORT_SCOPE_VIOLATION", message: "scope required" })
+      };
+    });
+    const onReauthenticate = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        <DecisionThreadEvidenceSpine
+          apiBase="http://fixture"
+          context={context}
+          surface="teacher"
+          tenantId="tenant-private"
+          token="token"
+          onReauthenticate={onReauthenticate}
+        />
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await vi.waitFor(() => expect(host.textContent).toContain("无权限"));
+    const recoveryButton = host.querySelector("button[data-action='ddt:reauthenticate']");
+    expect(recoveryButton).not.toBeNull();
+    await act(async () => {
+      (recoveryButton as HTMLButtonElement).click();
+    });
+    expect(onReauthenticate).toHaveBeenCalledOnce();
+    await act(async () => root.unmount());
+  });
 });

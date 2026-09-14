@@ -142,7 +142,11 @@ function assertResponseBinding(
 }
 
 function viewStateForError(code: string, message: string): ViewState {
-  if (code === "DDT_SCOPE_VIOLATION" || code === "AUTHZ-403-001") {
+  if (
+    code === "DDT_SCOPE_VIOLATION" ||
+    code === "D4_REPORT_SCOPE_VIOLATION" ||
+    code === "AUTHZ-403-001"
+  ) {
     return { kind: "permission-denied", message: "当前账号没有查看这份精确上下文证据的权限。" };
   }
   if (code === "DDT_REBASE_REQUIRED" || code === "GSI_REBASE_REQUIRED") {

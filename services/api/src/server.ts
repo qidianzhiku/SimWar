@@ -444,6 +444,21 @@ interface RequestContext {
   token?: string;
 }
 
+const DDT_AUTHORIZED_ACTIVITY_ID = "activity_consequence";
+
+function isDdtRoleAndActivityBound(
+  team: Team | null,
+  context: { readonly activity_id: string; readonly role_key: string }
+): boolean {
+  // DDT uses the existing consequence activity and the exact role slot held by
+  // the server-owned team roster. The request may select a value, but it never
+  // creates the authority for that value.
+  return (
+    context.activity_id === DDT_AUTHORIZED_ACTIVITY_ID &&
+    team?.members.some((member) => member.role_slot === context.role_key) === true
+  );
+}
+
 interface ApiRuntime {
   courseBlueprintBindingStore: CourseBlueprintBindingStore;
   formalCourseAuthorityBindingStore: FormalCourseAuthorityBindingStore;
@@ -1478,6 +1493,9 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
         workflow.team.course_id !== context.course_id ||
         workflow.team.tenant_id !== context.tenant_id
       ) {
+        return false;
+      }
+      if (!isDdtRoleAndActivityBound(workflow.team, context)) {
         return false;
       }
       if (surface !== "student") return true;

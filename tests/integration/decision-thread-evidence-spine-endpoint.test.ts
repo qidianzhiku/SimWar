@@ -119,7 +119,7 @@ async function login(baseUrl: string, username: string, password = username): Pr
 
 function query(): string {
   return new URLSearchParams({
-    activity_id: "activity-ddt",
+    activity_id: "activity_consequence",
     course_id: courseId,
     role_key: "CEO",
     round_id: roundId,
@@ -211,6 +211,22 @@ describe("Decision Thread Evidence Spine real BFF", () => {
         teacher.body.data.sources.find((source) => source.source === "STRATEGIC_PORTFOLIO")?.status
       ).toBe("CONTEXT_UNAVAILABLE");
 
+      const teacherWrongRoleContext = new URLSearchParams(query());
+      teacherWrongRoleContext.set("role_key", "CFO");
+      const teacherWrongRole = await fetch(
+        `${baseUrl}/api/v1/bff/teacher/decision-thread/evidence-spine?${teacherWrongRoleContext.toString()}`,
+        { headers: { authorization: `Bearer ${teacherToken}`, "x-tenant-id": tenantId } }
+      );
+      expect(teacherWrongRole.status).toBe(403);
+
+      const teacherWrongActivityContext = new URLSearchParams(query());
+      teacherWrongActivityContext.set("activity_id", "activity-ddt");
+      const teacherWrongActivity = await fetch(
+        `${baseUrl}/api/v1/bff/teacher/decision-thread/evidence-spine?${teacherWrongActivityContext.toString()}`,
+        { headers: { authorization: `Bearer ${teacherToken}`, "x-tenant-id": tenantId } }
+      );
+      expect(teacherWrongActivity.status).toBe(403);
+
       const student = await read<{ surface: "student" }>(baseUrl, "student", studentToken);
       expect(student.status).toBe(200);
       expect(student.body.data.surface).toBe("student");
@@ -235,6 +251,14 @@ describe("Decision Thread Evidence Spine real BFF", () => {
       expect(admin.status).toBe(200);
       expect(admin.body.data.surface).toBe("admin");
       expect(admin.body.data.exact_context.tenant_id).toBe(tenantId);
+
+      const adminWrongRoleContext = new URLSearchParams(query());
+      adminWrongRoleContext.set("role_key", "CFO");
+      const adminWrongRole = await fetch(
+        `${baseUrl}/api/v1/bff/admin/decision-thread/evidence-spine?${adminWrongRoleContext.toString()}`,
+        { headers: { authorization: `Bearer ${adminToken}`, "x-tenant-id": tenantId } }
+      );
+      expect(adminWrongRole.status).toBe(403);
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
