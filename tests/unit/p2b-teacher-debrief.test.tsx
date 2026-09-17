@@ -147,6 +147,78 @@ const crossRoundResponse = {
 } as unknown as M2P5DecisionLearningResponse;
 
 describe("P2-B FE-20 teacher debrief", () => {
+  it.each(["success", "error"])(
+    "ignores late %s after a complete request identity change",
+    async (outcome) => {
+      let finish!: (value: Response) => void;
+      let fail!: (error: Error) => void;
+      let oldSignal: AbortSignal | undefined;
+      const old = new Promise<Response>((resolve, reject) => {
+        finish = resolve;
+        fail = reject;
+      });
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation((_input, options) => {
+        const auth = (options?.headers as Record<string, string>).authorization;
+        if (auth === "Bearer old") {
+          oldSignal = options?.signal as AbortSignal;
+          return old;
+        }
+        return Promise.resolve(new Response(JSON.stringify({ data: response }), { status: 200 }));
+      });
+      const host = document.createElement("div");
+      const root = createRoot(host);
+      try {
+        await act(async () => {
+          root.render(
+            <TeacherDebriefWorkspace
+              apiBase="http://api.test"
+              token="old"
+              tenantId={context.tenant_id}
+              context={context}
+            />
+          );
+        });
+        await act(async () => {
+          root.render(
+            <TeacherDebriefWorkspace
+              apiBase="http://api-next.test"
+              token="new"
+              tenantId={context.tenant_id}
+              context={context}
+            />
+          );
+        });
+        expect(oldSignal?.aborted).toBe(true);
+        await act(async () => {
+          if (outcome === "error") fail(new Error("late private error"));
+          else
+            finish(
+              new Response(
+                JSON.stringify({
+                  data: {
+                    ...response,
+                    record: {
+                      ...response.record,
+                      official_result: {
+                        ...response.record.official_result,
+                        outcome_label: "late private result"
+                      }
+                    }
+                  }
+                }),
+                { status: 200 }
+              )
+            );
+        });
+        expect(host.textContent).not.toContain("late private");
+        expect(host.textContent).toContain("official_published");
+      } finally {
+        await act(async () => root.unmount());
+        fetchSpy.mockRestore();
+      }
+    }
+  );
+
   it("freezes the five Figma stages", () => {
     expect(P2B_TEACHER_STAGES).toEqual([
       "today",

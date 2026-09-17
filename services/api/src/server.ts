@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { GSI_STAKEHOLDER_SHADOW_SCHEMA_VERSION } from "@simwar/shared-contracts";
 import { publicRun } from "./qualified-run-admission-snapshot.js";
 import { createAdoptedFormalBoundRunWithinAdmission } from "./formal-bound-run-creation-service.js";
 import { parseQualifiedRunAdmission } from "./routes/validation-environment-launch-routes.js";
@@ -753,7 +754,8 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
   });
   const studentLearningReports = new StudentLearningReportProjectionService({
     confirmations: teacherConfirmations,
-    evidence: repositoryProvider.ports.evidenceProvenance
+    evidence: repositoryProvider.ports.evidenceProvenance,
+    roleWorkflow: repositoryProvider.ports.roleWorkflow
   });
   const teachingClosure = new TeachingClosureQueryService({
     courseReports: new CourseReportQueryService(
@@ -1764,7 +1766,8 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
           ? projection.movements.length
           : projection.comparison.movements.length;
       return {
-        status: "AVAILABLE" as const,
+        status:
+          "context_status" in projection ? projection.context_status : projection.context.status,
         summary: `GSI 跨回合变化：${movementCount} 项；变化仅作描述性证据。`,
         known_limits: projection.known_limits,
         source_context: {
@@ -1784,7 +1787,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
               provenance: {
                 authority_owner: "GSI_STAKEHOLDER_SHADOW_PLANE",
                 source_ref: "services/api/src/gsi-stakeholder-shadow-plane-service.ts",
-                contract_version: "gsi-governed-stakeholder-shadow-plane.v1"
+                contract_version: GSI_STAKEHOLDER_SHADOW_SCHEMA_VERSION
               }
             })
       };
@@ -6637,10 +6640,7 @@ function requireD4Student(context: RequestContext): CurrentUser {
 
 function requireDdtStudent(context: RequestContext): CurrentUser {
   const actor = requireActor(context);
-  if (
-    !actorHasAnyRole(actor, ["learner", "student"]) ||
-    actor.tenant_id !== context.tenantId
-  ) {
+  if (!actorHasAnyRole(actor, ["learner", "student"]) || actor.tenant_id !== context.tenantId) {
     throw new HttpError(403, "DDT_SCOPE_VIOLATION", "student evidence scope required");
   }
   return actor;

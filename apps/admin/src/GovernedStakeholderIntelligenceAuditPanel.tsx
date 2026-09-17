@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type {
   DdtExactContext,
   GSIAdminProjection,
@@ -118,6 +118,17 @@ export function GovernedStakeholderIntelligenceAuditPanel({
   const [roleKey, setRoleKey] = useState("CEO");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const auditController = useRef<AbortController | null>(null);
+  const auditIdentity = JSON.stringify([apiBase, tenantId, token, candidateId]);
+  const currentAuditIdentity = useRef(auditIdentity);
+  currentAuditIdentity.current = auditIdentity;
+  useEffect(() => {
+    auditController.current?.abort();
+    setProjection(null);
+    setError(null);
+    setBusy(false);
+    return () => auditController.current?.abort();
+  }, [auditIdentity]);
   const [comparisonState, setComparisonState] = useState<ComparisonState>(
     initialComparison
       ? { kind: "ready", data: initialComparison }
@@ -240,6 +251,14 @@ export function GovernedStakeholderIntelligenceAuditPanel({
 
   async function loadAudit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    auditController.current?.abort();
+    const controller = new AbortController();
+    auditController.current = controller;
+    const isCurrent = () =>
+      !controller.signal.aborted &&
+      currentAuditIdentity.current === auditIdentity &&
+      auditController.current === controller;
+    setProjection(null);
     const id = candidateId.trim();
     if (!id) {
       setError("请输入候选 ID。");
@@ -250,18 +269,24 @@ export function GovernedStakeholderIntelligenceAuditPanel({
     try {
       const response = await fetch(
         `${apiBase}${GSI_AUDIT_PATH}?candidate_id=${encodeURIComponent(id)}`,
-        { headers: { authorization: `Bearer ${token}`, "x-tenant-id": tenantId } }
+        {
+          headers: { authorization: `Bearer ${token}`, "x-tenant-id": tenantId },
+          signal: controller.signal
+        }
       );
       const payload = (await response.json()) as AuditEnvelope;
+      if (!isCurrent()) return;
       const details = readEnvelopeError(payload);
       if (!response.ok || !hasEnvelopeData(payload)) {
         throw new Error(details.message ?? "利益相关方审计加载失败");
       }
       setProjection(payload.data);
     } catch (cause) {
+      if (!isCurrent()) return;
+      setProjection(null);
       setError(cause instanceof Error ? cause.message : "利益相关方审计加载失败");
     } finally {
-      setBusy(false);
+      if (isCurrent()) setBusy(false);
     }
   }
 

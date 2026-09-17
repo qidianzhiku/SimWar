@@ -50,6 +50,38 @@ function readers(
 }
 
 describe("Decision Thread Evidence Spine service", () => {
+  it.each(["AVAILABLE", "CONTEXT_UNAVAILABLE", "REBASE_REQUIRED", "STALE", "LIMITED"] as const)(
+    "preserves GSI %s semantics",
+    async (status) => {
+      const service = new DecisionThreadEvidenceSpineService(
+        readers({
+          gsi: async (_actor, _context, _surface, selection) => ({
+            status,
+            summary: "descriptive movement",
+            known_limits: ["non-causal"],
+            source_context: context,
+            selected_round_pair: selection
+          })
+        })
+      );
+      for (const surface of ["teacher", "student", "admin"] as const) {
+        const response = await service.getSpine({
+          actor: {
+            user_id: "user_1",
+            tenant_id: context.tenant_id,
+            team_id: context.team_id,
+            roles: [surface === "admin" ? "tenant_admin" : surface]
+          },
+          context: { ...context, gsi_from_round_id: "round-001", gsi_to_round_id: "round-002" },
+          surface
+        });
+        expect(response.sources.find((source) => source.source === "GSI")?.status).toBe(status);
+        expect(response.formal_write_count).toBe(0);
+        expect(response.provider).toBe("OFF");
+      }
+    }
+  );
+
   it("composes exact-context sources without writing or collapsing ledgers", async () => {
     const service = new DecisionThreadEvidenceSpineService(readers());
     const response = await service.getSpine({
@@ -203,7 +235,8 @@ describe("Decision Thread Evidence Spine service", () => {
   it("applies a Student allowlist and rejects a mixed-role actor on the Student surface", async () => {
     const service = new DecisionThreadEvidenceSpineService(
       readers({
-        authorizeContext: async (actor, requestedContext) => actor.team_id === requestedContext.team_id
+        authorizeContext: async (actor, requestedContext) =>
+          actor.team_id === requestedContext.team_id
       })
     );
     const response = await service.getSpine({

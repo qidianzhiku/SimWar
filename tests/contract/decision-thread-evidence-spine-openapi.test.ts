@@ -4,8 +4,89 @@ import SwaggerParser from "@apidevtools/swagger-parser";
 import { describe, expect, it } from "vitest";
 
 const specificationPath = resolve("contracts/openapi/p0-api.openapi.yaml");
+type ResponseDocument = {
+  paths: Record<
+    string,
+    {
+      get: {
+        responses: Record<
+          string,
+          { content: { "application/json": { schema: Record<string, unknown> } } }
+        >;
+      };
+    }
+  >;
+};
 
 describe("Decision Thread Evidence Spine OpenAPI contract", () => {
+  it("binds all DDT error statuses to the canonical ApiErrorEnvelope", async () => {
+    const spec = (await SwaggerParser.parse(specificationPath)) as unknown as ResponseDocument;
+    for (const surface of ["teacher", "student", "admin"]) {
+      for (const status of ["401", "403", "422", "500"]) {
+        expect(
+          spec.paths[`/api/v1/bff/${surface}/decision-thread/evidence-spine`].get.responses[status]
+            .content["application/json"].schema
+        ).toEqual({ $ref: "#/components/schemas/ApiErrorEnvelope" });
+      }
+    }
+  });
+
+  it("closes the public Student learning-report projection without changing internal W3 reports", async () => {
+    const spec = (await SwaggerParser.dereference(
+      specificationPath
+    )) as unknown as ResponseDocument;
+    const schema =
+      spec.paths["/api/v1/bff/student/learning-reports"].get.responses["200"].content[
+        "application/json"
+      ].schema;
+    const validate = new Ajv({ strict: false }).compile(schema);
+    const report = {
+      report_id: "student_report_1",
+      context: {
+        course_id: "course_1",
+        run_id: "run_1",
+        team_id: "team_1",
+        role_key: "CEO",
+        round_id: "round_1",
+        round_no: 1
+      },
+      status: "CONFIRMED",
+      learning_evidence: {
+        criterion_results: [{ criterion_id: "criterion_1", level_ordinal: 2 }],
+        student_visible_feedback: []
+      },
+      business_outcome: { status: "SEPARATE_SAFE_OUTCOME", summary: "separate published result" }
+    };
+    const envelope = {
+      code: "OK",
+      message: "success",
+      request_id: "req_1",
+      data: {
+        scope: "student_team",
+        report_schema_version: "student-learning-report.public.v1",
+        known_limits: [],
+        reports: [report]
+      }
+    };
+    expect(validate(envelope)).toBe(true);
+    for (const key of [
+      "teacher_confirmation_ref",
+      "report_ref",
+      "report_digest",
+      "source_confirmation_digest",
+      "content_digest",
+      "provenance_chain",
+      "course_package_ref"
+    ]) {
+      expect(
+        validate({
+          ...envelope,
+          data: { ...envelope.data, reports: [{ ...report, [key]: "private" }] }
+        })
+      ).toBe(false);
+    }
+  });
+
   it("requires exact context and keeps GSI pair selectors optional", async () => {
     const document = (await SwaggerParser.dereference(specificationPath)) as {
       paths: Record<

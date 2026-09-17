@@ -1,4 +1,4 @@
-import type { ApiEnvelope, StudentLearningReportListDto } from "@simwar/shared-contracts";
+import type { ApiEnvelope, StudentLearningReportPublicListDto } from "@simwar/shared-contracts";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 
@@ -6,7 +6,7 @@ export async function fetchStudentLearningReports(
   token: string,
   tenantId: string,
   signal?: AbortSignal
-): Promise<StudentLearningReportListDto> {
+): Promise<StudentLearningReportPublicListDto> {
   const response = await fetch(`${API_BASE}/api/v1/bff/student/learning-reports`, {
     headers: {
       authorization: `Bearer ${token}`,
@@ -14,7 +14,7 @@ export async function fetchStudentLearningReports(
     },
     ...(signal ? { signal } : {})
   });
-  const envelope = (await response.json()) as ApiEnvelope<StudentLearningReportListDto> & {
+  const envelope = (await response.json()) as ApiEnvelope<StudentLearningReportPublicListDto> & {
     message?: string;
   };
   if (!response.ok) throw new Error(`${envelope.code}: ${envelope.message}`);

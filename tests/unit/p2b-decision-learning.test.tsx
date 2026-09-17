@@ -461,7 +461,7 @@ describe("P2-B FE-19 student decision learning", () => {
     errorFetch.mockRestore();
   });
 
-  it("retains the previous safe M2P6 response during a same-identity refetch", async () => {
+  it("clears the previous M2P6 response when the API identity changes", async () => {
     let resolveRefresh: ((value: Response) => void) | undefined;
     const pendingRefresh = new Promise<Response>((resolve) => {
       resolveRefresh = resolve;
@@ -498,9 +498,8 @@ describe("P2-B FE-19 student decision learning", () => {
       await Promise.resolve();
     });
     const staleRegion = host.querySelector('[data-testid="student-m2p6-learning-loop"]');
-    expect(staleRegion?.getAttribute("data-phase")).toBe("stale");
-    expect(staleRegion?.textContent).toContain("STALE");
-    expect(staleRegion?.textContent).toContain("EXACT_CONTEXT_RESTORED");
+    expect(staleRegion?.getAttribute("data-phase")).toBe("loading");
+    expect(staleRegion?.textContent).not.toContain("EXACT_CONTEXT_RESTORED");
 
     await act(async () => {
       resolveRefresh?.(new Response(JSON.stringify({ data: crossRoundResponse }), { status: 200 }));
@@ -770,91 +769,88 @@ describe("P2-B FE-19 student decision learning", () => {
     fetchSpy.mockRestore();
   });
 
-  it("keeps the reflection POST record when an older projection GET resolves later", async () => {
-    let projectionCalls = 0;
-    let resolveOlderProjection: ((value: Response) => void) | undefined;
-    const olderProjection = new Promise<Response>((resolve) => {
-      resolveOlderProjection = resolve;
-    });
-    const updatedResponse = {
-      ...response,
-      record: {
-        ...response.record,
-        official_result: {
-          ...response.record.official_result,
-          profit_band: "post_saved"
-        },
-        reflection: { response: "已保存的新学习草稿" }
+  it.each(["success", "error"])(
+    "ignores a late reflection POST %s after reauthentication",
+    async (outcome) => {
+      let finish!: (value: Response) => void;
+      let fail!: (error: Error) => void;
+      let postSignal: AbortSignal | undefined;
+      const pending = new Promise<Response>((resolve, reject) => {
+        finish = resolve;
+        fail = reject;
+      });
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation((input, options) => {
+        if (String(input).includes("/reflection")) {
+          postSignal = options?.signal as AbortSignal;
+          return pending;
+        }
+        return Promise.resolve(new Response(JSON.stringify({ data: response }), { status: 200 }));
+      });
+      const { host, root } = renderJourney({});
+      try {
+        await act(async () => {
+          await Promise.resolve();
+          await Promise.resolve();
+        });
+        const judgment = host.querySelector<HTMLTextAreaElement>(
+          "#student-p2b-reflection-judgment"
+        );
+        act(() => {
+          Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(
+            judgment,
+            "保存旧身份草稿"
+          );
+          judgment!.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+        const submit = host.querySelector<HTMLButtonElement>(
+          '[data-testid="student-p2b-reflection"] button[type="submit"]'
+        );
+        expect(submit).not.toBeNull();
+        await act(async () => {
+          submit!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        });
+        await act(async () => {
+          root.render(
+            <StudentDecisionLearningJourney
+              apiBase="http://api.test"
+              tenantId="tenant-001"
+              token="new-token"
+              context={context}
+              published
+            />
+          );
+        });
+        expect(postSignal?.aborted).toBe(true);
+        await act(async () => {
+          if (outcome === "error") fail(new Error("late private error"));
+          else
+            finish(
+              new Response(
+                JSON.stringify({
+                  data: {
+                    ...response,
+                    record: {
+                      ...response.record,
+                      official_result: {
+                        ...response.record.official_result,
+                        profit_band: "late_private_result"
+                      }
+                    }
+                  }
+                }),
+                { status: 200 }
+              )
+            );
+        });
+        expect(host.textContent).not.toContain("late_private_result");
+        expect(host.textContent).not.toContain("late private error");
+        expect(host.textContent).not.toContain("学习草稿已保存");
+        expect(host.textContent).not.toContain("正在保存 AI-off 学习草稿");
+      } finally {
+        await act(async () => root.unmount());
+        host.remove();
+        fetchSpy.mockRestore();
       }
-    } as W3OfficialConsequenceResponse;
-    const jsonResponse = (value: W3OfficialConsequenceResponse) =>
-      new Response(JSON.stringify({ data: value }), { status: 200 });
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
-      if (String(input).includes("/reflection")) return jsonResponse(updatedResponse);
-      projectionCalls += 1;
-      if (projectionCalls === 1) return jsonResponse(response);
-      return olderProjection;
-    });
-    const { host, root } = renderJourney();
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    expect(projectionCalls).toBe(1);
-
-    const equivalentContext = { ...context };
-    await act(async () => {
-      root.render(
-        <StudentDecisionLearningJourney
-          apiBase="http://api.test"
-          tenantId="tenant-001"
-          token="token"
-          context={equivalentContext}
-          published
-        />
-      );
-      await Promise.resolve();
-    });
-    expect(projectionCalls).toBe(1);
-
-    await act(async () => {
-      root.render(
-        <StudentDecisionLearningJourney
-          apiBase="http://api-alt.test"
-          tenantId="tenant-001"
-          token="token"
-          context={equivalentContext}
-          published
-        />
-      );
-      await Promise.resolve();
-    });
-    expect(projectionCalls).toBe(2);
-
-    const judgment = host.querySelector<HTMLTextAreaElement>("#student-p2b-reflection-judgment");
-    const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
-    act(() => {
-      setValue?.call(judgment, "保留新草稿");
-      judgment?.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    const submit = host.querySelector<HTMLButtonElement>(
-      '[data-testid="student-p2b-reflection"] button[type="submit"]'
-    );
-    await act(async () => {
-      submit?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    expect(host.textContent).toContain("post_saved");
-
-    await act(async () => {
-      resolveOlderProjection?.(jsonResponse(response));
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    expect(host.textContent).toContain("post_saved");
-    root.unmount();
-    host.remove();
-    fetchSpy.mockRestore();
-  });
+    }
+  );
 });

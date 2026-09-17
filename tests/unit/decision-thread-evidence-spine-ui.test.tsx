@@ -49,14 +49,14 @@ function responseFor(surface: "student" | "teacher" | "admin") {
         ledger: "OFFICIAL",
         status: "AVAILABLE",
         summary: "published learning evidence",
-        known_limits: []
+        known_limits: ["Read-only evidence"]
       },
       {
         source: "MODEL_QUALIFICATION",
         ledger: "DIAGNOSTIC",
         status: "AVAILABLE",
         summary: "qualification evidence",
-        known_limits: []
+        known_limits: ["Read-only evidence"]
       },
       {
         source: "STRATEGIC_PORTFOLIO",
@@ -70,7 +70,7 @@ function responseFor(surface: "student" | "teacher" | "admin") {
         ledger: "DIAGNOSTIC",
         status: "AVAILABLE",
         summary: "industry diagnostic evidence",
-        known_limits: []
+        known_limits: ["Read-only evidence"]
       },
       {
         source: "GSI",
@@ -84,6 +84,62 @@ function responseFor(surface: "student" | "teacher" | "admin") {
 }
 
 describe("Decision Thread Evidence Spine UI", () => {
+  it.each([
+    "surface",
+    "team_id",
+    "tenant_id",
+    "activity_id",
+    "role_key",
+    "course_id",
+    "run_id",
+    "malformed"
+  ])("rejects pair options with mismatched %s", async (field) => {
+    const selectionContext = {
+      tenant_id: context.tenant_id,
+      course_id: context.course_id,
+      run_id: context.run_id,
+      team_id: context.team_id,
+      activity_id: context.activity_id,
+      role_key: context.role_key
+    };
+    const options = {
+      surface: field === "surface" ? "admin" : "student",
+      context: field === "surface" ? selectionContext : { ...selectionContext, [field]: "wrong" },
+      rounds: [{ round_id: "private_round_option", round_no: 1 }],
+      provider: "OFF",
+      official_truth_write: false,
+      non_causal: true,
+      causal_proof: false,
+      known_limits: ["limit"]
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input) => ({
+        ok: true,
+        json: async () => ({
+          data: String(input).includes("pair-options") ? options : responseFor("student")
+        })
+      }))
+    );
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        <DecisionThreadEvidenceSpine
+          apiBase="http://api.test"
+          token="token"
+          tenantId={context.tenant_id}
+          surface="student"
+          context={context}
+        />
+      );
+    });
+    expect(host.textContent).toContain("回合选项响应与当前精确上下文不匹配");
+    expect(host.innerHTML).not.toContain("private_round_option");
+    await act(async () => root.unmount());
+  });
+
   it("does not request or display privileged data without an exact context", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -109,7 +165,14 @@ describe("Decision Thread Evidence Spine UI", () => {
   it("uses server round options and keeps Student output allowlisted", async () => {
     const pairOptions = {
       surface: "student",
-      context: { ...context },
+      context: {
+        tenant_id: context.tenant_id,
+        course_id: context.course_id,
+        run_id: context.run_id,
+        team_id: context.team_id,
+        activity_id: context.activity_id,
+        role_key: context.role_key
+      },
       rounds: [
         { round_id: "round-1", round_no: 1 },
         { round_id: "round-2", round_no: 2 }
@@ -118,7 +181,7 @@ describe("Decision Thread Evidence Spine UI", () => {
       official_truth_write: false,
       non_causal: true,
       causal_proof: false,
-      known_limits: []
+      known_limits: ["Read-only evidence"]
     };
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -173,13 +236,20 @@ describe("Decision Thread Evidence Spine UI", () => {
   it("surfaces a stale source as a stale thread state", async () => {
     const pairOptions = {
       surface: "teacher",
-      context: { ...context },
+      context: {
+        tenant_id: context.tenant_id,
+        course_id: context.course_id,
+        run_id: context.run_id,
+        team_id: context.team_id,
+        activity_id: context.activity_id,
+        role_key: context.role_key
+      },
       rounds: [],
       provider: "OFF",
       official_truth_write: false,
       non_causal: true,
       causal_proof: false,
-      known_limits: []
+      known_limits: ["Read-only evidence"]
     };
     const stale = responseFor("teacher");
     stale.sources[0]!.status = "STALE";
@@ -210,13 +280,20 @@ describe("Decision Thread Evidence Spine UI", () => {
   it("preserves HTTP rebase errors and rejects a response bound to another context", async () => {
     const pairOptions = {
       surface: "teacher",
-      context: { ...context },
+      context: {
+        tenant_id: context.tenant_id,
+        course_id: context.course_id,
+        run_id: context.run_id,
+        team_id: context.team_id,
+        activity_id: context.activity_id,
+        role_key: context.role_key
+      },
       rounds: [],
       provider: "OFF",
       official_truth_write: false,
       non_causal: true,
       causal_proof: false,
-      known_limits: []
+      known_limits: ["Read-only evidence"]
     };
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -279,13 +356,20 @@ describe("Decision Thread Evidence Spine UI", () => {
     let evidenceAttempts = 0;
     const pairOptions = {
       surface: "teacher",
-      context: { ...context },
+      context: {
+        tenant_id: context.tenant_id,
+        course_id: context.course_id,
+        run_id: context.run_id,
+        team_id: context.team_id,
+        activity_id: context.activity_id,
+        role_key: context.role_key
+      },
       rounds: [],
       provider: "OFF",
       official_truth_write: false,
       non_causal: true,
       causal_proof: false,
-      known_limits: []
+      known_limits: ["Read-only evidence"]
     };
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -332,13 +416,20 @@ describe("Decision Thread Evidence Spine UI", () => {
   it("offers the caller-provided reauthentication action for permission denial", async () => {
     const pairOptions = {
       surface: "teacher",
-      context: { ...context },
+      context: {
+        tenant_id: context.tenant_id,
+        course_id: context.course_id,
+        run_id: context.run_id,
+        team_id: context.team_id,
+        activity_id: context.activity_id,
+        role_key: context.role_key
+      },
       rounds: [],
       provider: "OFF",
       official_truth_write: false,
       non_causal: true,
       causal_proof: false,
-      known_limits: []
+      known_limits: ["Read-only evidence"]
     };
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -381,13 +472,20 @@ describe("Decision Thread Evidence Spine UI", () => {
   it("maps the existing D4 scope violation to permission recovery", async () => {
     const pairOptions = {
       surface: "teacher",
-      context: { ...context },
+      context: {
+        tenant_id: context.tenant_id,
+        course_id: context.course_id,
+        run_id: context.run_id,
+        team_id: context.team_id,
+        activity_id: context.activity_id,
+        role_key: context.role_key
+      },
       rounds: [],
       provider: "OFF",
       official_truth_write: false,
       non_causal: true,
       causal_proof: false,
-      known_limits: []
+      known_limits: ["Read-only evidence"]
     };
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);

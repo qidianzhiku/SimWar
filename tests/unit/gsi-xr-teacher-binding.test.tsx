@@ -18,6 +18,7 @@ const run = {
 
 const round = {
   round_id: "round_demo",
+  round_no: 1,
   tenant_id: "tenant_demo",
   run_id: "run_demo"
 } as const;
@@ -34,6 +35,7 @@ describe("GSI-XR exact Teacher binding", () => {
     expect(
       buildExactTeacherGsiBinding({
         tenantId: "tenant_demo",
+        roleKey: "CEO",
         selectedRun: run,
         selectedRound: round,
         teams: [{ team_id: "team_first" }, { team_id: "team_second" }],
@@ -46,6 +48,7 @@ describe("GSI-XR exact Teacher binding", () => {
     expect(
       buildExactTeacherGsiBinding({
         tenantId: "tenant_demo",
+        roleKey: "CEO",
         selectedRun: run,
         selectedRound: round,
         selectedTeamId: "team_second",
@@ -62,6 +65,7 @@ describe("GSI-XR exact Teacher binding", () => {
     expect(
       buildExactTeacherGsiBinding({
         tenantId: "tenant_demo",
+        roleKey: "CEO",
         selectedRun: run,
         selectedRound: round,
         selectedTeamId: "team_second",

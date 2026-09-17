@@ -196,7 +196,9 @@ function assertBinding(binding: GSIExactBinding, actor: GSIActor): void {
   if (binding.tenant_id !== actor.tenant_id) {
     throw new GSIStakeholderShadowPlaneError("GSI_FORBIDDEN");
   }
-  const values = Object.values(binding);
+  const values = Object.entries(binding)
+    .filter(([key]) => key !== "round_no")
+    .map(([, value]) => value as string);
   if (
     values.some(
       (value) =>
@@ -221,9 +223,13 @@ function assertContext(binding: GSIExactBinding, snapshot: RoleWorkflowRepositor
     snapshot.round?.round_id === binding.round_id &&
     snapshot.round.run_id === binding.run_id &&
     snapshot.round.tenant_id === binding.tenant_id &&
+    snapshot.round.round_no === binding.round_no &&
     snapshot.team?.team_id === binding.team_id &&
     snapshot.team.course_id === binding.course_id &&
-    snapshot.team.tenant_id === binding.tenant_id;
+    snapshot.team.tenant_id === binding.tenant_id &&
+    typeof binding.activity_id === "string" &&
+    binding.activity_id.trim().length > 0 &&
+    typeof binding.role_key === "string";
   if (!matches) throw new GSIStakeholderShadowPlaneError("GSI_CONTEXT_NOT_FOUND");
 }
 
@@ -280,6 +286,9 @@ function safeW020Context(
     context_digest: digest({
       actor_role: "teacher",
       course_id: binding.course_id,
+      activity_id: binding.activity_id,
+      role_key: binding.role_key,
+      round_no: binding.round_no,
       round_id: binding.round_id,
       run_id: binding.run_id,
       source_events: sourceEvents,
@@ -287,6 +296,7 @@ function safeW020Context(
       tenant_id: binding.tenant_id
     }),
     course_id: binding.course_id,
+    role_key: binding.role_key,
     discriminator: "w020_role_safe_context",
     round_id: binding.round_id,
     run_id: binding.run_id,
@@ -441,6 +451,14 @@ export class GSIStakeholderShadowPlaneService {
       team_id: request.binding.team_id
     });
     assertContext(request.binding, snapshot);
+    if (
+      !snapshot.assignments.some(
+        (assignment) =>
+          assignment.status === "active" && assignment.role_key === request.binding.role_key
+      )
+    ) {
+      throw new GSIStakeholderShadowPlaneError("GSI_CONTEXT_NOT_FOUND");
+    }
     await assertExactReferences(request.binding, this.dependencies.exactReferences);
     const requestDigest = digest(request);
     const candidateId = `gsi_candidate_${requestDigest.slice(0, 16)}`;
@@ -485,9 +503,6 @@ export class GSIStakeholderShadowPlaneService {
         tenant_id: actor.tenant_id
       } as const;
       const knownLimits = [...KNOWN_LIMITS];
-      const activeAssignment = snapshot.assignments.find(
-        (assignment) => assignment.status === "active"
-      );
       const teacherProjection: GSITeacherProjection = {
         surface: "teacher",
         summary: summary(resolver.signals, resolver.abstentions),
@@ -496,7 +511,7 @@ export class GSIStakeholderShadowPlaneService {
       };
       const studentProjection: GSIStudentProjection = {
         surface: "student",
-        ...(activeAssignment ? { role_key: activeAssignment.role_key } : {}),
+        role_key: request.binding.role_key,
         summary: "Published role-safe stakeholder signal summary.",
         signals: resolver.signals.map(({ stakeholder_type, intent, bounded_value }) => ({
           stakeholder_type,
@@ -571,14 +586,22 @@ export class GSIStakeholderShadowPlaneService {
       round_id: record.request.binding.round_id,
       team_id: record.request.binding.team_id
     });
+    assertContext(record.request.binding, snapshot);
     const assignment = snapshot.assignments.find(
       (candidate) => candidate.status === "active" && candidate.user_id === actor.user_id
     );
-    if (!assignment) throw new GSIStakeholderShadowPlaneError("GSI_FORBIDDEN");
-    return clone({
-      ...record.student_projection,
-      role_key: assignment.role_key
-    });
+    if (
+      !assignment ||
+      assignment.role_key !== record.request.binding.role_key ||
+      record.context.role_key !== record.request.binding.role_key ||
+      record.student_projection.role_key !== record.request.binding.role_key
+    ) {
+      throw new GSIStakeholderShadowPlaneError("GSI_FORBIDDEN");
+    }
+    if (record.request.binding.round_no !== snapshot.round?.round_no) {
+      throw new GSIStakeholderShadowPlaneError("GSI_CONTEXT_NOT_FOUND");
+    }
+    return clone(record.student_projection);
   }
 
   async getAdminProjection(
@@ -870,6 +893,16 @@ export class GSIStakeholderShadowPlaneService {
     ]);
     assertContext(fromRecord.request.binding, fromSnapshot);
     assertContext(toRecord.request.binding, toSnapshot);
+    if (
+      fromRecord.request.binding.activity_id !== input.activity_id ||
+      toRecord.request.binding.activity_id !== input.activity_id ||
+      fromRecord.request.binding.role_key !== input.role_key ||
+      toRecord.request.binding.role_key !== input.role_key ||
+      fromRecord.request.binding.round_no !== fromSnapshot.round?.round_no ||
+      toRecord.request.binding.round_no !== toSnapshot.round?.round_no
+    ) {
+      throw new GSIStakeholderShadowPlaneError("GSI_FORBIDDEN");
+    }
     if (!fromSnapshot.round || !toSnapshot.round) {
       throw new GSIStakeholderShadowPlaneError("GSI_CONTEXT_NOT_FOUND");
     }
@@ -1025,6 +1058,15 @@ export class GSIStakeholderShadowPlaneService {
     });
     assertContext(record.request.binding, snapshot);
     if (!snapshot.round) throw new GSIStakeholderShadowPlaneError("GSI_CONTEXT_NOT_FOUND");
+    if (
+      record.request.binding.activity_id !== input.activity_id ||
+      record.request.binding.role_key !== input.role_key ||
+      record.request.binding.round_no !== snapshot.round.round_no
+    ) {
+      throw new GSIStakeholderShadowPlaneError(
+        surface === "student" ? "GSI_PAIR_NOT_AVAILABLE" : "GSI_FORBIDDEN"
+      );
+    }
     if (surface === "student") {
       const assignment = snapshot.assignments.some(
         (candidate) =>

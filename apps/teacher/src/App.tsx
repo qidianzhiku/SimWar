@@ -171,11 +171,12 @@ const O4_ENABLED =
 
 export interface ExactTeacherGsiBindingInput {
   tenantId: string;
+  roleKey: string | undefined;
   selectedRun?:
     | Pick<Run, "run_id" | "tenant_id" | "course_id" | "scenario_package_id" | "parameter_set_id">
     | null
     | undefined;
-  selectedRound?: Pick<Round, "round_id" | "tenant_id" | "run_id"> | null | undefined;
+  selectedRound?: Pick<Round, "round_id" | "round_no" | "tenant_id" | "run_id"> | null | undefined;
   teams: readonly { team_id: string }[];
   selectedTeamId?: string | null | undefined;
   persistedTeamId?: string | null | undefined;
@@ -202,6 +203,8 @@ export function buildExactTeacherGsiBinding(
   const parameterSetVersion = reference?.parameter_set_version?.trim();
 
   if (
+    !input.roleKey ||
+    !["CEO", "CFO", "CMO", "COO", "CHRO"].includes(input.roleKey) ||
     !input.tenantId.trim() ||
     !selectedRun ||
     !selectedRound ||
@@ -222,6 +225,9 @@ export function buildExactTeacherGsiBinding(
     course_id: selectedRun.course_id,
     run_id: selectedRun.run_id,
     round_id: selectedRound.round_id,
+    round_no: selectedRound.round_no,
+    activity_id: "activity_consequence",
+    role_key: input.roleKey as GSIExactBinding["role_key"],
     team_id: teamId,
     scenario_package_id: selectedRun.scenario_package_id,
     scenario_version: scenarioVersion,
@@ -963,8 +969,11 @@ export function App() {
   const replaySummary = workspace?.teacher_replay_summary;
   const isTeacher = session?.user.roles.includes("teacher") ?? false;
   const w3Team = teacherTeamsForRun.find((candidate) => candidate.team_id === activeTeacherTeamId);
+  const w3RoleKey = w3Team?.members[0]?.role_slot ?? "CEO";
+  const explicitW3Context = useMemo(() => readW3QueryContext(), []);
   const gsiBinding = buildExactTeacherGsiBinding({
     tenantId: login.tenantId,
+    roleKey: explicitW3Context?.role_key ?? w3RoleKey,
     selectedRun,
     selectedRound,
     teams: teacherTeamsForRun,
@@ -996,8 +1005,6 @@ export function App() {
           seed: 79
         }
       : undefined;
-  const w3RoleKey = w3Team?.members[0]?.role_slot ?? "CEO";
-  const explicitW3Context = useMemo(() => readW3QueryContext(), []);
   const w3Context = useMemo(
     () =>
       buildTeacherW3Context(

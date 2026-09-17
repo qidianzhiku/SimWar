@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import Ajv2020 from "ajv/dist/2020.js";
 import yaml from "js-yaml";
+import SwaggerParser from "@apidevtools/swagger-parser";
+import { isGSICrossRoundPairOptions } from "@simwar/shared-contracts";
 import { describe, expect, it } from "vitest";
 
 const document = yaml.load(
@@ -17,6 +19,105 @@ const document = yaml.load(
 };
 
 describe("GSI cross-round comparison OpenAPI parity", () => {
+  it("binds existing canonical GSI objects rather than new contract aliases", () => {
+    for (const [name, definition] of [
+      ["GSIRequest", "request"],
+      ["GSIReceipt", "receipt"],
+      ["GSIExactBinding", "binding"],
+      ["GSITeacherProjection", "teacherProjection"]
+    ]) {
+      expect(document.components.schemas[name!]).toEqual({
+        $ref: `../schemas/gsi-governed-stakeholder-shadow-plane.v1.json#/$defs/${definition}`
+      });
+    }
+    for (const name of [
+      "GSICrossRoundComparison",
+      "GSICrossRoundTeacherProjection",
+      "GSICrossRoundStudentProjection",
+      "GSICrossRoundAdminProjection",
+      "GSICrossRoundPairOptions"
+    ]) {
+      expect(document.components.schemas[name]?.["x-shared-contract"]).toBe(name);
+    }
+    expect(document.components.schemas.GSICrossRoundContext?.["x-shared-contract"]).toBe(
+      "GSICrossRoundContextProjection"
+    );
+  });
+
+  it("validates the actual pair-options envelope and exact runtime identifier constraints", async () => {
+    const spec = (await SwaggerParser.dereference(
+      "contracts/openapi/gsi-governed-stakeholder-shadow-plane.openapi.yaml"
+    )) as unknown as {
+      paths: Record<
+        string,
+        {
+          get: {
+            parameters: Array<{ schema: Record<string, unknown> }>;
+            responses: Record<
+              string,
+              { content: { "application/json": { schema: Record<string, unknown> } } }
+            >;
+          };
+        }
+      >;
+    };
+    const ajv = new Ajv2020({ strict: false, validateFormats: false });
+    const valid = {
+      surface: "student",
+      context: {
+        tenant_id: "tenant_demo",
+        course_id: "course_demo",
+        run_id: "run_demo",
+        team_id: "team_demo",
+        activity_id: "activity_demo",
+        role_key: "CEO"
+      },
+      rounds: [{ round_id: "round_1", round_no: 1 }],
+      provider: "OFF",
+      official_truth_write: false,
+      non_causal: true,
+      causal_proof: false,
+      known_limits: ["read only"]
+    };
+    expect(isGSICrossRoundPairOptions(valid)).toBe(true);
+    for (const surface of ["teacher", "student", "admin"]) {
+      const operation = spec.paths[`/api/v1/bff/${surface}/gsi/candidates/pair-options`].get;
+      const validate = ajv.compile(operation.responses["200"].content["application/json"].schema);
+      const data = { ...valid, surface };
+      expect(validate({ code: "OK", data, message: "success", request_id: "req_1" })).toBe(true);
+      expect(validate(data)).toBe(false);
+      for (const parameter of operation.parameters) {
+        const identifier = ajv.compile(parameter.schema);
+        for (const rejected of [
+          "",
+          " ",
+          " course_demo",
+          "course_demo ",
+          "latest",
+          "LATEST",
+          "Current",
+          "Default",
+          "Fallback",
+          "First",
+          "Last",
+          "Newest"
+        ])
+          expect(identifier(rejected), rejected).toBe(false);
+        for (const accepted of ["course_demo", "contains space", "round_latest_1"])
+          expect(identifier(accepted), accepted).toBe(true);
+      }
+    }
+    for (const field of ["context", "rounds", "provider", "non_causal"]) {
+      expect(isGSICrossRoundPairOptions({ ...valid, [field]: null })).toBe(false);
+    }
+    expect(
+      isGSICrossRoundPairOptions({
+        ...valid,
+        context: { ...valid.context, round_id: "unexpected" }
+      })
+    ).toBe(false);
+  });
+
   it("extends the existing role route family with exact candidate or round-pair parameters", () => {
     for (const role of ["teacher", "student", "admin"]) {
       const operation = document.paths[`/api/v1/bff/${role}/gsi/candidates/compare`]?.get;

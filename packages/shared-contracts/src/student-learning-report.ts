@@ -95,6 +95,25 @@ export interface StudentLearningReportListDto {
   readonly scope: "student_team" | "tenant_preview";
 }
 
+/** Public Student allowlist; rich exact references remain internal to W3. */
+export interface StudentLearningReportPublic {
+  readonly report_id: string;
+  readonly context: Required<StudentLearningReportContext>;
+  readonly status: StudentLearningReportStatus;
+  readonly learning_evidence: Pick<
+    StudentLearningReportLearningEvidence,
+    "criterion_results" | "student_visible_feedback"
+  >;
+  readonly business_outcome: StudentLearningReportBusinessOutcome;
+}
+
+export interface StudentLearningReportPublicListDto {
+  readonly reports: readonly StudentLearningReportPublic[];
+  readonly known_limits: readonly string[];
+  readonly report_schema_version: "student-learning-report.public.v1";
+  readonly scope: "student_team";
+}
+
 export const STUDENT_LEARNING_REPORT_FAILURE_CODES = [
   "D4_REPORT_NOT_FOUND",
   "D4_REPORT_SCOPE_VIOLATION",

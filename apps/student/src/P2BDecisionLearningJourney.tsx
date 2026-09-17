@@ -96,7 +96,11 @@ export function StudentDecisionLearningJourney({
   const crossRoundRef = useRef<M2P5DecisionLearningResponse | undefined>(undefined);
   const requestEpochRef = useRef(0);
   const crossRoundRequestEpochRef = useRef(0);
-  const identityKey = `${tenantId}:${token}:${published}:${context ? contextQuery(context) : ""}:${decisionContextEvidence?.evidence_id ?? ""}:${decisionContextEvidence?.status ?? "missing"}:${decisionContextEvidenceRequired}`;
+  const identityKey = `${apiBase}:${tenantId}:${token}:${published}:${context ? contextQuery(context) : ""}:${decisionContextEvidence?.evidence_id ?? ""}:${decisionContextEvidence?.status ?? "missing"}:${decisionContextEvidenceRequired}`;
+  const reflectionController = useRef<AbortController | null>(null);
+  const currentIdentity = useRef(identityKey);
+  currentIdentity.current = identityKey;
+  useEffect(() => () => reflectionController.current?.abort(), [identityKey]);
   const previousIdentityKey = useRef<string | null>(null);
 
   useEffect(() => {
@@ -249,11 +253,20 @@ export function StudentDecisionLearningJourney({
 
   async function submitReflection(): Promise<void> {
     if (!record || !context || !reflectionText.trim() || reflectionBusy) return;
+    reflectionController.current?.abort();
+    const controller = new AbortController();
+    reflectionController.current = controller;
+    const requestIdentity = identityKey;
+    const isCurrent = () =>
+      !controller.signal.aborted &&
+      currentIdentity.current === requestIdentity &&
+      reflectionController.current === controller;
     setReflectionBusy(true);
     setReflectionNotice("正在保存 AI-off 学习草稿");
     try {
       const response = await fetch(`${apiBase}/api/v1/bff/student/w3/reflection`, {
         method: "POST",
+        signal: controller.signal,
         headers: {
           authorization: `Bearer ${token}`,
           "content-type": "application/json",
@@ -270,6 +283,7 @@ export function StudentDecisionLearningJourney({
         data?: W3OfficialConsequenceResponse;
         message?: string;
       };
+      if (!isCurrent()) return;
       if (!response.ok || !envelope.data) {
         throw new Error(envelope.message ?? "学习草稿保存失败");
       }
@@ -279,9 +293,10 @@ export function StudentDecisionLearningJourney({
       setState({ phase: "ready", record: envelope.data.record });
       setReflectionNotice("学习草稿已保存；它不会进入正式结算。");
     } catch (error: unknown) {
+      if (!isCurrent()) return;
       setReflectionNotice(safeMessage(error));
     } finally {
-      setReflectionBusy(false);
+      if (isCurrent()) setReflectionBusy(false);
     }
   }
 

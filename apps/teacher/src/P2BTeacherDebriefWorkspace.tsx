@@ -88,7 +88,14 @@ export function TeacherDebriefWorkspace({
   const recordRef = useRef<W3OfficialConsequenceRecord | undefined>(response?.record);
   const crossRoundRef = useRef<M2P5DecisionLearningResponse | undefined>(undefined);
   const crossRoundRequestEpochRef = useRef(0);
-  const identityKey = `${tenantId}:${token}:${context ? contextQuery(context) : ""}`;
+  const identityKey = JSON.stringify([
+    apiBase,
+    tenantId,
+    token,
+    context ? contextQuery(context) : ""
+  ]);
+  const currentIdentity = useRef(identityKey);
+  currentIdentity.current = identityKey;
   const previousIdentityKey = useRef<string | null>(null);
 
   useEffect(() => {
@@ -97,6 +104,7 @@ export function TeacherDebriefWorkspace({
       recordRef.current = undefined;
       crossRoundRef.current = undefined;
       setCrossRound({ phase: "idle" });
+      setState({ phase: "idle" });
     }
     previousIdentityKey.current = identityKey;
   }, [identityKey]);
@@ -107,6 +115,9 @@ export function TeacherDebriefWorkspace({
       return;
     }
     const controller = new AbortController();
+    const requestIdentity = identityKey;
+    const isCurrent = () =>
+      !controller.signal.aborted && currentIdentity.current === requestIdentity;
     if (!context || !token || !tenantId) {
       setState({ phase: "idle" });
       return () => controller.abort();
@@ -123,6 +134,7 @@ export function TeacherDebriefWorkspace({
           data?: W3OfficialConsequenceResponse;
           message?: string;
         };
+        if (!isCurrent()) return;
         if (result.status === 404) {
           setState({ phase: "empty", message: envelope.message ?? "等待已发布结果" });
           return;
@@ -133,6 +145,7 @@ export function TeacherDebriefWorkspace({
         setState({ phase: "ready", record: envelope.data.record });
       })
       .catch((error: unknown) => {
+        if (!isCurrent()) return;
         if (error instanceof DOMException && error.name === "AbortError") return;
         setState({
           phase: "error",
@@ -140,7 +153,7 @@ export function TeacherDebriefWorkspace({
         });
       });
     return () => controller.abort();
-  }, [apiBase, context, response, retryNonce, tenantId, token]);
+  }, [apiBase, context, response, retryNonce, tenantId, token, identityKey]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -164,7 +177,12 @@ export function TeacherDebriefWorkspace({
           data?: M2P5DecisionLearningResponse;
           message?: string;
         };
-        if (requestEpoch !== crossRoundRequestEpochRef.current) return;
+        if (
+          controller.signal.aborted ||
+          currentIdentity.current !== identityKey ||
+          requestEpoch !== crossRoundRequestEpochRef.current
+        )
+          return;
         if (
           !result.ok ||
           !envelope.data ||
@@ -178,7 +196,12 @@ export function TeacherDebriefWorkspace({
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
-        if (requestEpoch !== crossRoundRequestEpochRef.current) return;
+        if (
+          controller.signal.aborted ||
+          currentIdentity.current !== identityKey ||
+          requestEpoch !== crossRoundRequestEpochRef.current
+        )
+          return;
         setCrossRound({
           phase: "error",
           message: error instanceof Error ? error.message : "教师跨回合学习投影读取失败"

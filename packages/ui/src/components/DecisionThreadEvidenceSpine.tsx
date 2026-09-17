@@ -7,6 +7,7 @@ import type {
   DdtSurface
 } from "@simwar/shared-contracts";
 import type { GSICrossRoundPairOptions } from "@simwar/shared-contracts";
+import { isGSICrossRoundPairOptions } from "@simwar/shared-contracts";
 
 const SOURCE_LABELS: Record<DdtEvidenceSourceName, string> = {
   M2P6: "决策学习",
@@ -213,7 +214,7 @@ export function DecisionThreadEvidenceSpine({
   useEffect(() => {
     contextRef.current = context;
     recoveryRef.current = false;
-  }, [contextIdentity]);
+  }, [apiBase, token, tenantId, surface, contextIdentity]);
 
   useEffect(() => {
     const currentContext = contextRef.current;
@@ -227,7 +228,7 @@ export function DecisionThreadEvidenceSpine({
             message: "请先打开一个受控的课程、运行、队伍和回合上下文。"
           }
     );
-  }, [contextIdentity]);
+  }, [apiBase, token, tenantId, surface, contextIdentity]);
 
   useEffect(() => {
     const requestContext = contextRef.current;
@@ -254,8 +255,17 @@ export function DecisionThreadEvidenceSpine({
           const detail = readError(payload, "服务器没有返回可用的回合选项。");
           throw new DdtHttpError(detail.code, detail.message);
         }
-        if (generation !== optionsGeneration.current) return;
-        if (!payload.data) throw new Error("回合选项响应缺少数据。");
+        if (controller.signal.aborted || generation !== optionsGeneration.current) return;
+        if (
+          !isGSICrossRoundPairOptions(payload.data) ||
+          payload.data.surface !== surface ||
+          Object.entries(payload.data.context).some(
+            ([key, value]) => value !== requestContext[key as keyof DdtExactContext]
+          )
+        ) {
+          setSelection({ from: "", to: "" });
+          throw new Error("回合选项响应与当前精确上下文不匹配。");
+        }
         setOptions({ kind: "ready", data: payload.data });
       })
       .catch((error: unknown) => {
@@ -297,7 +307,7 @@ export function DecisionThreadEvidenceSpine({
           const detail = readError(payload, "证据线程暂时不可用。");
           throw new DdtHttpError(detail.code, detail.message);
         }
-        if (generation !== viewGeneration.current) return;
+        if (controller.signal.aborted || generation !== viewGeneration.current) return;
         if (!payload.data) {
           throw new DdtHttpError("DDT_OUTPUT_INVALID", "证据线程响应缺少数据。");
         }
@@ -482,7 +492,7 @@ export function DecisionThreadEvidenceSpine({
               type="button"
               className="ddt-evidence-spine__recovery"
               data-action={view.kind === "rebase" ? "ddt:rebind" : "ddt:reload"}
-              onClick={() => recover(view.kind === "rebase" ? onRebind ?? onRecover : onRecover)}
+              onClick={() => recover(view.kind === "rebase" ? (onRebind ?? onRecover) : onRecover)}
             >
               {view.kind === "rebase" ? "重新加载当前精确上下文" : "重新加载当前上下文"}
             </button>

@@ -155,6 +155,9 @@ function gsiCandidateRequest(roundId: string, idempotencyKey: string, influence:
       course_id: "course_demo",
       run_id: "run-ddt-gsi",
       round_id: roundId,
+      round_no: Number(roundId.split("-").at(-1)),
+      activity_id: "activity_consequence",
+      role_key: "CEO",
       team_id: "team_alpha",
       scenario_package_id: "scenario_eldercare_demo",
       scenario_version: "1.0.0",
@@ -220,7 +223,7 @@ describe("Decision Thread Evidence Spine real BFF", () => {
       expect(teacherWrongRole.status).toBe(403);
 
       const teacherWrongActivityContext = new URLSearchParams(query());
-      teacherWrongActivityContext.set("activity_id", "activity-ddt");
+      teacherWrongActivityContext.set("activity_id", "activity_wrong");
       const teacherWrongActivity = await fetch(
         `${baseUrl}/api/v1/bff/teacher/decision-thread/evidence-spine?${teacherWrongActivityContext.toString()}`,
         { headers: { authorization: `Bearer ${teacherToken}`, "x-tenant-id": tenantId } }
@@ -371,7 +374,7 @@ describe("Decision Thread Evidence Spine real BFF", () => {
         baseUrl,
         `/api/v1/bff/teacher/gsi/candidates/compare?from_candidate_id=${encodeURIComponent(
           from.body.data.candidate_id
-        )}&to_candidate_id=${encodeURIComponent(to.body.data.candidate_id)}&activity_id=activity-ddt&role_key=CEO`,
+        )}&to_candidate_id=${encodeURIComponent(to.body.data.candidate_id)}&activity_id=activity_consequence&role_key=CEO`,
         { token: teacherToken }
       );
       if (canonicalCompare.status !== 200) {
@@ -379,7 +382,7 @@ describe("Decision Thread Evidence Spine real BFF", () => {
       }
       const canonicalRoundCompare = await defaultRequest(
         baseUrl,
-        "/api/v1/bff/teacher/gsi/candidates/compare?course_id=course_demo&run_id=run-ddt-gsi&team_id=team_alpha&activity_id=activity-ddt&role_key=CEO&from_round_id=round-ddt-gsi-1&to_round_id=round-ddt-gsi-2",
+        "/api/v1/bff/teacher/gsi/candidates/compare?course_id=course_demo&run_id=run-ddt-gsi&team_id=team_alpha&activity_id=activity_consequence&role_key=CEO&from_round_id=round-ddt-gsi-1&to_round_id=round-ddt-gsi-2",
         { token: teacherToken }
       );
       if (canonicalRoundCompare.status !== 200) {
@@ -404,7 +407,7 @@ describe("Decision Thread Evidence Spine real BFF", () => {
       });
       expect(teacherSpine.status).toBe(200);
       expect(teacherSpine.body.data.sources.find((source) => source.source === "GSI")?.status).toBe(
-        "AVAILABLE"
+        "CONTEXT_UNAVAILABLE"
       );
       const studentSpine = await defaultRequest<{
         sources: readonly { source: string; status: string }[];
@@ -413,7 +416,7 @@ describe("Decision Thread Evidence Spine real BFF", () => {
       });
       expect(studentSpine.status).toBe(200);
       expect(studentSpine.body.data.sources.find((source) => source.source === "GSI")?.status).toBe(
-        "AVAILABLE"
+        "CONTEXT_UNAVAILABLE"
       );
       const studentJson = JSON.stringify(studentSpine.body.data);
       expect(studentJson).not.toContain(from.body.data.candidate_id);

@@ -91,9 +91,10 @@ export async function handleStudentLearningReportRoute(
   try {
     if (surface === "student") {
       const reportActor = actor(current);
-      const data = requestedReportId
-        ? await runtime.projections.getStudent(reportActor, reportId(requestedReportId))
-        : await runtime.projections.listStudent(reportActor);
+      const data = await runtime.projections.listStudentPublic(
+        reportActor,
+        requestedReportId ? reportId(requestedReportId) : undefined
+      );
       helpers.sendJson(response, 200, helpers.createEnvelope(context, data));
       return true;
     }

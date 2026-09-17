@@ -127,8 +127,8 @@ export function GovernedStakeholderIntelligenceWorkspace({
   const [toCandidateId, setToCandidateId] = useState("");
   const [fromRoundId, setFromRoundId] = useState("");
   const [toRoundId, setToRoundId] = useState("");
-  const [activityId, setActivityId] = useState("activity_gsi_xr");
-  const [roleKey, setRoleKey] = useState("CEO");
+  const [activityId, setActivityId] = useState(binding.activity_id);
+  const [roleKey, setRoleKey] = useState<string>(binding.role_key);
   const [pairOptionsState, setPairOptionsState] = useState<PairOptionsState>({
     kind: "unavailable",
     message: PAIR_SELECTION_MESSAGE

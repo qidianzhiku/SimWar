@@ -35,7 +35,10 @@ export interface GSIExactBinding {
   course_id: string;
   run_id: string;
   round_id: string;
+  round_no: number;
   team_id: string;
+  activity_id: string;
+  role_key: RoleId;
   scenario_package_id: string;
   scenario_version: string;
   parameter_set_id: string;
@@ -238,6 +241,51 @@ export interface GSICrossRoundPairOptions {
   known_limits: readonly string[];
 }
 
+export function isGSICrossRoundPairOptions(value: unknown): value is GSICrossRoundPairOptions {
+  if (!isRecord(value) || !isRecord(value.context)) return false;
+  const exact = (v: unknown): v is string =>
+    isString(v) &&
+    !["latest", "current", "default", "fallback", "first", "last", "newest"].includes(
+      v.toLowerCase()
+    );
+  const contextKeys = ["tenant_id", "course_id", "run_id", "team_id", "activity_id", "role_key"];
+  return (
+    Object.keys(value).sort().join("|") ===
+      [
+        "surface",
+        "context",
+        "rounds",
+        "provider",
+        "official_truth_write",
+        "non_causal",
+        "causal_proof",
+        "known_limits"
+      ]
+        .sort()
+        .join("|") &&
+    ["teacher", "student", "admin"].includes(String(value.surface)) &&
+    Object.keys(value.context).sort().join("|") === contextKeys.sort().join("|") &&
+    Object.values(value.context).every(exact) &&
+    Array.isArray(value.rounds) &&
+    value.rounds.every(
+      (round) =>
+        isRecord(round) &&
+        Object.keys(round).sort().join("|") === "round_id|round_no" &&
+        exact(round.round_id) &&
+        Number.isSafeInteger(round.round_no) &&
+        Number(round.round_no) > 0
+    ) &&
+    new Set(value.rounds.map((round) => round.round_id)).size === value.rounds.length &&
+    value.provider === "OFF" &&
+    value.official_truth_write === false &&
+    value.non_causal === true &&
+    value.causal_proof === false &&
+    Array.isArray(value.known_limits) &&
+    value.known_limits.length > 0 &&
+    value.known_limits.every(isString)
+  );
+}
+
 export interface GSICrossRoundTeacherProjection {
   surface: "teacher";
   comparison: GSICrossRoundComparison;
@@ -323,7 +371,10 @@ function isBinding(value: unknown): value is GSIExactBinding {
     "course_id",
     "run_id",
     "round_id",
+    "round_no",
     "team_id",
+    "activity_id",
+    "role_key",
     "scenario_package_id",
     "scenario_version",
     "parameter_set_id",
@@ -335,7 +386,11 @@ function isBinding(value: unknown): value is GSIExactBinding {
   ];
   return (
     Object.keys(value).sort().join("|") === keys.slice().sort().join("|") &&
-    keys.every((key) => isExactReference(value[key]))
+    typeof value.round_no === "number" &&
+    Number.isInteger(value.round_no) &&
+    value.round_no > 0 &&
+    ["CEO", "CFO", "CMO", "COO", "CHRO"].includes(String(value.role_key)) &&
+    keys.filter((key) => key !== "round_no").every((key) => isExactReference(value[key]))
   );
 }
 
