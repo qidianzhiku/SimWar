@@ -682,7 +682,9 @@ export class GSIStakeholderShadowPlaneService {
         binding.tenant_id === tenantId &&
         binding.course_id === input.course_id &&
         binding.run_id === input.run_id &&
-        binding.team_id === input.team_id
+        binding.team_id === input.team_id &&
+        binding.activity_id === input.activity_id &&
+        binding.role_key === input.role_key
       );
     });
     const visibleRecords: GSIRecord[] = [];
@@ -777,6 +779,8 @@ export class GSIStakeholderShadowPlaneService {
         binding.course_id === input.course_id &&
         binding.run_id === input.run_id &&
         binding.team_id === input.team_id &&
+        binding.activity_id === input.activity_id &&
+        binding.role_key === input.role_key &&
         (binding.round_id === input.from_round_id || binding.round_id === input.to_round_id)
       );
     });

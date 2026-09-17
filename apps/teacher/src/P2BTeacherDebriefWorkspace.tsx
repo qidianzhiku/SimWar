@@ -22,6 +22,7 @@ type Props = {
   token: string;
   tenantId: string;
   context?: W3OfficialConsequenceContext | undefined;
+  ddtContext?: W3OfficialConsequenceContext | undefined;
   response?: W3OfficialConsequenceResponse;
   blockerSummary?: string;
   teamCount?: number;
@@ -62,11 +63,46 @@ function contextQuery(context: W3OfficialConsequenceContext): string {
   ).toString();
 }
 
+function exactDdtContext(
+  context: W3OfficialConsequenceContext | undefined,
+  tenantId: string
+): W3OfficialConsequenceContext | undefined {
+  if (
+    !context ||
+    context.tenant_id !== tenantId ||
+    !Number.isSafeInteger(context.round_no) ||
+    context.round_no < 1
+  )
+    return undefined;
+  const identifiers = [
+    context.tenant_id,
+    context.course_id,
+    context.run_id,
+    context.round_id,
+    context.team_id,
+    context.role_key,
+    context.activity_id
+  ];
+  if (
+    identifiers.some(
+      (value) =>
+        !value ||
+        !/^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$/.test(value) ||
+        /(?:^|[._:-])(?:any|current|default|fallback|latest|next|unresolved|recent|first|last|newest)(?:$|[._:-])/i.test(
+          value
+        )
+    )
+  )
+    return undefined;
+  return context;
+}
+
 export function TeacherDebriefWorkspace({
   apiBase,
   token,
   tenantId,
   context,
+  ddtContext,
   response,
   blockerSummary = "当前没有可用的回合阻断",
   teamCount = 0,
@@ -243,7 +279,7 @@ export function TeacherDebriefWorkspace({
       {evidenceSpineEnabled ? (
         <DecisionThreadEvidenceSpine
           apiBase={apiBase}
-          context={context}
+          context={exactDdtContext(ddtContext, tenantId)}
           heading="复盘证据线程"
           surface="teacher"
           tenantId={tenantId}

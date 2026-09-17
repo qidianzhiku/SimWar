@@ -301,6 +301,27 @@ function fixtureDependencies(
 }
 
 describe("M2-P5 decision learning cross-round composition", () => {
+  it("never serializes the internal learning report to students while preserving confirmed status", async () => {
+    const dependencies = fixtureDependencies();
+    const result = await new M2P5DecisionLearningCrossRoundService({
+      ...dependencies,
+      getOfficialConsequence: async (...args) => ({
+        ...(await dependencies.getOfficialConsequence(...args)),
+        visibility: "student_safe"
+      })
+    }).getJourney({
+      actor: {
+        roles: ["student"],
+        tenant_id: context.tenant_id,
+        user_id: "student",
+        team_id: context.team_id
+      },
+      context,
+      surface: "student"
+    });
+    expect(result.learning.student_learning_report_status).toBe("CONFIRMED");
+    expect(result.learning_report).toBeUndefined();
+  });
   it("joins the published consequence to confirmed learning and exact next-round lineage", async () => {
     const service = new M2P5DecisionLearningCrossRoundService(fixtureDependencies());
     const result: M2P5DecisionLearningResponse = await service.getJourney({
@@ -499,8 +520,8 @@ describe("M2-P5 decision learning cross-round composition", () => {
           ...official,
           visibility: "student_safe" as const,
           record: { ...official.record, counterfactual: undefined }
-        }
-      },
+        };
+      }
     });
 
     const result = await service.getJourney({

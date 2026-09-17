@@ -138,6 +138,37 @@ function service(
 }
 
 describe("GSI candidate persistence and scope", () => {
+  it.each([teacher, student, platformAdmin])(
+    "filters mixed activity and role before pair cardinality for $roles",
+    async (actor) => {
+      const records: GSIRecord[] = [];
+      const instance = service(records);
+      await instance.createCandidate(teacher, request, "req_mixed");
+      for (const binding of [{ role_key: "CFO" }, { activity_id: "activity_other" }]) {
+        const other = structuredClone(records[0]!);
+        other.candidate_id = JSON.stringify(binding);
+        Object.assign(other.request.binding, binding);
+        records.push(other);
+      }
+      const options = await instance.getPairOptions(actor, request.binding, "tenant_demo");
+      expect(options.rounds).toEqual([{ round_id: "round_001", round_no: 1 }]);
+      const second = structuredClone(records[0]!);
+      second.candidate_id = "second_round";
+      second.request.binding.round_id = "round_002";
+      records.push(second);
+      await expect(
+        instance.compareRoundPair(
+          actor,
+          {
+            ...request.binding,
+            from_round_id: "round_001",
+            to_round_id: "round_002"
+          },
+          "tenant_demo"
+        )
+      ).rejects.not.toMatchObject({ code: "GSI_PAIR_AMBIGUOUS" });
+    }
+  );
   it("filters inactive/private candidates before exposing round-pair uniqueness", async () => {
     const records: GSIRecord[] = [];
     const creator = service(records);

@@ -121,6 +121,26 @@ describe("M2-P5 decision-learning cross-round real BFF", () => {
       const studentToken = await login(baseUrl, "student");
       const before = await getJourney(baseUrl, "student", studentToken);
       expect(before.status).toBe(200);
+      const publicReportsResponse = await fetch(`${baseUrl}/api/v1/bff/student/learning-reports`, {
+        headers: requestHeaders(studentToken)
+      });
+      expect(publicReportsResponse.status).toBe(200);
+      const publicReports = (await publicReportsResponse.json()) as {
+        data: { reports: Array<{ report_id: string; context: { round_no: number } }> };
+      };
+      expect(before.body.data.learning_report).toEqual(
+        publicReports.data.reports.find((report) => report.context.round_no === 1)
+      );
+      expect(before.body.data.learning_report).toBeDefined();
+      for (const key of [
+        "report_ref",
+        "report_digest",
+        "teacher_confirmation_ref",
+        "provenance",
+        "content_digest"
+      ]) {
+        expect(JSON.stringify(before.body.data.learning_report)).not.toContain(key);
+      }
       expect(before.body.data.project_context.status).toBe("RESOLVED");
       expect(before.body.data.learning.gate).toBe("BLOCKED");
       expect(before.body.data.cross_round.status).toBe("BLOCKED");
@@ -175,12 +195,17 @@ describe("M2-P5 decision-learning cross-round real BFF", () => {
         context: { round_id: M2P5_ROUND_2_ID, round_no: 2 },
         teacher_confirmation_ref: { resource_id: M2P5_ROUND_2_CONFIRMATION_ID }
       });
-      expect(beforeTeacher.body.data.learning_report?.report_ref.resource_id).toBe(
-        roundOneD4?.report_ref.resource_id
-      );
-      expect(beforeTeacher.body.data.learning_report?.report_ref.resource_id).not.toBe(
-        roundTwoD4?.report_ref.resource_id
-      );
+      const teacherReport = beforeTeacher.body.data.learning_report;
+      expect(
+        teacherReport && "report_ref" in teacherReport
+          ? teacherReport.report_ref.resource_id
+          : undefined
+      ).toBe(roundOneD4?.report_ref.resource_id);
+      expect(
+        teacherReport && "report_ref" in teacherReport
+          ? teacherReport.report_ref.resource_id
+          : undefined
+      ).not.toBe(roundTwoD4?.report_ref.resource_id);
 
       const context = {
         activity_id: "activity_consequence",

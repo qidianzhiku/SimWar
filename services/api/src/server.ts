@@ -1288,6 +1288,14 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     }
   });
   const m2p5DecisionLearning = new M2P5DecisionLearningCrossRoundService({
+    getStudentPublicLearningReport: async (actor, reportId) => {
+      const result = await studentLearningReports.listStudentPublic({
+        tenant_id: actor.tenant_id,
+        user_id: actor.user_id,
+        ...(actor.team_id ? { team_id: actor.team_id } : {})
+      });
+      return result.reports.find((report) => report.report_id === reportId);
+    },
     getExactRound: (tenantId, runId, roundNo) =>
       repositoryProvider.facade.rounds
         .listRoundsForRun(tenantId, runId)

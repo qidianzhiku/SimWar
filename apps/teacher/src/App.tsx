@@ -3873,6 +3873,7 @@ export function App() {
             <TeacherDebriefWorkspace
               apiBase={API_BASE}
               context={W3_ENABLED ? w3Context : undefined}
+              ddtContext={W3_ENABLED ? explicitW3Context : undefined}
               blockerSummary={blockerSummary}
               crossRoundEnabled={W3_ENABLED}
               evidenceSpineEnabled={W3_ENABLED}

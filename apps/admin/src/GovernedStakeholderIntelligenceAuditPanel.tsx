@@ -11,7 +11,6 @@ import "./gsi-xr.css";
 export const GSI_AUDIT_PATH = "/api/v1/bff/admin/gsi/audit";
 const PAIR_SELECTION_MESSAGE =
   "服务器尚未提供可用的回合配对列表。请先提供受控课程、运行和队伍上下文，再选择两个精确回合。";
-const DDT_ACTIVITY_ID = "activity_consequence";
 
 export interface GovernedStakeholderIntelligenceAuditPanelProps {
   apiBase: string;
@@ -142,6 +141,53 @@ export function GovernedStakeholderIntelligenceAuditPanel({
   const pairOptionsController = useRef<AbortController | null>(null);
   const comparisonRequestId = useRef(0);
   const comparisonController = useRef<AbortController | null>(null);
+  const pairIdentity = JSON.stringify([
+    apiBase,
+    token,
+    tenantId,
+    courseId,
+    runId,
+    teamId,
+    activityId,
+    roleKey
+  ]);
+  const comparisonIdentity = JSON.stringify([
+    pairIdentity,
+    fromCandidateId,
+    toCandidateId,
+    fromRoundId,
+    toRoundId,
+    ddtRoundId,
+    ddtRoundNo
+  ]);
+  const currentPairIdentity = useRef(pairIdentity);
+  const currentComparisonIdentity = useRef(comparisonIdentity);
+  currentPairIdentity.current = pairIdentity;
+  currentComparisonIdentity.current = comparisonIdentity;
+  const previousPairIdentity = useRef(pairIdentity);
+  const previousComparisonIdentity = useRef(comparisonIdentity);
+  useEffect(() => {
+    if (previousPairIdentity.current !== pairIdentity) {
+      setPairOptionsState({ kind: "unavailable", message: PAIR_SELECTION_MESSAGE });
+      setFromRoundId("");
+      setToRoundId("");
+    }
+    previousPairIdentity.current = pairIdentity;
+    return () => {
+      pairOptionsRequestId.current += 1;
+      pairOptionsController.current?.abort();
+    };
+  }, [pairIdentity]);
+  useEffect(() => {
+    if (previousComparisonIdentity.current !== comparisonIdentity) {
+      setComparisonState({ kind: "unavailable", message: PAIR_SELECTION_MESSAGE });
+    }
+    previousComparisonIdentity.current = comparisonIdentity;
+    return () => {
+      comparisonRequestId.current += 1;
+      comparisonController.current?.abort();
+    };
+  }, [comparisonIdentity]);
   const decisionThreadContext = useMemo<DdtExactContext | undefined>(() => {
     const roundNo = Number(ddtRoundNo.trim());
     if (
@@ -157,7 +203,7 @@ export function GovernedStakeholderIntelligenceAuditPanel({
       return undefined;
     }
     return {
-      activity_id: DDT_ACTIVITY_ID,
+      activity_id: activityId.trim(),
       course_id: courseId.trim(),
       role_key: roleKey.trim(),
       round_id: ddtRoundId.trim(),
@@ -222,7 +268,12 @@ export function GovernedStakeholderIntelligenceAuditPanel({
         }
       );
       const payload = (await response.json()) as PairOptionsEnvelope;
-      if (controller.signal.aborted || requestId !== pairOptionsRequestId.current) return;
+      if (
+        controller.signal.aborted ||
+        requestId !== pairOptionsRequestId.current ||
+        currentPairIdentity.current !== pairIdentity
+      )
+        return;
       const details = readEnvelopeError(payload);
       if (!response.ok || !hasEnvelopeData(payload)) {
         setPairOptionsState({
@@ -239,6 +290,7 @@ export function GovernedStakeholderIntelligenceAuditPanel({
       if (
         controller.signal.aborted ||
         requestId !== pairOptionsRequestId.current ||
+        currentPairIdentity.current !== pairIdentity ||
         (cause instanceof DOMException && cause.name === "AbortError")
       )
         return;
@@ -343,7 +395,12 @@ export function GovernedStakeholderIntelligenceAuditPanel({
         }
       );
       const payload = (await response.json()) as ComparisonEnvelope;
-      if (controller.signal.aborted || requestId !== comparisonRequestId.current) return;
+      if (
+        controller.signal.aborted ||
+        requestId !== comparisonRequestId.current ||
+        currentComparisonIdentity.current !== comparisonIdentity
+      )
+        return;
       const details = readEnvelopeError(payload);
       if (!response.ok || !hasEnvelopeData(payload)) {
         setComparisonState(
@@ -356,6 +413,7 @@ export function GovernedStakeholderIntelligenceAuditPanel({
       if (
         controller.signal.aborted ||
         requestId !== comparisonRequestId.current ||
+        currentComparisonIdentity.current !== comparisonIdentity ||
         (cause instanceof DOMException && cause.name === "AbortError")
       )
         return;
