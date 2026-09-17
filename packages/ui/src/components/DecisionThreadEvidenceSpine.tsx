@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   DdtEvidenceSourceName,
   DdtEvidenceSpineResponse,
@@ -48,10 +48,26 @@ type ViewState =
   | { kind: "ready" | "stale" | "recovered"; data: DdtEvidenceSpineResponse }
   | { kind: "context-unavailable" | "rebase" | "permission-denied" | "error"; message: string };
 
+type BoundViewState = {
+  identity: string;
+  state: ViewState;
+};
+
 type OptionsState =
   | { kind: "idle" | "loading" }
   | { kind: "ready"; data: GSICrossRoundPairOptions }
   | { kind: "error"; message: string };
+
+type BoundOptionsState = {
+  identity: string;
+  state: OptionsState;
+};
+
+type SelectionState = {
+  identity: string;
+  from: string;
+  to: string;
+};
 
 interface ErrorPayload {
   code?: unknown;
@@ -81,6 +97,22 @@ function contextKey(context: DdtExactContext | undefined): string {
     context.role_key,
     context.activity_id
   ]);
+}
+
+let nextTokenIdentity = 0;
+
+function requestIdentityKey(
+  apiBase: string,
+  tokenIdentity: number,
+  tenantId: string,
+  surface: DdtSurface,
+  contextIdentity: string
+): string {
+  return JSON.stringify([apiBase, tokenIdentity, tenantId, surface, contextIdentity]);
+}
+
+function viewIdentityKey(requestIdentity: string, selection: { from: string; to: string }): string {
+  return JSON.stringify([requestIdentity, selection.from, selection.to]);
 }
 
 function queryForContext(context: DdtExactContext): string {
@@ -191,20 +223,45 @@ export function DecisionThreadEvidenceSpine({
   onReauthenticate,
   onRebind
 }: DecisionThreadEvidenceSpineProps) {
-  const [selection, setSelection] = useState({ from: "", to: "" });
-  const [options, setOptions] = useState<OptionsState>({ kind: "idle" });
+  const contextIdentity = contextKey(context);
+  const tokenIdentity = useMemo(() => {
+    nextTokenIdentity += 1;
+    return nextTokenIdentity;
+  }, [token]);
+  const requestIdentity = requestIdentityKey(
+    apiBase,
+    tokenIdentity,
+    tenantId,
+    surface,
+    contextIdentity
+  );
+  const initialSelection: SelectionState = {
+    identity: requestIdentity,
+    from: "",
+    to: ""
+  };
+  const initialViewIdentity = viewIdentityKey(requestIdentity, initialSelection);
+  const [selection, setSelection] = useState<SelectionState>(initialSelection);
+  const [options, setOptions] = useState<BoundOptionsState>({
+    identity: requestIdentity,
+    state: { kind: "idle" }
+  });
   const [recoveryNonce, setRecoveryNonce] = useState(0);
-  const [view, setView] = useState<ViewState>(
-    context
+  const [view, setView] = useState<BoundViewState>({
+    identity: initialViewIdentity,
+    state: context
       ? { kind: "idle" }
       : { kind: "context-unavailable", message: "请先打开一个受控的课程、运行、队伍和回合上下文。" }
-  );
+  });
   const optionsGeneration = useRef(0);
   const viewGeneration = useRef(0);
   const contextRef = useRef(context);
   const recoveryRef = useRef(false);
-  const contextIdentity = contextKey(context);
-
+  const currentSelection =
+    selection.identity === requestIdentity
+      ? selection
+      : { identity: requestIdentity, from: "", to: "" };
+  const viewIdentity = viewIdentityKey(requestIdentity, currentSelection);
   const recover = (handler?: () => void): void => {
     recoveryRef.current = true;
     handler?.();
@@ -218,24 +275,29 @@ export function DecisionThreadEvidenceSpine({
 
   useEffect(() => {
     const currentContext = contextRef.current;
-    setSelection({ from: "", to: "" });
-    setOptions({ kind: currentContext ? "loading" : "idle" });
-    setView(
-      currentContext
+    setSelection({ identity: requestIdentity, from: "", to: "" });
+    setOptions({
+      identity: requestIdentity,
+      state: { kind: currentContext ? "loading" : "idle" }
+    });
+    setView({
+      identity: viewIdentityKey(requestIdentity, { from: "", to: "" }),
+      state: currentContext
         ? { kind: "idle" }
         : {
             kind: "context-unavailable",
             message: "请先打开一个受控的课程、运行、队伍和回合上下文。"
           }
-    );
-  }, [apiBase, token, tenantId, surface, contextIdentity]);
+    });
+  }, [apiBase, token, tenantId, surface, contextIdentity, requestIdentity]);
 
   useEffect(() => {
     const requestContext = contextRef.current;
     if (!requestContext) return;
     const generation = ++optionsGeneration.current;
+    const requestIdentityAtStart = requestIdentity;
     const controller = new AbortController();
-    setOptions({ kind: "loading" });
+    setOptions({ identity: requestIdentityAtStart, state: { kind: "loading" } });
 
     void fetch(
       `${apiBase}/api/v1/bff/${surface}/gsi/candidates/pair-options?${optionQuery(requestContext)}`,
@@ -263,31 +325,39 @@ export function DecisionThreadEvidenceSpine({
             ([key, value]) => value !== requestContext[key as keyof DdtExactContext]
           )
         ) {
-          setSelection({ from: "", to: "" });
+          setSelection({ identity: requestIdentityAtStart, from: "", to: "" });
           throw new Error("回合选项响应与当前精确上下文不匹配。");
         }
-        setOptions({ kind: "ready", data: payload.data });
+        setOptions({
+          identity: requestIdentityAtStart,
+          state: { kind: "ready", data: payload.data }
+        });
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted || generation !== optionsGeneration.current) return;
         const message = error instanceof Error ? error.message : "回合选项暂时不可用。";
-        setOptions({ kind: "error", message });
+        setOptions({
+          identity: requestIdentityAtStart,
+          state: { kind: "error", message }
+        });
       });
 
     return () => controller.abort();
-  }, [apiBase, recoveryNonce, surface, tenantId, token, contextIdentity]);
+  }, [apiBase, recoveryNonce, surface, tenantId, token, contextIdentity, requestIdentity]);
 
   useEffect(() => {
     const requestContext = contextRef.current;
     if (!requestContext) return;
     const generation = ++viewGeneration.current;
+    const requestIdentityAtStart = viewIdentity;
+    const requestSelection = currentSelection;
     const controller = new AbortController();
     const query = new URLSearchParams(queryForContext(requestContext));
-    if (selection.from && selection.to) {
-      query.set("gsi_from_round_id", selection.from);
-      query.set("gsi_to_round_id", selection.to);
+    if (requestSelection.from && requestSelection.to) {
+      query.set("gsi_from_round_id", requestSelection.from);
+      query.set("gsi_to_round_id", requestSelection.to);
     }
-    setView({ kind: "loading" });
+    setView({ identity: requestIdentityAtStart, state: { kind: "loading" } });
 
     void fetch(
       `${apiBase}/api/v1/bff/${surface}/decision-thread/evidence-spine?${query.toString()}`,
@@ -311,20 +381,29 @@ export function DecisionThreadEvidenceSpine({
         if (!payload.data) {
           throw new DdtHttpError("DDT_OUTPUT_INVALID", "证据线程响应缺少数据。");
         }
-        assertResponseBinding(payload.data, requestContext, surface, selection);
+        assertResponseBinding(payload.data, requestContext, surface, requestSelection);
         const sourceStatuses = payload.data.sources.map((source) => source.status);
         if (sourceStatuses.includes("REBASE_REQUIRED")) {
           setView({
-            kind: "rebase",
-            message: STATUS_MESSAGES.REBASE_REQUIRED ?? "请重新加载当前上下文。"
+            identity: requestIdentityAtStart,
+            state: {
+              kind: "rebase",
+              message: STATUS_MESSAGES.REBASE_REQUIRED ?? "请重新加载当前上下文。"
+            }
           });
           return;
         }
         if (sourceStatuses.includes("STALE")) {
-          setView({ kind: "stale", data: payload.data });
+          setView({
+            identity: requestIdentityAtStart,
+            state: { kind: "stale", data: payload.data }
+          });
           return;
         }
-        setView({ kind: recoveryRef.current ? "recovered" : "ready", data: payload.data });
+        setView({
+          identity: requestIdentityAtStart,
+          state: { kind: recoveryRef.current ? "recovered" : "ready", data: payload.data }
+        });
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted || generation !== viewGeneration.current) return;
@@ -335,7 +414,10 @@ export function DecisionThreadEvidenceSpine({
               ? { code: "DDT_REQUEST_FAILED", message: error.message }
               : readError({}, "证据线程暂时不可用。");
         recoveryRef.current = true;
-        setView(viewStateForError(detail.code, detail.message));
+        setView({
+          identity: requestIdentityAtStart,
+          state: viewStateForError(detail.code, detail.message)
+        });
       });
 
     return () => controller.abort();
@@ -343,15 +425,31 @@ export function DecisionThreadEvidenceSpine({
     apiBase,
     contextIdentity,
     recoveryNonce,
-    selection.from,
-    selection.to,
+    currentSelection.identity,
+    currentSelection.from,
+    currentSelection.to,
     surface,
     tenantId,
-    token
+    token,
+    requestIdentity,
+    viewIdentity
   ]);
 
-  const rounds = options.kind === "ready" ? options.data.rounds : [];
-  const canCompare = Boolean(selection.from && selection.to && selection.from !== selection.to);
+  const currentOptions: OptionsState =
+    options.identity === requestIdentity ? options.state : { kind: context ? "loading" : "idle" };
+  const currentView: ViewState =
+    view.identity === viewIdentity
+      ? view.state
+      : context
+        ? { kind: "loading" }
+        : {
+            kind: "context-unavailable",
+            message: "请先打开一个受控的课程、运行、队伍和回合上下文。"
+          };
+  const rounds = currentOptions.kind === "ready" ? currentOptions.data.rounds : [];
+  const canCompare = Boolean(
+    currentSelection.from && currentSelection.to && currentSelection.from !== currentSelection.to
+  );
   const isStudent = surface === "student";
 
   return (
@@ -401,8 +499,8 @@ export function DecisionThreadEvidenceSpine({
             起始回合
             <select
               aria-label="起始回合"
-              disabled={!context || options.kind !== "ready"}
-              value={selection.from}
+              disabled={!context || currentOptions.kind !== "ready"}
+              value={currentSelection.from}
               onChange={(event) =>
                 setSelection((current) => ({ ...current, from: event.target.value }))
               }
@@ -419,8 +517,8 @@ export function DecisionThreadEvidenceSpine({
             目标回合
             <select
               aria-label="目标回合"
-              disabled={!context || options.kind !== "ready"}
-              value={selection.to}
+              disabled={!context || currentOptions.kind !== "ready"}
+              value={currentSelection.to}
               onChange={(event) =>
                 setSelection((current) => ({ ...current, to: event.target.value }))
               }
@@ -434,16 +532,18 @@ export function DecisionThreadEvidenceSpine({
             </select>
           </label>
         </div>
-        {options.kind === "loading" ? <p role="status">正在读取可比较回合…</p> : null}
-        {options.kind === "error" ? (
+        {currentOptions.kind === "loading" ? <p role="status">正在读取可比较回合…</p> : null}
+        {currentOptions.kind === "error" ? (
           <p className="ddt-evidence-spine__error" role="alert">
-            {options.message}
+            {currentOptions.message}
           </p>
         ) : null}
-        {options.kind === "ready" && rounds.length < 2 ? (
+        {currentOptions.kind === "ready" && rounds.length < 2 ? (
           <p role="status">当前权限和上下文下没有两条可比较的合法回合；这不是空数据的替代说法。</p>
         ) : null}
-        {selection.from && selection.to && selection.from === selection.to ? (
+        {currentSelection.from &&
+        currentSelection.to &&
+        currentSelection.from === currentSelection.to ? (
           <p className="ddt-evidence-spine__error" role="alert">
             请选择两个不同的回合。
           </p>
@@ -451,33 +551,33 @@ export function DecisionThreadEvidenceSpine({
         {canCompare ? <p role="status">已选择两个精确回合，正在刷新变化证据。</p> : null}
       </div>
 
-      {view.kind === "loading" ? (
+      {currentView.kind === "loading" ? (
         <p className="ddt-evidence-spine__status" role="status">
           正在整理当前证据…
         </p>
       ) : null}
-      {view.kind === "context-unavailable" ||
-      view.kind === "rebase" ||
-      view.kind === "permission-denied" ||
-      view.kind === "error" ? (
-        <div className="ddt-evidence-spine__status" data-state={view.kind} role="alert">
+      {currentView.kind === "context-unavailable" ||
+      currentView.kind === "rebase" ||
+      currentView.kind === "permission-denied" ||
+      currentView.kind === "error" ? (
+        <div className="ddt-evidence-spine__status" data-state={currentView.kind} role="alert">
           <strong>
-            {view.kind === "permission-denied"
+            {currentView.kind === "permission-denied"
               ? "无权限"
-              : view.kind === "rebase"
+              : currentView.kind === "rebase"
                 ? "需要重新绑定"
                 : "证据不可用"}
           </strong>
-          <p>{view.message}</p>
+          <p>{currentView.message}</p>
           <span>
             安全下一步：
-            {view.kind === "permission-denied"
+            {currentView.kind === "permission-denied"
               ? "重新验证身份或切换到有权限的上下文。"
-              : view.kind === "rebase"
+              : currentView.kind === "rebase"
                 ? "重新绑定当前上下文；不会自动重试旧请求。"
                 : "重新加载当前上下文；不会自动重试旧请求。"}
           </span>
-          {view.kind === "permission-denied" && onReauthenticate ? (
+          {currentView.kind === "permission-denied" && onReauthenticate ? (
             <button
               type="button"
               className="ddt-evidence-spine__recovery"
@@ -487,34 +587,38 @@ export function DecisionThreadEvidenceSpine({
               重新验证身份
             </button>
           ) : null}
-          {view.kind !== "permission-denied" ? (
+          {currentView.kind !== "permission-denied" ? (
             <button
               type="button"
               className="ddt-evidence-spine__recovery"
-              data-action={view.kind === "rebase" ? "ddt:rebind" : "ddt:reload"}
-              onClick={() => recover(view.kind === "rebase" ? (onRebind ?? onRecover) : onRecover)}
+              data-action={currentView.kind === "rebase" ? "ddt:rebind" : "ddt:reload"}
+              onClick={() =>
+                recover(currentView.kind === "rebase" ? (onRebind ?? onRecover) : onRecover)
+              }
             >
-              {view.kind === "rebase" ? "重新加载当前精确上下文" : "重新加载当前上下文"}
+              {currentView.kind === "rebase" ? "重新加载当前精确上下文" : "重新加载当前上下文"}
             </button>
           ) : null}
         </div>
       ) : null}
-      {view.kind === "ready" || view.kind === "stale" || view.kind === "recovered" ? (
+      {currentView.kind === "ready" ||
+      currentView.kind === "stale" ||
+      currentView.kind === "recovered" ? (
         <>
-          <div className="ddt-evidence-spine__status" data-state={view.kind} role="status">
+          <div className="ddt-evidence-spine__status" data-state={currentView.kind} role="status">
             <strong>
-              {view.kind === "stale"
+              {currentView.kind === "stale"
                 ? "证据已过期"
-                : view.kind === "recovered"
+                : currentView.kind === "recovered"
                   ? "证据线程已恢复"
                   : "证据线程已就绪"}
             </strong>
             <p>
-              {view.data.non_causal
+              {currentView.data.non_causal
                 ? "变化仅作描述，不证明因果效应。"
                 : "请以当前权限可见范围理解这份证据。"}
             </p>
-            {view.kind === "stale" ? (
+            {currentView.kind === "stale" ? (
               <>
                 <p>安全下一步：重新加载当前精确上下文后再继续查看。</p>
                 <button
@@ -529,7 +633,7 @@ export function DecisionThreadEvidenceSpine({
             ) : null}
           </div>
           <div className="ddt-evidence-spine__sources">
-            {view.data.sources.map((source) => (
+            {currentView.data.sources.map((source) => (
               <article
                 className="ddt-evidence-spine__source"
                 data-source={source.source}
@@ -546,9 +650,7 @@ export function DecisionThreadEvidenceSpine({
                 <p>{sourceSummary(source)}</p>
                 <p className="ddt-evidence-spine__scope" data-testid="ddt-source-context-scope">
                   证据绑定范围：
-                  {source.context_scope === "TENANT_COURSE"
-                    ? "租户与课程"
-                    : "当前精确上下文"}
+                  {source.context_scope === "TENANT_COURSE" ? "租户与课程" : "当前精确上下文"}
                 </p>
                 <ul>
                   {source.known_limits.map((limit) => (

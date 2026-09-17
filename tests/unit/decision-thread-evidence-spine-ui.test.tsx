@@ -2,6 +2,7 @@
 
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
+import { flushSync } from "react-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DecisionThreadEvidenceSpine } from "../../packages/ui/src/components/DecisionThreadEvidenceSpine";
 
@@ -522,6 +523,154 @@ describe("Decision Thread Evidence Spine UI", () => {
       (recoveryButton as HTMLButtonElement).click();
     });
     expect(onReauthenticate).toHaveBeenCalledOnce();
+    await act(async () => root.unmount());
+  });
+
+  it("hides committed evidence synchronously when the exact context changes", async () => {
+    const pairOptions = {
+      surface: "teacher",
+      context: {
+        tenant_id: context.tenant_id,
+        course_id: context.course_id,
+        run_id: context.run_id,
+        team_id: context.team_id,
+        activity_id: context.activity_id,
+        role_key: context.role_key
+      },
+      rounds: [],
+      provider: "OFF",
+      official_truth_write: false,
+      non_causal: true,
+      causal_proof: false,
+      known_limits: ["Read-only evidence"]
+    };
+    const responseA = responseFor("teacher");
+    responseA.sources[0]!.summary = "context-A-evidence";
+    const contextB = { ...context, run_id: "run-B", team_id: "team-B" };
+    const responseB = responseFor("teacher");
+    responseB.exact_context = contextB;
+    let resolveB: (value: unknown) => void = () => undefined;
+    const deferredB = new Promise<unknown>((resolve) => {
+      resolveB = resolve;
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("pair-options")) {
+        return { ok: true, json: async () => ({ data: pairOptions }) };
+      }
+      if (url.includes("run-B")) return deferredB;
+      return { ok: true, json: async () => ({ data: responseA }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        <DecisionThreadEvidenceSpine
+          apiBase="http://fixture"
+          context={context}
+          surface="teacher"
+          tenantId={context.tenant_id}
+          token="token"
+        />
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await vi.waitFor(() => expect(host.textContent).toContain("context-A-evidence"));
+
+    flushSync(() => {
+      root.render(
+        <DecisionThreadEvidenceSpine
+          apiBase="http://fixture"
+          context={contextB}
+          surface="teacher"
+          tenantId={contextB.tenant_id}
+          token="token"
+        />
+      );
+    });
+
+    expect(host.textContent).not.toContain("context-A-evidence");
+    resolveB({ ok: true, json: async () => ({ data: responseB }) });
+    await act(async () => root.unmount());
+  });
+
+  it.each([
+    ["token", { token: "token-B" }],
+    ["apiBase", { apiBase: "http://fixture-b" }],
+    ["tenant", { tenantId: "tenant-B" }]
+  ])("hides committed evidence synchronously when %s changes", async (_label, changed) => {
+    const responseA = responseFor("teacher");
+    responseA.sources[0]!.summary = "identity-A-evidence";
+    let evidenceCalls = 0;
+    let resolveChanged: (value: unknown) => void = () => undefined;
+    const changedEvidence = new Promise<unknown>((resolve) => {
+      resolveChanged = resolve;
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("pair-options")) {
+        return {
+          ok: true,
+          json: async () => ({
+            data: {
+              surface: "teacher",
+              context: {
+                tenant_id: context.tenant_id,
+                course_id: context.course_id,
+                run_id: context.run_id,
+                team_id: context.team_id,
+                activity_id: context.activity_id,
+                role_key: context.role_key
+              },
+              rounds: [],
+              provider: "OFF",
+              official_truth_write: false,
+              non_causal: true,
+              causal_proof: false,
+              known_limits: ["Read-only evidence"]
+            }
+          })
+        };
+      }
+      evidenceCalls += 1;
+      return evidenceCalls === 1
+        ? { ok: true, json: async () => ({ data: responseA }) }
+        : changedEvidence;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        <DecisionThreadEvidenceSpine
+          apiBase="http://fixture"
+          context={context}
+          surface="teacher"
+          tenantId={context.tenant_id}
+          token="token-A"
+        />
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await vi.waitFor(() => expect(host.textContent).toContain("identity-A-evidence"));
+
+    flushSync(() => {
+      root.render(
+        <DecisionThreadEvidenceSpine
+          apiBase={changed.apiBase ?? "http://fixture"}
+          context={context}
+          surface="teacher"
+          tenantId={changed.tenantId ?? context.tenant_id}
+          token={changed.token ?? "token-A"}
+        />
+      );
+    });
+
+    expect(host.textContent).not.toContain("identity-A-evidence");
+    resolveChanged({ ok: true, json: async () => ({ data: responseA }) });
     await act(async () => root.unmount());
   });
 });
