@@ -246,7 +246,7 @@ describe("Decision Thread Evidence Spine OpenAPI contract", () => {
       expect(schema.required).toContain("context_scope");
       expect(schema.properties.context_scope.enum).toEqual([
         "EXACT_DDT_CONTEXT",
-        "TENANT_COURSE_ACTIVITY"
+        "TENANT_COURSE"
       ]);
     }
   });

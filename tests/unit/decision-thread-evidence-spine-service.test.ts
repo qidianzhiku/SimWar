@@ -136,9 +136,9 @@ describe("Decision Thread Evidence Spine service", () => {
       readers({
         modelQualification: async () => ({
           status: "AVAILABLE" as const,
-          summary: "course activity qualification",
-          known_limits: ["模型资格仅绑定租户、课程和活动；不证明具体运行、队伍、回合或角色绑定。"],
-          context_scope: "TENANT_COURSE_ACTIVITY" as const,
+          summary: "course qualification",
+          known_limits: ["模型资格仅绑定租户和课程；不证明活动、具体运行、队伍、回合或角色绑定。"],
+          context_scope: "TENANT_COURSE" as const,
           source_context: context
         })
       })
@@ -151,9 +151,9 @@ describe("Decision Thread Evidence Spine service", () => {
     expect(
       response.sources.find((source) => source.source === "MODEL_QUALIFICATION")
     ).toMatchObject({
-      context_scope: "TENANT_COURSE_ACTIVITY",
+      context_scope: "TENANT_COURSE",
       known_limits: expect.arrayContaining([
-        "模型资格仅绑定租户、课程和活动；不证明具体运行、队伍、回合或角色绑定。"
+        "模型资格仅绑定租户和课程；不证明活动、具体运行、队伍、回合或角色绑定。"
       ])
     });
   });

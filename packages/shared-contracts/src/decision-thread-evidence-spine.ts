@@ -29,7 +29,7 @@ export type DdtEvidenceLedger = (typeof DDT_EVIDENCE_LEDGERS)[number];
 
 export const DDT_EVIDENCE_CONTEXT_SCOPES = [
   "EXACT_DDT_CONTEXT",
-  "TENANT_COURSE_ACTIVITY"
+  "TENANT_COURSE"
 ] as const;
 export type DdtEvidenceContextScope = (typeof DDT_EVIDENCE_CONTEXT_SCOPES)[number];
 

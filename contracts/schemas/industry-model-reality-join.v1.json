@@ -212,6 +212,7 @@
         "schema_version": { "const": "industry-model-reality-join.v1" },
         "operation_id": { "const": "INDUSTRY_MODEL_REALITY_JOIN_STUDENT_GET_V1" },
         "role": { "const": "student" },
+        "freshness": { "enum": ["FRESH", "STALE", "UNKNOWN"] },
         "readiness_status": { "$ref": "#/$defs/status" },
         "rebase_required": { "type": "boolean" },
         "exact_context": { "$ref": "#/$defs/studentContext" },

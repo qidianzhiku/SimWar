@@ -191,7 +191,7 @@ function statusFromError(error: unknown): DdtEvidenceStatus | undefined {
 }
 
 function isDdtEvidenceContextScope(value: unknown): value is DdtEvidenceContextScope {
-  return value === "EXACT_DDT_CONTEXT" || value === "TENANT_COURSE_ACTIVITY";
+  return value === "EXACT_DDT_CONTEXT" || value === "TENANT_COURSE";
 }
 
 function isDdtEvidenceStatus(value: unknown): value is DdtEvidenceStatus {
@@ -388,9 +388,17 @@ function readSource(
 
 export function classifyIndustryModelStatus(
   readinessStatus: string,
-  provability: readonly { readonly freshness?: string }[] | undefined
+  provability:
+    | readonly { readonly freshness?: string }[]
+    | "FRESH"
+    | "STALE"
+    | "UNKNOWN"
+    | undefined
 ): DdtEvidenceStatus {
-  if (provability?.some((entry) => entry.freshness === "STALE")) return "STALE";
+  if (
+    provability === "STALE" ||
+    (Array.isArray(provability) && provability.some((entry) => entry.freshness === "STALE"))
+  ) return "STALE";
   if (readinessStatus === "REBASE_REQUIRED") return "REBASE_REQUIRED";
   if (readinessStatus === "READY") return "AVAILABLE";
   if (readinessStatus === "READY_WITH_LIMITS") return "LIMITED";

@@ -1,5 +1,6 @@
 import { once } from "node:events";
-import type { Server } from "node:http";
+import { IncomingMessage, ServerResponse, type Server } from "node:http";
+import { Socket } from "node:net";
 import { describe, expect, it } from "vitest";
 import type {
   ApiEnvelope,
@@ -10,6 +11,7 @@ import type {
 import { createApiServer } from "../../services/api/src/server";
 import { hashPassword, verifyPassword } from "../../services/api/src/auth";
 import { createP1Store, type SimWarStore } from "../../services/api/src/store";
+import { createEvidenceAdoptionServiceFixture } from "../helpers/model-qualification-evidence-adoption-fixtures";
 
 const tenantId = "tenant-ddt-http";
 const courseId = "course-ddt-http";
@@ -86,9 +88,28 @@ function seed(store: SimWarStore): void {
   } satisfies StudentRoleAssignment);
 }
 
-async function start(): Promise<{ server: Server; baseUrl: string }> {
+function seededStore(withStaleQualification = false): SimWarStore {
   const store = createP1Store();
   seed(store);
+  if (withStaleQualification) {
+    const fixture = createEvidenceAdoptionServiceFixture();
+    const record = JSON.parse(
+      JSON.stringify(fixture.primary.record)
+        .replaceAll("tenant_demo", tenantId)
+        .replaceAll("course_demo", courseId)
+    );
+    record.qualifications = [record.qualifications[0]];
+    record.source_packages = record.source_packages.map((source: object) => ({
+      ...source,
+      freshness_status: "STALE"
+    }));
+    store.modelQualificationRecords = [record];
+  }
+  return store;
+}
+
+async function start(): Promise<{ server: Server; baseUrl: string }> {
+  const store = seededStore();
   const seededTeacher = store.users.find((user) => user.username === "teacher-ddt");
   if (!seededTeacher || !verifyPassword("teacher-ddt", seededTeacher.password_hash)) {
     throw new Error("DDT fixture password verification failed");
@@ -193,6 +214,77 @@ async function read<T>(baseUrl: string, surface: string, token: string, suffix =
 }
 
 describe("Decision Thread Evidence Spine real BFF", () => {
+  it("reports course-scoped qualification and stale Student industry evidence with safe recovery", async () => {
+    const store = seededStore(true);
+    const server = createApiServer(store);
+    // Exercise the real HTTP handler without requiring a listening socket.
+    const request = (
+      url: string,
+      token?: string,
+      body?: unknown
+    ): Promise<{ status: number; data: unknown }> =>
+      new Promise((resolve) => {
+        const req = new IncomingMessage(new Socket());
+        req.method = body === undefined ? "GET" : "POST";
+        req.url = url;
+        req.headers = {
+          "content-type": "application/json",
+          "x-tenant-id": tenantId,
+          ...(token ? { authorization: `Bearer ${token}` } : {})
+        };
+        const res = new ServerResponse(req);
+        res.end = ((chunk: string) => {
+          resolve({ status: res.statusCode, data: JSON.parse(chunk).data });
+          return res;
+        }) as typeof res.end;
+        if (body !== undefined) req.push(JSON.stringify(body));
+        req.push(null);
+        server.emit("request", req, res);
+      });
+    for (const surface of ["teacher", "student", "admin"]) {
+      const session = await request("/api/v1/auth/login", undefined, {
+        username: `${surface}-ddt`,
+        password: `${surface}-ddt`
+      });
+      expect(session.status).toBe(200);
+      const before = JSON.stringify(store);
+      const result = await request(
+        `/api/v1/bff/${surface}/decision-thread/evidence-spine?${query()}`,
+        (session.data as AuthSession).access_token
+      );
+      expect(result.status).toBe(200);
+      expect(JSON.stringify(store)).toBe(before);
+      const data = result.data as {
+        sources: {
+          source: string;
+          status: string;
+          context_scope: string;
+          summary: string;
+          known_limits: string[];
+        }[];
+      };
+      const qualification = data.sources.find((source) => source.source === "MODEL_QUALIFICATION");
+      expect(qualification?.context_scope).toBe("TENANT_COURSE");
+      const industry = data.sources.find((source) => source.source === "INDUSTRY_MODEL");
+      expect(industry?.status).toBe("STALE");
+      if (surface === "student") {
+        expect(industry?.summary).toContain("重新载入");
+        const serialized = JSON.stringify(data);
+        for (const key of [
+          "provability",
+          "digest",
+          "source_ref",
+          "model_version_reference",
+          "qualification_id"
+        ])
+          expect(serialized).not.toContain(key);
+      } else {
+        expect(qualification?.known_limits).toContain(
+          "模型资格仅绑定租户和课程；不证明活动、具体运行、队伍、回合或角色绑定。"
+        );
+      }
+    }
+  });
   it("serves exact-context Teacher, Student, and Admin projections without writes", async () => {
     const { server, baseUrl } = await start();
     try {

@@ -115,6 +115,7 @@
       "required": ["visibility", "readiness_class", "evidence_classes", "known_limits"],
       "properties": {
         "visibility": { "const": "ROLE_SAFE_STUDENT" },
+        "freshness": { "enum": ["FRESH", "STALE", "UNKNOWN"] },
         "readiness_class": { "$ref": "#/$defs/status" },
         "evidence_classes": { "type": "array", "items": { "$ref": "#/$defs/classification" } },
         "qualified_producer_admission_statuses": {

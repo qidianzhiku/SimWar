@@ -2242,6 +2242,12 @@ export class ModelQualificationService {
         role: "student",
          student_summary: {
            ...interpretation.student,
+           freshness: readiness.provability.some((entry) => entry.freshness === "STALE")
+             ? "STALE"
+             : readiness.provability.length === 0 ||
+                 readiness.provability.some((entry) => entry.freshness === "UNKNOWN")
+               ? "UNKNOWN"
+               : "FRESH",
            qualified_producer_admission_statuses: qualifiedProducerAdmissions.map(
              (item) => item.status
            )
@@ -2348,6 +2354,7 @@ export class ModelQualificationService {
           round_id: diagnostic.exact_context.round_id
         },
         readiness_class: readinessStatus,
+        freshness: diagnostic.student_summary?.freshness ?? "UNKNOWN",
         evidence_classes: ["NOT_PROVEN"],
         portability_status:
           supportEvidence.availability === "BOUND"
@@ -2359,7 +2366,10 @@ export class ModelQualificationService {
           supportEvidence.availability === "BOUND"
             ? supportEvidence.shanghai.consumption_status
             : "UNAVAILABLE",
-        recovery: identityMoved ? "RELOAD_EXACT_CONTEXT" : "NONE"
+        recovery:
+          identityMoved || diagnostic.student_summary?.freshness === "STALE"
+            ? "RELOAD_EXACT_CONTEXT"
+            : "NONE"
       };
     }
     return {

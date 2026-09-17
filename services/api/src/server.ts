@@ -1600,10 +1600,10 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
         known_limits: [
           ...new Set([
             ...projection.known_limits,
-            "模型资格仅绑定租户、课程和活动；不证明具体运行、队伍、回合或角色绑定。"
+            "模型资格仅绑定租户和课程；不证明活动、具体运行、队伍、回合或角色绑定。"
           ])
         ],
-        context_scope: "TENANT_COURSE_ACTIVITY" as const,
+        context_scope: "TENANT_COURSE" as const,
         source_context: {
           tenant_id: context.tenant_id,
           course_id: context.course_id,
@@ -1721,7 +1721,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
       );
       const status = classifyIndustryModelStatus(
         projection.readiness_status,
-        "provability" in projection ? projection.provability : undefined
+        projection.role === "student" ? projection.freshness : projection.provability
       );
       return {
         status,

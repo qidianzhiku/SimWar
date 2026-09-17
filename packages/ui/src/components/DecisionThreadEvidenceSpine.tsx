@@ -546,8 +546,8 @@ export function DecisionThreadEvidenceSpine({
                 <p>{sourceSummary(source)}</p>
                 <p className="ddt-evidence-spine__scope" data-testid="ddt-source-context-scope">
                   证据绑定范围：
-                  {source.context_scope === "TENANT_COURSE_ACTIVITY"
-                    ? "租户、课程与活动"
+                  {source.context_scope === "TENANT_COURSE"
+                    ? "租户与课程"
                     : "当前精确上下文"}
                 </p>
                 <ul>

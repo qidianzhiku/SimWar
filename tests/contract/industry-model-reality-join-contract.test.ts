@@ -115,6 +115,7 @@ describe("IM-O2 Industry Model Reality Join contract", () => {
         round_id: "round-1"
       },
       readiness_class: "READY_WITH_LIMITS",
+      freshness: "STALE",
       evidence_classes: ["NOT_PROVEN"],
       portability_status: "UNAVAILABLE",
       holdout_status: "UNAVAILABLE",
@@ -126,6 +127,8 @@ describe("IM-O2 Industry Model Reality Join contract", () => {
       readiness_digest: "1".repeat(64)
     } as Record<string, unknown>;
     expect(validate(student)).toBe(true);
+    expect(validate({ ...student, freshness: "private-digest" })).toBe(false);
+    expect(validate({ ...student, provability: teacherFixture.provability })).toBe(false);
     expect(validate({ ...student, adoption_id: "private" })).toBe(false);
     expect(validate({ ...student, diagnostic_evidence_digest: "private" })).toBe(false);
   });

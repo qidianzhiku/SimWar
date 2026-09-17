@@ -8451,7 +8451,7 @@ components:
         source: { enum: [M2P6, MODEL_QUALIFICATION, STRATEGIC_PORTFOLIO, INDUSTRY_MODEL, GSI] }
         ledger: { enum: [OFFICIAL, DIAGNOSTIC, COUNTERFACTUAL, ADVISORY] }
         status: { enum: [AVAILABLE, LIMITED, CONTEXT_UNAVAILABLE, REBASE_REQUIRED, STALE] }
-        context_scope: { enum: [EXACT_DDT_CONTEXT, TENANT_COURSE_ACTIVITY] }
+        context_scope: { enum: [EXACT_DDT_CONTEXT, TENANT_COURSE] }
         summary: { type: string, minLength: 1 }
         known_limits: { type: array, items: { type: string, minLength: 1 } }
         exact_context: { $ref: "#/components/schemas/DdtExactContext" }
@@ -8473,7 +8473,7 @@ components:
         source: { enum: [M2P6, MODEL_QUALIFICATION, STRATEGIC_PORTFOLIO, INDUSTRY_MODEL, GSI] }
         ledger: { enum: [OFFICIAL, DIAGNOSTIC, COUNTERFACTUAL, ADVISORY] }
         status: { enum: [AVAILABLE, LIMITED, CONTEXT_UNAVAILABLE, REBASE_REQUIRED, STALE] }
-        context_scope: { enum: [EXACT_DDT_CONTEXT, TENANT_COURSE_ACTIVITY] }
+        context_scope: { enum: [EXACT_DDT_CONTEXT, TENANT_COURSE] }
         summary: { type: string, minLength: 1 }
         known_limits: { type: array, items: { type: string, minLength: 1 } }
         exact_context: { $ref: "#/components/schemas/DdtExactContext" }
@@ -8495,7 +8495,7 @@ components:
         source: { enum: [M2P6, MODEL_QUALIFICATION, STRATEGIC_PORTFOLIO, INDUSTRY_MODEL, GSI] }
         ledger: { enum: [OFFICIAL, DIAGNOSTIC, COUNTERFACTUAL, ADVISORY] }
         status: { enum: [AVAILABLE, LIMITED, CONTEXT_UNAVAILABLE, REBASE_REQUIRED, STALE] }
-        context_scope: { enum: [EXACT_DDT_CONTEXT, TENANT_COURSE_ACTIVITY] }
+        context_scope: { enum: [EXACT_DDT_CONTEXT, TENANT_COURSE] }
         summary: { type: string, minLength: 1 }
         known_limits: { type: array, items: { type: string, minLength: 1 } }
         exact_context: { $ref: "#/components/schemas/DdtStudentContext" }
