@@ -220,6 +220,32 @@ describe("P2-B FE-19 student decision learning", () => {
     expect(isW3ContextAvailable(undefined, true)).toBe(true);
   });
 
+  it("does not hand a legacy journey context to the DDT evidence spine", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({ data: response }), { status: 200 }));
+    const { host, root } = renderJourney({
+      evidenceSpineEnabled: true,
+      evidenceSpineContext: undefined
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const evidenceSpine = host.querySelector(
+      '[data-testid="decision-thread-evidence-spine"]'
+    );
+    expect(evidenceSpine?.textContent).toContain("尚未选择精确上下文");
+    expect(
+      fetchSpy.mock.calls.some(([input]) =>
+        String(input).includes("/decision-thread/evidence-spine")
+      )
+    ).toBe(false);
+    root.unmount();
+    host.remove();
+    fetchSpy.mockRestore();
+  });
+
   it("freezes the six Figma stages", () => {
     expect(P2B_STUDENT_STAGES).toEqual([
       "result",

@@ -544,6 +544,8 @@ export function App() {
         }
       : undefined);
   const w3ContextReady = isW3ContextAvailable(w3QueryContext, W3_ENVIRONMENT_ENABLED);
+  const ddtContext = w3QueryContext;
+  const ddtContextReady = isW3ContextAvailable(ddtContext, false);
 
   const refresh = useCallback(async () => {
     const requestId = ++refreshIdentity.current;
@@ -1523,7 +1525,8 @@ export function App() {
                   }
                   decisionContextEvidenceRequired={projectAwareEvidenceGateRequired}
                   crossRoundEnabled={W3_ENABLED && w3ContextReady}
-                  evidenceSpineEnabled={W3_ENABLED && w3ContextReady}
+                  evidenceSpineContext={W3_ENABLED && ddtContextReady ? ddtContext : undefined}
+                  evidenceSpineEnabled={W3_ENABLED && ddtContextReady}
                   onReauthenticate={() =>
                     document.querySelector<HTMLInputElement>('[aria-label="tenant"]')?.focus()
                   }

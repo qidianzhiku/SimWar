@@ -470,6 +470,62 @@ describe("Decision Thread Evidence Spine UI", () => {
     await act(async () => root.unmount());
   });
 
+  it("maps AUTH-401-001 to explicit reauthentication recovery", async () => {
+    const pairOptions = {
+      surface: "teacher",
+      context: {
+        tenant_id: context.tenant_id,
+        course_id: context.course_id,
+        run_id: context.run_id,
+        team_id: context.team_id,
+        activity_id: context.activity_id,
+        role_key: context.role_key
+      },
+      rounds: [],
+      provider: "OFF",
+      official_truth_write: false,
+      non_causal: true,
+      causal_proof: false,
+      known_limits: ["Read-only evidence"]
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("pair-options")) {
+        return { ok: true, json: async () => ({ data: pairOptions }) };
+      }
+      return {
+        ok: false,
+        json: async () => ({ code: "AUTH-401-001", message: "authentication required" })
+      };
+    });
+    const onReauthenticate = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        <DecisionThreadEvidenceSpine
+          apiBase="http://fixture"
+          context={context}
+          surface="teacher"
+          tenantId="tenant-private"
+          token="token"
+          onReauthenticate={onReauthenticate}
+        />
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await vi.waitFor(() => expect(host.textContent).toContain("需要重新验证身份"));
+    const recoveryButton = host.querySelector("button[data-action='ddt:reauthenticate']");
+    expect(recoveryButton).not.toBeNull();
+    await act(async () => {
+      (recoveryButton as HTMLButtonElement).click();
+    });
+    expect(onReauthenticate).toHaveBeenCalledOnce();
+    await act(async () => root.unmount());
+  });
+
   it("maps the existing D4 scope violation to permission recovery", async () => {
     const pairOptions = {
       surface: "teacher",

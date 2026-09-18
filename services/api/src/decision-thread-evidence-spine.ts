@@ -13,7 +13,8 @@ import type {
   DdtTeacherEvidenceSpineResponse,
   DdtTeacherEvidenceSource,
   DdtSelectedRoundPair,
-  DdtExactContext
+  DdtExactContext,
+  ModelQualificationFreshnessStatus
 } from "@simwar/shared-contracts";
 
 export interface DecisionThreadEvidenceSpineActor {
@@ -384,6 +385,21 @@ function readSource(
       : {})
   };
   return read.provenance ? { ...base, provenance: read.provenance } : base;
+}
+
+export function classifyModelQualificationStatus(
+  freshnessStatuses: readonly (ModelQualificationFreshnessStatus | undefined)[]
+): DdtEvidenceStatus {
+  const allStatusesAreCanonical =
+    freshnessStatuses.length > 0 &&
+    freshnessStatuses.every(
+      (status) =>
+        status === "FRESH" || status === "STALE" || status === "UNKNOWN"
+    );
+  if (!allStatusesAreCanonical) return "CONTEXT_UNAVAILABLE";
+  if (freshnessStatuses.includes("STALE")) return "STALE";
+  if (freshnessStatuses.includes("UNKNOWN")) return "LIMITED";
+  return "AVAILABLE";
 }
 
 export function classifyIndustryModelStatus(

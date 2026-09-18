@@ -34,6 +34,7 @@ type Props = {
   published: boolean;
   crossRoundEnabled?: boolean;
   evidenceSpineEnabled?: boolean;
+  evidenceSpineContext?: W3OfficialConsequenceContext | undefined;
   decisionContextEvidence?: StudentDecisionContextEvidence | null;
   decisionContextEvidenceRequired?: boolean;
   m4?: readonly [courseId: string, runId: string, roundNo: number] | undefined;
@@ -78,6 +79,7 @@ export function StudentDecisionLearningJourney({
   published,
   crossRoundEnabled = false,
   evidenceSpineEnabled = false,
+  evidenceSpineContext,
   decisionContextEvidence,
   decisionContextEvidenceRequired = false,
   m4,
@@ -338,7 +340,7 @@ export function StudentDecisionLearningJourney({
       {evidenceSpineEnabled ? (
         <DecisionThreadEvidenceSpine
           apiBase={apiBase}
-          context={published ? context : undefined}
+          context={published ? evidenceSpineContext : undefined}
           heading="本轮证据时间线"
           surface="student"
           tenantId={tenantId}

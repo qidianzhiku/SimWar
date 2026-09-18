@@ -265,6 +265,7 @@ describe("Decision Thread Evidence Spine real BFF", () => {
       };
       const qualification = data.sources.find((source) => source.source === "MODEL_QUALIFICATION");
       expect(qualification?.context_scope).toBe("TENANT_COURSE");
+      expect(qualification?.status).toBe("STALE");
       const industry = data.sources.find((source) => source.source === "INDUSTRY_MODEL");
       expect(industry?.status).toBe("STALE");
       if (surface === "student") {

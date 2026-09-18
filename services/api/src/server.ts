@@ -75,7 +75,9 @@ import type {
   ProjectProfileReferenceInput,
   ProjectProfileSuccessorInput,
   ProjectProfileStudentBrief,
-  RegionalTransferCandidateInput
+  RegionalTransferCandidateInput,
+  ModelQualificationStudentProjection,
+  ModelQualificationTeacherProjection
 } from "@simwar/shared-contracts";
 import { buildM4PortabilityCompatibilityPack } from "@simwar/sh-next-support";
 import type { MarketWorldRef } from "@simwar/shared-contracts";
@@ -214,6 +216,7 @@ import {
 } from "./m2p5-decision-learning-crossround.js";
 import {
   classifyIndustryModelStatus,
+  classifyModelQualificationStatus,
   DecisionThreadEvidenceSpineService
 } from "./decision-thread-evidence-spine.js";
 import { O4CrossRoundDynamicsService } from "./o4-cross-round-dynamics.js";
@@ -1591,8 +1594,22 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
           : surface === "admin"
             ? modelQualification.getAdminProjection(modelActor, scope)
             : modelQualification.getTeacherProjection(modelActor, scope);
+      const freshnessStatuses =
+        surface === "student"
+          ? [
+              (projection as ModelQualificationStudentProjection).qualification
+                .source.freshness_status
+            ]
+          : (projection as ModelQualificationTeacherProjection).qualifications.map(
+              (qualification) =>
+                (projection as ModelQualificationTeacherProjection).source_packages.find(
+                  (source) =>
+                    source.source_package_id === qualification.source_package_id
+                )?.freshness_status
+            );
+      const status = classifyModelQualificationStatus(freshnessStatuses);
       return {
-        status: "AVAILABLE" as const,
+        status,
         summary:
           surface === "student"
             ? "模型资格证据已按学员可见字段裁剪。"

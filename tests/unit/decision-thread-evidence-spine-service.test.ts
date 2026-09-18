@@ -4,6 +4,7 @@ import {
   DecisionThreadEvidenceSpineError,
   DecisionThreadEvidenceSpineService,
   classifyIndustryModelStatus,
+  classifyModelQualificationStatus,
   type DecisionThreadEvidenceSpineReaders
 } from "../../services/api/src/decision-thread-evidence-spine.js";
 
@@ -230,6 +231,18 @@ describe("Decision Thread Evidence Spine service", () => {
     expect(classifyIndustryModelStatus("READY_WITH_LIMITS", [{ freshness: "FRESH" }])).toBe(
       "LIMITED"
     );
+  });
+
+  it.each([
+    [["FRESH"], "AVAILABLE"],
+    [["STALE"], "STALE"],
+    [["UNKNOWN"], "LIMITED"],
+    [["FRESH", "STALE"], "STALE"],
+    [["FRESH", "UNKNOWN"], "LIMITED"],
+    [[], "CONTEXT_UNAVAILABLE"],
+    [[undefined], "CONTEXT_UNAVAILABLE"]
+  ] as const)("preserves canonical qualification freshness %s as %s", (freshness, expected) => {
+    expect(classifyModelQualificationStatus(freshness)).toBe(expected);
   });
 
   it("applies a Student allowlist and rejects a mixed-role actor on the Student surface", async () => {
