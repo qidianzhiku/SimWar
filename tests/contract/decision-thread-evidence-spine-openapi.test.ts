@@ -244,10 +244,7 @@ describe("Decision Thread Evidence Spine OpenAPI contract", () => {
     ]) {
       const schema = document.components.schemas[schemaName];
       expect(schema.required).toContain("context_scope");
-      expect(schema.properties.context_scope.enum).toEqual([
-        "EXACT_DDT_CONTEXT",
-        "TENANT_COURSE"
-      ]);
+      expect(schema.properties.context_scope.enum).toEqual(["EXACT_DDT_CONTEXT", "TENANT_COURSE"]);
     }
   });
 });

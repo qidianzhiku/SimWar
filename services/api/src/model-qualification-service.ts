@@ -373,7 +373,9 @@ function reconcileDiagnosticProducer(input: {
         ? { producer_model_version_reference: reconciled.producer.producer_model_version_reference }
         : {}),
       ...(reconciled.producer.producer_model_artifact_reference
-        ? { producer_model_artifact_reference: reconciled.producer.producer_model_artifact_reference }
+        ? {
+            producer_model_artifact_reference: reconciled.producer.producer_model_artifact_reference
+          }
         : {}),
       known_limits: reconciled.known_limits
     },
@@ -1979,7 +1981,10 @@ export class ModelQualificationService {
     const roundNo = input.round_no;
     if (
       input.w5_draft_id !== undefined &&
-      (!input.w5_draft_id.trim() || typeof roundNo !== "number" || !Number.isSafeInteger(roundNo) || roundNo < 1)
+      (!input.w5_draft_id.trim() ||
+        typeof roundNo !== "number" ||
+        !Number.isSafeInteger(roundNo) ||
+        roundNo < 1)
     ) {
       throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
     }
@@ -2054,9 +2059,7 @@ export class ModelQualificationService {
               observed_team_id: w5Read?.convergence.security.team ?? ""
             },
             candidate:
-              w5Read === null
-                ? null
-                : buildCanCandidateFromW5({ context: w5Context, ...w5Read })
+              w5Read === null ? null : buildCanCandidateFromW5({ context: w5Context, ...w5Read })
           });
     const diagnosticEvidenceDigest = stableSha256({
       dataset_content_digest: dataset.content_digest,
@@ -2240,18 +2243,18 @@ export class ModelQualificationService {
         ...common,
         operation_id: "INDUSTRY_MODEL_DIAGNOSTIC_STUDENT_GET_V1",
         role: "student",
-         student_summary: {
-           ...interpretation.student,
-           freshness: readiness.provability.some((entry) => entry.freshness === "STALE")
-             ? "STALE"
-             : readiness.provability.length === 0 ||
-                 readiness.provability.some((entry) => entry.freshness === "UNKNOWN")
-               ? "UNKNOWN"
-               : "FRESH",
-           qualified_producer_admission_statuses: qualifiedProducerAdmissions.map(
-             (item) => item.status
-           )
-         }
+        student_summary: {
+          ...interpretation.student,
+          freshness: readiness.provability.some((entry) => entry.freshness === "STALE")
+            ? "STALE"
+            : readiness.provability.length === 0 ||
+                readiness.provability.some((entry) => entry.freshness === "UNKNOWN")
+              ? "UNKNOWN"
+              : "FRESH",
+          qualified_producer_admission_statuses: qualifiedProducerAdmissions.map(
+            (item) => item.status
+          )
+        }
       };
     }
     return {

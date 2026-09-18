@@ -86,9 +86,7 @@ describe("IM-O2 Industry Model Reality Join", () => {
       availability: "UNAVAILABLE",
       reason: "EXACT_SUPPORT_APPLICABILITY_NOT_PROVEN"
     });
-    expect(result.known_limits).toContain(
-      "M4 portability compatibility is not external validity."
-    );
+    expect(result.known_limits).toContain("M4 portability compatibility is not external validity.");
     expect(result.known_limits).toContain("M5 holdout and qualification remain NOT_ELIGIBLE.");
     expect(result.official_truth_write).toBe(false);
     expect(result.provider).toBe("OFF");

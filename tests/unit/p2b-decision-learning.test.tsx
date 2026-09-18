@@ -232,9 +232,7 @@ describe("P2-B FE-19 student decision learning", () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    const evidenceSpine = host.querySelector(
-      '[data-testid="decision-thread-evidence-spine"]'
-    );
+    const evidenceSpine = host.querySelector('[data-testid="decision-thread-evidence-spine"]');
     expect(evidenceSpine?.textContent).toContain("尚未选择精确上下文");
     expect(
       fetchSpy.mock.calls.some(([input]) =>

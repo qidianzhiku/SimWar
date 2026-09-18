@@ -47,12 +47,7 @@ type ViewState =
   | { kind: "idle" | "loading" }
   | { kind: "ready" | "stale" | "recovered"; data: DdtEvidenceSpineResponse }
   | {
-      kind:
-        | "context-unavailable"
-        | "rebase"
-        | "permission-denied"
-        | "reauth-required"
-        | "error";
+      kind: "context-unavailable" | "rebase" | "permission-denied" | "reauth-required" | "error";
       message: string;
     };
 
@@ -596,8 +591,7 @@ export function DecisionThreadEvidenceSpine({
                   ? "重新绑定当前上下文；不会自动重试旧请求。"
                   : "重新加载当前上下文；不会自动重试旧请求。"}
           </span>
-          {(currentView.kind === "permission-denied" ||
-            currentView.kind === "reauth-required") &&
+          {(currentView.kind === "permission-denied" || currentView.kind === "reauth-required") &&
           onReauthenticate ? (
             <button
               type="button"
@@ -608,8 +602,7 @@ export function DecisionThreadEvidenceSpine({
               重新验证身份
             </button>
           ) : null}
-          {currentView.kind !== "permission-denied" &&
-          currentView.kind !== "reauth-required" ? (
+          {currentView.kind !== "permission-denied" && currentView.kind !== "reauth-required" ? (
             <button
               type="button"
               className="ddt-evidence-spine__recovery"

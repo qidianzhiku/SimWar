@@ -1597,14 +1597,13 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
       const freshnessStatuses =
         surface === "student"
           ? [
-              (projection as ModelQualificationStudentProjection).qualification
-                .source.freshness_status
+              (projection as ModelQualificationStudentProjection).qualification.source
+                .freshness_status
             ]
           : (projection as ModelQualificationTeacherProjection).qualifications.map(
               (qualification) =>
                 (projection as ModelQualificationTeacherProjection).source_packages.find(
-                  (source) =>
-                    source.source_package_id === qualification.source_package_id
+                  (source) => source.source_package_id === qualification.source_package_id
                 )?.freshness_status
             );
       const status = classifyModelQualificationStatus(freshnessStatuses);

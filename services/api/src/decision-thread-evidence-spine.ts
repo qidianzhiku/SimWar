@@ -155,10 +155,7 @@ function assertActorScope(
   }
   const roles = new Set(actor.roles);
   if (surface === "student") {
-    if (
-      (!roles.has("student") && !roles.has("learner")) ||
-      actor.tenant_id !== context.tenant_id
-    ) {
+    if ((!roles.has("student") && !roles.has("learner")) || actor.tenant_id !== context.tenant_id) {
       throw new DecisionThreadEvidenceSpineError("DDT_SCOPE_VIOLATION");
     }
     return;
@@ -393,8 +390,7 @@ export function classifyModelQualificationStatus(
   const allStatusesAreCanonical =
     freshnessStatuses.length > 0 &&
     freshnessStatuses.every(
-      (status) =>
-        status === "FRESH" || status === "STALE" || status === "UNKNOWN"
+      (status) => status === "FRESH" || status === "STALE" || status === "UNKNOWN"
     );
   if (!allStatusesAreCanonical) return "CONTEXT_UNAVAILABLE";
   if (freshnessStatuses.includes("STALE")) return "STALE";
@@ -414,7 +410,8 @@ export function classifyIndustryModelStatus(
   if (
     provability === "STALE" ||
     (Array.isArray(provability) && provability.some((entry) => entry.freshness === "STALE"))
-  ) return "STALE";
+  )
+    return "STALE";
   if (readinessStatus === "REBASE_REQUIRED") return "REBASE_REQUIRED";
   if (readinessStatus === "READY") return "AVAILABLE";
   if (readinessStatus === "READY_WITH_LIMITS") return "LIMITED";

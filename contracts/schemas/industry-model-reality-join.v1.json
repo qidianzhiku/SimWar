@@ -62,7 +62,14 @@
     "boundSupportEvidence": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["availability", "applicability_digest", "upstream_pack_digests", "portability", "holdout", "shanghai"],
+      "required": [
+        "availability",
+        "applicability_digest",
+        "upstream_pack_digests",
+        "portability",
+        "holdout",
+        "shanghai"
+      ],
       "properties": {
         "availability": { "const": "BOUND" },
         "applicability_digest": { "$ref": "#/$defs/digest" },
@@ -221,9 +228,30 @@
           "type": "array",
           "items": { "$ref": "#/$defs/classification" }
         },
-        "portability_status": { "enum": ["PORTABILITY_EVIDENCE_WITH_LIMITS", "NOT_ELIGIBLE", "LOOKAHEAD_READY", "UNAVAILABLE"] },
-        "holdout_status": { "enum": ["PORTABILITY_EVIDENCE_WITH_LIMITS", "NOT_ELIGIBLE", "LOOKAHEAD_READY", "UNAVAILABLE"] },
-        "shanghai_status": { "enum": ["PORTABILITY_EVIDENCE_WITH_LIMITS", "NOT_ELIGIBLE", "LOOKAHEAD_READY", "UNAVAILABLE"] },
+        "portability_status": {
+          "enum": [
+            "PORTABILITY_EVIDENCE_WITH_LIMITS",
+            "NOT_ELIGIBLE",
+            "LOOKAHEAD_READY",
+            "UNAVAILABLE"
+          ]
+        },
+        "holdout_status": {
+          "enum": [
+            "PORTABILITY_EVIDENCE_WITH_LIMITS",
+            "NOT_ELIGIBLE",
+            "LOOKAHEAD_READY",
+            "UNAVAILABLE"
+          ]
+        },
+        "shanghai_status": {
+          "enum": [
+            "PORTABILITY_EVIDENCE_WITH_LIMITS",
+            "NOT_ELIGIBLE",
+            "LOOKAHEAD_READY",
+            "UNAVAILABLE"
+          ]
+        },
         "recovery": {
           "enum": ["NONE", "RELOAD_EXACT_CONTEXT", "REAUTHORIZE", "RETRY_EXACT_REQUEST"]
         },

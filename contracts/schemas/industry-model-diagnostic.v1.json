@@ -162,10 +162,10 @@
             "model_artifact_reference",
             "qualification",
             "adoption",
-        "diagnostic_evidence_digest",
-        "interpretation_policy_digest",
-        "provability",
-        "qualified_producer_admission"
+            "diagnostic_evidence_digest",
+            "interpretation_policy_digest",
+            "provability",
+            "qualified_producer_admission"
           ],
           "properties": {
             "operation_id": {
