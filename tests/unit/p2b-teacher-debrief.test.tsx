@@ -219,6 +219,93 @@ describe("P2-B FE-20 teacher debrief", () => {
     }
   );
 
+  it("suppresses old record, cross-round evidence, and local notes during the first new-identity render", async () => {
+    const oldRecordResponse = {
+      ...response,
+      record: {
+        ...response.record,
+        official_result: {
+          ...response.record.official_result,
+          outcome_label: "OLD_IDENTITY_RECORD"
+        }
+      }
+    } as W3OfficialConsequenceResponse;
+    const oldCrossRoundResponse = {
+      ...crossRoundResponse,
+      learning_loop: {
+        ...crossRoundResponse.learning_loop,
+        blockers: ["OLD_IDENTITY_CROSS_ROUND"],
+        recovery_state: "OLD_IDENTITY_RECOVERY"
+      }
+    } as M2P5DecisionLearningResponse;
+    const nextContext = {
+      ...context,
+      round_id: "round-004",
+      round_no: 4,
+      tenant_id: "tenant-002"
+    } as const;
+    const pendingNewRecord = new Promise<Response>(() => undefined);
+    const pendingNewCrossRound = new Promise<Response>(() => undefined);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/m2p5/") && url.includes("/rounds/4/")) return pendingNewCrossRound;
+      if (url.includes("/m2p5/")) {
+        return new Response(JSON.stringify({ data: oldCrossRoundResponse }), { status: 200 });
+      }
+      if (url.includes("round_id=round-004")) return pendingNewRecord;
+      return new Response(JSON.stringify({ data: oldRecordResponse }), { status: 200 });
+    });
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        <TeacherDebriefWorkspace
+          apiBase="http://api.test"
+          tenantId={context.tenant_id}
+          token="old-token"
+          context={context}
+          crossRoundEnabled
+        />
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(host.textContent).toContain("OLD_IDENTITY_RECORD");
+    expect(host.textContent).toContain("OLD_IDENTITY_CROSS_ROUND");
+    const note = host.querySelector<HTMLTextAreaElement>("#teacher-p2b-local-note");
+    const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+    act(() => {
+      setValue?.call(note, "OLD_IDENTITY_LOCAL_NOTE");
+      note?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    await act(async () => {
+      root.render(
+        <TeacherDebriefWorkspace
+          apiBase="http://api-next.test"
+          tenantId={nextContext.tenant_id}
+          token="new-token"
+          context={nextContext}
+          crossRoundEnabled
+        />
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(host.textContent).not.toContain("OLD_IDENTITY_RECORD");
+    expect(host.textContent).not.toContain("OLD_IDENTITY_CROSS_ROUND");
+    expect(host.textContent).not.toContain("OLD_IDENTITY_RECOVERY");
+    expect(host.querySelector<HTMLTextAreaElement>("#teacher-p2b-local-note")?.value).not.toBe(
+      "OLD_IDENTITY_LOCAL_NOTE"
+    );
+    await act(async () => root.unmount());
+    host.remove();
+    fetchSpy.mockRestore();
+  });
+
   it("freezes the five Figma stages", () => {
     expect(P2B_TEACHER_STAGES).toEqual([
       "today",

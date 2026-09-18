@@ -114,40 +114,76 @@ export function TeacherDebriefWorkspace({
   intelligenceWorkspace,
   onReauthenticate
 }: Props) {
+  const tokenEpochRef = useRef({ token, epoch: 0 });
+  if (tokenEpochRef.current.token !== token) {
+    tokenEpochRef.current = { token, epoch: tokenEpochRef.current.epoch + 1 };
+  }
+  const identityKey = JSON.stringify([
+    apiBase,
+    tenantId,
+    tokenEpochRef.current.epoch,
+    context ? contextQuery(context) : ""
+  ]);
+  const responseIdentityRef = useRef(identityKey);
+  const previousResponseRef = useRef(response);
+  if (previousResponseRef.current !== response) {
+    previousResponseRef.current = response;
+    responseIdentityRef.current = identityKey;
+  }
+  const responseForIdentity = responseIdentityRef.current === identityKey ? response : undefined;
   const [state, setState] = useState<WorkspaceState>(
-    response ? { phase: "ready", record: response.record } : { phase: "idle" }
+    responseForIdentity ? { phase: "ready", record: responseForIdentity.record } : { phase: "idle" }
   );
   const [note, setNote] = useState("");
   const [retryNonce, setRetryNonce] = useState(0);
   const [teachableMode, setTeachableMode] = useState<"ask" | "show" | "listen">("ask");
   const [crossRound, setCrossRound] = useState<CrossRoundState>({ phase: "idle" });
-  const recordRef = useRef<W3OfficialConsequenceRecord | undefined>(response?.record);
+  const stateIdentityRef = useRef(identityKey);
+  const crossRoundStateIdentityRef = useRef(identityKey);
+  const recordRef = useRef<W3OfficialConsequenceRecord | undefined>(responseForIdentity?.record);
+  const recordIdentityRef = useRef<string | null>(responseForIdentity ? identityKey : null);
   const crossRoundRef = useRef<M2P5DecisionLearningResponse | undefined>(undefined);
+  const crossRoundIdentityRef = useRef<string | null>(null);
+  const noteIdentityRef = useRef(identityKey);
   const crossRoundRequestEpochRef = useRef(0);
-  const identityKey = JSON.stringify([
-    apiBase,
-    tenantId,
-    token,
-    context ? contextQuery(context) : ""
-  ]);
   const currentIdentity = useRef(identityKey);
   currentIdentity.current = identityKey;
   const previousIdentityKey = useRef<string | null>(null);
 
+  const setStateForIdentity = (
+    next: WorkspaceState,
+    requestIdentity: string = identityKey
+  ): void => {
+    stateIdentityRef.current = requestIdentity;
+    setState(next);
+  };
+  const setCrossRoundForIdentity = (
+    next: CrossRoundState,
+    requestIdentity: string = identityKey
+  ): void => {
+    crossRoundStateIdentityRef.current = requestIdentity;
+    setCrossRound(next);
+  };
+
   useEffect(() => {
     if (previousIdentityKey.current && previousIdentityKey.current !== identityKey) {
+      noteIdentityRef.current = identityKey;
       setNote("");
       recordRef.current = undefined;
+      recordIdentityRef.current = null;
       crossRoundRef.current = undefined;
-      setCrossRound({ phase: "idle" });
-      setState({ phase: "idle" });
+      crossRoundIdentityRef.current = null;
+      setCrossRoundForIdentity({ phase: "idle" });
+      setStateForIdentity({ phase: "idle" });
     }
     previousIdentityKey.current = identityKey;
   }, [identityKey]);
 
   useEffect(() => {
-    if (response) {
-      setState({ phase: "ready", record: response.record });
+    if (responseForIdentity) {
+      recordRef.current = responseForIdentity.record;
+      recordIdentityRef.current = identityKey;
+      setStateForIdentity({ phase: "ready", record: responseForIdentity.record }, identityKey);
       return;
     }
     const controller = new AbortController();
@@ -155,11 +191,13 @@ export function TeacherDebriefWorkspace({
     const isCurrent = () =>
       !controller.signal.aborted && currentIdentity.current === requestIdentity;
     if (!context || !token || !tenantId) {
-      setState({ phase: "idle" });
+      setStateForIdentity({ phase: "idle" });
       return () => controller.abort();
     }
-    setState(
-      recordRef.current ? { phase: "stale", record: recordRef.current } : { phase: "loading" }
+    setStateForIdentity(
+      recordRef.current && recordIdentityRef.current === requestIdentity
+        ? { phase: "stale", record: recordRef.current }
+        : { phase: "loading" }
     );
     fetch(`${apiBase}/api/v1/bff/teacher/w3/consequence?${contextQuery(context)}`, {
       headers: { authorization: `Bearer ${token}`, "x-tenant-id": tenantId },
@@ -172,34 +210,38 @@ export function TeacherDebriefWorkspace({
         };
         if (!isCurrent()) return;
         if (result.status === 404) {
-          setState({ phase: "empty", message: envelope.message ?? "等待已发布结果" });
+          setStateForIdentity({ phase: "empty", message: envelope.message ?? "等待已发布结果" });
           return;
         }
         if (!result.ok || !envelope.data)
           throw new Error(envelope.message ?? "教师复盘投影读取失败");
         recordRef.current = envelope.data.record;
-        setState({ phase: "ready", record: envelope.data.record });
+        recordIdentityRef.current = requestIdentity;
+        setStateForIdentity({ phase: "ready", record: envelope.data.record }, requestIdentity);
       })
       .catch((error: unknown) => {
         if (!isCurrent()) return;
         if (error instanceof DOMException && error.name === "AbortError") return;
-        setState({
+        setStateForIdentity({
           phase: "error",
           message: error instanceof Error ? error.message : "教师复盘投影读取失败"
         });
       });
     return () => controller.abort();
-  }, [apiBase, context, response, retryNonce, tenantId, token, identityKey]);
+  }, [apiBase, context, responseForIdentity, retryNonce, tenantId, token, identityKey]);
 
   useEffect(() => {
     const controller = new AbortController();
     const requestEpoch = ++crossRoundRequestEpochRef.current;
+    const requestIdentity = identityKey;
     if (!crossRoundEnabled || !context || !token || !tenantId) {
-      setCrossRound({ phase: "idle" });
+      setCrossRoundForIdentity({ phase: "idle" });
       return () => controller.abort();
     }
-    setCrossRound(
-      crossRoundRef.current ? { phase: "stale", data: crossRoundRef.current } : { phase: "loading" }
+    setCrossRoundForIdentity(
+      crossRoundRef.current && crossRoundIdentityRef.current === requestIdentity
+        ? { phase: "stale", data: crossRoundRef.current }
+        : { phase: "loading" }
     );
     fetch(
       `${apiBase}/api/v1/bff/teacher/m2p5/runs/${encodeURIComponent(context.run_id)}/rounds/${context.round_no}/decision-learning?${contextQuery(context)}`,
@@ -228,7 +270,8 @@ export function TeacherDebriefWorkspace({
           throw new Error(envelope.message ?? "教师跨回合学习投影读取失败");
         }
         crossRoundRef.current = envelope.data;
-        setCrossRound({ phase: "ready", data: envelope.data });
+        crossRoundIdentityRef.current = requestIdentity;
+        setCrossRoundForIdentity({ phase: "ready", data: envelope.data }, requestIdentity);
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
@@ -238,7 +281,7 @@ export function TeacherDebriefWorkspace({
           requestEpoch !== crossRoundRequestEpochRef.current
         )
           return;
-        setCrossRound({
+        setCrossRoundForIdentity({
           phase: "error",
           message: error instanceof Error ? error.message : "教师跨回合学习投影读取失败"
         });
@@ -246,7 +289,19 @@ export function TeacherDebriefWorkspace({
     return () => controller.abort();
   }, [apiBase, context, crossRoundEnabled, tenantId, token]);
 
-  const record = state.phase === "ready" || state.phase === "stale" ? state.record : undefined;
+  const currentState: WorkspaceState =
+    stateIdentityRef.current === identityKey
+      ? state
+      : !context || !token || !tenantId
+        ? { phase: "idle" }
+        : { phase: "loading" };
+  const currentCrossRound: CrossRoundState =
+    crossRoundStateIdentityRef.current === identityKey ? crossRound : { phase: "loading" };
+  const currentNote = noteIdentityRef.current === identityKey ? note : "";
+  const record =
+    currentState.phase === "ready" || currentState.phase === "stale"
+      ? currentState.record
+      : undefined;
 
   function scrollToStage(stage: string): void {
     const target = document.getElementById(`teacher-p2b-${stage}`);
@@ -257,7 +312,7 @@ export function TeacherDebriefWorkspace({
     <section
       className="panel p2b-teacher-debrief"
       aria-label="教师复盘工作台"
-      aria-busy={state.phase === "loading"}
+      aria-busy={currentState.phase === "loading"}
     >
       <div className="panel-title p2b-journey-heading">
         <div>
@@ -265,13 +320,13 @@ export function TeacherDebriefWorkspace({
           <h2>把结果变成下一轮课堂行动</h2>
         </div>
         <span role="status" aria-live="polite">
-          {state.phase === "ready"
+          {currentState.phase === "ready"
             ? "已读取"
-            : state.phase === "loading"
+            : currentState.phase === "loading"
               ? "读取中"
-              : state.phase === "stale"
+              : currentState.phase === "stale"
                 ? "正在刷新"
-                : state.phase === "error"
+                : currentState.phase === "error"
                   ? "加载失败"
                   : "课堂复盘"}
         </span>
@@ -287,34 +342,34 @@ export function TeacherDebriefWorkspace({
           onReauthenticate={onReauthenticate}
         />
       ) : null}
-      {state.phase === "idle" ? (
+      {currentState.phase === "idle" ? (
         <div className="p2b-state-card">
           <strong>等待 exact Course / Run / Round / Team 上下文</strong>
           <p>教师端只读取当前课程与回合的 teacher-safe projection。</p>
         </div>
       ) : null}
-      {state.phase === "loading" ? (
+      {currentState.phase === "loading" ? (
         <div className="p2b-state-card">
           <strong>正在整理课堂复盘材料</strong>
           <p>读取结果、阻断和安全的学习进度。</p>
         </div>
       ) : null}
-      {state.phase === "stale" ? (
+      {currentState.phase === "stale" ? (
         <div className="p2b-state-card p2b-state-card--stale" data-testid="teacher-p2b-stale">
           <strong>正在刷新课堂复盘投影</strong>
           <p>上一份 teacher-safe 材料仍保留在页面中；刷新完成后会替换。</p>
         </div>
       ) : null}
-      {state.phase === "empty" ? (
+      {currentState.phase === "empty" ? (
         <div className="p2b-state-card">
-          <strong>{state.message}</strong>
+          <strong>{currentState.message}</strong>
           <p>结果发布后，教师可以开始准备复盘。</p>
         </div>
       ) : null}
-      {state.phase === "error" ? (
+      {currentState.phase === "error" ? (
         <div className="p2b-state-card p2b-state-card--error">
           <strong>教师复盘投影暂不可用</strong>
-          <p>{state.message}</p>
+          <p>{currentState.message}</p>
           <button
             className="secondary p2b-retry-button"
             data-testid="teacher-p2b-retry"
@@ -439,9 +494,12 @@ export function TeacherDebriefWorkspace({
             <span>课堂笔记草稿（本地）</span>
             <textarea
               id="teacher-p2b-local-note"
-              value={note}
+              value={currentNote}
               maxLength={1000}
-              onChange={(event) => setNote(event.target.value)}
+              onChange={(event) => {
+                noteIdentityRef.current = identityKey;
+                setNote(event.target.value);
+              }}
               placeholder="记录一个提问或观察…… · 不上传、不进入 D4、不会写入正式结果"
             />
           </label>
@@ -495,43 +553,44 @@ export function TeacherDebriefWorkspace({
               settlement digest={record.operating_world_consequence_trace.replay_relevant_digest}
             </div>
           ) : null}
-          {crossRound.phase === "ready" || crossRound.phase === "stale" ? (
+          {currentCrossRound.phase === "ready" || currentCrossRound.phase === "stale" ? (
             <div className="p2b-cross-round-card" data-testid="teacher-m2p5-cross-round">
               <span className="p2b-stage-kicker">M2-P5 · CROSS-ROUND HANDOFF</span>
               <strong>
-                {crossRound.data.cross_round.entry_status === "OPEN"
+                {currentCrossRound.data.cross_round.entry_status === "OPEN"
                   ? "下一回合已开放，Student 可进入精确上下文"
-                  : crossRound.data.cross_round.status === "READY_TO_CONTINUE"
+                  : currentCrossRound.data.cross_round.status === "READY_TO_CONTINUE"
                     ? "学习与状态链已就绪，等待现有 Round authority"
                     : "跨回合入口被前置条件阻断"}
               </strong>
               <p>
-                ProjectProfile：{crossRound.data.project_context.title ?? "未解析"} · 学习门禁：
-                {crossRound.data.learning.gate}
+                ProjectProfile：{currentCrossRound.data.project_context.title ?? "未解析"} ·
+                学习门禁：
+                {currentCrossRound.data.learning.gate}
               </p>
               <p>
                 Closing：
-                {crossRound.data.cross_round.predecessor_closing_state_ref?.enterprise_state_id ??
-                  "未提供"}
-                {crossRound.data.cross_round.next_round?.source_closing_state_ref
-                  ? ` → Opening：${crossRound.data.cross_round.next_round.source_closing_state_ref.enterprise_state_id}`
+                {currentCrossRound.data.cross_round.predecessor_closing_state_ref
+                  ?.enterprise_state_id ?? "未提供"}
+                {currentCrossRound.data.cross_round.next_round?.source_closing_state_ref
+                  ? ` → Opening：${currentCrossRound.data.cross_round.next_round.source_closing_state_ref.enterprise_state_id}`
                   : ""}
               </p>
-              {crossRound.data.cross_round.blocker_codes.length > 0 ? (
+              {currentCrossRound.data.cross_round.blocker_codes.length > 0 ? (
                 <p className="p2b-known-limit">
-                  阻断：{crossRound.data.cross_round.blocker_codes.join(" / ")}
+                  阻断：{currentCrossRound.data.cross_round.blocker_codes.join(" / ")}
                 </p>
               ) : null}
               <section
                 className="p2b-learning-loop"
                 data-testid="teacher-m2p6-learning-loop"
-                data-phase={crossRound.phase}
-                data-status={crossRound.data.learning_loop.status}
+                data-phase={currentCrossRound.phase}
+                data-status={currentCrossRound.data.learning_loop.status}
                 aria-label="教师 M2P6 学习闭环"
               >
                 <span className="p2b-stage-kicker">M2P6 · GOVERNED LEARNING LOOP</span>
                 <strong>Published Consequence → Evidence → D3 → Debrief → Transfer</strong>
-                {crossRound.phase === "stale" ? (
+                {currentCrossRound.phase === "stale" ? (
                   <p className="p2b-learning-loop-stale" role="status">
                     STALE · 正在刷新同一精确身份；保留上一份安全投影。
                   </p>
@@ -539,50 +598,52 @@ export function TeacherDebriefWorkspace({
                 <div className="p2b-learning-loop-grid">
                   <div>
                     <span>服务端状态</span>
-                    <strong>{crossRound.data.learning_loop.status}</strong>
+                    <strong>{currentCrossRound.data.learning_loop.status}</strong>
                   </div>
                   <div>
                     <span>精确上下文</span>
                     <strong>
-                      {crossRound.data.learning_loop.exact_context.course_id} /{" "}
-                      {crossRound.data.learning_loop.exact_context.run_id} /{" "}
-                      {crossRound.data.learning_loop.exact_context.team_id} / R
-                      {crossRound.data.learning_loop.exact_context.round_no}
+                      {currentCrossRound.data.learning_loop.exact_context.course_id} /{" "}
+                      {currentCrossRound.data.learning_loop.exact_context.run_id} /{" "}
+                      {currentCrossRound.data.learning_loop.exact_context.team_id} / R
+                      {currentCrossRound.data.learning_loop.exact_context.round_no}
                     </strong>
                   </div>
                   <div>
                     <span>复盘 / 迁移</span>
                     <strong>
-                      {crossRound.data.learning_loop.teacher_debrief_availability} /{" "}
-                      {crossRound.data.learning_loop.transfer_status}
+                      {currentCrossRound.data.learning_loop.teacher_debrief_availability} /{" "}
+                      {currentCrossRound.data.learning_loop.transfer_status}
                     </strong>
                   </div>
                   <div>
                     <span>下一开放状态</span>
-                    <strong>{crossRound.data.learning_loop.next_opening_state_readiness}</strong>
+                    <strong>
+                      {currentCrossRound.data.learning_loop.next_opening_state_readiness}
+                    </strong>
                   </div>
                 </div>
                 <p>
                   允许动作（只读投影）：
-                  {crossRound.data.learning_loop.allowed_actions.length > 0
-                    ? crossRound.data.learning_loop.allowed_actions.join(" / ")
+                  {currentCrossRound.data.learning_loop.allowed_actions.length > 0
+                    ? currentCrossRound.data.learning_loop.allowed_actions.join(" / ")
                     : "无"}
                 </p>
-                {crossRound.data.learning_loop.blockers.length > 0 ? (
+                {currentCrossRound.data.learning_loop.blockers.length > 0 ? (
                   <p className="p2b-known-limit">
-                    学习闭环阻断：{crossRound.data.learning_loop.blockers.join(" / ")}
+                    学习闭环阻断：{currentCrossRound.data.learning_loop.blockers.join(" / ")}
                   </p>
                 ) : null}
                 <p>
                   Receipt：
-                  {crossRound.data.learning_loop.source_receipts[0]?.resource_id ?? "未提供"}
+                  {currentCrossRound.data.learning_loop.source_receipts[0]?.resource_id ?? "未提供"}
                 </p>
                 <p data-testid="teacher-m2p6-recovery" className="p2b-learning-loop-recovery">
-                  Recovery：{crossRound.data.learning_loop.recovery_state}
+                  Recovery：{currentCrossRound.data.learning_loop.recovery_state}
                 </p>
               </section>
             </div>
-          ) : crossRound.phase === "loading" ? (
+          ) : currentCrossRound.phase === "loading" ? (
             <div
               className="p2b-learning-loop p2b-learning-loop--network"
               data-testid="teacher-m2p6-learning-loop"
@@ -591,14 +652,14 @@ export function TeacherDebriefWorkspace({
             >
               LOADING · 正在读取精确 M2P6 学习闭环。
             </div>
-          ) : crossRound.phase === "error" ? (
+          ) : currentCrossRound.phase === "error" ? (
             <div
               className="p2b-learning-loop p2b-learning-loop--network"
               data-testid="teacher-m2p6-learning-loop"
               data-phase="error"
               role="status"
             >
-              ERROR · 跨回合入口暂不可用：{crossRound.message}
+              ERROR · 跨回合入口暂不可用：{currentCrossRound.message}
             </div>
           ) : null}
         </article>

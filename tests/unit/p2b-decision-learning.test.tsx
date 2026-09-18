@@ -678,6 +678,84 @@ describe("P2-B FE-19 student decision learning", () => {
     fetchSpy.mockRestore();
   });
 
+  it("suppresses old record, cross-round evidence, and reflection during the first new-identity render", async () => {
+    const oldRecordResponse = {
+      ...response,
+      record: {
+        ...response.record,
+        official_result: response.record.official_result,
+        decision_story: {
+          ...response.record.decision_story,
+          decision_summary: "OLD_IDENTITY_RECORD"
+        }
+      }
+    } as W3OfficialConsequenceResponse;
+    const oldCrossRoundResponse = {
+      ...crossRoundResponse,
+      learning_loop: {
+        ...crossRoundResponse.learning_loop,
+        blockers: ["OLD_IDENTITY_CROSS_ROUND"],
+        recovery_state: "OLD_IDENTITY_RECOVERY"
+      }
+    } as M2P5DecisionLearningResponse;
+    const nextContext = {
+      ...context,
+      round_id: "round-004",
+      round_no: 4,
+      tenant_id: "tenant-002"
+    } as const;
+    const pendingNewRecord = new Promise<Response>(() => undefined);
+    const pendingNewCrossRound = new Promise<Response>(() => undefined);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/m2p5/") && url.includes("/rounds/4/")) return pendingNewCrossRound;
+      if (url.includes("/m2p5/")) {
+        return new Response(JSON.stringify({ data: oldCrossRoundResponse }), { status: 200 });
+      }
+      if (url.includes("round_id=round-004")) return pendingNewRecord;
+      return new Response(JSON.stringify({ data: oldRecordResponse }), { status: 200 });
+    });
+    const { host, root } = renderJourney({ crossRoundEnabled: true });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(host.textContent).toContain("OLD_IDENTITY_RECORD");
+    expect(host.textContent).toContain("OLD_IDENTITY_CROSS_ROUND");
+    const judgment = host.querySelector<HTMLTextAreaElement>("#student-p2b-reflection-judgment");
+    const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+    act(() => {
+      setValue?.call(judgment, "OLD_IDENTITY_PRIVATE_REFLECTION");
+      judgment?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    await act(async () => {
+      root.render(
+        <StudentDecisionLearningJourney
+          apiBase="http://api-next.test"
+          tenantId={nextContext.tenant_id}
+          token="token-next"
+          context={nextContext}
+          published
+          crossRoundEnabled
+        />
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(host.textContent).not.toContain("OLD_IDENTITY_RECORD");
+    expect(host.textContent).not.toContain("OLD_IDENTITY_CROSS_ROUND");
+    expect(host.textContent).not.toContain("OLD_IDENTITY_RECOVERY");
+    expect(
+      host.querySelector<HTMLTextAreaElement>("#student-p2b-reflection-judgment")?.value
+    ).not.toBe("OLD_IDENTITY_PRIVATE_REFLECTION");
+    root.unmount();
+    host.remove();
+    fetchSpy.mockRestore();
+  });
+
   it("offers a recoverable error state without changing the safe projection contract", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("network down"));
     const { host, root } = renderJourney();
