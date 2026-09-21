@@ -6,6 +6,7 @@ import type {
   GSICrossRoundPairOptions
 } from "@simwar/shared-contracts";
 import { DecisionThreadEvidenceSpine } from "@simwar/ui";
+import "@simwar/ui/decision-thread-evidence-spine.css";
 import "./gsi-xr.css";
 
 export const GSI_AUDIT_PATH = "/api/v1/bff/admin/gsi/audit";
