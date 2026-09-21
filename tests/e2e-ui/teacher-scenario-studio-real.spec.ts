@@ -32,7 +32,8 @@ test("Teacher completes the real-BFF Scenario Studio product journey", async ({ 
   const modelSelect = studio.getByLabel("Teacher Scenario Studio ModelVersion");
   await expect(modelSelect).toBeVisible();
 
-  await modelSelect.selectOption({ index: 1 });
+  await modelSelect.selectOption("toy_logit_wellness_v1@0.1.0");
+  await studio.getByLabel("Teacher Scenario Studio version").fill("1.0.1");
   const primary = studio.getByTestId("tss-primary-action");
   await expect(primary).toHaveText("创建 DRAFT");
   await primary.click();

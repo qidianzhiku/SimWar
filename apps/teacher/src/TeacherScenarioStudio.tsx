@@ -7,11 +7,13 @@ import type {
   TeacherScenarioStudioPreviewDto,
   TeacherScenarioStudioValidationDto
 } from "@simwar/shared-contracts";
-import { AuthorityBadge } from "../../../packages/ui/src/components/AuthorityBadge.js";
-import { ContextBar } from "../../../packages/ui/src/components/ContextBar.js";
-import { KnownLimitBanner } from "../../../packages/ui/src/components/KnownLimitBanner.js";
-import { StatePanel, type StateStatus } from "../../../packages/ui/src/components/StatePanel.js";
-import { WorkbenchFrame } from "../../../packages/ui/src/workbenches/WorkbenchFrame.js";
+import {
+  AuthorityBadge,
+  KnownLimitBanner,
+  StatePanel,
+  WorkbenchFrame,
+  type StateStatus
+} from "@simwar/ui";
 import {
   activateTeacherScenarioStudio,
   createTeacherScenarioStudioDraft,
@@ -32,14 +34,18 @@ const MODULE_KEYS = [
 ] as const;
 
 type ModuleKey = (typeof MODULE_KEYS)[number];
-type StudioPhase = "IDLE" | "LOADING" | "READY" | "ERROR" | "PERMISSION_DENIED" | "CONFLICT";
+type StudioPhase =
+  | "IDLE"
+  | "LOADING"
+  | "READY"
+  | "ERROR"
+  | "PERMISSION_DENIED"
+  | "REAUTH_REQUIRED"
+  | "STALE"
+  | "CONFLICT"
+  | "UNKNOWN_COMMAND_RESULT";
 type LifecycleStage =
-  | "SOURCE_SELECTION"
-  | "DRAFT"
-  | "VALIDATED"
-  | "FROZEN"
-  | "PREVIEWED"
-  | "ACTIVATED";
+  "SOURCE_SELECTION" | "DRAFT" | "VALIDATED" | "FROZEN" | "PREVIEWED" | "ACTIVATED";
 
 const emptyModuleConfiguration =
   (): TeacherScenarioStudioConfiguration["module_configuration"] => ({
@@ -53,8 +59,9 @@ const emptyModuleConfiguration =
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof TeacherScenarioStudioRequestError) {
-    if (error.status === 401) return "请先登录教师账号。";
+    if (error.status === 401) return "当前会话已失效，请重新登录后再读取 exact source。";
     if (error.status === 403) return "当前会话没有 Teacher Scenario Studio 权限。";
+    if (error.status === 404) return "当前候选已过期或不在当前 exact context，请刷新来源目录。";
     if (error.status === 409) return `当前候选被治理门禁阻断：${error.code}`;
     return `Scenario Studio 请求失败：${error.code}`;
   }
@@ -63,7 +70,9 @@ function getErrorMessage(error: unknown): string {
 
 function errorPhase(error: unknown): StudioPhase {
   if (error instanceof TeacherScenarioStudioRequestError) {
-    if (error.status === 401 || error.status === 403) return "PERMISSION_DENIED";
+    if (error.status === 401) return "REAUTH_REQUIRED";
+    if (error.status === 403) return "PERMISSION_DENIED";
+    if (error.status === 404) return "STALE";
     if (error.status === 409) return "CONFLICT";
   }
   return "ERROR";
@@ -92,7 +101,7 @@ export function TeacherScenarioStudio(props: {
   const [title, setTitle] = useState("Governed Teacher Scenario Studio candidate");
   const [description] = useState("Coupled scenario configuration for a bounded teaching run.");
   const [coursePackageId, setCoursePackageId] = useState("teacher_scenario_studio_candidate");
-  const [version] = useState("1.0.0");
+  const [version, setVersion] = useState("1.0.0");
   const [experienceProfile, setExperienceProfile] = useState<"STANDARD" | "ADVANCED">("STANDARD");
   const [moduleConfiguration, setModuleConfiguration] = useState(emptyModuleConfiguration);
   const [reference, setReference] = useState<CoursePackageVersionReference | null>(null);
@@ -147,7 +156,8 @@ export function TeacherScenarioStudio(props: {
 
   async function run<T>(
     operation: (signal: AbortSignal) => Promise<T>,
-    onSuccess: (value: T) => void
+    onSuccess: (value: T) => void,
+    options: { ambiguousTransport?: boolean } = {}
   ): Promise<void> {
     activeControllerRef.current?.abort();
     const controller = new AbortController();
@@ -167,6 +177,14 @@ export function TeacherScenarioStudio(props: {
       setPhase("READY");
     } catch (nextError) {
       if (!isCurrent() || isAbortError(nextError)) return;
+      const ambiguousTransport =
+        options.ambiguousTransport &&
+        (!(nextError instanceof TeacherScenarioStudioRequestError) || nextError.status >= 500);
+      if (ambiguousTransport) {
+        setError("操作结果暂未确认；请先刷新 exact source/readback，不会自动重试。");
+        setPhase("UNKNOWN_COMMAND_RESULT");
+        return;
+      }
       setError(getErrorMessage(nextError));
       setPhase(errorPhase(nextError));
     } finally {
@@ -238,7 +256,8 @@ export function TeacherScenarioStudio(props: {
         setValidation(null);
         setPreview(null);
         setActivationCourseId(null);
-      }
+      },
+      { ambiguousTransport: true }
     );
   }
 
@@ -252,7 +271,8 @@ export function TeacherScenarioStudio(props: {
           signal,
           token: props.token
         }),
-      setValidation
+      setValidation,
+      { ambiguousTransport: true }
     );
   }
 
@@ -269,7 +289,8 @@ export function TeacherScenarioStudio(props: {
       (nextDraft) => {
         setDraft(nextDraft);
         setPreview(null);
-      }
+      },
+      { ambiguousTransport: true }
     );
   }
 
@@ -283,7 +304,8 @@ export function TeacherScenarioStudio(props: {
           signal,
           token: props.token
         }),
-      setPreview
+      setPreview,
+      { ambiguousTransport: true }
     );
   }
 
@@ -297,7 +319,8 @@ export function TeacherScenarioStudio(props: {
           signal,
           token: props.token
         }),
-      (result) => setActivationCourseId(result.course.course_id)
+      (result) => setActivationCourseId(result.course.course_id),
+      { ambiguousTransport: true }
     );
   }
 
@@ -348,11 +371,15 @@ export function TeacherScenarioStudio(props: {
     statePanel = <StatePanel status="loading" message="正在读取 exact approved sources…" />;
   } else if (error) {
     const status: StateStatus =
-      phase === "PERMISSION_DENIED"
+      phase === "PERMISSION_DENIED" || phase === "REAUTH_REQUIRED"
         ? "permission-denied"
-        : phase === "CONFLICT"
-          ? "conflict"
-          : "error";
+        : phase === "STALE"
+          ? "stale"
+          : phase === "CONFLICT"
+            ? "conflict"
+            : phase === "UNKNOWN_COMMAND_RESULT"
+              ? "unknown"
+              : "error";
     statePanel = (
       <StatePanel
         status={status}
@@ -424,7 +451,12 @@ export function TeacherScenarioStudio(props: {
       }
       state={statePanel}
     >
-      <ContextBar context={{ tenant: props.tenantId, mode: "DRAFT_ONLY" }} />
+      <div className="tss-context-summary" aria-label="Scenario Studio tenant and mode">
+        <span>租户</span>
+        <strong>{props.tenantId}</strong>
+        <span>模式</span>
+        <strong>DRAFT_ONLY</strong>
+      </div>
       <div className="tss-task-layout">
         <div className="tss-task-canvas">
           <p className="evidence-note">
@@ -511,6 +543,15 @@ export function TeacherScenarioStudio(props: {
                 disabled={disabled || Boolean(reference)}
                 value={coursePackageId}
                 onChange={(event) => setCoursePackageId(event.target.value)}
+              />
+            </label>
+            <label>
+              CoursePackage version
+              <input
+                aria-label="Teacher Scenario Studio version"
+                disabled={disabled || Boolean(reference)}
+                value={version}
+                onChange={(event) => setVersion(event.target.value)}
               />
             </label>
           </div>

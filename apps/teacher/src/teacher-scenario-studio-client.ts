@@ -33,9 +33,9 @@ async function request<T>(input: {
       authorization: `Bearer ${input.token}`,
       ...(input.body === undefined ? {} : { "content-type": "application/json" })
     },
-    method: input.method,
-    signal: input.signal
+    method: input.method
   };
+  if (input.signal !== undefined) init.signal = input.signal;
   if (input.body !== undefined) init.body = JSON.stringify(input.body);
   const response = await fetch(`${input.apiBase}${input.path}`, init);
   const payload = (await response.json()) as Partial<ApiEnvelope<T>> & {

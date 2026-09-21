@@ -1708,6 +1708,20 @@ h3 {
   overflow: clip;
 }
 
+.teacher-scenario-studio .tss-context-summary {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.teacher-scenario-studio .tss-context-summary strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .teacher-scenario-studio .sw-workbench-frame__heading {
   align-items: flex-start;
   flex-wrap: wrap;
@@ -1771,6 +1785,27 @@ h3 {
 .tss-primary-action button {
   min-height: 46px;
   min-width: 180px;
+}
+
+.teacher-scenario-studio .tag-list {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.teacher-scenario-studio .tag-list label {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 44px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.teacher-scenario-studio .tag-list input {
+  flex: 0 0 auto;
+  min-height: 44px;
+  min-width: 44px;
 }
 
 .tss-evidence {

@@ -7,7 +7,7 @@ import type { TeacherScenarioStudioCatalogDto } from "@simwar/shared-contracts";
 import { TeacherScenarioStudio } from "../../apps/teacher/src/TeacherScenarioStudio";
 import {
   createTeacherScenarioStudioDraft,
-  loadTeacherScenarioStudioCatalog,
+  loadTeacherScenarioStudioCatalog
 } from "../../apps/teacher/src/teacher-scenario-studio-client";
 
 vi.mock("../../apps/teacher/src/teacher-scenario-studio-client", () => ({
@@ -118,6 +118,58 @@ describe("Teacher Scenario Studio target contract", () => {
       modelSelect.dispatchEvent(new Event("change", { bubbles: true }));
     });
     expect(createButton.disabled).toBe(false);
+  });
+
+  it("requires an explicit editable package version for each immutable candidate", async () => {
+    const view = await renderStudio(baseCatalog);
+    const modelSelect = view.host.querySelector(
+      '[aria-label="Teacher Scenario Studio ModelVersion"]'
+    ) as HTMLSelectElement;
+    const versionInput = view.host.querySelector(
+      '[aria-label="Teacher Scenario Studio version"]'
+    ) as HTMLInputElement;
+
+    expect(versionInput).not.toBeNull();
+    await act(async () => {
+      modelSelect.value = "model-approved-1";
+      modelSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      const setVersionValue = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value"
+      )?.set;
+      setVersionValue?.call(versionInput, "1.0.1");
+      versionInput.dispatchEvent(new Event("input", { bubbles: true }));
+      versionInput.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    vi.mocked(createTeacherScenarioStudioDraft).mockResolvedValue({
+      course_package_reference: {
+        content_digest: "course-digest",
+        course_package_id: "candidate",
+        tenant_id: "tenant_demo",
+        version: "1.0.1"
+      },
+      operation_id: "TEACHER_SCENARIO_STUDIO_DRAFT_CREATE_V1",
+      status: "DRAFT",
+      studio_configuration: {} as never,
+      title: "Candidate"
+    });
+    await act(async () => {
+      (
+        view.host.querySelector('button[data-testid="tss-primary-action"]') as HTMLButtonElement
+      ).click();
+    });
+
+    expect(createTeacherScenarioStudioDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        draft: expect.objectContaining({ version: "1.0.1" })
+      })
+    );
+  });
+
+  it("does not duplicate the generic current-context landmark", async () => {
+    const view = await renderStudio(baseCatalog);
+    expect(view.host.querySelectorAll('[aria-label="当前上下文"]')).toHaveLength(0);
   });
 
   it("moves the dominant action through the lifecycle without exposing competing primaries", async () => {

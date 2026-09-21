@@ -20,6 +20,16 @@ describe("Teacher Scenario Studio client request safety", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("omits an undefined AbortSignal from RequestInit", async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      expect(init).not.toHaveProperty("signal");
+      return { ok: true, json: async () => ({ data: { operation_id: "catalog" } }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await loadTeacherScenarioStudioCatalog({ apiBase: "http://fixture", token: "token" });
+  });
+
   it("allows an aborted request to reject without converting it into a product error", async () => {
     const controller = new AbortController();
     vi.stubGlobal(
