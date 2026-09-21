@@ -26,13 +26,15 @@ async function request<T>(input: {
   method: string;
   path: string;
   token: string;
+  signal?: AbortSignal;
 }): Promise<T> {
   const init: RequestInit = {
     headers: {
       authorization: `Bearer ${input.token}`,
       ...(input.body === undefined ? {} : { "content-type": "application/json" })
     },
-    method: input.method
+    method: input.method,
+    signal: input.signal
   };
   if (input.body !== undefined) init.body = JSON.stringify(input.body);
   const response = await fetch(`${input.apiBase}${input.path}`, init);
@@ -52,6 +54,7 @@ async function request<T>(input: {
 export function loadTeacherScenarioStudioCatalog(input: {
   apiBase: string;
   token: string;
+  signal?: AbortSignal;
 }): Promise<TeacherScenarioStudioCatalogDto> {
   return request({ ...input, method: "GET", path: "/api/v1/bff/teacher/scenario-studio" });
 }
@@ -60,6 +63,7 @@ export function createTeacherScenarioStudioDraft(input: {
   apiBase: string;
   draft: TeacherScenarioStudioDraftInput;
   token: string;
+  signal?: AbortSignal;
 }): Promise<TeacherScenarioStudioDraftDto> {
   return request({
     ...input,
@@ -73,6 +77,7 @@ export function previewTeacherScenarioStudio(input: {
   apiBase: string;
   reference: CoursePackageVersionReference;
   token: string;
+  signal?: AbortSignal;
 }): Promise<TeacherScenarioStudioPreviewDto> {
   return request({
     ...input,
@@ -93,6 +98,7 @@ export function validateTeacherScenarioStudio(input: {
   apiBase: string;
   reference: CoursePackageVersionReference;
   token: string;
+  signal?: AbortSignal;
 }): Promise<TeacherScenarioStudioValidationDto> {
   return request({
     ...input,
@@ -106,6 +112,7 @@ export function freezeTeacherScenarioStudio(input: {
   apiBase: string;
   reference: CoursePackageVersionReference;
   token: string;
+  signal?: AbortSignal;
 }): Promise<TeacherScenarioStudioDraftDto> {
   return request({
     ...input,
@@ -119,6 +126,7 @@ export function activateTeacherScenarioStudio(input: {
   apiBase: string;
   reference: CoursePackageVersionReference;
   token: string;
+  signal?: AbortSignal;
 }): Promise<TeacherScenarioStudioActivationDto> {
   return request({
     ...input,
