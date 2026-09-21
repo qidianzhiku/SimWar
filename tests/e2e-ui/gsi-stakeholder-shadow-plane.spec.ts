@@ -103,7 +103,13 @@ async function captureResponsiveEvidence(page: Page, role: string): Promise<void
   }
 }
 
-function candidateRequest(runId: string, roundId: string, key: string, influence: number) {
+function candidateRequest(
+  runId: string,
+  roundId: string,
+  roundNo: number,
+  key: string,
+  influence: number
+) {
   return {
     discriminator: "gsi_stakeholder_shadow_request",
     binding: {
@@ -111,7 +117,7 @@ function candidateRequest(runId: string, roundId: string, key: string, influence
       course_id: "course_demo",
       run_id: runId,
       round_id: roundId,
-      round_no: Number(roundId.split("_").at(-1)),
+      round_no: roundNo,
       team_id: "team_alpha",
       activity_id: "activity_consequence",
       role_key: "CEO",
@@ -150,11 +156,10 @@ test("GSI-XR role journey resolves an explicit pair through the real BFF", async
 }) => {
   const teacherToken = await loginApi(request, "teacher", "teacher");
   const studentToken = await loginApi(request, "student", "student");
-  const created = await api<{ run: { run_id: string }; round: { round_id: string } }>(
-    request,
-    "/api/v1/courses/course_demo/runs",
-    { method: "POST", token: teacherToken }
-  );
+  const created = await api<{
+    run: { run_id: string };
+    round: { round_id: string; round_no: number };
+  }>(request, "/api/v1/courses/course_demo/runs", { method: "POST", token: teacherToken });
   const roundOneId = created.round.round_id;
 
   await publishRoundOne(request, teacherToken, studentToken, created.run.run_id);
@@ -178,12 +183,24 @@ test("GSI-XR role journey resolves an explicit pair through the real BFF", async
   });
 
   await api<GSIReceipt>(request, "/api/v1/bff/teacher/gsi/candidates", {
-    body: candidateRequest(created.run.run_id, roundOneId, "browser_pair_from", 0.2),
+    body: candidateRequest(
+      created.run.run_id,
+      roundOneId,
+      created.round.round_no,
+      "browser_pair_from",
+      0.2
+    ),
     method: "POST",
     token: teacherToken
   });
   await api<GSIReceipt>(request, "/api/v1/bff/teacher/gsi/candidates", {
-    body: candidateRequest(created.run.run_id, roundTwoId, "browser_pair_to", 0.8),
+    body: candidateRequest(
+      created.run.run_id,
+      roundTwoId,
+      continued.round.round_no,
+      "browser_pair_to",
+      0.8
+    ),
     method: "POST",
     token: teacherToken
   });
