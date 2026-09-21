@@ -13,10 +13,9 @@ function exactRef(resourceType: string, resourceId: string, version: string) {
   };
 }
 
-test("Student Learning Report shows exact refs, provenance, and no private payload", async ({
-  page
-}) => {
+test("Student Learning Report renders a role-safe public projection", async ({ page }) => {
   const report = {
+    report_id: "student_report_confirmation_d4",
     business_outcome: {
       status: "SEPARATE_SAFE_OUTCOME",
       summary: "Published business outcome remains in its separate safe result surface."
@@ -77,8 +76,10 @@ test("Student Learning Report shows exact refs, provenance, and no private paylo
 
   const panel = page.getByLabel("student learning report");
   await expect(panel).toBeVisible();
-  await expect(panel.getByText("student_report_confirmation_d4 · v1.0.0")).toBeVisible();
-  await expect(panel.getByText("1 条来源链")).toBeVisible();
+  await expect(panel.getByText("course_demo · CEO")).toBeVisible();
+  await expect(panel.getByText("1 项学习证据")).toBeVisible();
+  await expect(panel.getByText("student_report_confirmation_d4 · v1.0.0")).toHaveCount(0);
+  await expect(panel.getByText("1 条来源链")).toHaveCount(0);
   await expect(panel.getByText("teacher_feedback")).toHaveCount(0);
   await expect(panel.getByText("raw_evidence_payload")).toHaveCount(0);
 

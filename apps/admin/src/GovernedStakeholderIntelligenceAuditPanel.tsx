@@ -1,12 +1,16 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type {
+  DdtExactContext,
   GSIAdminProjection,
   GSICrossRoundAdminProjection,
   GSICrossRoundPairOptions
 } from "@simwar/shared-contracts";
+import { DecisionThreadEvidenceSpine } from "@simwar/ui";
+import "@simwar/ui/decision-thread-evidence-spine.css";
 import "./gsi-xr.css";
 
 export const GSI_AUDIT_PATH = "/api/v1/bff/admin/gsi/audit";
+const DDT_AUTHORIZED_ACTIVITY_ID = "activity_consequence";
 const PAIR_SELECTION_MESSAGE =
   "服务器尚未提供可用的回合配对列表。请先提供受控课程、运行和队伍上下文，再选择两个精确回合。";
 
@@ -16,6 +20,7 @@ export interface GovernedStakeholderIntelligenceAuditPanelProps {
   token: string;
   initialCandidateId?: string;
   initialComparison?: GSICrossRoundAdminProjection;
+  onReauthenticate?: (() => void) | undefined;
 }
 
 interface EnvelopeError {
@@ -96,7 +101,8 @@ export function GovernedStakeholderIntelligenceAuditPanel({
   tenantId,
   token,
   initialCandidateId = "",
-  initialComparison
+  initialComparison,
+  onReauthenticate
 }: GovernedStakeholderIntelligenceAuditPanelProps) {
   const [candidateId, setCandidateId] = useState(initialCandidateId);
   const [projection, setProjection] = useState<GSIAdminProjection | null>(null);
@@ -107,10 +113,23 @@ export function GovernedStakeholderIntelligenceAuditPanel({
   const [toCandidateId, setToCandidateId] = useState("");
   const [fromRoundId, setFromRoundId] = useState("");
   const [toRoundId, setToRoundId] = useState("");
+  const [ddtRoundId, setDdtRoundId] = useState("");
+  const [ddtRoundNo, setDdtRoundNo] = useState("");
   const [activityId, setActivityId] = useState("activity_gsi_xr");
   const [roleKey, setRoleKey] = useState("CEO");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const auditController = useRef<AbortController | null>(null);
+  const auditIdentity = JSON.stringify([apiBase, tenantId, token, candidateId]);
+  const currentAuditIdentity = useRef(auditIdentity);
+  currentAuditIdentity.current = auditIdentity;
+  useEffect(() => {
+    auditController.current?.abort();
+    setProjection(null);
+    setError(null);
+    setBusy(false);
+    return () => auditController.current?.abort();
+  }, [auditIdentity]);
   const [comparisonState, setComparisonState] = useState<ComparisonState>(
     initialComparison
       ? { kind: "ready", data: initialComparison }
@@ -124,6 +143,77 @@ export function GovernedStakeholderIntelligenceAuditPanel({
   const pairOptionsController = useRef<AbortController | null>(null);
   const comparisonRequestId = useRef(0);
   const comparisonController = useRef<AbortController | null>(null);
+  const pairIdentity = JSON.stringify([
+    apiBase,
+    token,
+    tenantId,
+    courseId,
+    runId,
+    teamId,
+    activityId,
+    roleKey
+  ]);
+  const comparisonIdentity = JSON.stringify([
+    pairIdentity,
+    fromCandidateId,
+    toCandidateId,
+    fromRoundId,
+    toRoundId,
+    ddtRoundId,
+    ddtRoundNo
+  ]);
+  const currentPairIdentity = useRef(pairIdentity);
+  const currentComparisonIdentity = useRef(comparisonIdentity);
+  currentPairIdentity.current = pairIdentity;
+  currentComparisonIdentity.current = comparisonIdentity;
+  const previousPairIdentity = useRef(pairIdentity);
+  const previousComparisonIdentity = useRef(comparisonIdentity);
+  useEffect(() => {
+    if (previousPairIdentity.current !== pairIdentity) {
+      setPairOptionsState({ kind: "unavailable", message: PAIR_SELECTION_MESSAGE });
+      setFromRoundId("");
+      setToRoundId("");
+    }
+    previousPairIdentity.current = pairIdentity;
+    return () => {
+      pairOptionsRequestId.current += 1;
+      pairOptionsController.current?.abort();
+    };
+  }, [pairIdentity]);
+  useEffect(() => {
+    if (previousComparisonIdentity.current !== comparisonIdentity) {
+      setComparisonState({ kind: "unavailable", message: PAIR_SELECTION_MESSAGE });
+    }
+    previousComparisonIdentity.current = comparisonIdentity;
+    return () => {
+      comparisonRequestId.current += 1;
+      comparisonController.current?.abort();
+    };
+  }, [comparisonIdentity]);
+  const decisionThreadContext = useMemo<DdtExactContext | undefined>(() => {
+    const roundNo = Number(ddtRoundNo.trim());
+    if (
+      !courseId.trim() ||
+      !runId.trim() ||
+      !teamId.trim() ||
+      !roleKey.trim() ||
+      !ddtRoundId.trim() ||
+      !Number.isSafeInteger(roundNo) ||
+      roundNo < 1
+    ) {
+      return undefined;
+    }
+    return {
+      activity_id: DDT_AUTHORIZED_ACTIVITY_ID,
+      course_id: courseId.trim(),
+      role_key: roleKey.trim(),
+      round_id: ddtRoundId.trim(),
+      round_no: roundNo,
+      run_id: runId.trim(),
+      team_id: teamId.trim(),
+      tenant_id: tenantId
+    };
+  }, [courseId, ddtRoundId, ddtRoundNo, roleKey, runId, teamId, tenantId]);
 
   function invalidateComparisonSelection(): void {
     comparisonRequestId.current += 1;
@@ -138,6 +228,8 @@ export function GovernedStakeholderIntelligenceAuditPanel({
     setPairOptionsState({ kind: "unavailable", message: PAIR_SELECTION_MESSAGE });
     setFromRoundId("");
     setToRoundId("");
+    setDdtRoundId("");
+    setDdtRoundNo("");
   }
 
   async function loadPairOptions() {
@@ -177,7 +269,12 @@ export function GovernedStakeholderIntelligenceAuditPanel({
         }
       );
       const payload = (await response.json()) as PairOptionsEnvelope;
-      if (controller.signal.aborted || requestId !== pairOptionsRequestId.current) return;
+      if (
+        controller.signal.aborted ||
+        requestId !== pairOptionsRequestId.current ||
+        currentPairIdentity.current !== pairIdentity
+      )
+        return;
       const details = readEnvelopeError(payload);
       if (!response.ok || !hasEnvelopeData(payload)) {
         setPairOptionsState({
@@ -194,6 +291,7 @@ export function GovernedStakeholderIntelligenceAuditPanel({
       if (
         controller.signal.aborted ||
         requestId !== pairOptionsRequestId.current ||
+        currentPairIdentity.current !== pairIdentity ||
         (cause instanceof DOMException && cause.name === "AbortError")
       )
         return;
@@ -206,6 +304,14 @@ export function GovernedStakeholderIntelligenceAuditPanel({
 
   async function loadAudit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    auditController.current?.abort();
+    const controller = new AbortController();
+    auditController.current = controller;
+    const isCurrent = () =>
+      !controller.signal.aborted &&
+      currentAuditIdentity.current === auditIdentity &&
+      auditController.current === controller;
+    setProjection(null);
     const id = candidateId.trim();
     if (!id) {
       setError("请输入候选 ID。");
@@ -216,18 +322,24 @@ export function GovernedStakeholderIntelligenceAuditPanel({
     try {
       const response = await fetch(
         `${apiBase}${GSI_AUDIT_PATH}?candidate_id=${encodeURIComponent(id)}`,
-        { headers: { authorization: `Bearer ${token}`, "x-tenant-id": tenantId } }
+        {
+          headers: { authorization: `Bearer ${token}`, "x-tenant-id": tenantId },
+          signal: controller.signal
+        }
       );
       const payload = (await response.json()) as AuditEnvelope;
+      if (!isCurrent()) return;
       const details = readEnvelopeError(payload);
       if (!response.ok || !hasEnvelopeData(payload)) {
         throw new Error(details.message ?? "利益相关方审计加载失败");
       }
       setProjection(payload.data);
     } catch (cause) {
+      if (!isCurrent()) return;
+      setProjection(null);
       setError(cause instanceof Error ? cause.message : "利益相关方审计加载失败");
     } finally {
-      setBusy(false);
+      if (isCurrent()) setBusy(false);
     }
   }
 
@@ -284,7 +396,12 @@ export function GovernedStakeholderIntelligenceAuditPanel({
         }
       );
       const payload = (await response.json()) as ComparisonEnvelope;
-      if (controller.signal.aborted || requestId !== comparisonRequestId.current) return;
+      if (
+        controller.signal.aborted ||
+        requestId !== comparisonRequestId.current ||
+        currentComparisonIdentity.current !== comparisonIdentity
+      )
+        return;
       const details = readEnvelopeError(payload);
       if (!response.ok || !hasEnvelopeData(payload)) {
         setComparisonState(
@@ -297,6 +414,7 @@ export function GovernedStakeholderIntelligenceAuditPanel({
       if (
         controller.signal.aborted ||
         requestId !== comparisonRequestId.current ||
+        currentComparisonIdentity.current !== comparisonIdentity ||
         (cause instanceof DOMException && cause.name === "AbortError")
       )
         return;
@@ -316,6 +434,8 @@ export function GovernedStakeholderIntelligenceAuditPanel({
     setToCandidateId("");
     setFromRoundId("");
     setToRoundId("");
+    setDdtRoundId("");
+    setDdtRoundNo("");
     setComparisonState({ kind: "unavailable", message: PAIR_SELECTION_MESSAGE });
   }
 
@@ -336,6 +456,15 @@ export function GovernedStakeholderIntelligenceAuditPanel({
         <strong>Selected tenant</strong>
         <span>{tenantId} · tenant echo must match the authorized request context</span>
       </div>
+      <DecisionThreadEvidenceSpine
+        apiBase={apiBase}
+        context={decisionThreadContext}
+        heading="审计证据线程"
+        surface="admin"
+        tenantId={tenantId}
+        token={token}
+        onReauthenticate={onReauthenticate}
+      />
       <form
         className="gsi-xr-pair-form"
         aria-label="GSI admin exact cross-round comparison"
@@ -390,7 +519,36 @@ export function GovernedStakeholderIntelligenceAuditPanel({
               placeholder="team_id"
             />
           </label>
+          <label>
+            DDT exact round ID
+            <input
+              aria-label="DDT admin exact round ID"
+              value={ddtRoundId}
+              onChange={(event) => {
+                invalidateComparisonSelection();
+                setDdtRoundId(event.target.value);
+              }}
+              placeholder="round_id"
+            />
+          </label>
+          <label>
+            DDT exact round number
+            <input
+              aria-label="DDT admin exact round number"
+              inputMode="numeric"
+              value={ddtRoundNo}
+              onChange={(event) => {
+                invalidateComparisonSelection();
+                setDdtRoundNo(event.target.value);
+              }}
+              placeholder="round_no"
+            />
+          </label>
         </div>
+        <p className="gsi-xr-muted">
+          DDT 证据线程使用上面的精确回合上下文单独请求；服务器会校验租户、课程、运行、队伍和回合，
+          不依赖 GSI 比较配对，也不会替管理员选择 latest 或默认回合。
+        </p>
         <div className="gsi-xr-actions">
           <button type="button" onClick={() => void loadPairOptions()}>
             {pairOptionsState.kind === "loading" ? "正在加载回合…" : "加载可比较回合"}
@@ -554,17 +712,20 @@ export function GovernedStakeholderIntelligenceAuditPanel({
           <p className="gsi-xr-non-causal">
             NON-CAUSAL · causal_proof=false · official_truth_write=false
           </p>
-          <div className="gsi-xr-admin-provenance">
-            <strong>Exact pair provenance</strong>
-            <span>
-              {comparisonState.data.comparison.pair.from.candidate_id} →{" "}
-              {comparisonState.data.comparison.pair.to.candidate_id}
-            </span>
-            <span>tenant echo: {comparisonState.data.tenant_id}</span>
-            <span>
-              context_binding: {JSON.stringify(comparisonState.data.context.context_binding)}
-            </span>
-          </div>
+          <details className="gsi-xr-admin-provenance-details">
+            <summary>Technical provenance (secondary)</summary>
+            <div className="gsi-xr-admin-provenance">
+              <strong>Exact pair provenance</strong>
+              <span>
+                {comparisonState.data.comparison.pair.from.candidate_id} →{" "}
+                {comparisonState.data.comparison.pair.to.candidate_id}
+              </span>
+              <span>tenant echo: {comparisonState.data.tenant_id}</span>
+              <span>
+                context_binding: {JSON.stringify(comparisonState.data.context.context_binding)}
+              </span>
+            </div>
+          </details>
           <ul className="gsi-xr-movement-list">
             {comparisonState.data.comparison.movements.map((movement) => (
               <li key={movement.signal_key}>

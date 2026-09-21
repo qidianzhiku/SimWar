@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import type { StudentLearningReport, StudentLearningReportListDto } from "@simwar/shared-contracts";
+import type {
+  StudentLearningReportPublic,
+  StudentLearningReportPublicListDto
+} from "@simwar/shared-contracts";
 import { fetchStudentLearningReports } from "./student-learning-report-client";
 
 /** Stable Chinese primary copy for the student report surface. */
@@ -31,8 +34,8 @@ export const learningReportCopy = {
 type ReportState =
   | { kind: "blocked" }
   | { kind: "loading" }
-  | { kind: "empty"; data: StudentLearningReportListDto }
-  | { kind: "ready"; data: StudentLearningReportListDto }
+  | { kind: "empty"; data: StudentLearningReportPublicListDto }
+  | { kind: "ready"; data: StudentLearningReportPublicListDto }
   | { kind: "error"; message: string };
 
 export function StudentLearningReportPanel({
@@ -54,10 +57,12 @@ export function StudentLearningReportPanel({
     }
     setState({ kind: "loading" });
     fetchStudentLearningReports(token, tenantId, controller.signal)
-      .then((data) =>
-        setState(data.reports.length === 0 ? { kind: "empty", data } : { kind: "ready", data })
-      )
+      .then((data) => {
+        if (!controller.signal.aborted)
+          setState(data.reports.length === 0 ? { kind: "empty", data } : { kind: "ready", data });
+      })
       .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
         if (error instanceof DOMException && error.name === "AbortError") return;
         setState({
           kind: "error",
@@ -108,7 +113,7 @@ export function StudentLearningReportPanel({
       {state.kind === "ready" ? (
         <div className="d4-report-list">
           {state.data.reports.map((report) => (
-            <ReportCard key={report.report_ref.resource_id} report={report} />
+            <ReportCard key={report.report_id} report={report} />
           ))}
         </div>
       ) : null}
@@ -126,7 +131,7 @@ export function StudentLearningReportPanel({
   );
 }
 
-function ReportCard({ report }: { report: StudentLearningReport }) {
+function ReportCard({ report }: { report: StudentLearningReportPublic }) {
   return (
     <article className="d4-report-card">
       <div className="d4-report-heading">
@@ -143,7 +148,9 @@ function ReportCard({ report }: { report: StudentLearningReport }) {
               {learningReportCopy.reportIdentityCompatibility}
             </span>
           </span>
-          <strong>{formatRef(report.report_ref)}</strong>
+          <strong>
+            {report.context.round_id} · {report.context.round_no}
+          </strong>
         </div>
         <span className="d4-safe-badge">
           {learningReportCopy.safeBadge}{" "}
@@ -158,7 +165,7 @@ function ReportCard({ report }: { report: StudentLearningReport }) {
               {learningReportCopy.coursePackageCompatibility}
             </span>
           </span>
-          <strong>{formatRef(report.course_package_ref)}</strong>
+          <strong>{report.context.course_id}</strong>
         </div>
         <div>
           <span>
@@ -167,21 +174,21 @@ function ReportCard({ report }: { report: StudentLearningReport }) {
               {learningReportCopy.learningGoalCompatibility}
             </span>
           </span>
-          <strong>{formatRef(report.learning_goal_ref)}</strong>
+          <strong>已确认的学习目标</strong>
         </div>
         <div>
           <span>
             {learningReportCopy.rubric}{" "}
             <span className="compatibility-copy">{learningReportCopy.rubricCompatibility}</span>
           </span>
-          <strong>{formatRef(report.rubric_ref)}</strong>
+          <strong>已确认的评价量规</strong>
         </div>
         <div>
           <span>
             {learningReportCopy.evidence}{" "}
             <span className="compatibility-copy">{learningReportCopy.evidenceCompatibility}</span>
           </span>
-          <strong>{report.evidence_refs.length} 条精确引用</strong>
+          <strong>{report.learning_evidence.criterion_results.length} 项学习证据</strong>
         </div>
       </div>
       <section className="d4-evidence-section" aria-label="learning evidence">
@@ -192,7 +199,6 @@ function ReportCard({ report }: { report: StudentLearningReport }) {
               {learningReportCopy.learningEvidenceCompatibility}
             </span>
           </h4>
-          <span>{report.learning_evidence.provenance_chain.length} 条来源链</span>
         </div>
         <ul className="d4-criterion-list">
           {report.learning_evidence.criterion_results.map((criterion) => (
@@ -235,17 +241,8 @@ function ReportCard({ report }: { report: StudentLearningReport }) {
           <span className="compatibility-copy">{report.business_outcome.summary}</span>
         </p>
       </section>
-      <p className="d4-digest">
-        {learningReportCopy.digest}{" "}
-        <span className="compatibility-copy">{learningReportCopy.digestCompatibility}</span>：{" "}
-        <code>{report.report_digest}</code>
-      </p>
     </article>
   );
-}
-
-function formatRef(reference: StudentLearningReport["report_ref"]): string {
-  return `${reference.resource_id} · v${reference.version}`;
 }
 
 function labelForState(kind: ReportState["kind"]): {

@@ -88,7 +88,14 @@ function seedD4(): SimWarStore {
     },
     confirmation_ref: value.confirmation,
     content_digest: digest,
-    context: { course_id: "course_demo", run_id: "run_d4", team_id: "team_alpha", role_key: "CEO" },
+    context: {
+      course_id: "course_demo",
+      run_id: "run_d4",
+      team_id: "team_alpha",
+      role_key: "CEO",
+      round_id: "round_d4",
+      round_no: 1
+    },
     course_package_ref: value.course,
     created_at: "2026-08-03T00:00:00.000Z",
     created_by: "usr_teacher",
@@ -136,6 +143,36 @@ function seedD4(): SimWarStore {
   store.teacherConfirmationVersions.push(confirmation);
   store.evidenceArtifacts.push(artifact);
   store.evidenceProvenanceEdges.push(edge);
+  store.runs.push({
+    run_id: "run_d4",
+    course_id: "course_demo",
+    tenant_id: tenant,
+    scenario_package_id: "scenario_eldercare_demo",
+    parameter_set_id: "param_toy_approved_1",
+    status: "running",
+    current_round_no: 1
+  } as never);
+  store.rounds.push({
+    round_id: "round_d4",
+    round_no: 1,
+    run_id: "run_d4",
+    tenant_id: tenant,
+    status: "published"
+  });
+  store.studentRoleAssignments.push({
+    assignment_id: "assignment_d4",
+    tenant_id: tenant,
+    course_id: "course_demo",
+    run_id: "run_d4",
+    team_id: "team_alpha",
+    user_id: "usr_student",
+    role_key: "CEO",
+    role_template_id: "role_ceo",
+    status: "active",
+    source: "teacher",
+    assigned_by: "usr_teacher",
+    assigned_at: "2026-08-03T00:00:00.000Z"
+  } as never);
   return store;
 }
 
@@ -176,6 +213,17 @@ describe("D4 Student Learning Report endpoint", () => {
       expect(studentPayload.data.reports[0]).not.toHaveProperty("teacher_feedback");
       expect(studentPayload.data.reports[0]).not.toHaveProperty("raw_evidence_payload");
       expect(studentPayload.data.reports[0]).toHaveProperty("learning_evidence");
+      expect(JSON.stringify(studentPayload.data)).not.toMatch(
+        /content_digest|report_digest|source_confirmation_digest|provenance|teacher_confirmation_ref|course_package_ref|rubric_ref|evidence_refs/
+      );
+      const detail = await fetch(
+        `${baseUrl}/api/v1/bff/student/learning-reports/student_report_confirmation_d4`,
+        {
+          headers: { authorization: `Bearer ${studentToken}`, "x-tenant-id": tenant }
+        }
+      );
+      expect(detail.status).toBe(200);
+      expect((await detail.json()).data).toEqual(studentPayload.data);
 
       const teacherToken = await login(baseUrl, "teacher");
       const teacherResponse = await fetch(`${baseUrl}/api/v1/bff/teacher/learning-reports`, {
@@ -196,6 +244,59 @@ describe("D4 Student Learning Report endpoint", () => {
         method: "POST"
       });
       expect(writeResponse.status).toBe(404);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+  it.each([
+    "unpublished",
+    "wrong_role",
+    "wrong_run",
+    "wrong_round",
+    "wrong_course",
+    "inactive",
+    "missing_round"
+  ])("denies public list and detail for %s", async (failure) => {
+    const store = seedD4();
+    if (failure === "unpublished")
+      store.rounds.find((round) => round.round_id === "round_d4")!.status = "open";
+    if (failure === "wrong_role") store.studentRoleAssignments[0]!.role_key = "CFO";
+    if (failure === "inactive") store.studentRoleAssignments[0]!.status = "inactive";
+    const original = store.teacherConfirmationVersions[0]!;
+    if (
+      failure === "wrong_run" ||
+      failure === "wrong_course" ||
+      failure === "wrong_round" ||
+      failure === "missing_round"
+    ) {
+      const context = {
+        ...original.context,
+        ...(failure === "wrong_run"
+          ? { run_id: "run_other" }
+          : failure === "wrong_course"
+            ? { course_id: "course_other" }
+            : failure === "wrong_round"
+              ? { round_no: 2 }
+              : {})
+      };
+      if (failure === "missing_round") {
+        delete context.round_id;
+        delete context.round_no;
+      }
+      store.teacherConfirmationVersions[0] = { ...original, context };
+    }
+    const { baseUrl, server } = await start(store);
+    try {
+      const token = await login(baseUrl, "student");
+      const headers = { authorization: `Bearer ${token}`, "x-tenant-id": tenant };
+      const list = await fetch(`${baseUrl}/api/v1/bff/student/learning-reports`, { headers });
+      expect(list.status).toBe(200);
+      expect((await list.json()).data.reports).toEqual([]);
+      const detail = await fetch(
+        `${baseUrl}/api/v1/bff/student/learning-reports/student_report_confirmation_d4`,
+        { headers }
+      );
+      expect(detail.status).toBe(404);
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }

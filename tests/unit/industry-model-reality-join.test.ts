@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { ModelQualificationService } from "../../services/api/src/model-qualification-service";
+import { classifyIndustryModelStatus } from "../../services/api/src/decision-thread-evidence-spine";
 import {
   EVIDENCE_ADOPTION_SCOPE,
   EVIDENCE_ADOPTION_STUDENT,
@@ -15,6 +17,59 @@ const exactContext = {
 };
 
 describe("IM-O2 Industry Model Reality Join", () => {
+  it.each(["FRESH", "STALE", "UNKNOWN"] as const)(
+    "preserves role-safe %s freshness through the canonical Student projection",
+    (freshness) => {
+      const fixture = createEvidenceAdoptionServiceFixture();
+      const record = structuredClone(fixture.primary.record);
+      record.source_packages = record.source_packages.map((source) => ({
+        ...source,
+        freshness_status: freshness
+      }));
+      const service = new ModelQualificationService(undefined, {
+        listRecords: () => [record],
+        commitRecord: () => undefined
+      });
+      const input = {
+        ...exactContext,
+        qualification_id: fixture.primary.qualificationA.qualification_id
+      };
+      const diagnostic = service.getIndustryModelDiagnosticReadiness(
+        EVIDENCE_ADOPTION_STUDENT,
+        EVIDENCE_ADOPTION_SCOPE,
+        input
+      );
+      const result = service.getIndustryModelRealityJoin(
+        EVIDENCE_ADOPTION_STUDENT,
+        EVIDENCE_ADOPTION_SCOPE,
+        input
+      );
+      expect.soft(diagnostic.student_summary).toHaveProperty("freshness", freshness);
+      if (freshness === "STALE") {
+        expect(
+          classifyIndustryModelStatus(
+            result.readiness_status,
+            "freshness" in result ? result.freshness : undefined
+          )
+        ).toBe("STALE");
+      }
+      expect(result).toHaveProperty("freshness", freshness);
+      expect(result).toHaveProperty(
+        "recovery",
+        freshness === "STALE" ? "RELOAD_EXACT_CONTEXT" : "NONE"
+      );
+      for (const key of [
+        "provability",
+        "diagnostic_evidence_digest",
+        "model_version_reference",
+        "model_artifact_reference",
+        "qualification",
+        "support_evidence"
+      ]) {
+        expect(result).not.toHaveProperty(key);
+      }
+    }
+  );
   it("joins exact diagnostic readiness with bounded M4/M5/M29 support evidence", () => {
     const fixture = createEvidenceAdoptionServiceFixture();
     const result = fixture.service.getIndustryModelRealityJoin(
@@ -31,9 +86,7 @@ describe("IM-O2 Industry Model Reality Join", () => {
       availability: "UNAVAILABLE",
       reason: "EXACT_SUPPORT_APPLICABILITY_NOT_PROVEN"
     });
-    expect(result.known_limits).toContain(
-      "M4 portability compatibility is not external validity."
-    );
+    expect(result.known_limits).toContain("M4 portability compatibility is not external validity.");
     expect(result.known_limits).toContain("M5 holdout and qualification remain NOT_ELIGIBLE.");
     expect(result.official_truth_write).toBe(false);
     expect(result.provider).toBe("OFF");

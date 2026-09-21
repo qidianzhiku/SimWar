@@ -104,7 +104,10 @@ function isExactString(value: string): boolean {
 function assertCandidate(candidate: GSIComparisonCandidate): void {
   if (
     !isExactString(candidate.candidate_id) ||
-    Object.values(candidate.binding).some((value) => !isExactString(value)) ||
+    Object.entries(candidate.binding).some(
+      ([key, value]) => key !== "round_no" && !isExactString(value)
+    ) ||
+    candidate.binding.round_no !== candidate.round_no ||
     !Number.isInteger(candidate.round_no) ||
     candidate.round_no < 1 ||
     !/^[a-f0-9]{64}$/u.test(candidate.candidate_digest)

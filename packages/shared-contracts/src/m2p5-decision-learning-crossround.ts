@@ -1,5 +1,8 @@
 import type { ProjectProfileRef, ProjectProfileStudentBrief } from "./project-library.js";
-import type { StudentLearningReport } from "./student-learning-report.js";
+import type {
+  StudentLearningReport,
+  StudentLearningReportPublic
+} from "./student-learning-report.js";
 import type {
   W3ExactRef,
   W3OfficialConsequenceResponse
@@ -107,7 +110,7 @@ export interface M2P5DecisionLearningResponse {
   readonly exact_scope: M2P5DecisionLearningContext;
   readonly official_consequence: W3OfficialConsequenceResponse;
   readonly learning: M2P5LearningProjection;
-  readonly learning_report?: StudentLearningReport;
+  readonly learning_report?: StudentLearningReport | StudentLearningReportPublic;
   readonly project_context: M2P5ProjectContextProjection;
   readonly cross_round: M2P5CrossRoundProjection;
   readonly learning_loop: M2P6LearningLoopProjection;

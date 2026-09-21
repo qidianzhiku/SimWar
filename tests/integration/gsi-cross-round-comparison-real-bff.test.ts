@@ -45,12 +45,30 @@ async function login(baseUrl: string, username: string): Promise<string> {
   return response.body.data.access_token;
 }
 
+async function assignStudent(baseUrl: string, teacherToken: string): Promise<void> {
+  const assignment = await request(baseUrl, "/api/v1/bff/teacher/role-workflows/assignments", {
+    body: {
+      course_id: "course_demo",
+      role_key: "CEO",
+      run_id: "run_gsi_o2_real_bff",
+      team_id: "team_alpha",
+      user_id: "usr_student"
+    },
+    method: "PUT",
+    token: teacherToken
+  });
+  expect(assignment.status).toBe(201);
+}
+
 function binding(roundId: string) {
   return {
     tenant_id: DEFAULT_TENANT_ID,
     course_id: "course_demo",
     run_id: "run_gsi_o2_real_bff",
     round_id: roundId,
+    round_no: Number(roundId.split("_").at(-1)),
+    activity_id: "activity_gsi_o2",
+    role_key: "CEO",
     team_id: "team_alpha",
     scenario_package_id: "scenario_eldercare_demo",
     scenario_version: "1.0.0",
@@ -211,6 +229,7 @@ describe("GSI cross-round comparison real BFF", () => {
     try {
       const teacherToken = await login(baseUrl, "teacher");
       const studentToken = await login(baseUrl, "student");
+      await assignStudent(baseUrl, teacherToken);
       const draft = await request<GSIReceipt>(baseUrl, "/api/v1/bff/teacher/gsi/candidates", {
         body: candidateRequest("round_gsi_o2_1", "gsi_o2_draft", 0.25, "DRAFT"),
         method: "POST",
@@ -247,6 +266,12 @@ describe("GSI cross-round comparison real BFF", () => {
         method: "POST",
         token: teacherToken
       });
+      const reset = await request(baseUrl, "/api/v1/bff/teacher/role-workflows/reset", {
+        body: { round_id: "round_gsi_o2_1", run_id: "run_gsi_o2_real_bff", team_id: "team_alpha" },
+        method: "POST",
+        token: teacherToken
+      });
+      expect(reset.status).toBe(200);
       const unassignedQuery = new URLSearchParams({
         from_candidate_id: from.body.data.candidate_id,
         to_candidate_id: to.body.data.candidate_id,

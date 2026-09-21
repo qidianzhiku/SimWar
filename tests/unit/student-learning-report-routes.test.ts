@@ -31,7 +31,7 @@ describe("D4 Student Learning Report BFF routes", () => {
   it("exposes student and teacher preview GET routes but no D4 write route", async () => {
     const runtime = {
       projections: {
-        listStudent: vi.fn(async () => ({
+        listStudentPublic: vi.fn(async () => ({
           reports: [],
           known_limits: ["limit"],
           report_schema_version: "student-learning-report.v1",
@@ -73,7 +73,10 @@ describe("D4 Student Learning Report BFF routes", () => {
     );
     expect(handled).toBe(true);
     expect(res.statusCode).toBe(200);
-    expect(runtime.projections.listStudent).toHaveBeenCalled();
+    expect(runtime.projections.listStudentPublic).toHaveBeenCalledWith(
+      expect.objectContaining({ team_id: student.team_id, user_id: student.user_id }),
+      undefined
+    );
 
     const writeHandled = await handleStudentLearningReportRoute(
       runtime,

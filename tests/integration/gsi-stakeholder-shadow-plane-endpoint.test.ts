@@ -27,7 +27,10 @@ const request = {
     course_id: "course_001",
     run_id: "run_001",
     round_id: "round_001",
+    round_no: 1,
     team_id: "team_001",
+    activity_id: "activity_gsi",
+    role_key: "CEO",
     scenario_package_id: "scenario_demo",
     scenario_version: "1.0.0",
     parameter_set_id: "parameter_demo",
@@ -123,11 +126,7 @@ describe("GSI stakeholder shadow plane BFF routes", () => {
     const service = {
       createCandidate: async () => created,
       getStudentProjection: async () => studentProjection,
-      getAdminProjection: async (
-        _actor: CurrentUser,
-        tenantId: string,
-        candidateId: string
-      ) => {
+      getAdminProjection: async (_actor: CurrentUser, tenantId: string, candidateId: string) => {
         adminTenantId = tenantId;
         adminCandidateId = candidateId;
         return {

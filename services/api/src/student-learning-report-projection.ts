@@ -7,10 +7,14 @@ import {
   type StudentLearningReportExactRef,
   type StudentLearningReportFailureCode,
   type StudentLearningReportListDto,
+  type StudentLearningReportPublicListDto,
   type TeacherConfirmationExactRef,
   type TeacherConfirmationVersion
 } from "@simwar/shared-contracts";
-import type { EvidenceProvenanceRepositoryPort } from "./repository-ports.js";
+import type {
+  EvidenceProvenanceRepositoryPort,
+  RoleWorkflowRepositoryPort
+} from "./repository-ports.js";
 import { TeacherConfirmationCommandService } from "./teacher-confirmation.js";
 
 const KNOWN_LIMITS = [
@@ -39,6 +43,7 @@ export interface StudentLearningReportActor {
 export interface StudentLearningReportProjectionDependencies {
   readonly confirmations: TeacherConfirmationCommandService;
   readonly evidence: EvidenceProvenanceRepositoryPort;
+  readonly roleWorkflow?: Pick<RoleWorkflowRepositoryPort, "readRoleWorkflow">;
 }
 
 function clone<T>(value: T): T {
@@ -127,6 +132,90 @@ function hasEarlierConfirmed(
 
 export class StudentLearningReportProjectionService {
   constructor(private readonly dependencies: StudentLearningReportProjectionDependencies) {}
+
+  async listStudentPublic(
+    actor: StudentLearningReportActor,
+    reportId?: string
+  ): Promise<StudentLearningReportPublicListDto> {
+    if (!actor.team_id) throw new StudentLearningReportProjectionError("D4_REPORT_SCOPE_VIOLATION");
+    const result: StudentLearningReportPublicListDto["reports"][number][] = [];
+    const records = latestByConfirmation(
+      await this.dependencies.confirmations.list(actor.tenant_id)
+    );
+    for (const record of records) {
+      const context = record.context;
+      const id = `student_report_${record.confirmation_ref.resource_id}`;
+      if (
+        record.confirmation_ref.tenant_id !== actor.tenant_id ||
+        context.team_id !== actor.team_id ||
+        !context.round_id ||
+        !context.round_no ||
+        (reportId && reportId !== id) ||
+        !this.dependencies.roleWorkflow
+      )
+        continue;
+      const snapshot = await this.dependencies.roleWorkflow.readRoleWorkflow({
+        tenant_id: actor.tenant_id,
+        run_id: context.run_id,
+        round_id: context.round_id,
+        team_id: actor.team_id
+      });
+      if (
+        snapshot.course?.tenant_id !== actor.tenant_id ||
+        snapshot.course.course_id !== context.course_id ||
+        snapshot.run?.tenant_id !== actor.tenant_id ||
+        snapshot.run.run_id !== context.run_id ||
+        snapshot.run.course_id !== context.course_id ||
+        snapshot.team?.tenant_id !== actor.tenant_id ||
+        snapshot.team.team_id !== actor.team_id ||
+        snapshot.team.course_id !== context.course_id ||
+        snapshot.round?.tenant_id !== actor.tenant_id ||
+        snapshot.round.run_id !== context.run_id ||
+        snapshot.round.round_id !== context.round_id ||
+        snapshot.round.round_no !== context.round_no ||
+        snapshot.round.status !== "published" ||
+        !snapshot.assignments.some(
+          (assignment) =>
+            assignment.status === "active" &&
+            assignment.user_id === actor.user_id &&
+            assignment.role_key === context.role_key
+        )
+      )
+        continue;
+      const internal = await this.getStudent(actor, id);
+      const report = internal.reports[0]!;
+      result.push({
+        report_id: id,
+        context: {
+          course_id: context.course_id,
+          run_id: context.run_id,
+          team_id: context.team_id,
+          role_key: context.role_key,
+          round_id: context.round_id,
+          round_no: context.round_no
+        },
+        status: report.status,
+        learning_evidence: {
+          criterion_results: report.learning_evidence.criterion_results.map(
+            ({ criterion_id, level_ordinal }) => ({ criterion_id, level_ordinal })
+          ),
+          student_visible_feedback: []
+        },
+        business_outcome: {
+          status: "SEPARATE_SAFE_OUTCOME",
+          summary: "Published business outcome remains in its separate safe result surface."
+        }
+      });
+    }
+    if (reportId && result.length === 0)
+      throw new StudentLearningReportProjectionError("D4_REPORT_NOT_FOUND");
+    return {
+      reports: result,
+      known_limits: ["Only published evidence for your active role and team is shown."],
+      report_schema_version: "student-learning-report.public.v1",
+      scope: "student_team"
+    };
+  }
 
   async listStudent(actor: StudentLearningReportActor): Promise<StudentLearningReportListDto> {
     if (!actor.team_id) throw new StudentLearningReportProjectionError("D4_REPORT_SCOPE_VIOLATION");

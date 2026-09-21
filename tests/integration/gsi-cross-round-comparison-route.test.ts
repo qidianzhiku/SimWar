@@ -110,6 +110,65 @@ function studentProjection(): GSICrossRoundStudentProjection {
 }
 
 describe("GSI cross-round comparison route", () => {
+  it("enforces each pair-options identifier before calling the canonical reader", async () => {
+    for (const key of ["course_id", "run_id", "team_id", "activity_id", "role_key"]) {
+      for (const value of [
+        "",
+        " ",
+        " id",
+        "id ",
+        "LATEST",
+        "Current",
+        "default",
+        "fallback",
+        "first",
+        "last",
+        "newest",
+        "exact_id",
+        "contains space",
+        "round_latest_1"
+      ]) {
+        const current = response();
+        let invoked = false;
+        const service = {
+          getPairOptions: async () => {
+            invoked = true;
+            return {};
+          }
+        } as unknown as GSIStakeholderShadowPlaneService;
+        const query = new URLSearchParams({
+          course_id: "course_demo",
+          run_id: "run_demo",
+          team_id: "team_demo",
+          activity_id: "activity_demo",
+          role_key: "CEO",
+          [key]: value
+        });
+        await handleGSIStakeholderShadowPlaneRoute(
+          service,
+          { method: "GET" } as never,
+          current as never,
+          new URL(`http://localhost/api/v1/bff/teacher/gsi/candidates/pair-options?${query}`),
+          { requestId: "req_options", tenantId: "tenant_demo", actor: teacher },
+          {
+            readJson: async () => ({}),
+            sendJson: (_target, status, payload) => {
+              current.statusCode = status;
+              current.body = JSON.stringify(payload);
+            },
+            createEnvelope: (_context, data) => ({ code: "OK", data }),
+            requireStudent: () => undefined,
+            requireTeacher: () => undefined,
+            requireAdmin: () => undefined
+          }
+        );
+        const accepted = ["exact_id", "contains space", "round_latest_1"].includes(value);
+        expect(current.statusCode, `${key}=${value}`).toBe(accepted ? 200 : 422);
+        expect(invoked).toBe(accepted);
+      }
+    }
+  });
+
   it("routes exact pair comparison through the existing Teacher and Student GSI family", async () => {
     const current = response();
     const service = {

@@ -11,7 +11,10 @@ const baseBinding: GSIExactBinding = {
   course_id: "course_demo",
   run_id: "run_demo",
   round_id: "round_1",
+  round_no: 1,
   team_id: "team_demo",
+  activity_id: "activity_demo",
+  role_key: "CEO",
   scenario_package_id: "scenario_demo",
   scenario_version: "1.0.0",
   parameter_set_id: "parameter_demo",
@@ -31,7 +34,7 @@ function candidate(
 ): GSIComparisonCandidate {
   return {
     candidate_id: candidateId,
-    binding: { ...baseBinding, round_id: roundId },
+    binding: { ...baseBinding, round_id: roundId, round_no: roundNo },
     round_no: roundNo,
     candidate_digest: digest,
     signals

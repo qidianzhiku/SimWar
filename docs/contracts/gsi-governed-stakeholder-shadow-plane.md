@@ -9,6 +9,25 @@ ModelVersion, and ModelArtifact by explicit identifiers and versions. `latest` a
 `default` are invalid. Proposals are limited to five stakeholder records and finite
 influence values in [-1, 1].
 
+`GSIExactBinding` also requires the stored `round_no`, `activity_id`, and `role_key`.
+The server verifies round identity/number and the active role against its existing
+role-workflow snapshot. Student reads never rewrite the stored role to the requester;
+pair selection must match the stored activity and role on both candidates. Older
+records without these bindings are unavailable until explicitly recreated.
+
+The OpenAPI objects bind the canonical `GSIRequest`, `GSIReceipt`, `GSIExactBinding`,
+`GSITeacherProjection`, and `GSICrossRoundPairOptions` contracts. Pair-options GET
+success uses the actual `{ code, data, message, request_id }` envelope. Its required
+course/run/team/activity/role identifiers must be nonempty and already trimmed;
+the whole tokens latest/current/default/fallback/first/last/newest are rejected
+case-insensitively. Internal whitespace and non-reserved compound tokens remain
+accepted by this runtime seam; it is not the stricter DDT ASCII identifier grammar.
+
+DDT maps GSI's `context_status` (Student) or `context.status` (Teacher/Admin)
+directly, preserving AVAILABLE, CONTEXT_UNAVAILABLE and REBASE_REQUIRED. Existing
+DDT error/status mapping retains STALE and LIMITED where a source supports them.
+GSI currently emits neither STALE nor LIMITED as context status.
+
 The OFF and SHADOW modes share the same deterministic candidate calculation. SHADOW
 is a governance-plane label, not a second runtime or provider. The candidate is
 advisory/candidate evidence only. It cannot write official state, settlement, score,

@@ -4129,7 +4129,7 @@ paths:
           description: Student-team scoped learning report projection.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/StudentLearningReportListEnvelope" }
+              schema: { $ref: "#/components/schemas/StudentLearningReportPublicListEnvelope" }
         "401": { description: Authentication required }
         "403": { description: Learner team scope required }
   /api/v1/bff/student/learning-reports/{reportId}:
@@ -4145,7 +4145,7 @@ paths:
           description: One student-team scoped learning report.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/StudentLearningReportListEnvelope" }
+              schema: { $ref: "#/components/schemas/StudentLearningReportPublicListEnvelope" }
         "401": { description: Authentication required }
         "403": { description: Learner team scope required }
         "404": { description: Report not found or not available }
@@ -8181,6 +8181,163 @@ paths:
         "401": { description: Authentication required }
         "403": { description: Student course scope denied }
 
+  /api/v1/bff/teacher/decision-thread/evidence-spine:
+    get:
+      operationId: DDT_EVIDENCE_SPINE_TEACHER_GET_V1
+      summary: Read the exact-context teacher Decision Thread evidence spine.
+      description: Read-only composition of existing M2P6, Model Qualification, Strategic Portfolio, Industry Model, and GSI projections. It does not write formal truth, settlement, score, rank, or any persistence record.
+      x-query-constraints:
+        allOrNone: [gsi_from_round_id, gsi_to_round_id]
+        notEqual: [gsi_from_round_id, gsi_to_round_id]
+      x-runtime-constraints:
+        identity: trimmed_ascii_identifier
+        rejected_tokens:
+          [any, current, default, fallback, first, last, latest, newest, next, unresolved]
+        selected_gsi_to_round_must_equal_context_round: true
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/DdtCourseId" }
+        - { $ref: "#/components/parameters/DdtRunId" }
+        - { $ref: "#/components/parameters/DdtTeamId" }
+        - { $ref: "#/components/parameters/DdtRoundId" }
+        - { $ref: "#/components/parameters/DdtRoundNo" }
+        - { $ref: "#/components/parameters/DdtRoleKey" }
+        - { $ref: "#/components/parameters/DdtActivityId" }
+        - { $ref: "#/components/parameters/DdtGsiFromRoundId" }
+        - { $ref: "#/components/parameters/DdtGsiToRoundId" }
+      responses:
+        "200":
+          description: Teacher-safe exact-context evidence spine.
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/DdtTeacherEvidenceSpineEnvelope" } }
+            }
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+        "403":
+          description: Teacher scope denied
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+        "422":
+          description: Exact context or GSI selection rejected
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+        "500":
+          description: Canonical evidence source returned an invalid shape
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+  /api/v1/bff/student/decision-thread/evidence-spine:
+    get:
+      operationId: DDT_EVIDENCE_SPINE_STUDENT_GET_V1
+      summary: Read the exact-context student Decision Thread evidence spine.
+      description: Student-safe allowlisted evidence only. Candidate IDs, digests, private provenance, unpublished records, and causal claims are not returned.
+      x-query-constraints:
+        allOrNone: [gsi_from_round_id, gsi_to_round_id]
+        notEqual: [gsi_from_round_id, gsi_to_round_id]
+      x-runtime-constraints:
+        identity: trimmed_ascii_identifier
+        rejected_tokens:
+          [any, current, default, fallback, first, last, latest, newest, next, unresolved]
+        selected_gsi_to_round_must_equal_context_round: true
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/DdtCourseId" }
+        - { $ref: "#/components/parameters/DdtRunId" }
+        - { $ref: "#/components/parameters/DdtTeamId" }
+        - { $ref: "#/components/parameters/DdtRoundId" }
+        - { $ref: "#/components/parameters/DdtRoundNo" }
+        - { $ref: "#/components/parameters/DdtRoleKey" }
+        - { $ref: "#/components/parameters/DdtActivityId" }
+        - { $ref: "#/components/parameters/DdtGsiFromRoundId" }
+        - { $ref: "#/components/parameters/DdtGsiToRoundId" }
+      responses:
+        "200":
+          description: Student-safe exact-context evidence spine.
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/DdtStudentEvidenceSpineEnvelope" } }
+            }
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+        "403":
+          description: Student scope denied
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+        "422":
+          description: Exact context or GSI selection rejected
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+        "500":
+          description: Canonical evidence source returned an invalid shape
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+  /api/v1/bff/admin/decision-thread/evidence-spine:
+    get:
+      operationId: DDT_EVIDENCE_SPINE_ADMIN_GET_V1
+      summary: Read the selected-tenant admin Decision Thread evidence spine.
+      description: Read-only audit-safe composition of canonical source availability, provenance, and limits. The selected tenant is resolved by trusted server context.
+      x-query-constraints:
+        allOrNone: [gsi_from_round_id, gsi_to_round_id]
+        notEqual: [gsi_from_round_id, gsi_to_round_id]
+      x-runtime-constraints:
+        identity: trimmed_ascii_identifier
+        rejected_tokens:
+          [any, current, default, fallback, first, last, latest, newest, next, unresolved]
+        selected_gsi_to_round_must_equal_context_round: true
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/DdtCourseId" }
+        - { $ref: "#/components/parameters/DdtRunId" }
+        - { $ref: "#/components/parameters/DdtTeamId" }
+        - { $ref: "#/components/parameters/DdtRoundId" }
+        - { $ref: "#/components/parameters/DdtRoundNo" }
+        - { $ref: "#/components/parameters/DdtRoleKey" }
+        - { $ref: "#/components/parameters/DdtActivityId" }
+        - { $ref: "#/components/parameters/DdtGsiFromRoundId" }
+        - { $ref: "#/components/parameters/DdtGsiToRoundId" }
+      responses:
+        "200":
+          description: Admin-safe exact-context evidence spine.
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/DdtAdminEvidenceSpineEnvelope" } }
+            }
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+        "403":
+          description: Admin scope denied
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+        "422":
+          description: Exact context or GSI selection rejected
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+        "500":
+          description: Canonical evidence source returned an invalid shape
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+
 components:
   securitySchemes:
     SessionBearer:
@@ -8196,7 +8353,270 @@ components:
       in: header
       name: X-Service-Principal
       description: Must identify the service kernel principal for internal settlement.
+  parameters:
+    DdtCourseId:
+      name: course_id
+      in: query
+      required: true
+      schema: { type: string, minLength: 1, pattern: "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" }
+    DdtRunId:
+      name: run_id
+      in: query
+      required: true
+      schema: { type: string, minLength: 1, pattern: "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" }
+    DdtTeamId:
+      name: team_id
+      in: query
+      required: true
+      schema: { type: string, minLength: 1, pattern: "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" }
+    DdtRoundId:
+      name: round_id
+      in: query
+      required: true
+      schema: { type: string, minLength: 1, pattern: "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" }
+    DdtRoundNo:
+      name: round_no
+      in: query
+      required: true
+      schema: { type: integer, minimum: 1 }
+    DdtRoleKey:
+      name: role_key
+      in: query
+      required: true
+      schema: { type: string, minLength: 1, pattern: "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" }
+    DdtActivityId:
+      name: activity_id
+      in: query
+      required: true
+      schema: { type: string, minLength: 1, pattern: "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" }
+    DdtGsiFromRoundId:
+      name: gsi_from_round_id
+      in: query
+      required: false
+      schema: { type: string, minLength: 1, pattern: "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" }
+    DdtGsiToRoundId:
+      name: gsi_to_round_id
+      in: query
+      required: false
+      schema: { type: string, minLength: 1, pattern: "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" }
   schemas:
+    DdtExactContext:
+      type: object
+      additionalProperties: false
+      required: [tenant_id, course_id, run_id, team_id, round_id, round_no, role_key, activity_id]
+      properties:
+        tenant_id: { type: string, minLength: 1 }
+        course_id: { type: string, minLength: 1 }
+        run_id: { type: string, minLength: 1 }
+        team_id: { type: string, minLength: 1 }
+        round_id: { type: string, minLength: 1 }
+        round_no: { type: integer, minimum: 1 }
+        role_key: { type: string, minLength: 1 }
+        activity_id: { type: string, minLength: 1 }
+    DdtStudentContext:
+      type: object
+      additionalProperties: false
+      required: [course_id, run_id, team_id, round_id, round_no, role_key]
+      properties:
+        course_id: { type: string, minLength: 1 }
+        run_id: { type: string, minLength: 1 }
+        team_id: { type: string, minLength: 1 }
+        round_id: { type: string, minLength: 1 }
+        round_no: { type: integer, minimum: 1 }
+        role_key: { type: string, minLength: 1 }
+    DdtSelectedRoundPair:
+      type: object
+      additionalProperties: false
+      required: [from_round_id, to_round_id]
+      properties:
+        from_round_id:
+          { type: string, minLength: 1, pattern: "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" }
+        to_round_id:
+          { type: string, minLength: 1, pattern: "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" }
+    DdtEvidenceSource:
+      type: object
+      additionalProperties: false
+      required: [source, ledger, status, summary, known_limits]
+      properties:
+        source: { enum: [M2P6, MODEL_QUALIFICATION, STRATEGIC_PORTFOLIO, INDUSTRY_MODEL, GSI] }
+        ledger: { enum: [OFFICIAL, DIAGNOSTIC, COUNTERFACTUAL, ADVISORY] }
+        status: { enum: [AVAILABLE, LIMITED, CONTEXT_UNAVAILABLE, REBASE_REQUIRED, STALE] }
+        summary: { type: string, minLength: 1 }
+        known_limits: { type: array, items: { type: string, minLength: 1 } }
+    DdtTeacherEvidenceSource:
+      type: object
+      additionalProperties: false
+      required: [source, ledger, status, context_scope, summary, known_limits, exact_context]
+      properties:
+        source: { enum: [M2P6, MODEL_QUALIFICATION, STRATEGIC_PORTFOLIO, INDUSTRY_MODEL, GSI] }
+        ledger: { enum: [OFFICIAL, DIAGNOSTIC, COUNTERFACTUAL, ADVISORY] }
+        status: { enum: [AVAILABLE, LIMITED, CONTEXT_UNAVAILABLE, REBASE_REQUIRED, STALE] }
+        context_scope: { enum: [EXACT_DDT_CONTEXT, TENANT_COURSE] }
+        summary: { type: string, minLength: 1 }
+        known_limits: { type: array, items: { type: string, minLength: 1 } }
+        exact_context: { $ref: "#/components/schemas/DdtExactContext" }
+        selected_round_pair:
+          $ref: "#/components/schemas/DdtSelectedRoundPair"
+        provenance:
+          type: object
+          additionalProperties: false
+          required: [authority_owner, source_ref, contract_version]
+          properties:
+            authority_owner: { type: string, minLength: 1 }
+            source_ref: { type: string, minLength: 1 }
+            contract_version: { type: string, minLength: 1 }
+    DdtAdminEvidenceSource:
+      type: object
+      additionalProperties: false
+      required: [source, ledger, status, context_scope, summary, known_limits, exact_context]
+      properties:
+        source: { enum: [M2P6, MODEL_QUALIFICATION, STRATEGIC_PORTFOLIO, INDUSTRY_MODEL, GSI] }
+        ledger: { enum: [OFFICIAL, DIAGNOSTIC, COUNTERFACTUAL, ADVISORY] }
+        status: { enum: [AVAILABLE, LIMITED, CONTEXT_UNAVAILABLE, REBASE_REQUIRED, STALE] }
+        context_scope: { enum: [EXACT_DDT_CONTEXT, TENANT_COURSE] }
+        summary: { type: string, minLength: 1 }
+        known_limits: { type: array, items: { type: string, minLength: 1 } }
+        exact_context: { $ref: "#/components/schemas/DdtExactContext" }
+        selected_round_pair:
+          $ref: "#/components/schemas/DdtSelectedRoundPair"
+        provenance:
+          type: object
+          additionalProperties: false
+          required: [authority_owner, source_ref, contract_version]
+          properties:
+            authority_owner: { type: string, minLength: 1 }
+            source_ref: { type: string, minLength: 1 }
+            contract_version: { type: string, minLength: 1 }
+    DdtStudentEvidenceSource:
+      type: object
+      additionalProperties: false
+      required: [source, ledger, status, context_scope, summary, known_limits, exact_context]
+      properties:
+        source: { enum: [M2P6, MODEL_QUALIFICATION, STRATEGIC_PORTFOLIO, INDUSTRY_MODEL, GSI] }
+        ledger: { enum: [OFFICIAL, DIAGNOSTIC, COUNTERFACTUAL, ADVISORY] }
+        status: { enum: [AVAILABLE, LIMITED, CONTEXT_UNAVAILABLE, REBASE_REQUIRED, STALE] }
+        context_scope: { enum: [EXACT_DDT_CONTEXT, TENANT_COURSE] }
+        summary: { type: string, minLength: 1 }
+        known_limits: { type: array, items: { type: string, minLength: 1 } }
+        exact_context: { $ref: "#/components/schemas/DdtStudentContext" }
+    DdtTeacherEvidenceSpine:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          schema_version,
+          surface,
+          exact_context,
+          sources,
+          known_limits,
+          provider,
+          non_causal,
+          causal_proof,
+          official_truth_write,
+          formal_write_count
+        ]
+      properties:
+        schema_version: { const: decision-thread-evidence-spine.v1 }
+        surface: { const: teacher }
+        exact_context: { $ref: "#/components/schemas/DdtExactContext" }
+        sources: { type: array, items: { $ref: "#/components/schemas/DdtTeacherEvidenceSource" } }
+        known_limits: { type: array, items: { type: string } }
+        provider: { const: OFF }
+        non_causal: { const: true }
+        causal_proof: { const: false }
+        official_truth_write: { const: false }
+        formal_write_count: { const: 0 }
+    DdtStudentEvidenceSpine:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          schema_version,
+          surface,
+          exact_context,
+          sources,
+          known_limits,
+          provider,
+          non_causal,
+          causal_proof,
+          official_truth_write,
+          formal_write_count
+        ]
+      properties:
+        schema_version: { const: decision-thread-evidence-spine.v1 }
+        surface: { const: student }
+        exact_context:
+          type: object
+          additionalProperties: false
+          required: [course_id, run_id, team_id, round_id, round_no, role_key]
+          properties:
+            course_id: { type: string, minLength: 1 }
+            run_id: { type: string, minLength: 1 }
+            team_id: { type: string, minLength: 1 }
+            round_id: { type: string, minLength: 1 }
+            round_no: { type: integer, minimum: 1 }
+            role_key: { type: string, minLength: 1 }
+        sources: { type: array, items: { $ref: "#/components/schemas/DdtStudentEvidenceSource" } }
+        known_limits: { type: array, items: { type: string } }
+        provider: { const: OFF }
+        non_causal: { const: true }
+        causal_proof: { const: false }
+        official_truth_write: { const: false }
+        formal_write_count: { const: 0 }
+    DdtAdminEvidenceSpine:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          schema_version,
+          surface,
+          exact_context,
+          sources,
+          known_limits,
+          provider,
+          non_causal,
+          causal_proof,
+          official_truth_write,
+          formal_write_count
+        ]
+      properties:
+        schema_version: { const: decision-thread-evidence-spine.v1 }
+        surface: { const: admin }
+        exact_context: { $ref: "#/components/schemas/DdtExactContext" }
+        sources: { type: array, items: { $ref: "#/components/schemas/DdtAdminEvidenceSource" } }
+        known_limits: { type: array, items: { type: string } }
+        provider: { const: OFF }
+        non_causal: { const: true }
+        causal_proof: { const: false }
+        official_truth_write: { const: false }
+        formal_write_count: { const: 0 }
+    DdtTeacherEvidenceSpineEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/DdtTeacherEvidenceSpine" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    DdtStudentEvidenceSpineEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/DdtStudentEvidenceSpine" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    DdtAdminEvidenceSpineEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/DdtAdminEvidenceSpine" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
     ProjectProfileEnvelope:
       type: object
       additionalProperties: false
@@ -8807,6 +9227,54 @@ components:
       $ref: "../schemas/teacher-confirmation.v1.json#/$defs/TeacherConfirmationClaimEnvelope"
     StudentLearningReport:
       $ref: "../schemas/student-learning-report.v1.json"
+    StudentLearningReportPublicListEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { const: OK }
+        message: { type: string }
+        request_id: { type: string }
+        data:
+          type: object
+          additionalProperties: false
+          required: [reports, known_limits, report_schema_version, scope]
+          properties:
+            report_schema_version: { const: student-learning-report.public.v1 }
+            scope: { const: student_team }
+            known_limits: { type: array, items: { type: string } }
+            reports:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                required: [report_id, context, status, learning_evidence, business_outcome]
+                properties:
+                  report_id: { type: string, minLength: 1 }
+                  context: { $ref: "#/components/schemas/DdtStudentContext" }
+                  status: { enum: [CONFIRMED, AMENDED] }
+                  learning_evidence:
+                    type: object
+                    additionalProperties: false
+                    required: [criterion_results, student_visible_feedback]
+                    properties:
+                      criterion_results:
+                        type: array
+                        items:
+                          type: object
+                          additionalProperties: false
+                          required: [criterion_id, level_ordinal]
+                          properties:
+                            criterion_id: { type: string }
+                            level_ordinal: { type: integer, minimum: 0 }
+                      student_visible_feedback: { type: array, maxItems: 0 }
+                  business_outcome:
+                    type: object
+                    additionalProperties: false
+                    required: [status, summary]
+                    properties:
+                      status: { const: SEPARATE_SAFE_OUTCOME }
+                      summary: { type: string }
     StudentLearningReportListEnvelope:
       type: object
       additionalProperties: false
