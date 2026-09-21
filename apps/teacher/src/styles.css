@@ -1717,19 +1717,10 @@ h3 {
   overflow-wrap: anywhere;
 }
 
-.teacher-scenario-studio .tss-context-summary strong {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
 .teacher-scenario-studio .sw-workbench-frame__heading {
   align-items: flex-start;
   flex-wrap: wrap;
   gap: 12px;
-}
-
-.teacher-scenario-studio .sw-workbench-frame__heading > * {
-  min-width: 0;
 }
 
 .tss-task-layout {
@@ -1787,11 +1778,6 @@ h3 {
   min-width: 180px;
 }
 
-.teacher-scenario-studio .tag-list {
-  max-width: 100%;
-  min-width: 0;
-}
-
 .teacher-scenario-studio .tag-list label {
   align-items: center;
   display: inline-flex;
@@ -1812,11 +1798,6 @@ h3 {
   background: #f4f8f7;
   display: grid;
   gap: 6px;
-}
-
-.tss-evidence h3,
-.tss-evidence p {
-  margin: 0;
 }
 
 .tss-inspector {
@@ -1848,11 +1829,6 @@ h3 {
 .tss-inspector dt {
   color: #61707d;
   font-size: 12px;
-}
-
-.tss-inspector dd {
-  margin: 0;
-  overflow-wrap: anywhere;
 }
 
 @media (max-width: 1100px) {
