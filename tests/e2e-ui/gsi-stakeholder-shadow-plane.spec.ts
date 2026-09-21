@@ -113,7 +113,7 @@ function candidateRequest(runId: string, roundId: string, key: string, influence
       round_id: roundId,
       round_no: Number(roundId.split("_").at(-1)),
       team_id: "team_alpha",
-      activity_id: "activity_gsi_o2",
+      activity_id: "activity_consequence",
       role_key: "CEO",
       scenario_package_id: "scenario_eldercare_demo",
       scenario_version: "1.0.0",
@@ -214,7 +214,7 @@ test("GSI-XR role journey resolves an explicit pair through the real BFF", async
   await page.goto(
     `${studentBaseUrl}/?gsi_course_id=course_demo&gsi_run_id=${encodeURIComponent(
       created.run.run_id
-    )}&gsi_team_id=team_alpha&gsi_activity_id=activity_gsi&gsi_role_key=CEO`
+    )}&gsi_team_id=team_alpha&gsi_activity_id=activity_consequence&gsi_role_key=CEO`
   );
   await signIn(page, "学员登录", "student");
   const studentPanel = page.getByRole("region", {
@@ -241,6 +241,8 @@ test("GSI-XR role journey resolves an explicit pair through the real BFF", async
   await adminPanel.getByLabel("GSI admin course context").fill("course_demo");
   await adminPanel.getByLabel("GSI admin run context").fill(created.run.run_id);
   await adminPanel.getByLabel("GSI admin team context").fill("team_alpha");
+  await adminPanel.getByText("高级：输入精确候选配对").click();
+  await adminPanel.getByLabel("GSI admin activity ID").fill("activity_consequence");
   await adminPanel.getByRole("button", { name: "加载可比较回合" }).click();
   await expect(adminPanel.getByLabel("GSI admin from round")).toBeEnabled();
   await adminPanel.getByLabel("GSI admin from round").selectOption(roundOneId);
