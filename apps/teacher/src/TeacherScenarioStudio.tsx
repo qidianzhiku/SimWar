@@ -451,7 +451,7 @@ export function TeacherScenarioStudio(props: {
       }
       state={statePanel}
     >
-      <div className="tss-context-summary" aria-label="Scenario Studio tenant and mode">
+      <div className="tss-context-summary" aria-label="Scenario Studio context summary">
         <span>租户</span>
         <strong>{props.tenantId}</strong>
         <span>模式</span>
@@ -563,8 +563,8 @@ export function TeacherScenarioStudio(props: {
                   disabled={disabled || Boolean(reference)}
                   type="checkbox"
                   onChange={() => toggleModule(key)}
-                />{" "}
-                {key}
+                />
+                <span>{key}</span>
               </label>
             ))}
           </div>
