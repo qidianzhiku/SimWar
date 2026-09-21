@@ -46,8 +46,9 @@ export interface DecisionThreadEvidenceSpineProps {
 type ViewState =
   | { kind: "idle" | "loading" }
   | { kind: "ready" | "stale" | "recovered"; data: DdtEvidenceSpineResponse }
+  | { kind: "rebase"; message: string; data?: DdtEvidenceSpineResponse }
   | {
-      kind: "context-unavailable" | "rebase" | "permission-denied" | "reauth-required" | "error";
+      kind: "context-unavailable" | "permission-denied" | "reauth-required" | "error";
       message: string;
     };
 
@@ -397,7 +398,8 @@ export function DecisionThreadEvidenceSpine({
             identity: requestIdentityAtStart,
             state: {
               kind: "rebase",
-              message: STATUS_MESSAGES.REBASE_REQUIRED ?? "请重新加载当前上下文。"
+              message: STATUS_MESSAGES.REBASE_REQUIRED ?? "请重新加载当前上下文。",
+              data: payload.data
             }
           });
           return;
@@ -456,6 +458,7 @@ export function DecisionThreadEvidenceSpine({
             message: "请先打开一个受控的课程、运行、队伍和回合上下文。"
           };
   const rounds = currentOptions.kind === "ready" ? currentOptions.data.rounds : [];
+  const targetRounds = rounds.filter((round) => round.round_id === context?.round_id);
   const canCompare = Boolean(
     currentSelection.from && currentSelection.to && currentSelection.from !== currentSelection.to
   );
@@ -533,7 +536,7 @@ export function DecisionThreadEvidenceSpine({
               }
             >
               <option value="">请选择</option>
-              {rounds.map((round) => (
+              {targetRounds.map((round) => (
                 <option key={round.round_id} value={round.round_id}>
                   回合 {round.round_no}
                 </option>
@@ -618,7 +621,8 @@ export function DecisionThreadEvidenceSpine({
       ) : null}
       {currentView.kind === "ready" ||
       currentView.kind === "stale" ||
-      currentView.kind === "recovered" ? (
+      currentView.kind === "recovered" ||
+      (currentView.kind === "rebase" && currentView.data !== undefined) ? (
         <>
           <div className="ddt-evidence-spine__status" data-state={currentView.kind} role="status">
             <strong>
@@ -629,7 +633,7 @@ export function DecisionThreadEvidenceSpine({
                   : "证据线程已就绪"}
             </strong>
             <p>
-              {currentView.data.non_causal
+              {currentView.data?.non_causal
                 ? "变化仅作描述，不证明因果效应。"
                 : "请以当前权限可见范围理解这份证据。"}
             </p>
@@ -648,7 +652,7 @@ export function DecisionThreadEvidenceSpine({
             ) : null}
           </div>
           <div className="ddt-evidence-spine__sources">
-            {currentView.data.sources.map((source) => (
+            {currentView.data?.sources.map((source) => (
               <article
                 className="ddt-evidence-spine__source"
                 data-source={source.source}

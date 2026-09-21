@@ -1638,13 +1638,11 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
       };
     },
     strategicPortfolio: async (actor, context, _surface) => {
-      if (context.activity_id !== "w4-enterprise-state-strategic-evolution") {
-        throw new Error("STRATEGIC_PORTFOLIO_CONTEXT_UNAVAILABLE");
-      }
+      const w4ActivityId = "w4-enterprise-state-strategic-evolution";
       const projection = await w4EnterpriseStateService.getProjection(
         {
           actor_id: actor.user_id,
-          activity_id: context.activity_id,
+          activity_id: w4ActivityId,
           course_id: context.course_id,
           role_key: context.role_key,
           run_id: context.run_id,

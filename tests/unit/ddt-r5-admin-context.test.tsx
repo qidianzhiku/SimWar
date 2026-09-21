@@ -151,7 +151,7 @@ describe("R5 Admin request identity", () => {
     }
   });
 
-  it("binds DDT to the entered activity", async () => {
+  it("binds DDT to the authorized activity", async () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
@@ -174,8 +174,13 @@ describe("R5 Admin request identity", () => {
       await enter(host, "DDT admin exact round ID", "round_one");
       await enter(host, "DDT admin exact round number", "1");
       expect(
-        fetchSpy.mock.calls.some(([url]) => String(url).includes("activity_id=activity_explicit"))
+        fetchSpy.mock.calls.some(([url]) =>
+          String(url).includes("activity_id=activity_consequence")
+        )
       ).toBe(true);
+      expect(
+        fetchSpy.mock.calls.some(([url]) => String(url).includes("activity_id=activity_explicit"))
+      ).toBe(false);
     } finally {
       await act(async () => root.unmount());
       fetchSpy.mockRestore();

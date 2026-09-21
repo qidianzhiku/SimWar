@@ -176,7 +176,7 @@ describe("Decision Thread Evidence Spine UI", () => {
       },
       rounds: [
         { round_id: "round-1", round_no: 1 },
-        { round_id: "round-2", round_no: 2 }
+        { round_id: "round-current", round_no: 2 }
       ],
       provider: "OFF",
       official_truth_write: false,
@@ -224,7 +224,7 @@ describe("Decision Thread Evidence Spine UI", () => {
     await act(async () => {
       selects[0]!.value = "round-1";
       selects[0]!.dispatchEvent(new Event("change", { bubbles: true }));
-      selects[1]!.value = "round-2";
+      selects[1]!.value = "round-current";
       selects[1]!.dispatchEvent(new Event("change", { bubbles: true }));
       await Promise.resolve();
     });

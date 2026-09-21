@@ -9,6 +9,7 @@ import { DecisionThreadEvidenceSpine } from "@simwar/ui";
 import "./gsi-xr.css";
 
 export const GSI_AUDIT_PATH = "/api/v1/bff/admin/gsi/audit";
+const DDT_AUTHORIZED_ACTIVITY_ID = "activity_consequence";
 const PAIR_SELECTION_MESSAGE =
   "服务器尚未提供可用的回合配对列表。请先提供受控课程、运行和队伍上下文，再选择两个精确回合。";
 
@@ -194,7 +195,6 @@ export function GovernedStakeholderIntelligenceAuditPanel({
       !courseId.trim() ||
       !runId.trim() ||
       !teamId.trim() ||
-      !activityId.trim() ||
       !roleKey.trim() ||
       !ddtRoundId.trim() ||
       !Number.isSafeInteger(roundNo) ||
@@ -203,7 +203,7 @@ export function GovernedStakeholderIntelligenceAuditPanel({
       return undefined;
     }
     return {
-      activity_id: activityId.trim(),
+      activity_id: DDT_AUTHORIZED_ACTIVITY_ID,
       course_id: courseId.trim(),
       role_key: roleKey.trim(),
       round_id: ddtRoundId.trim(),
@@ -212,7 +212,7 @@ export function GovernedStakeholderIntelligenceAuditPanel({
       team_id: teamId.trim(),
       tenant_id: tenantId
     };
-  }, [activityId, courseId, ddtRoundId, ddtRoundNo, roleKey, runId, teamId, tenantId]);
+  }, [courseId, ddtRoundId, ddtRoundNo, roleKey, runId, teamId, tenantId]);
 
   function invalidateComparisonSelection(): void {
     comparisonRequestId.current += 1;
