@@ -222,7 +222,7 @@ describe("GSI-XR Teacher/Admin experience", () => {
     expect(markup).toContain("服务器尚未提供可用的回合配对列表");
   });
 
-  it("keeps Admin selected-tenant provenance and no-write/non-causal markers visible", () => {
+  it("keeps Admin provenance secondary and collapsed with no-write/non-causal markers", () => {
     const markup = renderToStaticMarkup(
       <GovernedStakeholderIntelligenceAuditPanel
         apiBase="http://api.test"
@@ -233,6 +233,9 @@ describe("GSI-XR Teacher/Admin experience", () => {
     );
     expect(markup).toContain("审计两个回合");
     expect(markup).toContain("tenant_demo");
+    expect(markup).toContain("gsi-xr-admin-provenance-details");
+    expect(markup).toContain("Technical provenance (secondary)");
+    expect(markup).not.toContain("gsi-xr-admin-provenance-details open");
     expect(markup).toContain("context_binding");
     expect(markup).toContain("NON-CAUSAL");
     expect(markup).toContain("不写入正式 Decision / Settlement / Outcome");

@@ -711,17 +711,20 @@ export function GovernedStakeholderIntelligenceAuditPanel({
           <p className="gsi-xr-non-causal">
             NON-CAUSAL · causal_proof=false · official_truth_write=false
           </p>
-          <div className="gsi-xr-admin-provenance">
-            <strong>Exact pair provenance</strong>
-            <span>
-              {comparisonState.data.comparison.pair.from.candidate_id} →{" "}
-              {comparisonState.data.comparison.pair.to.candidate_id}
-            </span>
-            <span>tenant echo: {comparisonState.data.tenant_id}</span>
-            <span>
-              context_binding: {JSON.stringify(comparisonState.data.context.context_binding)}
-            </span>
-          </div>
+          <details className="gsi-xr-admin-provenance-details">
+            <summary>Technical provenance (secondary)</summary>
+            <div className="gsi-xr-admin-provenance">
+              <strong>Exact pair provenance</strong>
+              <span>
+                {comparisonState.data.comparison.pair.from.candidate_id} →{" "}
+                {comparisonState.data.comparison.pair.to.candidate_id}
+              </span>
+              <span>tenant echo: {comparisonState.data.tenant_id}</span>
+              <span>
+                context_binding: {JSON.stringify(comparisonState.data.context.context_binding)}
+              </span>
+            </div>
+          </details>
           <ul className="gsi-xr-movement-list">
             {comparisonState.data.comparison.movements.map((movement) => (
               <li key={movement.signal_key}>

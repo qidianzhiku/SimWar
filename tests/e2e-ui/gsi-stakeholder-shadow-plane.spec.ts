@@ -266,8 +266,13 @@ test("GSI-XR role journey resolves an explicit pair through the real BFF", async
   await adminPanel.getByLabel("GSI admin to round").selectOption(roundTwoId);
   await adminPanel.getByRole("button", { name: "读取审计变化" }).click();
   await expect(adminPanel.getByText("上升")).toBeVisible();
-  await expect(adminPanel).toContainText("context_binding");
-  await expect(adminPanel).toContainText("false");
+  const adminProvenance = adminPanel.locator("details.gsi-xr-admin-provenance-details");
+  await expect(adminProvenance).toBeVisible();
+  await expect(adminProvenance).not.toHaveAttribute("open", "");
+  await adminProvenance.locator("summary").click();
+  await expect(adminProvenance).toHaveAttribute("open", "");
+  await expect(adminProvenance).toContainText("context_binding");
+  await expect(adminPanel).toContainText("official_truth_write=false");
   await captureResponsiveEvidence(page, "admin");
 
   expect(gsiRequests.filter((url) => url.includes("/teacher/gsi/")).length).toBeGreaterThan(0);
