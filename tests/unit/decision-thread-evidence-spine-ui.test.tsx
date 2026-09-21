@@ -234,6 +234,109 @@ describe("Decision Thread Evidence Spine UI", () => {
     await act(async () => root.unmount());
   });
 
+  it("keeps unaffected sources visible when one source requires rebase", async () => {
+    const pairOptions = {
+      surface: "teacher",
+      context: {
+        tenant_id: context.tenant_id,
+        course_id: context.course_id,
+        run_id: context.run_id,
+        team_id: context.team_id,
+        activity_id: context.activity_id,
+        role_key: context.role_key
+      },
+      rounds: [],
+      provider: "OFF",
+      official_truth_write: false,
+      non_causal: true,
+      causal_proof: false,
+      known_limits: ["Read-only evidence"]
+    };
+    const rebase = responseFor("teacher");
+    rebase.sources[0]!.summary = "unaffected-learning-source";
+    rebase.sources[3]!.status = "REBASE_REQUIRED";
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => ({
+      ok: true,
+      json: async () => ({ data: String(input).includes("pair-options") ? pairOptions : rebase })
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        <DecisionThreadEvidenceSpine
+          apiBase="http://fixture"
+          context={context}
+          surface="teacher"
+          tenantId="tenant-private"
+          token="token"
+        />
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await vi.waitFor(() => expect(host.textContent).toContain("需要重新绑定"));
+    expect(host.textContent).toContain("unaffected-learning-source");
+    expect(host.querySelector('[data-source="M2P6"]')).not.toBeNull();
+    await act(async () => root.unmount());
+  });
+
+  it("restricts the target selector to the context round", async () => {
+    const pairOptions = {
+      surface: "teacher",
+      context: {
+        tenant_id: context.tenant_id,
+        course_id: context.course_id,
+        run_id: context.run_id,
+        team_id: context.team_id,
+        activity_id: context.activity_id,
+        role_key: context.role_key
+      },
+      rounds: [
+        { round_id: "round-old", round_no: 1 },
+        { round_id: "round-current", round_no: 2 },
+        { round_id: "round-newer", round_no: 3 }
+      ],
+      provider: "OFF",
+      official_truth_write: false,
+      non_causal: true,
+      causal_proof: false,
+      known_limits: ["Read-only evidence"]
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => ({
+      ok: true,
+      json: async () => ({
+        data: String(input).includes("pair-options") ? pairOptions : responseFor("teacher")
+      })
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        <DecisionThreadEvidenceSpine
+          apiBase="http://fixture"
+          context={context}
+          surface="teacher"
+          tenantId="tenant-private"
+          token="token"
+        />
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await vi.waitFor(() => expect(host.querySelectorAll("select")).toHaveLength(2));
+    const selects = [...host.querySelectorAll("select")] as HTMLSelectElement[];
+    expect([...selects[0]!.options].map((option) => option.value)).toEqual([
+      "",
+      "round-old",
+      "round-current",
+      "round-newer"
+    ]);
+    expect([...selects[1]!.options].map((option) => option.value)).toEqual(["", "round-current"]);
+    await act(async () => root.unmount());
+  });
+
   it("surfaces a stale source as a stale thread state", async () => {
     const pairOptions = {
       surface: "teacher",

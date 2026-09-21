@@ -233,6 +233,13 @@ describe("Decision Thread Evidence Spine service", () => {
     );
   });
 
+  it("preserves rebase-required precedence over stale producer evidence", () => {
+    expect(classifyIndustryModelStatus("REBASE_REQUIRED", "STALE")).toBe("REBASE_REQUIRED");
+    expect(classifyIndustryModelStatus("REBASE_REQUIRED", [{ freshness: "STALE" }])).toBe(
+      "REBASE_REQUIRED"
+    );
+  });
+
   it.each([
     [["FRESH"], "AVAILABLE"],
     [["STALE"], "STALE"],

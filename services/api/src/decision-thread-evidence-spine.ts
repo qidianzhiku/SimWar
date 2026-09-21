@@ -407,12 +407,12 @@ export function classifyIndustryModelStatus(
     | "UNKNOWN"
     | undefined
 ): DdtEvidenceStatus {
+  if (readinessStatus === "REBASE_REQUIRED") return "REBASE_REQUIRED";
   if (
     provability === "STALE" ||
     (Array.isArray(provability) && provability.some((entry) => entry.freshness === "STALE"))
   )
     return "STALE";
-  if (readinessStatus === "REBASE_REQUIRED") return "REBASE_REQUIRED";
   if (readinessStatus === "READY") return "AVAILABLE";
   if (readinessStatus === "READY_WITH_LIMITS") return "LIMITED";
   return "CONTEXT_UNAVAILABLE";
