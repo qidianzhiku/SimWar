@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import type {
   CoursePackageVersionReference,
+  TeacherScenarioStudioActivationDto,
   TeacherScenarioStudioCatalogDto,
   TeacherScenarioStudioConfiguration,
   TeacherScenarioStudioDraftDto,
@@ -18,6 +19,7 @@ import {
   activateTeacherScenarioStudio,
   createTeacherScenarioStudioDraft,
   freezeTeacherScenarioStudio,
+  getTeacherScenarioStudioModelSelection,
   loadTeacherScenarioStudioCatalog,
   previewTeacherScenarioStudio,
   TeacherScenarioStudioRequestError,
@@ -43,9 +45,10 @@ type StudioPhase =
   | "REAUTH_REQUIRED"
   | "STALE"
   | "CONFLICT"
-  | "UNKNOWN_COMMAND_RESULT";
+  | "UNKNOWN_COMMAND_RESULT"
+  | "BLOCKED";
 type LifecycleStage =
-  "SOURCE_SELECTION" | "DRAFT" | "VALIDATED" | "FROZEN" | "PREVIEWED" | "ACTIVATED";
+  "SOURCE_SELECTION" | "DRAFT" | "VALIDATED" | "FROZEN" | "PREVIEWED" | "ACTIVATED" | "BLOCKED";
 
 const emptyModuleConfiguration =
   (): TeacherScenarioStudioConfiguration["module_configuration"] => ({
@@ -108,7 +111,8 @@ export function TeacherScenarioStudio(props: {
   const [draft, setDraft] = useState<TeacherScenarioStudioDraftDto | null>(null);
   const [validation, setValidation] = useState<TeacherScenarioStudioValidationDto | null>(null);
   const [preview, setPreview] = useState<TeacherScenarioStudioPreviewDto | null>(null);
-  const [activationCourseId, setActivationCourseId] = useState<string | null>(null);
+  const [activationReceipt, setActivationReceipt] =
+    useState<TeacherScenarioStudioActivationDto | null>(null);
   const [phase, setPhase] = useState<StudioPhase>("IDLE");
   const [error, setError] = useState<string | null>(null);
   const requestEpochRef = useRef(0);
@@ -123,6 +127,10 @@ export function TeacherScenarioStudio(props: {
     (model) => model.model_version_ref === selectedModelVersionRef
   );
   const modelVersionRef = selectedModel?.model_version_ref ?? "";
+  const modelSelection = getTeacherScenarioStudioModelSelection(
+    catalog ?? { model_versions: [] },
+    selectedModelVersionRef
+  );
 
   const draftInput = useMemo(() => {
     if (!selectedBlueprint || !selectedScenario || !modelVersionRef) return null;
@@ -198,7 +206,7 @@ export function TeacherScenarioStudio(props: {
     setReference(null);
     setValidation(null);
     setPreview(null);
-    setActivationCourseId(null);
+    setActivationReceipt(null);
     setSelectedModelVersionRef("");
     await run(
       (signal) =>
@@ -255,7 +263,7 @@ export function TeacherScenarioStudio(props: {
         setReference(nextDraft.course_package_reference);
         setValidation(null);
         setPreview(null);
-        setActivationCourseId(null);
+        setActivationReceipt(null);
       },
       { ambiguousTransport: true }
     );
@@ -319,27 +327,31 @@ export function TeacherScenarioStudio(props: {
           signal,
           token: props.token
         }),
-      (result) => setActivationCourseId(result.course.course_id),
+      (result) => setActivationReceipt(result),
       { ambiguousTransport: true }
     );
   }
 
-  const stage: LifecycleStage = activationCourseId
+  const stage: LifecycleStage = activationReceipt
     ? "ACTIVATED"
-    : preview
-      ? "PREVIEWED"
-      : draft?.status === "FROZEN"
-        ? "FROZEN"
-        : validation
-          ? "VALIDATED"
-          : draft
-            ? "DRAFT"
-            : "SOURCE_SELECTION";
+    : validation?.status === "BLOCKED"
+      ? "BLOCKED"
+      : preview
+        ? "PREVIEWED"
+        : draft?.status === "FROZEN"
+          ? "FROZEN"
+          : validation
+            ? "VALIDATED"
+            : draft
+              ? "DRAFT"
+              : "SOURCE_SELECTION";
   const hasApprovedSources = Boolean(
     catalog && catalog.course_blueprints.length > 0 && catalog.scenario_packages.length > 0
   );
   const hasApprovedModel = Boolean(catalog && catalog.model_versions.length > 0);
-  const sourceReady = Boolean(hasApprovedSources && hasApprovedModel && draftInput);
+  const sourceReady = Boolean(
+    hasApprovedSources && modelSelection.kind === "SELECTED" && draftInput
+  );
   const disabled = phase === "LOADING";
   const primaryActionLabel: Record<LifecycleStage, string> = {
     SOURCE_SELECTION: "创建 DRAFT",
@@ -347,7 +359,8 @@ export function TeacherScenarioStudio(props: {
     VALIDATED: "下一步：冻结候选",
     FROZEN: "下一步：Teacher 预览",
     PREVIEWED: "下一步：激活到 Course",
-    ACTIVATED: "Course 已交接，Run 未激活"
+    ACTIVATED: "Course 已交接，Run 未激活",
+    BLOCKED: "检查并恢复 exact source"
   };
   const primaryDisabled =
     disabled ||
@@ -359,6 +372,7 @@ export function TeacherScenarioStudio(props: {
     (stage === "PREVIEWED" && (!reference || !draft));
 
   async function runPrimaryAction(): Promise<void> {
+    if (stage === "BLOCKED") return loadCatalog();
     if (stage === "SOURCE_SELECTION") return createDraft();
     if (stage === "DRAFT") return validateDraft();
     if (stage === "VALIDATED") return freezeDraft();
@@ -405,6 +419,15 @@ export function TeacherScenarioStudio(props: {
         status="blocked"
         message="没有可用的 approved ModelVersion source；Create DRAFT 保持禁用。"
         recoveryAction="刷新 approved ModelVersion catalog"
+        onRecover={() => void loadCatalog()}
+      />
+    );
+  } else if (validation?.status === "BLOCKED") {
+    statePanel = (
+      <StatePanel
+        status="blocked"
+        message="当前候选未通过 readiness 检查；请先检查 exact source，不会盲目重放操作。"
+        recoveryAction="刷新 exact source catalog"
         onRecover={() => void loadCatalog()}
       />
     );
@@ -594,11 +617,21 @@ export function TeacherScenarioStudio(props: {
               {preview.role_safe_preview.module_labels.join(", ")}
             </p>
           ) : null}
-          {activationCourseId ? (
-            <p className="evidence-note" role="status">
-              已通过现有 Course/formal binding writers 创建 Course：{activationCourseId}。Run
-              activation 仍交由现有 Run writer。
-            </p>
+          {activationReceipt ? (
+            <section
+              className="tss-evidence tss-course-receipt"
+              aria-label="Course handoff receipt"
+              data-testid="tss-course-receipt"
+            >
+              <h3>Course handoff receipt</h3>
+              <p>Course ID：{activationReceipt.course.course_id}</p>
+              <p>Course status：{activationReceipt.course.status}</p>
+              <p>Activation status：{activationReceipt.activation.status}</p>
+              <p>Activation writer：{activationReceipt.activation.writer}</p>
+              <p>Run activation：{activationReceipt.activation.run_activation}</p>
+              <p>Course receipt != Run activation。</p>
+              <p>Run 创建与激活继续交由现有 server-owned Run writer。</p>
+            </section>
           ) : null}
         </div>
         <details className="tss-inspector">

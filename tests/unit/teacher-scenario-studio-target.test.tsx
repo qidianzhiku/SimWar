@@ -14,6 +14,18 @@ vi.mock("../../apps/teacher/src/teacher-scenario-studio-client", () => ({
   activateTeacherScenarioStudio: vi.fn(),
   createTeacherScenarioStudioDraft: vi.fn(),
   freezeTeacherScenarioStudio: vi.fn(),
+  getTeacherScenarioStudioModelSelection: (
+    catalog: TeacherScenarioStudioCatalogDto,
+    selected: string
+  ) =>
+    selected && catalog.model_versions.some((model) => model.model_version_ref === selected)
+      ? { kind: "SELECTED", modelVersionRef: selected }
+      : catalog.model_versions.length > 0
+        ? {
+            kind: "REQUIRES_SELECTION",
+            options: catalog.model_versions.map((model) => model.model_version_ref)
+          }
+        : { kind: "SOURCE_UNAVAILABLE" },
   loadTeacherScenarioStudioCatalog: vi.fn(),
   previewTeacherScenarioStudio: vi.fn(),
   TeacherScenarioStudioRequestError: class extends Error {

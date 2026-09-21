@@ -49,10 +49,15 @@ test("Teacher completes the real-BFF Scenario Studio product journey", async ({ 
   await expect(studio.getByText(/Teacher-only coupled preview/)).toBeVisible();
   await expect(primary).toHaveText("下一步：激活到 Course");
   await primary.click();
+  await expect(studio.getByTestId("tss-course-receipt")).toBeVisible();
+  await expect(studio.getByText(/Course ID：/)).toBeVisible();
   await expect(
-    studio.getByText(/已通过现有 Course\/formal binding writers 创建 Course/)
+    studio.getByText(/Activation writer：EXISTING_COURSE_AND_FORMAL_AUTHORITY_BINDING_WRITERS/)
   ).toBeVisible();
-  await expect(studio.getByText(/Run activation 仍交由现有 Run writer/)).toBeVisible();
+  await expect(studio.getByText(/Run activation：DEFERRED_TO_EXISTING_RUN_WRITER/)).toBeVisible();
+  await expect(
+    studio.getByText(/Run 创建与激活继续交由现有 server-owned Run writer/)
+  ).toBeVisible();
   await expect(primary).toHaveText("Course 已交接，Run 未激活");
 });
 test("Student has no Scenario Studio entry point", async ({ page }) => {
