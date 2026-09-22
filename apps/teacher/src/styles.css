@@ -874,11 +874,13 @@ h3 {
   padding: 0;
 }
 
-.tag-list li {
-  background: #eef4f3;
-  border: 1px solid #d8e3e7;
-  border-radius: 7px;
-  padding: 5px 8px;
+.tag-list > label {
+  display: flex;
+  flex: 0 1 calc(50% - 4px);
+}
+
+.tag-list input {
+  flex: 0 0 44px;
 }
 
 .phase-row,
@@ -1701,15 +1703,4 @@ h3 {
   color: var(--sw-color-brand-primary-accessible);
   border-color: var(--sw-color-brand-primary-accessible);
   border-radius: var(--sw-radius-button);
-}
-
-.tss-task-layout {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-}
-
-@media (max-width: 1100px) {
-  .tss-task-layout {
-    display: block;
-  }
 }

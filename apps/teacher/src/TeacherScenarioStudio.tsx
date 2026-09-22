@@ -480,7 +480,7 @@ export function TeacherScenarioStudio(props: {
         <span>模式</span>
         <strong>DRAFT_ONLY</strong>
       </div>
-      <div className="tss-task-layout">
+      <div className="workspace">
         <div className="tss-task-canvas">
           <p className="evidence-note">
             先确认客户任务，再执行一个合法的生命周期下一步。Provider 保持 OFF，custom parameters
