@@ -111,7 +111,8 @@ export default defineConfig({
         VITE_SIMWAR_PROJECT_AWARE_RUN_ID:
           process.env.SIMWAR_PLAYWRIGHT_M2_PROJECT_AWARE === "true"
             ? "run_m2_p3_project_aware_browser"
-            : ""
+            : "",
+        VITE_SIMWAR_STUDENT_BASE_URL: studentBaseUrl
       },
       reuseExistingServer: false,
       timeout: 180_000,

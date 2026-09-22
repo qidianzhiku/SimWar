@@ -243,3 +243,68 @@ describe("GSI-XR Teacher/Admin experience", () => {
     expect(markup).toContain("不依赖 GSI 比较配对");
   });
 });
+it("generates a Student handoff from ready exact context without candidate identifiers", () => {
+  const markup = renderToStaticMarkup(
+    <GovernedStakeholderIntelligenceWorkspace
+      apiBase="http://api.test"
+      studentAppBaseUrl="http://student.test/"
+      binding={{
+        tenant_id: "tenant_demo",
+        course_id: "course_demo",
+        run_id: "run_demo",
+        round_id: "round_1",
+        round_no: 1,
+        activity_id: "activity_gsi_xr",
+        role_key: "CEO",
+        team_id: "team_demo",
+        scenario_package_id: "scenario_demo",
+        scenario_version: "1.0.0",
+        parameter_set_id: "parameter_demo",
+        parameter_set_version: "1.0.0",
+        model_version_id: "model_demo",
+        model_version: "1.0.0",
+        model_artifact_id: "artifact_demo",
+        model_artifact_version: "1.0.0"
+      }}
+      tenantId="tenant_demo"
+      token="token"
+      initialComparison={teacherComparison}
+    />
+  );
+  const handoff = markup
+    .match(/href="([^"]+)"[^>]*>生成 Student 学习查看链接/)?.[1]
+    ?.replaceAll("&amp;", "&");
+  expect(handoff).toBe(
+    "http://student.test/?gsi_course_id=course_demo&gsi_run_id=run_demo&gsi_team_id=team_demo&gsi_activity_id=activity_gsi_xr&gsi_role_key=CEO"
+  );
+  expect(handoff).not.toContain("candidate_");
+  expect(handoff).not.toContain("comparison_digest");
+});
+
+it("does not expose a Student handoff before an exact comparison is ready", () => {
+  const markup = renderToStaticMarkup(
+    <GovernedStakeholderIntelligenceWorkspace
+      apiBase="http://api.test"
+      studentAppBaseUrl="http://student.test/"
+      binding={{
+        tenant_id: "tenant_demo",
+        course_id: "course_demo",
+        run_id: "run_demo",
+        round_id: "round_1",
+        team_id: "team_demo",
+        scenario_package_id: "scenario_demo",
+        scenario_version: "1.0.0",
+        parameter_set_id: "parameter_demo",
+        parameter_set_version: "1.0.0",
+        model_version_id: "model_demo",
+        model_version: "1.0.0",
+        model_artifact_id: "artifact_demo",
+        model_artifact_version: "1.0.0"
+      }}
+      tenantId="tenant_demo"
+      token="token"
+    />
+  );
+  expect(markup).not.toContain("生成 Student 学习查看链接");
+  expect(markup).not.toContain("gsi_course_id=course_demo");
+});

@@ -15,6 +15,7 @@ export interface GovernedStakeholderIntelligenceWorkspaceProps {
   token: string;
   proposals?: readonly GSIProposal[];
   initialComparison?: GSICrossRoundTeacherProjection;
+  studentAppBaseUrl?: string;
 }
 
 const DEFAULT_PROPOSALS: readonly GSIProposal[] = [
@@ -112,13 +113,35 @@ function valueLabel(value: number | undefined): string {
   return value === undefined ? "未提供（不是数值 0）" : value.toFixed(3);
 }
 
+export function buildStudentGsiHandoffUrl(
+  baseUrl: string,
+  context: {
+    course_id: string;
+    run_id: string;
+    team_id: string;
+    activity_id: string;
+    role_key: string;
+  }
+): string {
+  const url = new URL(baseUrl);
+  url.search = new URLSearchParams({
+    gsi_course_id: context.course_id,
+    gsi_run_id: context.run_id,
+    gsi_team_id: context.team_id,
+    gsi_activity_id: context.activity_id,
+    gsi_role_key: context.role_key
+  }).toString();
+  return url.toString();
+}
+
 export function GovernedStakeholderIntelligenceWorkspace({
   apiBase,
   binding,
   tenantId,
   token,
   proposals = DEFAULT_PROPOSALS,
-  initialComparison
+  initialComparison,
+  studentAppBaseUrl = "http://localhost:3102/"
 }: GovernedStakeholderIntelligenceWorkspaceProps) {
   const [receipt, setReceipt] = useState<GSIReceipt | null>(null);
   const [busy, setBusy] = useState(false);
@@ -532,6 +555,22 @@ export function GovernedStakeholderIntelligenceWorkspace({
           <p className="gsi-xr-non-causal">
             NON-CAUSAL · causal_proof=false · Provider OFF · official_truth_write=false
           </p>
+          <div className="gsi-xr-handoff">
+            <a
+              href={buildStudentGsiHandoffUrl(studentAppBaseUrl, {
+                ...binding,
+                activity_id: activityId.trim(),
+                role_key: roleKey.trim()
+              })}
+              target="_blank"
+              rel="noreferrer"
+            >
+              生成 Student 学习查看链接
+            </a>
+            <p className="gsi-xr-muted">
+              仅携带 exact context；Student 继续通过既有 BFF 读取角色安全的描述性投影。
+            </p>
+          </div>
           <ul className="gsi-xr-movement-list">
             {comparisonState.data.comparison.movements.map((movement) => (
               <li key={movement.signal_key}>
