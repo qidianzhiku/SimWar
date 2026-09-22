@@ -92,3 +92,35 @@ candidate_backlog:
   - candidate_id: M2P6-NEXT-PENDING-OWNER-DIRECTION
     status: NOT_STARTED_PENDING_OWNER_DIRECTION
     reason: No automatic successor start is authorized; the next wave requires fresh current reality and explicit owner direction.
+
+operating_model_vnext_adoption:
+  model: MODEL_B
+  status: ADOPTED_CONDITIONAL_ON_LIVE_MACRO_PROOF
+  recorded_at: "2026-09-22T00:00:00Z"
+  source_sha: 91569bd7396899589acbca324bc68d8ece660366
+  product_authority: MAIN
+  program_controller: COORDINATION_REGISTRY_EVIDENCE_ONLY
+  clock_rules:
+    product_authority_clock: MAIN_PRODUCT_INTENT_AND_CLOSURE
+    lane_delivery_clock: BOUNDED_TYPED_DEMAND_AND_CONSUMER_HORIZON
+    integration_window: EXPLICIT_LEASED_MAIN_ADMISSION
+    shared_validation_clock: LAYERED_RECEIPT_AWARE_VALIDATION
+  status_taxonomy:
+    - PREPARED
+    - DELIVERED
+    - ACKNOWLEDGED
+    - DECIDED
+    - INTEGRATED
+    - CONSUMED
+    - SUPERSEDED
+    - TOMBSTONED
+  current_product_macro: NOT_AVAILABLE
+  next_candidate: M2P6-NEXT-PENDING-OWNER-DIRECTION
+  automatic_next_start: false
+  human_validation: NOT_PERFORMED
+  pilot: NOT_AUTHORIZED
+  production: NOT_AUTHORIZED
+  adoption_limits:
+    - Requires a live owner-authorized Product Macro with a real consumer for operational proof.
+    - Does not create a second Product Authority, truth store, writer, settlement, replay, RBAC, runtime store, or database.
+    - Does not close or start a successor task.
