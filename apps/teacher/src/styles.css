@@ -1704,3 +1704,20 @@ h3 {
   border-color: var(--sw-color-brand-primary-accessible);
   border-radius: var(--sw-radius-button);
 }
+.tss-source-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
+.tss-source-grid label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tss-source-grid select {
+  min-width: 44px;
+  width: 100%;
+}
