@@ -182,8 +182,33 @@ describe("KG-O3B1 Query Contract V2.1", () => {
   });
 
   it.each([
-    ["SHA case", TARGET.toUpperCase(), TARGET_TREE, "TARGET_SHA_MISMATCH"],
-    ["tree whitespace", TARGET, ` ${TARGET_TREE} `, "TARGET_TREE_MISMATCH"]
+    ["SHA", "UNKNOWN", "UNKNOWN", TARGET_TREE, TARGET_TREE, "TARGET_SHA_INVALID"],
+    ["tree", TARGET, TARGET, "UNKNOWN", "UNKNOWN", "TARGET_TREE_INVALID"]
+  ])(
+    "rejects matching malformed %s identity placeholders",
+    (_name, targetSha, observedSha, targetTree, observedTree, reason) => {
+      const route = routeGraphSupportQuestion({
+        risk_class: "G2",
+        source_readback_resolved: true,
+        codegraph_available: true,
+        codegraph_observed: true,
+        codegraph_execution_status: "PASS",
+        codegraph_relevance: "RELEVANT",
+        codegraph_coverage: "COMPLETE",
+        target_sha: targetSha,
+        target_tree: targetTree,
+        codegraph_target_sha: observedSha,
+        codegraph_target_tree: observedTree
+      });
+      expect(route.codegraph_admitted).toBe(false);
+      expect(route.codegraph_admission_reason).toBe(reason);
+      expect(route.question_admission).toBe("SOURCE_FALLBACK");
+    }
+  );
+
+  it.each([
+    ["SHA case", TARGET.toUpperCase(), TARGET_TREE, "TARGET_SHA_INVALID"],
+    ["tree whitespace", TARGET, ` ${TARGET_TREE} `, "TARGET_TREE_INVALID"]
   ])("rejects a target binding with a %s difference", (_name, observedSha, observedTree, reason) => {
     const route = routeGraphSupportQuestion({
       risk_class: "G2",

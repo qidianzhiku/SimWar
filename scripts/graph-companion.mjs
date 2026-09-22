@@ -2305,6 +2305,10 @@ function exactIdentity(value) {
   return typeof value === "string" ? value : "";
 }
 
+function isGitObjectId(value) {
+  return /^[0-9a-f]{40}$/.test(value);
+}
+
 function deriveCodeGraphAdmission(input = {}) {
   const value = input && typeof input === "object" ? input : {};
   const observed = value.codegraph_observed === true;
@@ -2327,10 +2331,14 @@ function deriveCodeGraphAdmission(input = {}) {
     return { admitted: false, observed, reason: "TARGET_BINDING_NOT_PROVIDED" };
   if (!targetSha || !observedTargetSha)
     return { admitted: false, observed, reason: "TARGET_SHA_NOT_BOUND" };
+  if (!isGitObjectId(targetSha) || !isGitObjectId(observedTargetSha))
+    return { admitted: false, observed, reason: "TARGET_SHA_INVALID" };
   if (targetSha !== observedTargetSha)
     return { admitted: false, observed, reason: "TARGET_SHA_MISMATCH" };
   if (!targetTree || !observedTargetTree)
     return { admitted: false, observed, reason: "TARGET_TREE_NOT_BOUND" };
+  if (!isGitObjectId(targetTree) || !isGitObjectId(observedTargetTree))
+    return { admitted: false, observed, reason: "TARGET_TREE_INVALID" };
   if (targetTree !== observedTargetTree)
     return { admitted: false, observed, reason: "TARGET_TREE_MISMATCH" };
   return { admitted: true, observed, reason: "CODEGRAPH_ADMITTED" };
