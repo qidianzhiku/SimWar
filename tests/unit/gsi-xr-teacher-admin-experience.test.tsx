@@ -250,13 +250,13 @@ it("generates a Student handoff from ready exact context without candidate ident
       studentAppBaseUrl="http://student.test/"
       binding={{
         tenant_id: "tenant_demo",
-        course_id: "course_demo",
-        run_id: "run_demo",
+        course_id: "outer_course",
+        run_id: "outer_run",
         round_id: "round_1",
         round_no: 1,
-        activity_id: "activity_gsi_xr",
-        role_key: "CEO",
-        team_id: "team_demo",
+        activity_id: "outer_activity",
+        role_key: "CFO",
+        team_id: "outer_team",
         scenario_package_id: "scenario_demo",
         scenario_version: "1.0.0",
         parameter_set_id: "parameter_demo",
@@ -275,7 +275,7 @@ it("generates a Student handoff from ready exact context without candidate ident
     .match(/href="([^"]+)"[^>]*>生成 Student 学习查看链接/)?.[1]
     ?.replaceAll("&amp;", "&");
   expect(handoff).toBe(
-    "http://student.test/?gsi_course_id=course_demo&gsi_run_id=run_demo&gsi_team_id=team_demo&gsi_activity_id=activity_gsi_xr&gsi_role_key=CEO"
+    "http://student.test/?gsi_course_id=course_demo&gsi_run_id=run_demo&gsi_team_id=team_demo&gsi_activity_id=activity_demo&gsi_role_key=CEO"
   );
   expect(handoff).not.toContain("candidate_");
   expect(handoff).not.toContain("comparison_digest");

@@ -141,7 +141,7 @@ export function GovernedStakeholderIntelligenceWorkspace({
   token,
   proposals = DEFAULT_PROPOSALS,
   initialComparison,
-  studentAppBaseUrl = "http://localhost:3102/"
+  studentAppBaseUrl = "http://localhost:3002/"
 }: GovernedStakeholderIntelligenceWorkspaceProps) {
   const [receipt, setReceipt] = useState<GSIReceipt | null>(null);
   const [busy, setBusy] = useState(false);
@@ -557,11 +557,10 @@ export function GovernedStakeholderIntelligenceWorkspace({
           </p>
           <div className="gsi-xr-handoff">
             <a
-              href={buildStudentGsiHandoffUrl(studentAppBaseUrl, {
-                ...binding,
-                activity_id: activityId.trim(),
-                role_key: roleKey.trim()
-              })}
+              href={buildStudentGsiHandoffUrl(
+                studentAppBaseUrl,
+                comparisonState.data.context.context
+              )}
               target="_blank"
               rel="noreferrer"
             >
