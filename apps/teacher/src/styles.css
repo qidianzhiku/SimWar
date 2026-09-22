@@ -720,6 +720,20 @@ h3 {
   padding-top: 10px;
 }
 
+.teacher-scenario-studio {
+  container-type: inline-size;
+}
+
+@container (max-width: 760px) {
+  .teacher-scenario-studio .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.teacher-scenario-studio .workspace > * {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+}
 .metric,
 .panel {
   background: #fff;
