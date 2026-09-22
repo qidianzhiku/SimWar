@@ -1,0 +1,51 @@
+{
+  "schema_version": "simwar-uiux-v2-validation-receipt.v1",
+  "worktree": "D:\\codex\\simwar-uiux-v2-phase1",
+  "head": "91569bd7396899589acbca324bc68d8ece660366",
+  "tree_before_phase1": "9c4c42117d3f331eeadb4fdaa6cb82788c723dd0",
+  "commands": [
+    {
+      "command": "npm run typecheck",
+      "status": "PASS"
+    },
+    {
+      "command": "npm run lint",
+      "status": "PASS"
+    },
+    {
+      "command": "npx vitest run tests/unit/uiux-v2-foundation.test.ts tests/unit/uiux-v2-registry.test.ts",
+      "status": "PASS",
+      "tests": 8
+    },
+    {
+      "command": "npm run build",
+      "status": "PASS"
+    },
+    {
+      "command": "npm run build:storybook",
+      "status": "PASS",
+      "storybook_version": "10.6.0"
+    },
+    {
+      "command": "npm test",
+      "status": "FAIL_WITH_UNRELATED_LIMITS",
+      "files_passed": 451,
+      "tests_passed": 2587,
+      "files_failed": 3,
+      "tests_failed": 6,
+      "failures": [
+        "tests/integration/course-factory-lifecycle.test.ts timeout",
+        "tests/unit/course-factory.test.ts three timeouts",
+        "tests/unit/store-snapshot-persistence.test.ts two timeouts",
+        "scripts/assemble-mod-support-evidence.mjs rejected repository-root/existing-directory output"
+      ]
+    }
+  ],
+  "package_manager": "npm",
+  "lockfile_mutated_by_phase1": true,
+  "product_code_scope": "packages/ui foundation contract and Storybook only",
+  "product_contracts_mutated": false,
+  "domain_truth_mutated": false,
+  "product_acceptance": "NOT_RUN",
+  "human_validation": "NOT_RUN"
+}
