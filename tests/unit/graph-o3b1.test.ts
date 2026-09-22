@@ -10,6 +10,7 @@ import {
 } from "../../scripts/graph-companion.mjs";
 
 const TARGET = "a".repeat(40);
+const TARGET_TREE = "b".repeat(40);
 
 describe("KG-O3B1 Query Contract V2.1", () => {
   it("keeps command success separate from admission when relevance is absent", () => {
@@ -115,6 +116,93 @@ describe("KG-O3B1 Query Contract V2.1", () => {
     expect(route.question_admission).toBe("SOURCE_FALLBACK");
   });
 
+  it("ignores a caller-supplied CodeGraph admission assertion", () => {
+    const route = routeGraphSupportQuestion({
+      risk_class: "G3",
+      source_readback_resolved: true,
+      codegraph_available: true,
+      codegraph_admitted: true
+    });
+    expect(route.codegraph_observed).toBe(false);
+    expect(route.codegraph_admitted).toBe(false);
+    expect(route.question_admission).toBe("SOURCE_FALLBACK");
+  });
+
+  it("rejects an otherwise qualified G2 observation without exact target bindings", () => {
+    const route = routeGraphSupportQuestion({
+      risk_class: "G2",
+      source_readback_resolved: true,
+      codegraph_available: true,
+      codegraph_observed: true,
+      codegraph_execution_status: "PASS",
+      codegraph_relevance: "RELEVANT",
+      codegraph_coverage: "COMPLETE"
+    });
+    expect(route.codegraph_admitted).toBe(false);
+    expect(route.codegraph_admission_reason).toBe("TARGET_BINDING_NOT_PROVIDED");
+    expect(route.question_admission).toBe("SOURCE_FALLBACK");
+  });
+
+  it("rejects a G2 observation whose target SHA differs", () => {
+    const route = routeGraphSupportQuestion({
+      risk_class: "G2",
+      source_readback_resolved: true,
+      codegraph_available: true,
+      codegraph_observed: true,
+      codegraph_execution_status: "PASS",
+      codegraph_relevance: "RELEVANT",
+      codegraph_coverage: "COMPLETE",
+      target_sha: TARGET,
+      target_tree: TARGET_TREE,
+      codegraph_target_sha: "c".repeat(40),
+      codegraph_target_tree: TARGET_TREE
+    });
+    expect(route.codegraph_admitted).toBe(false);
+    expect(route.codegraph_admission_reason).toBe("TARGET_SHA_MISMATCH");
+    expect(route.question_admission).toBe("SOURCE_FALLBACK");
+  });
+
+  it("rejects a G3 observation whose target tree differs", () => {
+    const route = routeGraphSupportQuestion({
+      risk_class: "G3",
+      source_readback_resolved: true,
+      codegraph_available: true,
+      codegraph_observed: true,
+      codegraph_execution_status: "PASS",
+      codegraph_relevance: "RELEVANT",
+      codegraph_coverage: "COMPLETE",
+      target_sha: TARGET,
+      target_tree: TARGET_TREE,
+      codegraph_target_sha: TARGET,
+      codegraph_target_tree: "d".repeat(40)
+    });
+    expect(route.codegraph_admitted).toBe(false);
+    expect(route.codegraph_admission_reason).toBe("TARGET_TREE_MISMATCH");
+    expect(route.question_admission).toBe("SOURCE_FALLBACK");
+  });
+
+  it.each([
+    ["SHA case", TARGET.toUpperCase(), TARGET_TREE, "TARGET_SHA_MISMATCH"],
+    ["tree whitespace", TARGET, ` ${TARGET_TREE} `, "TARGET_TREE_MISMATCH"]
+  ])("rejects a target binding with a %s difference", (_name, observedSha, observedTree, reason) => {
+    const route = routeGraphSupportQuestion({
+      risk_class: "G2",
+      source_readback_resolved: true,
+      codegraph_available: true,
+      codegraph_observed: true,
+      codegraph_execution_status: "PASS",
+      codegraph_relevance: "RELEVANT",
+      codegraph_coverage: "COMPLETE",
+      target_sha: TARGET,
+      target_tree: TARGET_TREE,
+      codegraph_target_sha: observedSha,
+      codegraph_target_tree: observedTree
+    });
+    expect(route.codegraph_admitted).toBe(false);
+    expect(route.codegraph_admission_reason).toBe(reason);
+    expect(route.question_admission).toBe("SOURCE_FALLBACK");
+  });
+
   it("treats non-applicable Graphify as neutral when CodeGraph and source are ready", () => {
     const route = routeGraphSupportQuestion({
       risk_class: "G2",
@@ -124,10 +212,29 @@ describe("KG-O3B1 Query Contract V2.1", () => {
       codegraph_execution_status: "PASS",
       codegraph_relevance: "RELEVANT",
       codegraph_coverage: "COMPLETE",
+      target_sha: TARGET,
+      target_tree: TARGET_TREE,
+      codegraph_target_sha: TARGET,
+      codegraph_target_tree: TARGET_TREE,
       graphify_applicable: false
     });
     expect(route.question_admission).toBe("READY");
+    expect(route.codegraph_admitted).toBe(true);
+    expect(route.codegraph_admission_reason).toBe("CODEGRAPH_ADMITTED");
     expect(route.graphify_route).toBe("NOT_APPLICABLE");
+  });
+
+  it("preserves legacy G1 source-only admission without target bindings", () => {
+    const route = routeGraphSupportQuestion({
+      risk_class: "G1",
+      source_readback_resolved: true,
+      codegraph_available: false,
+      codegraph_admitted: true,
+      graphify_applicable: false
+    });
+    expect(route.question_admission).toBe("READY");
+    expect(route.codegraph_admitted).toBe(false);
+    expect(route.graphify_route).toBe("NOT_NEEDED");
   });
 
   it("treats an applicable-unavailable graph as NOT_APPLICABLE, not a failure", () => {
