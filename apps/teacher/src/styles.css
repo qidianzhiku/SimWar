@@ -876,7 +876,7 @@ h3 {
 
 .tag-list > label {
   display: flex;
-  flex: 0 1 calc(50% - 4px);
+  flex: 1 1 45%;
 }
 
 .tag-list input {
@@ -1454,6 +1454,7 @@ h3 {
     width: 100%;
   }
 
+  .tss-inspector dd,
   .candidate-surface ul,
   .candidate-surface li,
   .candidate-surface p,
@@ -1703,31 +1704,4 @@ h3 {
   color: var(--sw-color-brand-primary-accessible);
   border-color: var(--sw-color-brand-primary-accessible);
   border-radius: var(--sw-radius-button);
-}
-.tss-source-grid {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-top: 12px;
-}
-
-.tss-source-grid label {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-}
-
-.tss-source-grid select {
-  width: 100%;
-}
-
-@media (max-width: 760px) {
-  .tss-source-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .tss-inspector dd {
-    overflow-wrap: anywhere;
-    word-break: break-word;
-  }
 }

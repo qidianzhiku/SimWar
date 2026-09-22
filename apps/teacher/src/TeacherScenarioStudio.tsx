@@ -48,7 +48,13 @@ type StudioPhase =
   | "UNKNOWN_COMMAND_RESULT"
   | "BLOCKED";
 type LifecycleStage =
-  "SOURCE_SELECTION" | "DRAFT" | "VALIDATED" | "FROZEN" | "PREVIEWED" | "ACTIVATED" | "BLOCKED";
+  | "SOURCE_SELECTION"
+  | "DRAFT"
+  | "VALIDATED"
+  | "FROZEN"
+  | "PREVIEWED"
+  | "ACTIVATED"
+  | "BLOCKED";
 
 const emptyModuleConfiguration =
   (): TeacherScenarioStudioConfiguration["module_configuration"] => ({
@@ -486,8 +492,8 @@ export function TeacherScenarioStudio(props: {
             先确认客户任务，再执行一个合法的生命周期下一步。Provider 保持 OFF，custom parameters
             始终 DRAFT_ONLY。
           </p>
-          <div className="tss-source-grid">
-            <label>
+          <div className="d6-form-grid tss-source-grid">
+            <label className="field-label">
               CourseBlueprint
               <select
                 aria-label="Teacher Scenario Studio CourseBlueprint"
@@ -502,7 +508,7 @@ export function TeacherScenarioStudio(props: {
                 ))}
               </select>
             </label>
-            <label>
+            <label className="field-label">
               ScenarioPackage
               <select
                 aria-label="Teacher Scenario Studio ScenarioPackage"
@@ -518,7 +524,7 @@ export function TeacherScenarioStudio(props: {
                 ))}
               </select>
             </label>
-            <label>
+            <label className="field-label">
               approved ModelVersion（需显式选择）
               <select
                 aria-label="Teacher Scenario Studio ModelVersion"
