@@ -70,7 +70,7 @@ describe("program event ledger validator", () => {
   it("rejects an open cycle instead of treating missing closure evidence as zero", () => {
     const ledger = {
       schema_version: "1.0.0",
-      required_complete_cycles: 1,
+      required_complete_cycles: 6,
       cycles: [
         {
           ...completeCycle("cycle-open"),
@@ -85,5 +85,29 @@ describe("program event ledger validator", () => {
     expect(result.valid).toBe(false);
     expect(result.errors.join("\n")).toContain("cycle-open");
     expect(result.errors.join("\n")).toContain("complete closure");
+  });
+
+  it("rejects a caller-controlled completeness threshold", () => {
+    const result = validateProgramEventLedger({
+      schema_version: "1.0.0",
+      required_complete_cycles: 0,
+      cycles: []
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("required_complete_cycles must equal schema minimum 6");
+  });
+
+  it("rejects duplicate cycle ids before counting complete cycles", () => {
+    const duplicateCycles = Array.from({ length: 6 }, () => completeCycle("cycle-duplicate"));
+    const result = validateProgramEventLedger({
+      schema_version: "1.0.0",
+      required_complete_cycles: 6,
+      cycles: duplicateCycles
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.completeCycles).toBe(6);
+    expect(result.errors.join("\n")).toContain("duplicates cycle_id cycle-duplicate");
   });
 });

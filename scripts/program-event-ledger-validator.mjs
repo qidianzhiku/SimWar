@@ -40,6 +40,8 @@ const REQUIRED_CLOSURE_FIELDS = [
   "integration_completed_at"
 ];
 
+export const PROGRAM_EVENT_LEDGER_REQUIRED_COMPLETE_CYCLES = 6;
+
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -63,6 +65,7 @@ export function validateProgramEventLedger(ledger) {
   }
 
   const cycles = Array.isArray(ledger.cycles) ? ledger.cycles : [];
+  const cycleIds = new Set();
   for (const [index, cycle] of cycles.entries()) {
     const label =
       isRecord(cycle) && typeof cycle.cycle_id === "string" ? cycle.cycle_id : `cycles[${index}]`;
@@ -70,6 +73,14 @@ export function validateProgramEventLedger(ledger) {
     if (!isRecord(cycle)) {
       errors.push(`${label} must be an object`);
       continue;
+    }
+
+    if (typeof cycle.cycle_id === "string") {
+      if (cycleIds.has(cycle.cycle_id)) {
+        errors.push(`${label} duplicates cycle_id ${cycle.cycle_id}`);
+      } else {
+        cycleIds.add(cycle.cycle_id);
+      }
     }
 
     for (const field of PROGRAM_EVENT_LEDGER_REQUIRED_FIELDS) {
@@ -109,8 +120,14 @@ export function validateProgramEventLedger(ledger) {
   const completeness = isRecord(ledger.completeness) ? ledger.completeness : null;
   const requiredCompleteCycles =
     ledger.required_complete_cycles ?? completeness?.required_complete_cycles;
-  if (typeof requiredCompleteCycles !== "number" || !Number.isInteger(requiredCompleteCycles)) {
-    errors.push("required_complete_cycles must be an integer");
+  if (
+    typeof requiredCompleteCycles !== "number" ||
+    !Number.isInteger(requiredCompleteCycles) ||
+    requiredCompleteCycles !== PROGRAM_EVENT_LEDGER_REQUIRED_COMPLETE_CYCLES
+  ) {
+    errors.push(
+      `required_complete_cycles must equal schema minimum ${PROGRAM_EVENT_LEDGER_REQUIRED_COMPLETE_CYCLES}`
+    );
   } else if (completeCycles < requiredCompleteCycles) {
     errors.push(
       `complete cycle count ${completeCycles} is below required_complete_cycles ${requiredCompleteCycles}`
