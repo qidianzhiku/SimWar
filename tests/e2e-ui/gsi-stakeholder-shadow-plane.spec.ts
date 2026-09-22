@@ -226,13 +226,24 @@ test("GSI-XR role journey resolves an explicit pair through the real BFF", async
   await expect(teacherPanel.getByText("INCREASED")).toBeVisible();
   await expect(teacherPanel).toContainText("Round 1 ↔ Round 2");
   await expect(teacherPanel).toContainText("CONTEXT_UNAVAILABLE");
-  await captureResponsiveEvidence(page, "teacher");
-
-  await page.goto(
-    `${studentBaseUrl}/?gsi_course_id=course_demo&gsi_run_id=${encodeURIComponent(
+  const studentHandoff = teacherPanel.getByRole("link", {
+    name: "生成 Student 学习查看链接"
+  });
+  await expect(studentHandoff).toBeVisible();
+  const studentHandoffHref = await studentHandoff.getAttribute("href");
+  expect(studentHandoffHref).not.toBeNull();
+  const handoffUrl = new URL(studentHandoffHref!);
+  expect(handoffUrl.origin).toBe(new URL(studentBaseUrl).origin);
+  expect(handoffUrl.search).toBe(
+    `?gsi_course_id=course_demo&gsi_run_id=${encodeURIComponent(
       created.run.run_id
     )}&gsi_team_id=team_alpha&gsi_activity_id=activity_consequence&gsi_role_key=CEO`
   );
+  expect(handoffUrl.search).not.toContain("candidate");
+  expect(handoffUrl.search).not.toContain("digest");
+  await captureResponsiveEvidence(page, "teacher");
+
+  await page.goto(studentHandoffHref!);
   await signIn(page, "学员登录", "student");
   const studentPanel = page.getByRole("region", {
     name: "Student cross-round stakeholder reflection"

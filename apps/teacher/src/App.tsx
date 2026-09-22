@@ -2708,6 +2708,9 @@ export function App() {
               binding={gsiBinding}
               tenantId={login.tenantId}
               token={session.access_token}
+              studentAppBaseUrl={
+                import.meta.env.VITE_SIMWAR_STUDENT_BASE_URL ?? "http://localhost:3002/"
+              }
             />
           ) : (
             <TeacherGsiMissingContextPanel />
