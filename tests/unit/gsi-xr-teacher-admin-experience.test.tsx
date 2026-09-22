@@ -1,8 +1,9 @@
 /** @vitest-environment jsdom */
 
-import React from "react";
+import React, { act } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type {
   GSICrossRoundAdminProjection,
   GSICrossRoundTeacherProjection
@@ -87,6 +88,76 @@ const adminComparison = {
 } satisfies GSICrossRoundAdminProjection;
 
 describe("GSI-XR Teacher/Admin experience", () => {
+  it.each(["success", "error"])(
+    "ignores late Admin audit %s across identity changes",
+    async (outcome) => {
+      vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+      let finish!: (value: Response) => void;
+      let fail!: (error: Error) => void;
+      let signal: AbortSignal | undefined;
+      const pending = new Promise<Response>((resolve, reject) => {
+        finish = resolve;
+        fail = reject;
+      });
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation((_input, options) => {
+        signal = options?.signal as AbortSignal;
+        return pending;
+      });
+      const host = document.createElement("div");
+      const root = createRoot(host);
+      try {
+        await act(async () => {
+          root.render(
+            <GovernedStakeholderIntelligenceAuditPanel
+              apiBase="http://api.test"
+              tenantId="tenant_one"
+              token="old"
+              initialCandidateId="candidate_one"
+            />
+          );
+        });
+        await act(async () => {
+          host
+            .querySelectorAll("form")[1]!
+            .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+        });
+        await act(async () => {
+          root.render(
+            <GovernedStakeholderIntelligenceAuditPanel
+              apiBase="http://api.test"
+              tenantId="tenant_two"
+              token="new"
+              initialCandidateId="candidate_one"
+            />
+          );
+        });
+        expect(signal?.aborted).toBe(true);
+        await act(async () => {
+          if (outcome === "error") fail(new Error("late private audit"));
+          else
+            finish(
+              new Response(
+                JSON.stringify({
+                  data: {
+                    provider: "OFF",
+                    candidate_digest: "late_private_audit",
+                    writes_official_truth: false
+                  }
+                }),
+                { status: 200 }
+              )
+            );
+        });
+        expect(host.textContent).not.toContain("late_private_audit");
+        expect(host.textContent).not.toContain("late private audit");
+      } finally {
+        await act(async () => root.unmount());
+        fetchSpy.mockRestore();
+        vi.unstubAllGlobals();
+      }
+    }
+  );
+
   it("makes exact pair selection primary and keeps candidate provenance advanced-only", () => {
     const markup = renderToStaticMarkup(
       <GovernedStakeholderIntelligenceWorkspace
@@ -96,6 +167,9 @@ describe("GSI-XR Teacher/Admin experience", () => {
           course_id: "course_demo",
           run_id: "run_demo",
           round_id: "round_1",
+          round_no: 1,
+          activity_id: "activity_gsi_xr",
+          role_key: "CEO",
           team_id: "team_demo",
           scenario_package_id: "scenario_demo",
           scenario_version: "1.0.0",
@@ -148,7 +222,7 @@ describe("GSI-XR Teacher/Admin experience", () => {
     expect(markup).toContain("服务器尚未提供可用的回合配对列表");
   });
 
-  it("keeps Admin selected-tenant provenance and no-write/non-causal markers visible", () => {
+  it("keeps Admin provenance secondary and collapsed with no-write/non-causal markers", () => {
     const markup = renderToStaticMarkup(
       <GovernedStakeholderIntelligenceAuditPanel
         apiBase="http://api.test"
@@ -159,8 +233,13 @@ describe("GSI-XR Teacher/Admin experience", () => {
     );
     expect(markup).toContain("审计两个回合");
     expect(markup).toContain("tenant_demo");
+    expect(markup).toContain("gsi-xr-admin-provenance-details");
+    expect(markup).toContain("Technical provenance (secondary)");
+    expect(markup).not.toContain("gsi-xr-admin-provenance-details open");
     expect(markup).toContain("context_binding");
     expect(markup).toContain("NON-CAUSAL");
     expect(markup).toContain("不写入正式 Decision / Settlement / Outcome");
+    expect(markup).toContain("DDT admin exact round ID");
+    expect(markup).toContain("不依赖 GSI 比较配对");
   });
 });

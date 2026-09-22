@@ -54,6 +54,8 @@ export interface IndustryQualifiedProducerAdmissionDto {
 }
 
 export interface IndustryDiagnosticStudentSummaryDto {
+  /** Role-safe aggregate; contains no producer identity or provenance. */
+  readonly freshness?: "FRESH" | "STALE" | "UNKNOWN";
   readonly visibility: "ROLE_SAFE_STUDENT";
   readonly readiness_class: IndustryDiagnosticReadinessStatus;
   readonly evidence_classes: readonly IndustryDiagnosticClassification[];

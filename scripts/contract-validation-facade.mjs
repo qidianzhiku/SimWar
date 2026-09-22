@@ -876,8 +876,10 @@ function assertD4OpenApiBindings(openApi) {
     assert(operation, `Missing D4 learning report operation: ${path}`);
     assert(
       jsonContentSchema(operation.responses?.["200"])?.$ref ===
-        "#/components/schemas/StudentLearningReportListEnvelope",
-      `D4 learning report 200 response must reference StudentLearningReportListEnvelope: ${path}`
+        (path.startsWith("/api/v1/bff/student/")
+          ? "#/components/schemas/StudentLearningReportPublicListEnvelope"
+          : "#/components/schemas/StudentLearningReportListEnvelope"),
+      `D4 learning report 200 response must reference its role-safe envelope: ${path}`
     );
   }
   assert(
@@ -1147,7 +1149,8 @@ export function createContractAjv() {
   });
   ajv.addFormat("date", {
     type: "string",
-    validate: (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`))
+    validate: (value) =>
+      /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`))
   });
   ajv.addFormat("uri", {
     type: "string",

@@ -67,7 +67,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GSICrossRoundPairOptions"
+                $ref: "#/components/schemas/GSICrossRoundPairOptionsEnvelope"
   /api/v1/bff/student/gsi/candidates/{candidateId}:
     get:
       summary: Read published role-safe GSI projection
@@ -120,7 +120,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GSICrossRoundPairOptions"
+                $ref: "#/components/schemas/GSICrossRoundPairOptionsEnvelope"
   /api/v1/bff/admin/gsi/audit:
     get:
       summary: Read tenant-safe GSI provenance
@@ -177,7 +177,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GSICrossRoundPairOptions"
+                $ref: "#/components/schemas/GSICrossRoundPairOptionsEnvelope"
 components:
   parameters:
     CandidateId:
@@ -235,27 +235,27 @@ components:
       in: query
       name: course_id
       required: true
-      schema: { type: string }
+      schema: { $ref: "#/components/schemas/GSIExactSelectionIdentifier" }
     PairOptionsRunId:
       in: query
       name: run_id
       required: true
-      schema: { type: string }
+      schema: { $ref: "#/components/schemas/GSIExactSelectionIdentifier" }
     PairOptionsTeamId:
       in: query
       name: team_id
       required: true
-      schema: { type: string }
+      schema: { $ref: "#/components/schemas/GSIExactSelectionIdentifier" }
     PairOptionsActivityId:
       in: query
       name: activity_id
       required: true
-      schema: { type: string }
+      schema: { $ref: "#/components/schemas/GSIExactSelectionIdentifier" }
     PairOptionsRoleKey:
       in: query
       name: role_key
       required: true
-      schema: { type: string }
+      schema: { $ref: "#/components/schemas/GSIExactSelectionIdentifier" }
     ExpectedComparisonDigest:
       in: query
       name: expected_comparison_digest
@@ -267,74 +267,28 @@ components:
       required: false
       schema: { type: string, pattern: "^[a-f0-9]{64}$" }
   schemas:
-    GSIRequest:
+    GSIExactSelectionIdentifier:
+      type: string
+      minLength: 1
+      pattern: '^(?![Ll][Aa][Tt][Ee][Ss][Tt]$)(?![Cc][Uu][Rr][Rr][Ee][Nn][Tt]$)(?![Dd][Ee][Ff][Aa][Uu][Ll][Tt]$)(?![Ff][Aa][Ll][Ll][Bb][Aa][Cc][Kk]$)(?![Ff][Ii][Rr][Ss][Tt]$)(?![Ll][Aa][Ss][Tt]$)(?![Nn][Ee][Ww][Ee][Ss][Tt]$)\S(?:[\s\S]*\S)?$'
+      description: Nonempty trimmed identifier; case-insensitive whole reserved tokens latest, current, default, fallback, first, last, newest are rejected. Internal whitespace is accepted by the pair-options runtime.
+    GSIExactBinding:
+      $ref: "../schemas/gsi-governed-stakeholder-shadow-plane.v1.json#/$defs/binding"
+    GSIReceipt:
+      $ref: "../schemas/gsi-governed-stakeholder-shadow-plane.v1.json#/$defs/receipt"
+    GSITeacherProjection:
+      $ref: "../schemas/gsi-governed-stakeholder-shadow-plane.v1.json#/$defs/teacherProjection"
+    GSICrossRoundPairOptionsEnvelope:
       type: object
       additionalProperties: false
-      required: [discriminator, binding, plane_mode, publication_status, proposals, idempotency_key]
+      required: [code, data, message, request_id]
       properties:
-        discriminator:
-          const: gsi_stakeholder_shadow_request
-        binding:
-          type: object
-          additionalProperties: false
-          required:
-            [
-              tenant_id,
-              course_id,
-              run_id,
-              round_id,
-              team_id,
-              scenario_package_id,
-              scenario_version,
-              parameter_set_id,
-              parameter_set_version,
-              model_version_id,
-              model_version,
-              model_artifact_id,
-              model_artifact_version
-            ]
-          properties:
-            tenant_id: { type: string }
-            course_id: { type: string }
-            run_id: { type: string }
-            round_id: { type: string }
-            team_id: { type: string }
-            scenario_package_id: { type: string }
-            scenario_version: { type: string }
-            parameter_set_id: { type: string }
-            parameter_set_version: { type: string }
-            model_version_id: { type: string }
-            model_version: { type: string }
-            model_artifact_id: { type: string }
-            model_artifact_version: { type: string }
-        plane_mode: { enum: [OFF, SHADOW] }
-        publication_status: { enum: [DRAFT, PUBLISHED] }
-        proposals:
-          type: array
-          minItems: 1
-          maxItems: 5
-          items:
-            type: object
-            additionalProperties: false
-            required: [proposal_id, stakeholder_type, intent, priority, influence, summary]
-            properties:
-              proposal_id: { type: string }
-              stakeholder_type: { enum: [customer, regulator, bank, employee, media] }
-              intent:
-                {
-                  enum:
-                    [
-                      protect_demand,
-                      reduce_regulatory_risk,
-                      preserve_liquidity,
-                      retain_workforce,
-                      protect_reputation
-                    ]
-                }
-              priority: { type: number, minimum: 0, maximum: 1 }
-              influence: { type: number, minimum: -1, maximum: 1 }
-              summary: { type: string, minLength: 1, maxLength: 240 }
-        idempotency_key: { type: string }
+        code: { const: OK }
+        data: { $ref: "#/components/schemas/GSICrossRoundPairOptions" }
+        message: { type: string }
+        request_id: { type: string }
+    GSIRequest:
+      $ref: "../schemas/gsi-governed-stakeholder-shadow-plane.v1.json#/$defs/request"
     GSICrossRoundMovement:
       type: object
       additionalProperties: false
@@ -358,6 +312,7 @@ components:
         delta: { type: number, minimum: -2, maximum: 2 }
         direction: { enum: [NEW, REMOVED, INCREASED, DECREASED, STABLE] }
     GSICrossRoundComparison:
+      x-shared-contract: GSICrossRoundComparison
       type: object
       additionalProperties: false
       required:
@@ -373,6 +328,7 @@ components:
         causal_proof: { const: false }
         known_limits: { type: array, minItems: 1, items: { type: string } }
     GSICrossRoundContext:
+      x-shared-contract: GSICrossRoundContextProjection
       type: object
       additionalProperties: false
       required:
@@ -467,6 +423,7 @@ components:
             team_id: { type: string }
             tenant_id: { type: string }
     GSICrossRoundTeacherProjection:
+      x-shared-contract: GSICrossRoundTeacherProjection
       type: object
       required:
         [surface, comparison, context, provider, official_truth_write, known_limits, recovery]
@@ -479,6 +436,7 @@ components:
         known_limits: { type: array, minItems: 1, items: { type: string } }
         recovery: { enum: [RELOAD_EXACT_CONTEXT, WAIT_FOR_PUBLICATION] }
     GSICrossRoundStudentProjection:
+      x-shared-contract: GSICrossRoundStudentProjection
       type: object
       required:
         [
@@ -504,6 +462,7 @@ components:
         known_limits: { type: array, minItems: 1, items: { type: string } }
         recovery: { enum: [RELOAD_EXACT_CONTEXT, WAIT_FOR_PUBLICATION] }
     GSICrossRoundPairOptions:
+      x-shared-contract: GSICrossRoundPairOptions
       type: object
       additionalProperties: false
       required:
@@ -545,6 +504,7 @@ components:
         causal_proof: { const: false }
         known_limits: { type: array, minItems: 1, items: { type: string } }
     GSICrossRoundAdminProjection:
+      x-shared-contract: GSICrossRoundAdminProjection
       type: object
       required:
         [

@@ -10,6 +10,7 @@ import type {
   OperatingWorldConsequenceTrace,
   Round,
   StudentLearningReport,
+  StudentLearningReportPublic,
   TeachingClosureDto,
   W3ExactRef,
   W3OfficialConsequenceContext,
@@ -62,6 +63,10 @@ export interface M2P5NextRoundOpeningInput extends M2P5W4ProjectionInput {
 }
 
 export interface M2P5DecisionLearningDependencies {
+  readonly getStudentPublicLearningReport?: (
+    actor: M2P5DecisionLearningActor,
+    reportId: string
+  ) => Promise<StudentLearningReportPublic | undefined>;
   readonly getExactRound: (
     tenantId: string,
     runId: string,
@@ -637,6 +642,26 @@ export class M2P5DecisionLearningCrossRoundService {
       ...(teachingClosure.value ? { teachingClosure: teachingClosure.value } : {}),
       ...(teachingClosure.error ? { teachingClosureError: teachingClosure.error } : {})
     });
+    const publicReport =
+      input.surface === "student" && report
+        ? await this.dependencies.getStudentPublicLearningReport?.(
+            input.actor,
+            report.report_ref.resource_id
+          )
+        : undefined;
+    const serializedReport =
+      input.surface === "student"
+        ? publicReport &&
+          publicReport.report_id === report?.report_ref.resource_id &&
+          publicReport.context.course_id === input.context.course_id &&
+          publicReport.context.run_id === input.context.run_id &&
+          publicReport.context.team_id === input.context.team_id &&
+          publicReport.context.role_key === input.context.role_key &&
+          publicReport.context.round_id === input.context.round_id &&
+          publicReport.context.round_no === input.context.round_no
+          ? publicReport
+          : undefined
+        : report;
     const response: M2P5DecisionLearningResponse = {
       schema_version: "m2p5-decision-learning-crossround.v1",
       runtime_authority: "JSON_INTERNAL_ONLY",
@@ -644,7 +669,7 @@ export class M2P5DecisionLearningCrossRoundService {
       exact_scope: structuredClone(input.context),
       official_consequence: roleSafeOfficialConsequence(official, input.surface),
       learning,
-      ...(report ? { learning_report: structuredClone(report) } : {}),
+      ...(serializedReport ? { learning_report: structuredClone(serializedReport) } : {}),
       project_context: structuredClone(projectContext),
       cross_round: crossRound,
       learning_loop: learningLoop,

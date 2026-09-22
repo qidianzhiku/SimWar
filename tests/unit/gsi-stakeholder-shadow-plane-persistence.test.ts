@@ -45,7 +45,10 @@ const request: GSIRequest = {
     course_id: "course_001",
     run_id: "run_001",
     round_id: "round_001",
+    round_no: 1,
     team_id: "team_001",
+    activity_id: "activity_gsi",
+    role_key: "CEO",
     scenario_package_id: "scenario_demo",
     scenario_version: "1.0.0",
     parameter_set_id: "parameter_demo",
@@ -79,7 +82,7 @@ const snapshot = {
     scenario_package_id: "scenario_demo",
     tenant_id: "tenant_demo"
   },
-  round: { round_id: "round_001", run_id: "run_001", tenant_id: "tenant_demo" },
+  round: { round_id: "round_001", round_no: 1, run_id: "run_001", tenant_id: "tenant_demo" },
   team: { team_id: "team_001", course_id: "course_001", tenant_id: "tenant_demo" },
   assignments: [
     { assignment_id: "assignment_001", status: "active", role_key: "CEO", user_id: "usr_student" }
@@ -135,6 +138,119 @@ function service(
 }
 
 describe("GSI candidate persistence and scope", () => {
+  it.each([teacher, student, platformAdmin])(
+    "filters mixed activity and role before pair cardinality for $roles",
+    async (actor) => {
+      const records: GSIRecord[] = [];
+      const instance = service(records);
+      await instance.createCandidate(teacher, request, "req_mixed");
+      for (const binding of [{ role_key: "CFO" }, { activity_id: "activity_other" }]) {
+        const other = structuredClone(records[0]!);
+        other.candidate_id = JSON.stringify(binding);
+        Object.assign(other.request.binding, binding);
+        records.push(other);
+      }
+      const options = await instance.getPairOptions(actor, request.binding, "tenant_demo");
+      expect(options.rounds).toEqual([{ round_id: "round_001", round_no: 1 }]);
+      const second = structuredClone(records[0]!);
+      second.candidate_id = "second_round";
+      second.request.binding.round_id = "round_002";
+      records.push(second);
+      await expect(
+        instance.compareRoundPair(
+          actor,
+          {
+            ...request.binding,
+            from_round_id: "round_001",
+            to_round_id: "round_002"
+          },
+          "tenant_demo"
+        )
+      ).rejects.not.toMatchObject({ code: "GSI_PAIR_AMBIGUOUS" });
+    }
+  );
+  it("filters inactive/private candidates before exposing round-pair uniqueness", async () => {
+    const records: GSIRecord[] = [];
+    const creator = service(records);
+    const receipt = await creator.createCandidate(teacher, request, "req_visibility");
+    records.push({ ...structuredClone(records[0]!), candidate_id: "hidden_duplicate" });
+    const inactive = structuredClone(snapshot) as unknown as {
+      assignments: Array<{ status: string }>;
+    };
+    inactive.assignments[0]!.status = "inactive";
+    const reader = service(records, undefined, inactive as never);
+    const input = {
+      course_id: request.binding.course_id,
+      run_id: request.binding.run_id,
+      team_id: request.binding.team_id,
+      activity_id: request.binding.activity_id,
+      role_key: request.binding.role_key
+    };
+    expect((await reader.getPairOptions(student, input)).rounds).toEqual([]);
+    await expect(
+      reader.compareRoundPair(student, {
+        ...input,
+        from_round_id: request.binding.round_id,
+        to_round_id: "round_002"
+      })
+    ).rejects.toMatchObject({ code: "GSI_PAIR_NOT_AVAILABLE" });
+    await expect(reader.getStudentProjection(student, receipt.candidate_id)).rejects.toMatchObject({
+      code: "GSI_FORBIDDEN"
+    });
+    records[1]!.request.publication_status = "DRAFT";
+    expect((await creator.getPairOptions(student, input)).rounds).toEqual([
+      { round_id: request.binding.round_id, round_no: 1 }
+    ]);
+  });
+
+  it("never relabels a stored CEO candidate as the requester's CFO role", async () => {
+    const records: GSIRecord[] = [];
+    const instance = service(records);
+    const receipt = await instance.createCandidate(teacher, request, "req_role");
+    const changed = structuredClone(snapshot) as unknown as {
+      assignments: Array<{ status: string; role_key: string; user_id: string }>;
+    };
+    changed.assignments.push({ status: "active", role_key: "CFO", user_id: "usr_cfo" });
+    await expect(
+      service(records, undefined, changed as never).getStudentProjection(
+        { ...student, user_id: "usr_cfo" },
+        receipt.candidate_id
+      )
+    ).rejects.toMatchObject({ code: "GSI_FORBIDDEN" });
+    expect(records[0]!.student_projection.role_key).toBe("CEO");
+  });
+
+  it("rejects pair activity and role rebinding before the comparator", async () => {
+    const records: GSIRecord[] = [];
+    const instance = service(records);
+    const receipt = await instance.createCandidate(teacher, request, "req_pair_scope");
+    records.push({ ...structuredClone(records[0]!), candidate_id: "candidate_second" });
+    for (const input of [
+      { activity_id: "activity_other", role_key: "CEO" },
+      { activity_id: "activity_gsi", role_key: "CFO" }
+    ]) {
+      await expect(
+        instance.compareCandidates(student, {
+          ...input,
+          from_candidate_id: receipt.candidate_id,
+          to_candidate_id: "candidate_second"
+        })
+      ).rejects.toMatchObject({ code: "GSI_FORBIDDEN" });
+    }
+  });
+
+  it("rejects a stored candidate whose course no longer matches server workflow", async () => {
+    const records: GSIRecord[] = [];
+    const instance = service(records);
+    const receipt = await instance.createCandidate(teacher, request, "req_scope");
+    records[0]!.request.binding.course_id = "course_other";
+    await expect(
+      instance.getStudentProjection(student, receipt.candidate_id)
+    ).rejects.toMatchObject({
+      code: "GSI_CONTEXT_NOT_FOUND"
+    });
+  });
+
   it("round-trips one candidate and reuses the same idempotency key", async () => {
     const records: GSIRecord[] = [];
     const instance = service(records);
@@ -241,7 +357,9 @@ describe("GSI candidate persistence and scope", () => {
     } as never;
     const instance = service([], undefined, mismatchedSnapshot);
 
-    await expect(instance.createCandidate(teacher, request, "req_run_binding_1")).rejects.toMatchObject({
+    await expect(
+      instance.createCandidate(teacher, request, "req_run_binding_1")
+    ).rejects.toMatchObject({
       code: "GSI_CONTEXT_NOT_FOUND"
     });
   });

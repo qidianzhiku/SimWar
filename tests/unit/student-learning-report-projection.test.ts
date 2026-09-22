@@ -139,6 +139,62 @@ const artifact: D2EvidenceArtifactVersion = {
 };
 
 describe("D4 StudentLearningReportProjectionService", () => {
+  it("publishes only the active role's exact published round and strips internal provenance", async () => {
+    const context = { ...confirmation().context, round_id: "round_d4", round_no: 1 };
+    const snapshot = {
+      course: { tenant_id: tenant, course_id: context.course_id },
+      run: { tenant_id: tenant, run_id: context.run_id, course_id: context.course_id },
+      team: { tenant_id: tenant, team_id: context.team_id, course_id: context.course_id },
+      round: {
+        tenant_id: tenant,
+        run_id: context.run_id,
+        round_id: context.round_id,
+        round_no: 1,
+        status: "published"
+      },
+      assignments: [{ status: "active", user_id: "usr_student", role_key: "CEO" }]
+    };
+    const service = new StudentLearningReportProjectionService({
+      confirmations: { list: async () => [confirmation({ context })] } as never,
+      evidence: {
+        listEvidenceArtifacts: async () => [artifact],
+        listProvenanceEdges: async () => [],
+        appendEvidenceCapture: vi.fn()
+      },
+      roleWorkflow: { readRoleWorkflow: async () => snapshot as never }
+    });
+    const actor = { tenant_id: tenant, team_id: context.team_id, user_id: "usr_student" };
+    const publicResult = await service.listStudentPublic(actor);
+    expect(publicResult.reports).toHaveLength(1);
+    expect(JSON.stringify(publicResult)).not.toMatch(
+      /content_digest|source_confirmation_digest|report_digest|provenance|teacher_confirmation_ref|course_package_ref|rubric_ref|evidence_refs|teacher_feedback/
+    );
+    expect(publicResult.reports[0]?.context).toEqual(context);
+    for (const mutation of [
+      () => {
+        snapshot.round.status = "open";
+      },
+      () => {
+        snapshot.round.status = "published";
+        snapshot.assignments[0]!.role_key = "CFO";
+      },
+      () => {
+        snapshot.assignments[0]!.role_key = "CEO";
+        snapshot.run.course_id = "course_other";
+      },
+      () => {
+        snapshot.run.course_id = context.course_id;
+        snapshot.round.round_no = 2;
+      }
+    ]) {
+      mutation();
+      expect((await service.listStudentPublic(actor)).reports).toEqual([]);
+      await expect(
+        service.listStudentPublic(actor, publicResult.reports[0]!.report_id)
+      ).rejects.toMatchObject({ code: "D4_REPORT_NOT_FOUND" });
+    }
+  });
+
   it("projects confirmed D3 evidence into a student-safe report without private feedback", async () => {
     const edge: D2ProvenanceEdge = {
       discriminator: "d2_provenance_edge",

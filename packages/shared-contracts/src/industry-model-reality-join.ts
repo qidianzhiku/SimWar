@@ -119,6 +119,8 @@ export type IndustryModelRealityJoinTeacherAdminDto = IndustryModelRealityJoinPr
 };
 
 export interface IndustryModelRealityJoinStudentDto extends IndustryModelRealityJoinProjectionBase {
+  /** Role-safe freshness preserved from the canonical diagnostic summary. */
+  readonly freshness?: "FRESH" | "STALE" | "UNKNOWN";
   readonly operation_id: "INDUSTRY_MODEL_REALITY_JOIN_STUDENT_GET_V1";
   readonly role: "student";
   readonly exact_context: IndustryModelRealityJoinStudentContextDto;

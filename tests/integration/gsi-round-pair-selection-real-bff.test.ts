@@ -52,6 +52,9 @@ function binding(roundId: string) {
     course_id: "course_demo",
     run_id: "run_gsi_pair_selection",
     round_id: roundId,
+    round_no: Number(roundId.split("_").at(-1)),
+    activity_id: "activity_gsi_xr",
+    role_key: "CEO",
     team_id: "team_alpha",
     scenario_package_id: "scenario_eldercare_demo",
     scenario_version: "1.0.0",
@@ -319,6 +322,7 @@ describe("GSI server-governed round pair selection real BFF", () => {
     try {
       const teacherToken = await login(baseUrl, "teacher");
       const studentToken = await login(baseUrl, "default_cfo");
+      await assignStudent(baseUrl, teacherToken);
       await createCandidate(baseUrl, teacherToken, "round_gsi_pair_1", "inactive_one", 0.2);
       await createCandidate(baseUrl, teacherToken, "round_gsi_pair_1", "inactive_two", 0.3);
       await createCandidate(baseUrl, teacherToken, "round_gsi_pair_2", "inactive_to", 0.8);
@@ -345,6 +349,7 @@ describe("GSI server-governed round pair selection real BFF", () => {
     const { baseUrl, server } = await startServer();
     try {
       const teacherToken = await login(baseUrl, "teacher");
+      await assignStudent(baseUrl, teacherToken);
       await createCandidate(baseUrl, teacherToken, "round_gsi_pair_1", "pair_one", 0.2);
       await createCandidate(baseUrl, teacherToken, "round_gsi_pair_1", "pair_duplicate", 0.3);
       await createCandidate(baseUrl, teacherToken, "round_gsi_pair_2", "pair_two", 0.8);

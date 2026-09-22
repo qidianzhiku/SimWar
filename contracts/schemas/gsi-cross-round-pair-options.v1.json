@@ -34,7 +34,7 @@
     "exactString": {
       "type": "string",
       "minLength": 1,
-      "pattern": "^(?!latest$)(?!current$)(?!default$)(?!fallback$)(?!first$)(?!last$)(?!newest$)\\S(?:.*\\S)?$"
+      "pattern": "^(?![Ll][Aa][Tt][Ee][Ss][Tt]$)(?![Cc][Uu][Rr][Rr][Ee][Nn][Tt]$)(?![Dd][Ee][Ff][Aa][Uu][Ll][Tt]$)(?![Ff][Aa][Ll][Ll][Bb][Aa][Cc][Kk]$)(?![Ff][Ii][Rr][Ss][Tt]$)(?![Ll][Aa][Ss][Tt]$)(?![Nn][Ee][Ww][Ee][Ss][Tt]$)\\S(?:[\\s\\S]*\\S)?$"
     },
     "context": {
       "type": "object",

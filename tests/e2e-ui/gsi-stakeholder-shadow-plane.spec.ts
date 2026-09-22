@@ -103,7 +103,13 @@ async function captureResponsiveEvidence(page: Page, role: string): Promise<void
   }
 }
 
-function candidateRequest(runId: string, roundId: string, key: string, influence: number) {
+function candidateRequest(
+  runId: string,
+  roundId: string,
+  roundNo: number,
+  key: string,
+  influence: number
+) {
   return {
     discriminator: "gsi_stakeholder_shadow_request",
     binding: {
@@ -111,7 +117,10 @@ function candidateRequest(runId: string, roundId: string, key: string, influence
       course_id: "course_demo",
       run_id: runId,
       round_id: roundId,
+      round_no: roundNo,
       team_id: "team_alpha",
+      activity_id: "activity_consequence",
+      role_key: "CEO",
       scenario_package_id: "scenario_eldercare_demo",
       scenario_version: "1.0.0",
       parameter_set_id: "param_toy_approved_1",
@@ -147,11 +156,10 @@ test("GSI-XR role journey resolves an explicit pair through the real BFF", async
 }) => {
   const teacherToken = await loginApi(request, "teacher", "teacher");
   const studentToken = await loginApi(request, "student", "student");
-  const created = await api<{ run: { run_id: string }; round: { round_id: string } }>(
-    request,
-    "/api/v1/courses/course_demo/runs",
-    { method: "POST", token: teacherToken }
-  );
+  const created = await api<{
+    run: { run_id: string };
+    round: { round_id: string; round_no: number };
+  }>(request, "/api/v1/courses/course_demo/runs", { method: "POST", token: teacherToken });
   const roundOneId = created.round.round_id;
 
   await publishRoundOne(request, teacherToken, studentToken, created.run.run_id);
@@ -175,12 +183,24 @@ test("GSI-XR role journey resolves an explicit pair through the real BFF", async
   });
 
   await api<GSIReceipt>(request, "/api/v1/bff/teacher/gsi/candidates", {
-    body: candidateRequest(created.run.run_id, roundOneId, "browser_pair_from", 0.2),
+    body: candidateRequest(
+      created.run.run_id,
+      roundOneId,
+      created.round.round_no,
+      "browser_pair_from",
+      0.2
+    ),
     method: "POST",
     token: teacherToken
   });
   await api<GSIReceipt>(request, "/api/v1/bff/teacher/gsi/candidates", {
-    body: candidateRequest(created.run.run_id, roundTwoId, "browser_pair_to", 0.8),
+    body: candidateRequest(
+      created.run.run_id,
+      roundTwoId,
+      continued.round.round_no,
+      "browser_pair_to",
+      0.8
+    ),
     method: "POST",
     token: teacherToken
   });
@@ -211,7 +231,7 @@ test("GSI-XR role journey resolves an explicit pair through the real BFF", async
   await page.goto(
     `${studentBaseUrl}/?gsi_course_id=course_demo&gsi_run_id=${encodeURIComponent(
       created.run.run_id
-    )}&gsi_team_id=team_alpha&gsi_activity_id=activity_gsi&gsi_role_key=CEO`
+    )}&gsi_team_id=team_alpha&gsi_activity_id=activity_consequence&gsi_role_key=CEO`
   );
   await signIn(page, "学员登录", "student");
   const studentPanel = page.getByRole("region", {
@@ -238,14 +258,21 @@ test("GSI-XR role journey resolves an explicit pair through the real BFF", async
   await adminPanel.getByLabel("GSI admin course context").fill("course_demo");
   await adminPanel.getByLabel("GSI admin run context").fill(created.run.run_id);
   await adminPanel.getByLabel("GSI admin team context").fill("team_alpha");
+  await adminPanel.getByText("高级：输入精确候选配对").click();
+  await adminPanel.getByLabel("GSI admin activity ID").fill("activity_consequence");
   await adminPanel.getByRole("button", { name: "加载可比较回合" }).click();
   await expect(adminPanel.getByLabel("GSI admin from round")).toBeEnabled();
   await adminPanel.getByLabel("GSI admin from round").selectOption(roundOneId);
   await adminPanel.getByLabel("GSI admin to round").selectOption(roundTwoId);
   await adminPanel.getByRole("button", { name: "读取审计变化" }).click();
   await expect(adminPanel.getByText("上升")).toBeVisible();
-  await expect(adminPanel).toContainText("context_binding");
-  await expect(adminPanel).toContainText("false");
+  const adminProvenance = adminPanel.locator("details.gsi-xr-admin-provenance-details");
+  await expect(adminProvenance).toBeVisible();
+  await expect(adminProvenance).not.toHaveAttribute("open", "");
+  await adminProvenance.locator("summary").click();
+  await expect(adminProvenance).toHaveAttribute("open", "");
+  await expect(adminProvenance).toContainText("context_binding");
+  await expect(adminPanel).toContainText("official_truth_write=false");
   await captureResponsiveEvidence(page, "admin");
 
   expect(gsiRequests.filter((url) => url.includes("/teacher/gsi/")).length).toBeGreaterThan(0);

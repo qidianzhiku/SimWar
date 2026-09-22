@@ -16,6 +16,7 @@
     "./tokens.css": "./src/tokens.css",
     "./p2b-tokens.css": "./src/p2b-tokens.css",
     "./styles.css": "./src/styles.css",
+    "./decision-thread-evidence-spine.css": "./src/decision-thread-evidence-spine.css",
     "./project-aware.css": "./src/project-aware.css",
     "./o4-cross-round-dynamics-panel": {
       "types": "./dist/components/O4CrossRoundDynamicsPanel.d.ts",
