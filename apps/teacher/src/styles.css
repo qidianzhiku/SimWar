@@ -728,11 +728,9 @@ h3 {
   .teacher-scenario-studio .workspace {
     grid-template-columns: minmax(0, 1fr);
   }
-}
-.teacher-scenario-studio .workspace > * {
-  box-sizing: border-box;
-  max-width: 100%;
-  min-width: 0;
+  .teacher-scenario-studio .workspace > * {
+    min-width: 0;
+  }
 }
 .metric,
 .panel {
@@ -1427,17 +1425,10 @@ h3 {
 /* PR4 200% zoom evidence: keep teacher candidate/grid tracks inside the
    available mobile surface without clipping or viewport-sized magic widths. */
 @media (max-width: 760px) {
-  .candidate-surface,
-  .candidate-surface > *,
-  .candidate-heading,
-  .course-package-catalog,
-  .course-package-catalog > *,
-  .d2-scope-grid,
-  .d2-reference-grid {
-    box-sizing: border-box;
+  .d2-scope-grid > *,
+  .d2-reference-grid > *,
+  .candidate-list > * {
     min-width: 0;
-    max-width: 100%;
-    width: 100%;
   }
 
   .candidate-heading {
@@ -1448,7 +1439,6 @@ h3 {
 
   .candidate-heading > * {
     min-width: 0;
-    max-width: 100%;
     overflow-wrap: anywhere;
     word-break: break-word;
   }
@@ -1459,15 +1449,6 @@ h3 {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .candidate-list > *,
-  .d2-scope-grid > *,
-  .d2-reference-grid > * {
-    box-sizing: border-box;
-    min-width: 0;
-    max-width: 100%;
-    width: 100%;
-  }
-
   .tss-inspector dd,
   .candidate-surface ul,
   .candidate-surface li,
@@ -1475,22 +1456,11 @@ h3 {
   .candidate-surface span,
   .candidate-surface strong,
   .candidate-surface code {
-    box-sizing: border-box;
     min-width: 0;
-    max-width: 100%;
     overflow-wrap: anywhere;
     word-break: break-word;
   }
 
-  .candidate-surface button,
-  .candidate-surface input,
-  .candidate-surface select,
-  .candidate-surface textarea {
-    box-sizing: border-box;
-    min-width: 0;
-    max-width: 100%;
-    width: 100%;
-  }
 }
 
 @media (max-width: 390px) {
