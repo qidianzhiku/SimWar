@@ -1,0 +1,65 @@
+schema_version: 1.0.0
+name: simwar-program-event-ledger
+purpose: Evidence-bearing program-cycle ledger for diagnostic metrics and conditional operating-model adoption.
+unknown_policy:
+  missing_process_evidence: null
+  null_is_not_zero: true
+  unknown_cycles_are_excluded_from_metric_denominators: true
+  inferred_timestamps_forbidden: true
+required_complete_cycles: 6
+cycle_required_fields:
+  - cycle_id
+  - macro_id
+  - lane
+  - source_epoch
+  - prepared_at
+  - delivered_at
+  - acknowledged_at
+  - decided_at
+  - consumed_at
+  - integration_requested_at
+  - integration_started_at
+  - integration_completed_at
+  - main_wait_reason
+  - rebase_count
+  - requalification_count
+  - review_repair_count
+  - focused_validation_count
+  - heavy_validation_count
+  - fresh_reality_rebuild_count
+  - consumer_id
+  - consumer_status
+  - shared_seam
+  - hot_files
+  - final_disposition
+  - evidence_status
+  - evidence_refs
+closure:
+  required_timestamps:
+    - prepared_at
+    - delivered_at
+    - decided_at
+    - consumed_at
+    - integration_requested_at
+    - integration_completed_at
+  final_disposition_must_not_equal: OPEN
+  evidence_status_prefix: COMPLETE
+metric_rules:
+  every_metric_requires:
+    - definition
+    - numerator
+    - denominator
+    - formula
+    - included_cycles
+    - unknown_count
+    - evidence_refs
+    - status
+  allowed_statuses:
+    - VERIFIED
+    - VERIFIED_WITH_LIMITS
+    - NOT_PROVEN
+source_authority:
+  current_source: protected_master_or_exact_formal_candidate
+  historical_source: historical_only
+  graph_output: navigation_and_analysis_only
+  product_truth: source_contracts_tests_and_runtime_consumption

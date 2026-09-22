@@ -48,6 +48,7 @@
     "security:audit": "npm audit --audit-level=critical",
     "check:hidden-unicode": "node scripts/check-hidden-unicode.mjs",
     "check:direct-store-boundaries": "node scripts/check-direct-store-boundaries.mjs",
+    "check:program-event-ledger": "node scripts/program-event-ledger-validator.mjs",
     "graph:companion": "node scripts/graph-companion.mjs",
     "evidence:mod-support": "node scripts/assemble-mod-support-evidence.mjs",
     "evidence:sh-m19-m24": "node scripts/assemble-sh-m19-m24-evidence.mjs",
