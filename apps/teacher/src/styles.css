@@ -1718,6 +1718,18 @@ h3 {
 }
 
 .tss-source-grid select {
-  min-width: 44px;
   width: 100%;
+}
+
+@media (max-width: 760px) {
+  .tss-source-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .tss-inspector dd {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
 }
