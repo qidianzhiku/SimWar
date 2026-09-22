@@ -874,11 +874,13 @@ h3 {
   padding: 0;
 }
 
-.tag-list li {
-  background: #eef4f3;
-  border: 1px solid #d8e3e7;
-  border-radius: 7px;
-  padding: 5px 8px;
+.tag-list > label {
+  display: flex;
+  flex: 1 1 45%;
+}
+
+.tag-list input {
+  flex: 0 0 44px;
 }
 
 .phase-row,
@@ -1452,6 +1454,7 @@ h3 {
     width: 100%;
   }
 
+  .tss-inspector dd,
   .candidate-surface ul,
   .candidate-surface li,
   .candidate-surface p,
