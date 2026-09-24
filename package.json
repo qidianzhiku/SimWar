@@ -15,6 +15,8 @@
     "dev:teacher": "npm run dev -w @simwar/teacher",
     "dev:student": "npm run dev -w @simwar/student",
     "dev:ui-lab": "npm run dev:lab -w @simwar/ui",
+    "storybook": "storybook dev -c packages/ui/.storybook -p 6006",
+    "build:storybook": "storybook build -c packages/ui/.storybook -o packages/ui/dist/storybook",
     "build:test-prerequisites": "npm run build -w @simwar/shared-contracts && npm run build -w @simwar/agent-gateway && npm run build -w @simwar/simulation-core && npm run build -w @simwar/mod-support && npm run build -w @simwar/sh-next-support && npm run build -w @simwar/api",
     "build": "npm run build -w @simwar/shared-contracts && npm run build -w @simwar/agent-gateway && npm run build -w @simwar/simulation-core && npm run build -w @simwar/mod-support && npm run build -w @simwar/sh-next-support && npm run build -w @simwar/api && npm run build -w @simwar/ui && npm run build -w @simwar/admin && npm run build -w @simwar/teacher && npm run build -w @simwar/student",
     "lint": "eslint .",
@@ -72,6 +74,9 @@
     "@axe-core/playwright": "^4.13.0",
     "@eslint/js": "^9.39.2",
     "@playwright/test": "1.61.1",
+    "@storybook/addon-a11y": "^10.6.0",
+    "@storybook/addon-vitest": "^10.6.0",
+    "@storybook/react-vite": "^10.6.0",
     "@types/node": "^25.0.3",
     "@types/pg": "^8.21.0",
     "@types/react": "^19.2.7",
@@ -82,6 +87,7 @@
     "jsdom": "^27.3.0",
     "pg": "^8.21.0",
     "prettier": "^3.7.4",
+    "storybook": "^10.6.0",
     "typescript-eslint": "^8.50.0"
   },
   "engines": {

@@ -1,0 +1,62 @@
+{
+  "schema_version": "simwar-uiux-v2-figma-authoring-receipt.v1",
+  "file_key": "6ezOykmrZbMbFEYPfIkZ07",
+  "authoring_scope": "one isolated new page only",
+  "new_page": {
+    "id": "301:2",
+    "name": "UIV2 · 00 Governance & Registry"
+  },
+  "new_board": {
+    "id": "301:3",
+    "name": "UIV2 Governance Board",
+    "width": 1440,
+    "height": 836
+  },
+  "created_node_ids": [
+    "301:2",
+    "301:3",
+    "301:4",
+    "301:5",
+    "301:6",
+    "301:7",
+    "301:8",
+    "301:9",
+    "301:10",
+    "301:11",
+    "301:12",
+    "301:13",
+    "301:14",
+    "301:15",
+    "301:16",
+    "301:17",
+    "301:18",
+    "301:19",
+    "301:20",
+    "301:21",
+    "301:22"
+  ],
+  "existing_pages_modified": false,
+  "existing_nodes_modified": false,
+  "code_connect": "NOT_PROVEN_UNAVAILABLE",
+  "variables": {
+    "collection": "SimWar P1",
+    "count": 31,
+    "scope_debt_recorded": true,
+    "existing_variables_modified": false
+  },
+  "readback": {
+    "metadata": "PASS",
+    "screenshot": "PASS",
+    "screenshot_file": "docs/uiux-v2/phase1/screenshots/figma/301-3-uiv2-governance.png",
+    "screenshot_sha256": "13b8215183c69a1c42a066eddb57e2af794cb9066cf4a42e726e23e6d15d3c5d"
+  },
+  "protected_reference_pages": [
+    "18:2",
+    "18:3",
+    "18:4",
+    "18:5",
+    "18:6",
+    "18:7",
+    "287:2"
+  ]
+}

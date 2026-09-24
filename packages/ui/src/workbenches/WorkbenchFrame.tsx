@@ -34,13 +34,15 @@ export function WorkbenchFrame({
   actions,
   headerActions,
   children,
-  className = "sw-workbench-frame",
+  className = "",
   headingClassName = "sw-workbench-frame__heading",
   boundaryClassName = "sw-workbench-frame__boundary",
   testId
 }: WorkbenchFrameProps) {
+  const classes = ["sw-ui", "sw-workbench-frame", className].filter(Boolean).join(" ");
+
   return (
-    <section className={className} aria-label={ariaLabel} data-testid={testId}>
+    <section className={classes} aria-label={ariaLabel} data-testid={testId}>
       <div className={headingClassName}>
         <div>
           {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}

@@ -1,3 +1,10 @@
+export {
+  FOUNDATION_COMPONENTS,
+  MIN_INTERACTIVE_TARGET_PX,
+  TOKEN_SOURCE_PATH,
+  UI_STATE_STATUSES
+} from "./design-system-foundation.js";
+export type { FoundationComponent, UiStateStatus } from "./design-system-foundation.js";
 export { DesignSystemLab } from "./DesignSystemLab.js";
 export { AllowedActionButton } from "./components/AllowedActionButton.js";
 export type { AllowedActionButtonProps } from "./components/AllowedActionButton.js";
