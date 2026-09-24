@@ -2,41 +2,26 @@
 
 ## Goal
 
-Adopt the evidence-supported Model B operating rules as a conditional governance carrier on the fresh protected-master epoch without changing SimWar product source, contracts, database, truth, settlement, replay, RBAC, or runtime authority.
+Adopt evidence-supported Model B governance on exact protected master `c8733d6b6179fb438615d8d23eafb4abcc228a3a`, close the already-authorized GSI Student handoff Product Macro, and authorize exactly one bounded successor Product Macro.
 
 ## Scope
 
-- Add a machine-readable program event-ledger schema and a deterministic validator.
-- Add a focused unit test proving complete cycles pass and incomplete cycles fail.
-- Add the package script that runs the validator against an explicit ledger path.
-- Add the governance document defining one Product Authority, lane delivery clocks, integration windows, layered validation, and Program Controller limits.
-- Extend `docs/planning/current-cycle.yaml` with a source-bound conditional-adoption record; preserve historical cycle facts.
-- Run focused, repository, and relevant quality checks; inspect the diff before commit.
-- Use a normal PR/review/check/merge path if the exact head remains authoritative.
+- Preserve one Product Authority and the existing kernel, writer, settlement, replay, RBAC, and runtime-store boundaries.
+- Record typed demand, intended consumer, source epoch, overlap result, integration lease, layered validation, receipt reuse, and stop-loss in the existing event-ledger/governance carrier.
+- Treat PR #517 as the current Product Macro; it is closed by normal merge and exact-master real-BFF consumer readback.
+- Execute one successor only: expose an explicit accessible Student GSI target for the existing handoff without adding a route, store, writer, or truth authority.
+- Keep Human Validation, Pilot, Production, and automatic next-start false/unauthorized.
 
-## Non-goals and guardrails
+## Guardrails
 
-- No product source, contract, database, branch protection, Figma, or external system mutation.
-- No second Product Authority, truth store, writer, settlement authority, replay authority, RBAC authority, or runtime database.
-- No automatic Product Macro or successor start; current Product Macro remains owner-direction blocked.
-- Unknown process fields remain `null`; the validator must not convert missing evidence into zero or estimated values.
+- No second Product Authority, truth store, writer, settlement, replay, RBAC, runtime store, or database.
+- No direct protected-master push, force push, branch-protection bypass, or second same-seam PR.
+- Product source changes are allowed only in the successor PR and only within the target closure seam.
+- Unknown process fields remain `null`; no metric denominator is invented.
 
-## Implementation order
+## Acceptance
 
-1. Add the failing unit test for `validateProgramEventLedger`.
-2. Run the focused test to record the RED result.
-3. Add the validator and package script; rerun the focused test for GREEN.
-4. Add the schema, governance rules, and current-cycle conditional-adoption record.
-5. Run typecheck, lint, hidden-unicode, direct-store-boundary, full test, and build checks that are real in the current package.
-6. Review `git diff` and `git status`; ensure only scoped files changed.
-7. Commit with a conventional message and publish through the existing normal PR path only if fresh authority and checks permit it.
-8. After merge, fresh-read master and rebind all diagnostic artifacts before making any final claim.
-
-## Acceptance criteria
-
-- Focused validator test has a recorded RED then GREEN result.
-- Complete six-cycle diagnostic ledger validates without inventing unknowns.
-- An incomplete/open cycle is rejected with an actionable error.
-- Governance text explicitly removes global one-clock waiting edges where Model B replaces them and states the Program Controller is coordination/evidence only.
-- Current-cycle record is bound to the exact source SHA and keeps automatic-next-start, Human Validation, Pilot, and Production false/not authorized.
-- No product-authority or product-code change is present in the diff.
+- Governance carrier is bound to current master and identifies Model B as adopted with limits.
+- Current Product Macro has exact merge and consumer evidence.
+- Successor has one typed consumer and a source-confirmed target; it is either merged and requalified or stopped with an exact blocker.
+- The final result separates diagnostic verification, governance adoption, Product Macro closure, successor closure, Human Validation, Pilot, and Production.
