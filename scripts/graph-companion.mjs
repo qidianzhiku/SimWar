@@ -2297,6 +2297,53 @@ const ROUTER_DEFAULTS = {
   }
 };
 
+function normalizedUpper(value) {
+  return typeof value === "string" ? value.trim().toUpperCase() : "";
+}
+
+function exactIdentity(value) {
+  return typeof value === "string" ? value : "";
+}
+
+function isGitObjectId(value) {
+  return /^[0-9a-f]{40}$/.test(value);
+}
+
+function deriveCodeGraphAdmission(input = {}) {
+  const value = input && typeof input === "object" ? input : {};
+  const observed = value.codegraph_observed === true;
+  const executionStatus = normalizedUpper(value.codegraph_execution_status);
+  const relevance = normalizedUpper(value.codegraph_relevance);
+  const coverage = normalizedUpper(value.codegraph_coverage);
+  const targetSha = exactIdentity(value.target_sha);
+  const targetTree = exactIdentity(value.target_tree);
+  const observedTargetSha = exactIdentity(value.codegraph_target_sha);
+  const observedTargetTree = exactIdentity(value.codegraph_target_tree);
+
+  if (!observed) return { admitted: false, observed, reason: "CODEGRAPH_NOT_OBSERVED" };
+  if (executionStatus !== "PASS")
+    return { admitted: false, observed, reason: "CODEGRAPH_EXECUTION_NOT_PASS" };
+  if (relevance !== "RELEVANT")
+    return { admitted: false, observed, reason: "CODEGRAPH_RELEVANCE_NOT_RELEVANT" };
+  if (coverage !== "COMPLETE")
+    return { admitted: false, observed, reason: "CODEGRAPH_COVERAGE_NOT_COMPLETE" };
+  if (!targetSha && !targetTree && !observedTargetSha && !observedTargetTree)
+    return { admitted: false, observed, reason: "TARGET_BINDING_NOT_PROVIDED" };
+  if (!targetSha || !observedTargetSha)
+    return { admitted: false, observed, reason: "TARGET_SHA_NOT_BOUND" };
+  if (!isGitObjectId(targetSha) || !isGitObjectId(observedTargetSha))
+    return { admitted: false, observed, reason: "TARGET_SHA_INVALID" };
+  if (targetSha !== observedTargetSha)
+    return { admitted: false, observed, reason: "TARGET_SHA_MISMATCH" };
+  if (!targetTree || !observedTargetTree)
+    return { admitted: false, observed, reason: "TARGET_TREE_NOT_BOUND" };
+  if (!isGitObjectId(targetTree) || !isGitObjectId(observedTargetTree))
+    return { admitted: false, observed, reason: "TARGET_TREE_INVALID" };
+  if (targetTree !== observedTargetTree)
+    return { admitted: false, observed, reason: "TARGET_TREE_MISMATCH" };
+  return { admitted: true, observed, reason: "CODEGRAPH_ADMITTED" };
+}
+
 /**
  * Select a seam-local support route. Tool failure affects only the requested
  * seam; G0/G1 work remains actionable when the graph tools are unavailable.
@@ -2307,13 +2354,9 @@ export function routeGraphSupportQuestion(input = {}) {
   const defaults = ROUTER_DEFAULTS[riskClass] || ROUTER_DEFAULTS.G1;
   const sourceResolved = value.source_readback_resolved === true || value.sourceResolved === true;
   const codegraphAvailable = value.codegraph_available !== false;
-  const codegraphObserved = value.codegraph_observed === true || value.codegraph_admitted === true;
-  const codegraphAdmitted =
-    value.codegraph_admitted === true ||
-    (value.codegraph_observed === true &&
-      value.codegraph_execution_status === "PASS" &&
-      ["RELEVANT", "NOT_APPLICABLE"].includes(value.codegraph_relevance) &&
-      ["COMPLETE", "NOT_APPLICABLE"].includes(value.codegraph_coverage));
+  const codegraphAdmission = deriveCodeGraphAdmission(value);
+  const codegraphObserved = codegraphAdmission.observed;
+  const codegraphAdmitted = codegraphAdmission.admitted;
   const graphifyApplicable = value.graphify_applicable !== false;
   let questionAdmission = "SOURCE_FALLBACK";
   if (defaults.source_readback_required && !sourceResolved) questionAdmission = "HOLD_THIS_SEAM";
@@ -2350,6 +2393,7 @@ export function routeGraphSupportQuestion(input = {}) {
     codegraph_available: codegraphAvailable,
     codegraph_observed: codegraphObserved,
     codegraph_admitted: codegraphAdmitted,
+    codegraph_admission_reason: codegraphAdmission.reason,
     graphify_applicable: graphifyApplicable
   };
 }

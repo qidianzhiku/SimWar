@@ -14,11 +14,44 @@
     "NOT_APPLICABLE"
   ],
   "question_admission": ["READY", "SOURCE_FALLBACK", "HOLD_THIS_SEAM"],
+  "graph_router_admission": {
+    "applies_to": ["G2", "G3"],
+    "caller_supplied_codegraph_admitted": "ignored",
+    "required_input": {
+      "codegraph_observed": true,
+      "codegraph_execution_status": "PASS",
+      "codegraph_relevance": "RELEVANT",
+      "codegraph_coverage": "COMPLETE",
+      "target_sha": "40-character lowercase hexadecimal Git object ID",
+      "codegraph_target_sha": "exact match for target_sha",
+      "target_tree": "40-character lowercase hexadecimal Git object ID",
+      "codegraph_target_tree": "exact match for target_tree"
+    },
+    "derived_output": {
+      "codegraph_admitted": "boolean",
+      "codegraph_admission_reason": [
+        "CODEGRAPH_ADMITTED",
+        "CODEGRAPH_NOT_OBSERVED",
+        "CODEGRAPH_EXECUTION_NOT_PASS",
+        "CODEGRAPH_RELEVANCE_NOT_RELEVANT",
+        "CODEGRAPH_COVERAGE_NOT_COMPLETE",
+        "TARGET_BINDING_NOT_PROVIDED",
+        "TARGET_SHA_NOT_BOUND",
+        "TARGET_SHA_INVALID",
+        "TARGET_SHA_MISMATCH",
+        "TARGET_TREE_NOT_BOUND",
+        "TARGET_TREE_INVALID",
+        "TARGET_TREE_MISMATCH"
+      ]
+    },
+    "failure_admission": "SOURCE_FALLBACK when source readback is resolved; otherwise HOLD_THIS_SEAM"
+  },
   "invariants": [
     "command success does not imply question admission",
     "PASS plus NO_RELEVANCE remains PASS plus SOURCE_FALLBACK",
     "PASS plus truncation remains PASS plus SOURCE_FALLBACK",
-    "G2 and G3 require a positively admitted CodeGraph observation, not CLI availability alone",
+    "G2 and G3 admission is derived from observed evidence and never trusts caller-supplied codegraph_admitted",
+    "G2 and G3 require PASS, RELEVANT, COMPLETE, and exact valid target SHA and tree bindings",
     "an unresolved G3 authority chain is HOLD_THIS_SEAM",
     "G0 and G1 tool unavailability does not globally hold unrelated seams",
     "historical receipts with a mismatched target SHA are never admitted"
