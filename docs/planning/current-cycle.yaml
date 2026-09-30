@@ -1,20 +1,33 @@
 cycle_id: SIMWAR-PROGRAM-VNEXT-20260922
 stage: PROGRAM_VNEXT
-status: CURRENT_MACRO_CLOSED_SUCCESSOR_AUTHORIZED_WITH_LIMITS
+status: EXPIRED_REAUTH_REQUIRED
 repository: qidianzhiku/SimWar
 source_sha: c8733d6b6179fb438615d8d23eafb4abcc228a3a
 source_tree: e1b1b5255c3451a973b266575ace2bafdbc5a816
+source_epoch_semantics: HISTORICAL_ONLY_NOT_CURRENT_AUTHORIZATION
 observed_at: "2026-09-22T10:00:00Z"
+current_master_at_readback: e3fdf3844115f24b34713faeae1d087a9d7cfd8c
+current_tree_at_readback: 22d3b13a370cee66db084284ce5c76c02b75bbd1
+current_master_observed_at: "2026-09-30T09:03:42Z"
+invalidation_reason: Master changed; L1_MAINLINE_BOUNDED_PARALLEL_EXECUTION_PLAN.md section 26 requires fresh authorization.
+automatic_next_start: false
 current_product_macro:
   macro_id: GSI-STUDENT-HANDOFF-20260922
   pr: 517
   merge_sha: c8733d6b6179fb438615d8d23eafb4abcc228a3a
-  status: CLOSED_CONSUMED_WITH_LIMITS
+  status: MERGED_CONSUMER_EVIDENCE_UNVERIFIED
   consumer: existing Student role-safe GSI projection
-  evidence: exact-master real-BFF focused browser journey, route_mocks=0
+  merge_evidence: https://github.com/qidianzhiku/SimWar/pull/517
+  evidence: UNVERIFIED_EXACT_MERGED_MASTER_BROWSER_RECEIPT
+  browser_receipt: null
 operating_model_vnext:
   model: MODEL_B
-  status: ADOPTED_ON_CURRENT_EPOCH_WITH_LIMITS
+  status: ADOPTED_CONDITIONAL_ON_LIVE_MACRO_PROOF
+  diagnostic_status: EVIDENCE_INSUFFICIENT
+  diagnostic_ledger: null
+  verified_complete_cycles: null
+  required_complete_cycles: 6
+  automatic_next_start: false
   source_sha: c8733d6b6179fb438615d8d23eafb4abcc228a3a
   product_authority: MAIN
   program_controller: COORDINATION_REGISTRY_EVIDENCE_ONLY
@@ -23,20 +36,22 @@ operating_model_vnext:
     lane_delivery_clock: BOUNDED_TYPED_DEMAND_AND_CONSUMER_HORIZON
     integration_window: EXPLICIT_LEASED_MAIN_ADMISSION
     shared_validation_clock: LAYERED_RECEIPT_AWARE_VALIDATION
-  removed_waiting_edges:
-    - unrelated support-lane work no longer waits on a universal global delivery clock
-    - unchanged validation layers are not rerun solely because an unrelated lane moved
+  proposed_waiting_edge_removals:
+    - unrelated support-lane work would no longer wait on a universal global delivery clock
+    - unchanged validation layers would not be rerun solely because an unrelated lane moved
   human_validation: NOT_PERFORMED
   pilot: NOT_AUTHORIZED
   production: NOT_AUTHORIZED
 successor:
   successor_count: 1
   macro_id: GSI-STUDENT-HANDOFF-TARGET-CLOSURE-20260922
-  status: AUTHORIZED_PENDING_IMPLEMENTATION
+  status: BLOCKED
+  blocked_reason: Missing source-bound Target Task Authorization Record and expired source epoch.
+  target_task_authorization_record: null
   consumer: Student GSI reflection panel at explicit deep-link target
-  scope: Add a role-safe, accessible Student GSI navigation target to the existing handoff without changing BFF, truth, settlement, replay, or RBAC authority.
+  proposed_scope: Add a role-safe, accessible Student GSI navigation target to the existing handoff without changing BFF, truth, settlement, replay, or RBAC authority.
   automatic_next_start: false
 runtime_authority: JSON_INTERNAL_ONLY
 postgres_application_runtime: NOT_ACTIVATED
 repository_mutation_in_shared_checkout: false
-rollback: revert the governance carrier and successor PR independently if authority, consumer, overlap, or validation evidence diverges.
+rollback: Revert the governance carrier if needed; no successor implementation or automatic start is authorized.
