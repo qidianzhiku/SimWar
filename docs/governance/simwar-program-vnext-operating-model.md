@@ -1,6 +1,6 @@
 # SimWar Program VNext Operating Model
 
-Status: conditional governance adoption after the verified diagnostic; this document does not authorize a Product Macro, Human Validation, Pilot, Production, or any product-source mutation.
+Status: conditional governance adoption (`ADOPTED_CONDITIONAL_ON_LIVE_MACRO_PROOF`), with diagnostic status `EVIDENCE_INSUFFICIENT`. No traceable source-bound diagnostic ledger proving six real complete cycles is available in this record. The historical source epoch is `c8733d6b6179fb438615d8d23eafb4abcc228a3a`; it is not current authorization. This record does not authorize a Product Macro, Human Validation, Pilot, Production, or any product-source mutation.
 
 ## Authority
 
@@ -10,7 +10,7 @@ The Program Controller is a coordination carrier only. It may register typed dem
 
 ## Clocks and delivery states
 
-Model B separates clocks without distributing product authority:
+Model B proposes separate clocks without distributing product authority; operational adoption remains conditional:
 
 - Product Authority Clock: MAIN decides product intent and formal closure.
 - Lane Delivery Clock: SH, MOD, AGT, and FE can prepare and deliver bounded capability packages against typed demand and an explicit consumer horizon.
@@ -25,6 +25,14 @@ Every support-lane package requires a typed demand, one intended consumer, a sou
 
 The integration lease is the synchronization boundary. It replaces the old global-one-clock wait for unrelated lane work and removes repeated whole-program revalidation when the changed seam does not reach that layer. It must not add an approval step without removing a corresponding waiting edge or repeated validation.
 
+## Historical Product Macro and current blockers
+
+PR #517 (`GSI-STUDENT-HANDOFF-20260922`) merged at `c8733d6b6179fb438615d8d23eafb4abcc228a3a` ([merge record](https://github.com/qidianzhiku/SimWar/pull/517)). Its intended consumer was the existing Student role-safe GSI projection, through the existing Teacher comparison handoff. The merge is historical evidence only. The original receipt binding the focused real-BFF browser journey with route mocks disabled to that exact merged-master SHA has not been located; consumer readback is `UNVERIFIED`, and this record does not claim `CLOSED_CONSUMED_WITH_LIMITS` or a proven removed synchronization edge. PR-head test reports cannot substitute for an exact merged-master receipt.
+
+At the 2026-09-30 readback, protected master was `e3fdf3844115f24b34713faeae1d087a9d7cfd8c`, tree `22d3b13a370cee66db084284ce5c76c02b75bbd1`. Under [L1 execution plan section 26](../planning/L1_MAINLINE_BOUNDED_PARALLEL_EXECUTION_PLAN.md#26-update-and-invalidation), the master change makes the current cycle `EXPIRED_REAUTH_REQUIRED`. These observed identities do not rebind historical diagnostic or browser evidence and do not renew authorization.
+
+The proposed successor `GSI-STUDENT-HANDOFF-TARGET-CLOSURE-20260922` is `BLOCKED`: no source-bound Target Task Authorization Record is referenced. A future proposal requires fresh owner authorization and a complete record binding source, branch, exact file allowlist, locks, expiry, typed demand, consumer, overlap result, integration lease, stop-loss, and validation before implementation. This correction grants no successor execution authorization; automatic next-start remains false.
+
 ## Validation and evidence
 
 Validation is layered:
@@ -35,11 +43,11 @@ Validation is layered:
 4. MAIN admission and product closure;
 5. heavier release-oriented gates only when the changed dependency graph requires them.
 
-The event ledger validator rejects open cycles from the complete-cycle denominator. Metrics must publish a numerator, denominator, unknown count, included cycles, formula, and evidence references. Graph topology is analysis, not product truth.
+Diagnostic adoption requires a traceable source-bound ledger with at least six real complete cycles and an actual validator result. The schema, validator, synthetic unit-test fixture, and a single merged PR are not a diagnostic ledger. Missing process evidence and the verified complete-cycle count remain `null`, not zero or inferred success. The event ledger validator rejects open cycles from the complete-cycle denominator. Metrics must publish a numerator, denominator, unknown count, included cycles, formula, and evidence references. Graph topology is analysis, not product truth.
 
 ## What changes and what does not
 
-Removed synchronization mechanisms:
+Proposed synchronization removals, not yet evidenced as operational outcomes:
 
 - the requirement that every support lane share one global delivery clock;
 - repeated full validation caused only by unrelated lane movement;
@@ -55,10 +63,10 @@ Retained safety mechanisms:
 
 ## Adoption and rollback
 
-This operating model is adopted conditionally on a live Product Macro proving a real consumer. No current Product Macro is invented by this record: the current planning pointer remains `M2P6-NEXT-PENDING-OWNER-DIRECTION`, and automatic successor start is false. A future owner-authorized Product Macro must carry a typed demand, consumer, integration lease, and measurable closure evidence before this model can be evaluated in operation.
+Adoption remains conditional on diagnostic evidence and live consumer proof; diagnostic status is `EVIDENCE_INSUFFICIENT`, and the historical cycle is `EXPIRED_REAUTH_REQUIRED`. Rollback is to the prior serial governance carrier if a package creates authority ambiguity, consumer drift, unreconciled overlap, repeated validation amplification, or an unbounded integration debt. Stop-loss pauses the affected lane or window; it does not weaken truth, review, or protected-branch gates.
 
-Rollback is to the prior serial governance carrier if a package creates authority ambiguity, consumer drift, unreconciled overlap, repeated validation amplification, or an unbounded integration debt. Stop-loss pauses the affected lane or window; it does not weaken truth, review, or protected-branch gates.
+The adoption record does not authorize a successor Product Macro or a second same-seam PR. Completing missing fields alone does not grant permission: fresh owner authorization and the complete source-bound admission record are required before any future implementation.
 
 ## Non-proofs
 
-This governance carrier does not prove product acceptance, Human Validation, teaching effectiveness, Pilot, Provider activation, Production readiness, or a current successor. Those remain separate gates and remain unauthorized in the current cycle.
+This governance carrier does not prove Product Acceptance, Human Validation, teaching effectiveness, Pilot, Provider activation, Production readiness, or automatic continuation. Those remain separate gates; Human Validation, Pilot, and Production remain unauthorized in the current cycle.
