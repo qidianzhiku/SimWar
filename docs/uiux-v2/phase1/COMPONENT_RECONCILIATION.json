@@ -1,0 +1,83 @@
+{
+  "schema_version": "simwar-component-reconciliation.v1",
+  "read_at": "2026-09-22",
+  "code_package": "@simwar/ui",
+  "figma_component_source": "19:206 current-reference-candidate Components Board; exact code instance binding pending",
+  "items": [
+    {
+      "design_semantic": "Workbench frame",
+      "figma_reference": "19:206 component board semantic reference",
+      "code_export": "WorkbenchFrame",
+      "code_path": "packages/ui/src/workbenches/WorkbenchFrame.tsx",
+      "disposition": "MATCH",
+      "consumer_count": "fresh census required"
+    },
+    {
+      "design_semantic": "Authority/status badge",
+      "figma_reference": "19:206 StatusBadge / semantic badge reference",
+      "code_export": "AuthorityBadge",
+      "code_path": "packages/ui/src/components/AuthorityBadge.tsx",
+      "disposition": "MATCH",
+      "consumer_count": "fresh census required"
+    },
+    {
+      "design_semantic": "Context strip",
+      "figma_reference": "19:206 Context / semantic strip reference",
+      "code_export": "ContextBar",
+      "code_path": "packages/ui/src/components/ContextBar.tsx",
+      "disposition": "MATCH",
+      "consumer_count": "fresh census required"
+    },
+    {
+      "design_semantic": "State/recovery panel",
+      "figma_reference": "19:206 ErrorState / state semantic reference",
+      "code_export": "StatePanel",
+      "code_path": "packages/ui/src/components/StatePanel.tsx",
+      "disposition": "MATCH",
+      "consumer_count": "fresh census required"
+    },
+    {
+      "design_semantic": "Known limits",
+      "figma_reference": "19:206 KnownLimit / state semantic reference",
+      "code_export": "KnownLimitBanner",
+      "code_path": "packages/ui/src/components/KnownLimitBanner.tsx",
+      "disposition": "MATCH",
+      "consumer_count": "fresh census required"
+    },
+    {
+      "design_semantic": "Receipt/evidence",
+      "figma_reference": "19:206 Receipt / evidence semantic reference",
+      "code_export": "ReceiptPanel",
+      "code_path": "packages/ui/src/components/ReceiptPanel.tsx",
+      "disposition": "MATCH",
+      "consumer_count": "fresh census required"
+    },
+    {
+      "design_semantic": "Role navigation",
+      "figma_reference": "not present as a canonical component in the historical board",
+      "code_export": "RoleNavigation",
+      "code_path": "packages/ui/src/components/RoleNavigation.tsx",
+      "disposition": "EXTEND_FIGMA",
+      "consumer_count": "fresh census required"
+    },
+    {
+      "design_semantic": "Action control",
+      "figma_reference": "ActionButton label",
+      "code_export": "AllowedActionButton",
+      "code_path": "packages/ui/src/components/AllowedActionButton.tsx",
+      "disposition": "REFERENCE_ONLY",
+      "consumer_count": "requires server allowedActions evidence"
+    }
+  ],
+  "rule": "This mapping is a recommendation and evidence ledger, not permission to mutate packages/ui or server authority.",
+  "consumer_counts": {
+    "WorkbenchFrame": 13,
+    "ContextBar": 9,
+    "AuthorityBadge": 11,
+    "KnownLimitBanner": 10,
+    "ReceiptPanel": 5,
+    "StatePanel": 13,
+    "RoleNavigation": 6,
+    "AllowedActionButton": 6
+  }
+}

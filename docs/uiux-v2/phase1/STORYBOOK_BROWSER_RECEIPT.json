@@ -1,0 +1,34 @@
+{
+  "schema_version": "simwar-storybook-browser-receipt.v1",
+  "server": "http://127.0.0.1:6006",
+  "storybook_version": "10.6.0",
+  "story_count": 10,
+  "canonical_story_mount": "foundation-workbenchframe--default",
+  "viewports": [
+    {
+      "viewport": 1440,
+      "viewport_height": 900,
+      "file": "screenshots/storybook/workbench-1440.png",
+      "bytes": 24565,
+      "sha256": "5c561fa99abd756fb83fa0f7bfdf8bbc599fa66503a882a7d30d9c2e415c3ae1"
+    },
+    {
+      "viewport": 390,
+      "viewport_height": 844,
+      "file": "screenshots/storybook/workbench-390.png",
+      "bytes": 20432,
+      "sha256": "c6222d1168976e4ee1eae70aae5ccbd3ba07ea153883af26aba3f63b91f447a1"
+    }
+  ],
+  "mount_status": "PASS",
+  "body_overflow": "PASS",
+  "unnamed_interactive_elements": 0,
+  "page_errors": 0,
+  "route_mocks": "NOT_APPLICABLE",
+  "a11y_scope": "semantic_smoke_only",
+  "a11y_status": "PASS_WITH_LIMITS",
+  "limits": [
+    "No axe scan or human accessibility certification was run in this Phase 1 smoke.",
+    "Storybook runtime registry emitted a write warning in this environment; manager and preview served successfully."
+  ]
+}

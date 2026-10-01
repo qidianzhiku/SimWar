@@ -1,0 +1,256 @@
+{
+  "schema_version": "simwar-figma-authority-registry.v1",
+  "file_key": "6ezOykmrZbMbFEYPfIkZ07",
+  "read_at": "2026-09-22",
+  "read_method": "Figma Plugin API via use_figma; top-level connector metadata is partial",
+  "authority_rule": "Only a fresh exact current page/node may be current authority; historical/candidate boards remain reference-only until explicitly rebound.",
+  "pages": [
+    {
+      "id": "18:2",
+      "name": "00 Cover",
+      "classification": "CURRENT",
+      "authority_scope": "file cover and navigation context only",
+      "read_frames": [
+        "19:2"
+      ]
+    },
+    {
+      "id": "18:3",
+      "name": "01 Design System",
+      "classification": "CURRENT_REFERENCE_CANDIDATE",
+      "authority_scope": "foundation board; not yet exact code-consumption authority",
+      "read_frames": [
+        "19:45"
+      ]
+    },
+    {
+      "id": "18:4",
+      "name": "02 Components",
+      "classification": "CURRENT_REFERENCE_CANDIDATE",
+      "authority_scope": "component board; not yet exact code-consumption authority",
+      "read_frames": [
+        "19:206"
+      ]
+    },
+    {
+      "id": "18:5",
+      "name": "03 Teacher Portal",
+      "classification": "CURRENT_REFERENCE_CANDIDATE",
+      "authority_scope": "teacher portal board; exact route/frame binding pending",
+      "read_frames": [
+        "20:2"
+      ]
+    },
+    {
+      "id": "18:6",
+      "name": "04 Student Portal",
+      "classification": "CURRENT_REFERENCE_CANDIDATE",
+      "authority_scope": "student portal board; exact route/frame binding pending",
+      "read_frames": [
+        "20:105"
+      ]
+    },
+    {
+      "id": "18:7",
+      "name": "05 Admin Portal",
+      "classification": "CURRENT_REFERENCE_CANDIDATE",
+      "authority_scope": "admin portal board; exact route/frame binding pending",
+      "read_frames": [
+        "20:210"
+      ]
+    },
+    {
+      "id": "287:2",
+      "name": "FE-Figma Restart R1 · TSS + GSI Role Spine",
+      "classification": "HISTORICAL_SUPPORT_REFERENCE",
+      "authority_scope": "prior role-spine support evidence only"
+    },
+    {
+      "id": "301:2",
+      "name": "UIV2 · 00 Governance & Registry",
+      "classification": "CURRENT_GOVERNANCE_AUTHORITY",
+      "authority_scope": "UIUX V2 source, page registry and consumer binding rules",
+      "read_frames": [
+        "301:3"
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "id": "19:2",
+      "name": "Cover Board",
+      "classification": "CURRENT",
+      "role": "program context",
+      "dimensions": {
+        "width": 1440,
+        "height": 1050
+      }
+    },
+    {
+      "id": "19:45",
+      "name": "Design System Board",
+      "classification": "CURRENT_REFERENCE_CANDIDATE",
+      "role": "foundation reference",
+      "dimensions": {
+        "width": 1440,
+        "height": 1820
+      }
+    },
+    {
+      "id": "19:206",
+      "name": "Components Board",
+      "classification": "CURRENT_REFERENCE_CANDIDATE",
+      "role": "component reference",
+      "dimensions": {
+        "width": 1440,
+        "height": 2320
+      }
+    },
+    {
+      "id": "20:210",
+      "name": "Admin Portal Board",
+      "classification": "CURRENT_REFERENCE_CANDIDATE",
+      "role": "admin portal reference",
+      "dimensions": {
+        "width": 1440,
+        "height": 2020
+      }
+    },
+    {
+      "id": "270:191",
+      "name": "TSS R5 / Directions & Converge",
+      "classification": "HISTORICAL_SUPPORT_REFERENCE",
+      "role": "historical TSS design reasoning",
+      "dimensions": {
+        "width": 1160,
+        "height": 900
+      }
+    },
+    {
+      "id": "270:192",
+      "name": "TSS R5 / Design System Reuse Map",
+      "classification": "HISTORICAL_SUPPORT_REFERENCE",
+      "role": "historical component mapping",
+      "dimensions": {
+        "width": 1160,
+        "height": 900
+      }
+    },
+    {
+      "id": "20:2",
+      "name": "Teacher Portal Board",
+      "classification": "CURRENT_REFERENCE_CANDIDATE",
+      "role": "teacher portal reference",
+      "dimensions": {
+        "width": 1440,
+        "height": 1940
+      }
+    },
+    {
+      "id": "20:105",
+      "name": "Student Portal Board",
+      "classification": "CURRENT_REFERENCE_CANDIDATE",
+      "role": "student portal reference",
+      "dimensions": {
+        "width": 1440,
+        "height": 2080
+      }
+    },
+    {
+      "id": "301:3",
+      "name": "UIV2 Governance Board",
+      "classification": "CURRENT_GOVERNANCE_AUTHORITY",
+      "role": "source and consumer binding registry",
+      "dimensions": {
+        "width": 1440,
+        "height": 836
+      }
+    }
+  ],
+  "role_surface_authority": {
+    "teacher": "NOT_PROVEN",
+    "student": "NOT_PROVEN",
+    "admin": "NOT_PROVEN"
+  },
+  "existing_foundation_pages": {
+    "design_system_board": {
+      "page": "18:3",
+      "frame": "19:45",
+      "dimensions": [
+        1440,
+        1820
+      ]
+    },
+    "components_board": {
+      "page": "18:4",
+      "frame": "19:206",
+      "dimensions": [
+        1440,
+        2320
+      ]
+    },
+    "admin_portal_board": {
+      "page": "18:7",
+      "frame": "20:210",
+      "dimensions": [
+        1440,
+        2020
+      ]
+    }
+  },
+  "planned_new_pages": [],
+  "planned_pages_status": "DO_NOT_DUPLICATE_EXISTING_FOUNDATION_ASSETS",
+  "future_gap": "An exact code-to-canvas parity board may be authored only if a bounded consumer and isolated scope are approved after current boards are mapped.",
+  "variables": {
+    "collection_id": "VariableCollectionId:14:2",
+    "collection_name": "SimWar P1",
+    "variable_count": 31,
+    "mode": "Mode 1",
+    "text_style_count": 6,
+    "effect_style_count": 0
+  },
+  "community_libraries": {
+    "classification": "REFERENCE_ONLY",
+    "names": [
+      "Material 3 Design Kit",
+      "Simple Design System",
+      "iOS and iPadOS 26",
+      "watchOS 26",
+      "visionOS 26",
+      "macOS 26",
+      "iOS and iPadOS 27",
+      "macOS 27"
+    ]
+  },
+  "code_connect": "NOT_PROVEN_UNAVAILABLE",
+  "authoring_receipt": {
+    "page_id": "301:2",
+    "board_id": "301:3",
+    "created_node_ids": [
+      "301:2",
+      "301:3",
+      "301:4",
+      "301:5",
+      "301:6",
+      "301:7",
+      "301:8",
+      "301:9",
+      "301:10",
+      "301:11",
+      "301:12",
+      "301:13",
+      "301:14",
+      "301:15",
+      "301:16",
+      "301:17",
+      "301:18",
+      "301:19",
+      "301:20",
+      "301:21",
+      "301:22"
+    ],
+    "readback": "PASS",
+    "screenshot": "screenshots/figma/301-3-uiv2-governance.png",
+    "scope": "isolated_new_page_only"
+  }
+}

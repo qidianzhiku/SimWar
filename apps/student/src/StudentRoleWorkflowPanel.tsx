@@ -173,6 +173,9 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
   const requestController = useRef<AbortController | null>(null);
   const actionIdentity = useRef(0);
   const actionController = useRef<AbortController | null>(null);
+  const initializedContextKey = useRef<string | null>(null);
+  const pendingRefreshCleanup = useRef<{ key: string; token: number } | null>(null);
+  const refreshCleanupToken = useRef(0);
   const contextKey = [
     props.active,
     props.roundId,
@@ -313,6 +316,8 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
   );
 
   useEffect(() => {
+    if (initializedContextKey.current === contextKey) return;
+    initializedContextKey.current = contextKey;
     requestIdentity.current += 1;
     requestController.current?.abort();
     actionIdentity.current += 1;
@@ -328,15 +333,29 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
   }, [contextKey, props.active]);
 
   useEffect(() => {
-    const pendingRefresh = refresh();
+    const pendingCleanup = pendingRefreshCleanup.current;
+    const isStrictModeReplay = pendingCleanup?.key === contextKey;
+    if (pendingCleanup) {
+      pendingRefreshCleanup.current = null;
+      refreshCleanupToken.current += 1;
+    }
+    if (!isStrictModeReplay) {
+      void refresh();
+    }
     return () => {
-      requestIdentity.current += 1;
-      requestController.current?.abort();
-      actionIdentity.current += 1;
-      actionController.current?.abort();
-      void pendingRefresh;
+      const token = ++refreshCleanupToken.current;
+      pendingRefreshCleanup.current = { key: contextKey, token };
+      queueMicrotask(() => {
+        const scheduled = pendingRefreshCleanup.current;
+        if (!scheduled || scheduled.key !== contextKey || scheduled.token !== token) return;
+        pendingRefreshCleanup.current = null;
+        requestIdentity.current += 1;
+        requestController.current?.abort();
+        actionIdentity.current += 1;
+        actionController.current?.abort();
+      });
     };
-  }, [refresh]);
+  }, [contextKey, refresh]);
 
   useEffect(() => {
     props.onAvailabilityChange?.(availability);
@@ -344,10 +363,6 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
 
   useEffect(
     () => () => {
-      requestIdentity.current += 1;
-      requestController.current?.abort();
-      actionIdentity.current += 1;
-      actionController.current?.abort();
       props.onAvailabilityChange?.("checking");
     },
     [props.onAvailabilityChange]
