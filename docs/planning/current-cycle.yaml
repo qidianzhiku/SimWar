@@ -61,3 +61,15 @@ runtime_authority: JSON_INTERNAL_ONLY
 postgres_application_runtime: NOT_ACTIVATED
 repository_mutation_in_shared_checkout: false
 rollback: Revert the governance carrier if needed; no successor implementation or automatic start is authorized.
+
+authorization_carrier:
+  pr: 522
+  branch: codex/gsi-student-handoff-target-auth-20261001
+  merge_exempt_from_expiry: true
+  allowed_changed_files:
+    - docs/governance/owner-decisions/OWNER_TARGET_AUTHORIZATION_GSI_STUDENT_HANDOFF_20261001.json
+    - docs/governance/TASK_CARD_GSI_STUDENT_HANDOFF_TARGET_CLOSURE_20261001.md
+    - docs/planning/current-cycle.yaml
+  post_merge_master_readback_required: true
+  post_merge_product_source_no_drift_required: true
+  note: The ordinary PR #522 governance carrier merge is the one-time exception to master-move expiry. Any later master merge re-enters normal revalidation.
