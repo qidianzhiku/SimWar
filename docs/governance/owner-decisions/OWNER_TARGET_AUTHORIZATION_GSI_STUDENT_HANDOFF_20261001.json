@@ -1,0 +1,186 @@
+{
+  "schema_version": "simwar.target-task-authorization-record.v1",
+  "authorization_id": "OWNER_TARGET_AUTHORIZATION_GSI_STUDENT_HANDOFF_20261001",
+  "status": "TARGET_AUTHORIZED_PENDING_CARRIER_MERGE_AND_TECHNICAL_ADMISSION",
+  "portfolio_cycle": "SIMWAR-PROGRAM-VNEXT-20260922",
+  "mission_id": "GSI-STUDENT-HANDOFF-TARGET-CLOSURE-20260922",
+  "program": "MAIN",
+  "value_chain_bundle": "GSI-STUDENT-HANDOFF-TARGET-CLOSURE",
+  "primary_outcome": "Reuse the merged GSI Student handoff and reflection to complete the Student landing fragment, accessible focus entry, and scoped regression coverage without rebuilding services or changing product authority.",
+  "track": "MAINLINE",
+  "wip_lane": "MAINLINE",
+  "risk_tier": "T3",
+  "review_mode": "GRAPH_GATED_ENHANCED_AUTO_REVIEW",
+  "owner_decision": {
+    "decision": "APPROVE",
+    "decision_owner": "Project Owner",
+    "approved_at": "2026-10-01T07:53:32Z",
+    "source": "explicit chat approval of the previously stated minimal GSI Student Handoff target authorization and registration mechanism"
+  },
+  "source_anchor": {
+    "repository": "qidianzhiku/SimWar",
+    "protected_branch": "master",
+    "base_sha": "bde91b5e212c54641b25b740177c2ec254a68722",
+    "source_tree": "c995ac284be4582a47aaa65c04a82efbcc63a851",
+    "registration_base_sha": "bde91b5e212c54641b25b740177c2ec254a68722",
+    "registration_base_tree": "c995ac284be4582a47aaa65c04a82efbcc63a851",
+    "activation_rule": {
+      "authorization_carrier_pr": 522,
+      "carrier_merge_exempt_from_expiry": true,
+      "carrier_scope": [
+        "docs/governance/owner-decisions/OWNER_TARGET_AUTHORIZATION_GSI_STUDENT_HANDOFF_20261001.json",
+        "docs/governance/TASK_CARD_GSI_STUDENT_HANDOFF_TARGET_CLOSURE_20261001.md",
+        "docs/planning/current-cycle.yaml"
+      ],
+      "condition": "The ordinary merge of PR #522 is exempt from master-move expiry only if its final diff remains exactly the three governance/planning carrier files. After merge, technical admission must fresh-read the actual master SHA/tree and prove no Product-source drift outside this carrier before any Product mutation.",
+      "activation_master_sha": "POST_MERGE_READBACK_REQUIRED"
+    }
+  },
+  "branch": "PENDING_TECHNICAL_ADMISSION",
+  "worktree": "PENDING_TECHNICAL_ADMISSION",
+  "evidence_root": "PENDING_TECHNICAL_ADMISSION",
+  "context_pack": "existing GSI handoff/reflection + source-bound local report; no new service build",
+  "graph_gate": {
+    "required": true,
+    "graphify_index": "LOCAL_REPORT_BUILT_AND_QUERIED__FORMAL_ADMISSION_NOT_PROVEN",
+    "codegraph_index": "LOCAL_REPORT_BUILT_AND_QUERIED__FORMAL_ADMISSION_NOT_PROVEN",
+    "selected_path": "existing Teacher handoff -> Student query-context parser -> existing Student role-safe GSI BFF projection -> Student reflection",
+    "confidence": "LIMITED_BY_FORMAL_GRAPH_ADMISSION_NOT_PROVEN",
+    "graph_artifacts": [
+      "local execution report supplied by Owner; formal MCP/Graph Gate admission still required before mutation"
+    ]
+  },
+  "allowlist": [
+    "apps/teacher/src/GovernedStakeholderIntelligenceWorkspace.tsx",
+    "apps/student/src/GovernedStakeholderIntelligenceProjection.tsx",
+    "tests/unit/gsi-xr-teacher-admin-experience.test.tsx",
+    "tests/unit/gsi-xr-student-experience.test.tsx",
+    "tests/e2e-ui/gsi-stakeholder-shadow-plane.spec.ts"
+  ],
+  "reference_only": [
+    "PR #516 UI/shared-style work; do not modify or merge it under this authorization",
+    "PR #517 merged GSI Student handoff",
+    "existing GSI BFF/service/contracts and role-safe projections",
+    "existing Student reflection implementation"
+  ],
+  "forbidden": [
+    "packages/ui/**",
+    "apps/student/src/styles.css",
+    "apps/teacher/src/styles.css",
+    "GSI BFF/service/contracts",
+    "Truth/Settlement/Score/Rank",
+    "Replay authority",
+    "RBAC/tenant authority",
+    "repository provider",
+    "database/provider activation",
+    "PR #516 mutation or merge"
+  ],
+  "mutable_authority": "UI landing/focus behavior and scoped regression coverage inside the exact five-file allowlist only; no formal product truth authority",
+  "sole_writer": "Codex/CodexPro MAINLINE target executor for the exact five-file allowlist after technical admission",
+  "resource_locks": [
+    "SINGLE_WRITER on the exact five-file allowlist",
+    "SERIAL_CLOSURE lane for formal merge/closure",
+    "PR #516 shared UI/style area remains reference-only and requires join revalidation"
+  ],
+  "join_barriers": [
+    "PR #516 and this target may be conditionally parallel during implementation because there is no direct five-file overlap.",
+    "Formal closure/merge is serial.",
+    "If PR #516 merges first, this target must re-read current master, overlap, and affected UI regression before closure.",
+    "If this target merges first, PR #516 must rebind to the new master before its closure."
+  ],
+  "allowed_actions": [
+    "READ",
+    "GRAPH_READBACK",
+    "TECHNICAL_ADMISSION",
+    "ISOLATED_WORKTREE_PREP"
+  ],
+  "post_technical_admission_allowed_actions": [
+    "ALLOWLIST_MUTATION",
+    "TEST",
+    "COMMIT",
+    "PUSH_TO_SINGLE_TARGET_BRANCH",
+    "CREATE_SINGLE_TARGET_PR",
+    "IN_PR_REWORK_WITHIN_ALLOWLIST",
+    "EXACT_HEAD_AUTO_REVIEW",
+    "ORDINARY_MERGE_AFTER_SERIAL_CLOSURE_GATES",
+    "POST_MERGE_CLOSURE"
+  ],
+  "forbidden_actions": [
+    "PRODUCT_MUTATION_BEFORE_TECHNICAL_ADMISSION",
+    "DIRECT_MASTER_PUSH",
+    "FORCE_PUSH",
+    "REBASE_OR_HISTORY_REWRITE",
+    "BRANCH_PROTECTION_BYPASS",
+    "MODIFY_OR_MERGE_PR_516",
+    "OUT_OF_ALLOWLIST_PRODUCT_MUTATION",
+    "SERVICE_REBUILD",
+    "SECOND_WRITER_OR_STORE_OR_REGISTRY_OR_TRUTH_AUTHORITY",
+    "PROVIDER_ACTIVATION",
+    "HUMAN_VALIDATION",
+    "PILOT",
+    "PRODUCTION",
+    "AUTOMATIC_SUCCESSOR_START"
+  ],
+  "mutation_budget": "0 until technical admission; then one bounded implementation envelope within exact allowlist",
+  "commit_budget": "minimal commits within one target branch/PR after technical admission",
+  "push_budget": "single target branch only after technical admission",
+  "pr_budget": 1,
+  "merge_budget": 1,
+  "required_tests": [
+    "npx vitest run tests/unit/gsi-xr-teacher-admin-experience.test.tsx tests/unit/gsi-xr-student-experience.test.tsx",
+    "npx playwright test tests/e2e-ui/gsi-stakeholder-shadow-plane.spec.ts --config playwright.config.ts",
+    "npm run typecheck",
+    "npm run lint",
+    "npm run build",
+    "npm run check:hidden-unicode",
+    "npm run check:direct-store-boundaries",
+    "npm test",
+    "GitHub required checks: quality, browser-smoke, Analyze JavaScript and TypeScript"
+  ],
+  "required_negative_tests": [
+    "Student handoff is absent before exact comparison is ready.",
+    "Handoff carries exact course/run/team/activity/role only; no candidate identifiers or comparison digests.",
+    "Student projection remains role-safe and does not expose private provenance/signal keys.",
+    "Existing wrong-context/rebase/context-unavailable behavior remains fail-closed."
+  ],
+  "required_evidence": [
+    "fresh source/readback bound to exact base",
+    "formal Graph Gate admission or explicit NOT_PROVEN stop before mutation",
+    "five-file diff scope",
+    "focused unit/e2e results",
+    "required GitHub checks",
+    "PR #516 overlap/join readback before closure",
+    "post-merge source and consumer readback if merged"
+  ],
+  "known_limits": [
+    "Historical local graph writer used an undefined-undefined repository key.",
+    "Old daemon.log and daemon.pid changed without attribution.",
+    "CLI graph success does not prove MCP success or formal Graph Gate admission."
+  ],
+  "automatic_pause_triggers": [
+    "any protected master merge after the authorization-carrier merge of PR #522",
+    "PR #516 changed-file expansion touching any allowlisted file",
+    "target branch/head changes outside the registered executor",
+    "authority/writer change",
+    "formal Graph Gate not admitted",
+    "any required out-of-allowlist product change"
+  ],
+  "cancellation_conditions": [
+    "Owner cancels target",
+    "product outcome or authority boundary changes",
+    "same target becomes superseded by a merged equivalent"
+  ],
+  "expiry": "The PR #522 authorization-carrier merge itself is exempt. After that merge: any later protected-master merge or 2026-10-15T07:53:32Z, whichever comes first, triggers revalidation/expiry according to the registered rules.",
+  "revalidation_triggers": [
+    "post-PR-522 carrier-merge actual master SHA/tree readback before technical admission",
+    "any subsequent master SHA/tree change after the carrier merge",
+    "PR #516 scope/head change affecting overlap",
+    "Graph index/source-scope change",
+    "five-file allowlist change",
+    "authority/writer change",
+    "required check policy change"
+  ],
+  "t4_human_scope_approval": "NOT_APPLICABLE_T3",
+  "t4_human_exact_head_approval": "NOT_APPLICABLE_T3",
+  "automatic_next_start": false
+}
