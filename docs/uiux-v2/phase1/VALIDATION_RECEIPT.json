@@ -1,51 +1,207 @@
 {
-  "schema_version": "simwar-uiux-v2-validation-receipt.v1",
-  "worktree": "D:\\codex\\simwar-uiux-v2-phase1",
-  "head": "91569bd7396899589acbca324bc68d8ece660366",
-  "tree_before_phase1": "9c4c42117d3f331eeadb4fdaa6cb82788c723dd0",
+  "schema_version": "simwar-uiux-v2-validation-receipt.v2",
+  "recorded_at_utc": "2026-10-01T02:43:42.738133+00:00",
+  "worktree": "/workspace/scratch/b24725abb318/SimWar-pr516",
+  "head": "2cdda881a4750fcaa10b100eac145433812b03c2",
+  "head_semantics": "Exact clean tested candidate; this receipt is recorded by a subsequent evidence-only commit. It does not claim to test its own self-referential commit.",
+  "tested_candidate_sha": "2cdda881a4750fcaa10b100eac145433812b03c2",
+  "tested_candidate_tree": "334e20799d66f9e41f4fbb0467eec51782bac1f7",
+  "tested_checkout_clean": true,
+  "protected_master_sha": "9fd4a95e0140f1782f4e32cbd0617c9743ec1a77",
+  "original_pr_head": "df7a77f34c7accadfad3b60dbfb18afeb433a357",
+  "rebind_strategy": "Append merge commit preserving original PR and current master parents; no force update",
   "commands": [
     {
+      "command": "npx vitest run tests/unit/uiux-v2-foundation.test.ts tests/unit/uiux-v2-registry.test.ts tests/unit/uiux-v2-role-adoption.test.tsx tests/unit/uiux-v2-state-grammar.test.tsx tests/unit/student-decision-desktop.test.tsx tests/unit/ui-student-refoundation.test.tsx",
+      "status": "PASS",
+      "exit_code": 0,
+      "log_sha256": "f1c974060196c5cfd3e31232f1cb76f014d3c455d01e9ebe1280ea4827f0a5cd",
+      "files_passed": 6,
+      "tests_passed": 49
+    },
+    {
       "command": "npm run typecheck",
-      "status": "PASS"
+      "status": "PASS",
+      "exit_code": 0,
+      "log_sha256": "bd2dde7fc80213c29c174517891555f9efeeb46cb153fd715448f587f2972d6d"
     },
     {
       "command": "npm run lint",
-      "status": "PASS"
-    },
-    {
-      "command": "npx vitest run tests/unit/uiux-v2-foundation.test.ts tests/unit/uiux-v2-registry.test.ts",
       "status": "PASS",
-      "tests": 8
+      "exit_code": 0,
+      "log_sha256": "c850ec453cbcfd08de2af22e031d56afe5405ef2daeb973547110b19813cbf46"
     },
     {
       "command": "npm run build",
-      "status": "PASS"
+      "status": "PASS",
+      "exit_code": 0,
+      "log_sha256": "386ea72c2fc56f5929c05a8dda197d61f093e8f0db3e5b5871075e0b45d3125e"
     },
     {
       "command": "npm run build:storybook",
       "status": "PASS",
-      "storybook_version": "10.6.0"
+      "exit_code": 0,
+      "log_sha256": "7e169416420bcf541aca123eaa1f5b058932ca0c28579d8325f1fff929718b25"
+    },
+    {
+      "command": "npm run check:hidden-unicode",
+      "status": "PASS",
+      "exit_code": 0,
+      "log_sha256": "348a308bc123496063d6d5aac877a55d2027081d2f09eeb0739a951aa05f7025"
+    },
+    {
+      "command": "npm run check:direct-store-boundaries",
+      "status": "PASS",
+      "exit_code": 0,
+      "log_sha256": "dfd48ac8ad762a7c24e2341d447856267fec76c5703fa58db7a1ca6aed884c2c"
+    },
+    {
+      "command": "npm run test:contract",
+      "status": "PASS",
+      "exit_code": 0,
+      "log_sha256": "c23769e8f20f293fb8ccc83d3670adc8f4bdd6d2a8fcca13b7440f2c1e55582e",
+      "files_passed": 56,
+      "tests_passed": 152
     },
     {
       "command": "npm test",
-      "status": "FAIL_WITH_UNRELATED_LIMITS",
-      "files_passed": 451,
-      "tests_passed": 2587,
-      "files_failed": 3,
-      "tests_failed": 6,
+      "status": "FAIL",
+      "exit_code": 1,
+      "log_sha256": "25595989c8e346c7eb7580599f846b446bb761611ef85e0daed677ee7b8a7ee1",
+      "files_passed": 456,
+      "files_failed": 2,
+      "tests_passed": 2594,
+      "tests_failed": 23,
       "failures": [
-        "tests/integration/course-factory-lifecycle.test.ts timeout",
-        "tests/unit/course-factory.test.ts three timeouts",
-        "tests/unit/store-snapshot-persistence.test.ts two timeouts",
-        "scripts/assemble-mod-support-evidence.mjs rejected repository-root/existing-directory output"
+        "21 store-snapshot-persistence CLI failures: tsx UNIX socket listen EPERM",
+        "2 course-factory timeouts during full parallel suite; isolated same-revision rerun passed all 19 tests"
       ]
+    },
+    {
+      "command": "npx vitest run tests/unit/course-factory.test.ts",
+      "status": "PASS",
+      "exit_code": 0,
+      "log_sha256": "a9fb5be2fa53ac6f9218a8a97510a807c0b9b6af2da5b2db71bfe9b0ca7c44a6",
+      "tests_passed": 19
+    },
+    {
+      "command": "npx prettier --check apps/student/src/styles.css tests/e2e-ui/uiux-v2-responsive.spec.ts .github/workflows/ci.yml",
+      "status": "PASS",
+      "exit_code": 0,
+      "log_sha256": "5bf5bf82219fcfa49043e9d2d1d1460f203bdff6d7d1fe0f377dbbd647a692dd"
+    },
+    {
+      "command": "git -c core.whitespace=cr-at-eol diff --check df7a77f34c7accadfad3b60dbfb18afeb433a357 HEAD",
+      "status": "PASS",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": "npm run format:check",
+      "status": "FAIL",
+      "revision": "5d3008e04e498c772f7c750bcb4a3bb514e098aa",
+      "reported_files": 156,
+      "note": "Repository baseline formatting failure; no broad formatting change authorized. Changed code/CI files pass the exact-candidate focused check."
+    },
+    {
+      "command": "SIMWAR_PLAYWRIGHT_TSS=true npx playwright test tests/e2e-ui/uiux-v2-responsive.spec.ts --config playwright.config.ts",
+      "status": "ENV BLOCKED",
+      "attempted_revision": "5d3008e04e498c772f7c750bcb4a3bb514e098aa",
+      "reasons": [
+        "Chromium download returned 195-byte HTML instead of ZIP",
+        "API tsx watch startup failed with UNIX socket listen EPERM"
+      ],
+      "candidate_ci": "CI explicitly enables the real TSS fixture; no local responsive/a11y PASS claim."
     }
   ],
+  "remote_validation_snapshot": {
+    "candidate_sha": "2cdda881a4750fcaa10b100eac145433812b03c2",
+    "ci": {
+      "run_id": 36806862621,
+      "status": "IN_PROGRESS",
+      "url": "https://github.com/qidianzhiku/SimWar/actions/runs/36806862621"
+    },
+    "codeql": {
+      "run_id": 36806862657,
+      "status": "PASS",
+      "url": "https://github.com/qidianzhiku/SimWar/actions/runs/36806862657"
+    },
+    "required_checks_authority": "UNAVAILABLE: branch-protection API returned 403; rulesets collection returned []"
+  },
+  "p2_findings": [
+    {
+      "thread_id": "PRRT_kwDOSp9UTs6kpgv6",
+      "source_verdict": "CONFIRMED: five-column grid with a single unspanned ContextBar",
+      "fix": "Scoped student CSS grid-column 2 / -1 at min-width 1281px",
+      "runtime_verification": "LOCAL_ENV_BLOCKED; new real-BFF browser regression and CI step required before closure"
+    },
+    {
+      "thread_id": "PRRT_kwDOSp9UTs6kpgwA",
+      "source_verdict": "CONFIRMED: legacy head had no tested candidate/tree binding",
+      "fix": "Explicit tested candidate SHA/tree and per-command results; old receipt retained as historical only"
+    }
+  ],
+  "historical_receipt": {
+    "authority": "HISTORICAL_ONLY_NOT_CURRENT_CANDIDATE_PROOF",
+    "receipt": {
+      "schema_version": "simwar-uiux-v2-validation-receipt.v1",
+      "worktree": "D:\\codex\\simwar-uiux-v2-phase1",
+      "head": "91569bd7396899589acbca324bc68d8ece660366",
+      "tree_before_phase1": "9c4c42117d3f331eeadb4fdaa6cb82788c723dd0",
+      "commands": [
+        {
+          "command": "npm run typecheck",
+          "status": "PASS"
+        },
+        {
+          "command": "npm run lint",
+          "status": "PASS"
+        },
+        {
+          "command": "npx vitest run tests/unit/uiux-v2-foundation.test.ts tests/unit/uiux-v2-registry.test.ts",
+          "status": "PASS",
+          "tests": 8
+        },
+        {
+          "command": "npm run build",
+          "status": "PASS"
+        },
+        {
+          "command": "npm run build:storybook",
+          "status": "PASS",
+          "storybook_version": "10.6.0"
+        },
+        {
+          "command": "npm test",
+          "status": "FAIL_WITH_UNRELATED_LIMITS",
+          "files_passed": 451,
+          "tests_passed": 2587,
+          "files_failed": 3,
+          "tests_failed": 6,
+          "failures": [
+            "tests/integration/course-factory-lifecycle.test.ts timeout",
+            "tests/unit/course-factory.test.ts three timeouts",
+            "tests/unit/store-snapshot-persistence.test.ts two timeouts",
+            "scripts/assemble-mod-support-evidence.mjs rejected repository-root/existing-directory output"
+          ]
+        }
+      ],
+      "package_manager": "npm",
+      "lockfile_mutated_by_phase1": true,
+      "product_code_scope": "packages/ui foundation contract and Storybook only",
+      "product_contracts_mutated": false,
+      "domain_truth_mutated": false,
+      "product_acceptance": "NOT_RUN",
+      "human_validation": "NOT_RUN"
+    }
+  },
   "package_manager": "npm",
-  "lockfile_mutated_by_phase1": true,
-  "product_code_scope": "packages/ui foundation contract and Storybook only",
   "product_contracts_mutated": false,
   "domain_truth_mutated": false,
+  "figma_write_performed": false,
   "product_acceptance": "NOT_RUN",
-  "human_validation": "NOT_RUN"
+  "human_validation": "NOT_RUN",
+  "automatic_next_start": false,
+  "merge_performed": false,
+  "merge_readiness_snapshot": "WAIT_FOR_CURRENT_HEAD_CI_RESPONSIVE_AND_REVIEW_CLOSURE"
 }
