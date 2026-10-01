@@ -21,8 +21,15 @@ Use exact path/symbol/route/schema seeds. Record `execution_status`, `relevance`
 truncation is still command success and becomes `SOURCE_FALLBACK`; it is not a
 synthetic command failure. Historical receipts must match the current target SHA.
 For G2/G3, `READY` additionally requires a positively admitted CodeGraph
-observation (`codegraph_admitted` or a qualified PASS/relevance/coverage receipt);
-installation or availability alone never counts as graph evidence.
+observation. The router derives admission and ignores caller-supplied
+`codegraph_admitted`. Supply `codegraph_observed=true`,
+`codegraph_execution_status=PASS`, `codegraph_relevance=RELEVANT`, and
+`codegraph_coverage=COMPLETE`, plus exact 40-character lowercase Git object IDs
+in matching `target_sha`/`codegraph_target_sha` and
+`target_tree`/`codegraph_target_tree` pairs. Missing, malformed, or mismatched
+identity fails closed to `SOURCE_FALLBACK`; `codegraph_admission_reason` records
+the failed gate. Installation or availability alone never counts as graph
+evidence.
 
 The contract/provenance overlay records source and contract anchors for review
 leads. Source, contract, and tests remain the decision authority. The compact

@@ -104,6 +104,33 @@ new graph database or a CodeGraph replacement. The affected query is executed
 against that same external index worktree, not the source checkout. Planning becomes
 `PLAN_ALLOWED_WITH_LIMITS`, never an unqualified `PLAN_ALLOWED`.
 
+## Local writer lease
+
+All CLI modes acquire `<graph-home>/<repository-key>/writer.lock.json` with
+exclusive file creation before using the shared CodeGraph worktree, graph assets,
+registry or run receipts. A competing invocation stops with
+`GRAPH_COMPANION_LOCK_CONFLICT`; it neither changes those assets nor removes the
+existing lock. The owning invocation releases its lease on success or failure
+only when the persisted token still matches. A missing, corrupt or replaced lock
+produces `GRAPH_COMPANION_LOCK_OWNERSHIP_LOST` and is never deleted automatically.
+
+CodeGraph build receipts now report `LOCK_OWNERSHIP_PROVEN` with
+`ownership_proof=LOCAL_EXCLUSIVE_FILE`. This proves local Companion coordination,
+not a distributed lease or protection from tools invoked outside the Companion.
+A crashed process can leave a lease behind; an operator must establish ownership
+and inactivity before removing it. No process is killed and no successor starts.
+
+This is the sole current-epoch code delta retained from draft Graph Foundation
+PRs #297/#298. Their PowerShell controller, hard-coded graph home and separate
+current-master registry are not revived. Exact-source identity, external roots,
+freshness, atomic receipts, registry history and planning gates already live in
+this Companion. The old eight-topic health catalog is replaced by exact-question
+Query Contract V2/V2.1 admission and mandatory source readback; a healthy index
+does not by itself prove useful evidence. The current registry tracks checked-out
+source and explicit freshness, rather than claiming a freshly fetched master
+publication. Its history is source-binding history, not a full legacy registry
+backup. These contract differences do not authorize a second graph controller.
+
 ## Architecture delta and Test Impact
 
 Each run emits `architecture-delta.json` with file/node/edge changes, including
