@@ -97,13 +97,21 @@ fallback_evidence:
 - No source-only fallback is allowed for formal Graph Gate admission.
 
 issue_111_delta:
-- no change
+- Current GitHub readback: OPEN.
+- This target does not modify settlement idempotency/concurrency and does not close or advance #111.
 
 issue_114_delta:
-- no change
+- Current GitHub readback: CLOSED.
+- This target does not reopen or modify the direct-store closeout boundary.
 
 issue_115_delta:
-- no change
+- Current GitHub readback: CLOSED.
+- This target does not reopen or modify the contract-parity closeout boundary.
+
+implementation_pr_issue_reference_policy:
+- No `Relates to #111`, `Relates to #114`, or `Relates to #115` line is required for the implementation PR under the current five-file UI/test scope because those issue domains are not touched.
+- The implementation PR must not use closing keywords for #111/#114/#115.
+- If technical admission or the actual diff makes this target materially related to any of those issue domains, stop/replan and add the appropriate `Relates to #<issue>` reference before implementation continues.
 
 postgres_gate_lift:
 - none
@@ -129,7 +137,7 @@ known_limits:
 stop_conditions:
 - technical admission is incomplete
 - formal Graph Gate is NOT_PROVEN
-- protected master moves
+- protected master moves after the one-time PR #522 authorization-carrier merge exemption
 - PR #516 expands into any allowlisted file
 - an unapproved path becomes necessary
 - Product/service/contract/authority scope must expand
@@ -144,3 +152,9 @@ next_allowed_task:
 
 automatic_next_start:
 - false
+
+
+authorization_carrier_merge_rule:
+- PR #522 is the one-time repository authorization carrier and its ordinary governance-only merge does not expire this target.
+- After PR #522 merges, technical admission must fresh-read the actual master SHA/tree and confirm that the carrier diff remained governance/planning-only and that no Product source drift occurred outside the three carrier files.
+- Any later protected-master merge triggers the registered revalidation policy before closure or further mutation.
