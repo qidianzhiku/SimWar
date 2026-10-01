@@ -412,14 +412,31 @@ function graphBasePath(graphHome, repository) {
   return join(graphHome, repositoryKey(repository));
 }
 
-// One local lease covers the shared index worktree, graph artifacts and registry.
+// Acquire both independently shared resources before the callback can write.
 // A leftover/unknown lease is a hold, never permission to delete it or kill a PID.
-export function withGraphCompanionLease({ graphHome, repository }, run) {
+export function withGraphCompanionLease({ graphHome, repository, evidenceRoot }, run) {
   const lockPath = join(graphBasePath(graphHome, repository), "writer.lock.json");
+  return withLocalWriterLease(lockPath, sha256({ repository, graph_home: graphHome }), (owner) => {
+    if (!evidenceRoot) return run(owner);
+    const evidenceLockPath = join(resolve(evidenceRoot), ".graph-companion-writer.lock");
+    return withLocalWriterLease(
+      evidenceLockPath,
+      sha256({ evidence_root: resolve(evidenceRoot) }),
+      (evidenceOwner) =>
+        run({
+          ...owner,
+          evidence_lock_path: evidenceOwner.lock_path,
+          evidence_token: evidenceOwner.token
+        })
+    );
+  });
+}
+
+function withLocalWriterLease(lockPath, buildKey, run) {
   ensureDirectory(dirname(lockPath));
   const now = new Date().toISOString();
   const owner = {
-    build_key: sha256({ repository, graph_home: graphHome }),
+    build_key: buildKey,
     token: randomUUID(),
     owner: "graph-companion",
     process_id: String(process.pid),
@@ -1733,13 +1750,18 @@ function resolveCurrentSha(repoRoot, requestedSha) {
   return git(repoRoot, ["rev-parse", "HEAD"], { allowFailure: true }) || null;
 }
 
-function ensureEvidenceRoot(path, repoRoot) {
-  const candidate =
+function resolveEvidenceRoot(path) {
+  return resolve(
     path ||
-    join(
-      tmpdir(),
-      `E-SIMWAR-GRAPH-COMPANION-V1-${new Date().toISOString().replace(/[-:.]/gu, "")}`
-    );
+      join(
+        tmpdir(),
+        `E-SIMWAR-GRAPH-COMPANION-V1-${new Date().toISOString().replace(/[-:.]/gu, "")}`
+      )
+  );
+}
+
+function ensureEvidenceRoot(path, repoRoot) {
+  const candidate = resolveEvidenceRoot(path);
   if (repoRoot) assertArtifactRootSafety({ projectRoot: repoRoot, artifactRoot: candidate });
   return ensureDirectory(candidate);
 }
@@ -2714,8 +2736,14 @@ export function runCompanion(options = {}) {
   const root = resolve(options.repoRoot || DEFAULT_REPO_ROOT);
   const home = assertExternalGraphHome(resolve(options.graphHome || resolveGraphHome()), root);
   const repository = parseRepository(getRemote(root), root);
-  return withGraphCompanionLease({ graphHome: home, repository }, (writerLease) =>
-    runCompanionWithLease({ ...options, graphHome: home, writerLease })
+  const evidence = assertArtifactRootSafety({
+    projectRoot: root,
+    artifactRoot: resolveEvidenceRoot(options.evidenceRoot)
+  });
+  return withGraphCompanionLease(
+    { graphHome: home, repository, evidenceRoot: evidence },
+    (writerLease) =>
+      runCompanionWithLease({ ...options, graphHome: home, evidenceRoot: evidence, writerLease })
   );
 }
 

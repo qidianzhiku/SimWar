@@ -106,13 +106,23 @@ against that same external index worktree, not the source checkout. Planning bec
 
 ## Local writer lease
 
-All CLI modes acquire `<graph-home>/<repository-key>/writer.lock.json` with
-exclusive file creation before using the shared CodeGraph worktree, graph assets,
-registry or run receipts. A competing invocation stops with
+All CLI modes acquire `<graph-home>/<repository-key>/writer.lock.json`, then
+`<evidence-root>/.graph-companion-writer.lock`, with exclusive file creation
+before using the shared CodeGraph worktree, graph assets, registry or run
+receipts. The evidence root is resolved once per invocation, including the
+default root, and the same root is used for the lease and every receipt.
+Its lock is independent of graph home and repository, so different graph homes
+or repositories cannot concurrently replace shared `graph-companion/*` receipts
+or `99-digests.sha256`. The root-level lease is excluded from the receipt digest
+manifest. A competing invocation stops with
 `GRAPH_COMPANION_LOCK_CONFLICT`; it neither changes those assets nor removes the
 existing lock. The owning invocation releases its lease on success or failure
 only when the persisted token still matches. A missing, corrupt or replaced lock
 produces `GRAPH_COMPANION_LOCK_OWNERSHIP_LOST` and is never deleted automatically.
+If evidence lease acquisition fails, the owned graph lease is still released.
+Both leases unwind on callback success/failure; loss of the evidence token does
+not prevent the owned graph lease from being released. Disjoint graph and
+evidence resources remain independent. This closes the postmerge P2 on PR #520.
 
 CodeGraph build receipts now report `LOCK_OWNERSHIP_PROVEN` with
 `ownership_proof=LOCAL_EXCLUSIVE_FILE`. This proves local Companion coordination,
