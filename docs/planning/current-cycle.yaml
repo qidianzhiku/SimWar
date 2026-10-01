@@ -1,15 +1,15 @@
 cycle_id: SIMWAR-PROGRAM-VNEXT-20260922
 stage: PROGRAM_VNEXT
-status: EXPIRED_REAUTH_REQUIRED
+status: TARGET_AUTHORIZED_PENDING_TECHNICAL_ADMISSION
 repository: qidianzhiku/SimWar
-source_sha: c8733d6b6179fb438615d8d23eafb4abcc228a3a
-source_tree: e1b1b5255c3451a973b266575ace2bafdbc5a816
-source_epoch_semantics: HISTORICAL_ONLY_NOT_CURRENT_AUTHORIZATION
-observed_at: "2026-09-22T10:00:00Z"
-current_master_at_readback: e3fdf3844115f24b34713faeae1d087a9d7cfd8c
-current_tree_at_readback: 22d3b13a370cee66db084284ce5c76c02b75bbd1
-current_master_observed_at: "2026-09-30T09:03:42Z"
-invalidation_reason: Master changed; L1_MAINLINE_BOUNDED_PARALLEL_EXECUTION_PLAN.md section 26 requires fresh authorization.
+source_sha: bde91b5e212c54641b25b740177c2ec254a68722
+source_tree: c995ac284be4582a47aaa65c04a82efbcc63a851
+source_epoch_semantics: CURRENT_SOURCE_BOUND_TARGET_AUTHORIZATION_REGISTERED
+observed_at: "2026-10-01T07:53:32Z"
+current_master_at_readback: bde91b5e212c54641b25b740177c2ec254a68722
+current_tree_at_readback: c995ac284be4582a47aaa65c04a82efbcc63a851
+current_master_observed_at: "2026-10-01"
+invalidation_reason: Owner-approved source-bound Target Task Authorization is now registered on the current master; technical admission remains pending.
 automatic_next_start: false
 current_product_macro:
   macro_id: GSI-STUDENT-HANDOFF-20260922
@@ -45,9 +45,15 @@ operating_model_vnext:
 successor:
   successor_count: 1
   macro_id: GSI-STUDENT-HANDOFF-TARGET-CLOSURE-20260922
-  status: BLOCKED
-  blocked_reason: Missing source-bound Target Task Authorization Record and expired source epoch.
-  target_task_authorization_record: null
+  status: TARGET_AUTHORIZED_PENDING_TECHNICAL_ADMISSION
+  blocked_reason: null
+  target_task_authorization_record: docs/governance/owner-decisions/OWNER_TARGET_AUTHORIZATION_GSI_STUDENT_HANDOFF_20261001.json
+  task_card: docs/governance/TASK_CARD_GSI_STUDENT_HANDOFF_TARGET_CLOSURE_20261001.md
+  owner_approved_at: "2026-10-01T07:53:32Z"
+  executor: CODEX_CODEXPRO_MAINLINE_TARGET_TRACK
+  technical_admission: PENDING
+  single_writer_scope: EXACT_FIVE_FILE_ALLOWLIST_ONLY
+  join_barrier: PR_516_CONDITIONAL_PARALLEL_SERIAL_CLOSURE
   consumer: Student GSI reflection panel at explicit deep-link target
   proposed_scope: Add a role-safe, accessible Student GSI navigation target to the existing handoff without changing BFF, truth, settlement, replay, or RBAC authority.
   automatic_next_start: false
@@ -55,3 +61,15 @@ runtime_authority: JSON_INTERNAL_ONLY
 postgres_application_runtime: NOT_ACTIVATED
 repository_mutation_in_shared_checkout: false
 rollback: Revert the governance carrier if needed; no successor implementation or automatic start is authorized.
+
+authorization_carrier:
+  pr: 522
+  branch: codex/gsi-student-handoff-target-auth-20261001
+  merge_exempt_from_expiry: true
+  allowed_changed_files:
+    - docs/governance/owner-decisions/OWNER_TARGET_AUTHORIZATION_GSI_STUDENT_HANDOFF_20261001.json
+    - docs/governance/TASK_CARD_GSI_STUDENT_HANDOFF_TARGET_CLOSURE_20261001.md
+    - docs/planning/current-cycle.yaml
+  post_merge_master_readback_required: true
+  post_merge_product_source_no_drift_required: true
+  note: The ordinary PR #522 governance carrier merge is the one-time exception to master-move expiry. Any later master merge re-enters normal revalidation.
