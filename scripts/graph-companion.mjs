@@ -11,7 +11,7 @@ import {
   writeFileSync
 } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { homedir, platform as hostPlatform, tmpdir } from "node:os";
 import { basename, dirname, join, resolve, win32 as win32Path } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -410,6 +410,47 @@ function loadRegistry(graphHome, repository) {
 
 function graphBasePath(graphHome, repository) {
   return join(graphHome, repositoryKey(repository));
+}
+
+// One local lease covers the shared index worktree, graph artifacts and registry.
+// A leftover/unknown lease is a hold, never permission to delete it or kill a PID.
+export function withGraphCompanionLease({ graphHome, repository }, run) {
+  const lockPath = join(graphBasePath(graphHome, repository), "writer.lock.json");
+  ensureDirectory(dirname(lockPath));
+  const now = new Date().toISOString();
+  const owner = {
+    build_key: sha256({ repository, graph_home: graphHome }),
+    token: randomUUID(),
+    owner: "graph-companion",
+    process_id: String(process.pid),
+    started_at: now,
+    heartbeat_at: now,
+    lock_path: lockPath,
+    ownership_proof: "LOCAL_EXCLUSIVE_FILE",
+    automatic_next_start: false
+  };
+  try {
+    writeFileSync(lockPath, `${canonicalJson(owner)}\n`, {
+      encoding: "utf8",
+      flag: "wx",
+      mode: 0o600
+    });
+  } catch (error) {
+    if (error?.code === "EEXIST")
+      throw new Error(`GRAPH_COMPANION_LOCK_CONFLICT: ${lockPath}`, { cause: error });
+    throw error;
+  }
+  const releaseOwned = () => {
+    const observed = readTextManifest(lockPath);
+    if (observed?.token !== owner.token)
+      throw new Error(`GRAPH_COMPANION_LOCK_OWNERSHIP_LOST: ${lockPath}`);
+    rmSync(lockPath);
+  };
+  try {
+    return run(owner);
+  } finally {
+    releaseOwned();
+  }
 }
 
 function sourceGraphPath(graphHome, repository, sha) {
@@ -1350,7 +1391,7 @@ function ensureCodeGraphWorkspace({ repoRoot, graphHome, repository, currentSha 
   return { path: workspace, warning: null };
 }
 
-function runCodeGraphIndex({ repoRoot, tools, graphHome, repository, currentSha }) {
+function runCodeGraphIndex({ repoRoot, tools, graphHome, repository, currentSha, writerLease }) {
   if (!tools?.codegraph_available)
     return {
       status: "DEGRADED_CODEGRAPH",
@@ -1446,15 +1487,15 @@ function runCodeGraphIndex({ repoRoot, tools, graphHome, repository, currentSha 
     status_command_exit_code: 0,
     automatic_next_start: false,
     writer_evidence: {
-      state: "NO_CONTENTION_OBSERVED",
-      ownership_proof: "NOT_PROVEN",
+      ...writerLease,
+      state: "LOCK_OWNERSHIP_PROVEN",
       build_key: buildKey,
       owner: "graph-companion",
       process_id: String(process.pid),
       started_at: startedAt,
       heartbeat_at: new Date().toISOString(),
-      release: null,
-      lock_present: false,
+      release: "OWNED_ONLY_ON_RUN_EXIT",
+      lock_present: true,
       observed_errors: []
     }
   };
@@ -2669,7 +2710,16 @@ export function classifyMcpHealth({
   };
 }
 
-export function runCompanion({
+export function runCompanion(options = {}) {
+  const root = resolve(options.repoRoot || DEFAULT_REPO_ROOT);
+  const home = assertExternalGraphHome(resolve(options.graphHome || resolveGraphHome()), root);
+  const repository = parseRepository(getRemote(root), root);
+  return withGraphCompanionLease({ graphHome: home, repository }, (writerLease) =>
+    runCompanionWithLease({ ...options, graphHome: home, writerLease })
+  );
+}
+
+function runCompanionWithLease({
   mode = "entry",
   repoRoot = DEFAULT_REPO_ROOT,
   evidenceRoot,
@@ -2677,7 +2727,8 @@ export function runCompanion({
   baseSha = null,
   targetSha = null,
   currentSha = null,
-  queryReceipt = null
+  queryReceipt = null,
+  writerLease
 } = {}) {
   if (!VALID_MODES.has(mode)) throw new Error(`Unsupported Graph Companion mode: ${mode}`);
   if (mode === "impact" && (!baseSha || !targetSha))
@@ -2936,7 +2987,8 @@ export function runCompanion({
           tools,
           graphHome: home,
           repository,
-          currentSha: current
+          currentSha: current,
+          writerLease
         });
   const graph = readGraph(graphify.path);
   const finalFreshness = classifyFreshness({
