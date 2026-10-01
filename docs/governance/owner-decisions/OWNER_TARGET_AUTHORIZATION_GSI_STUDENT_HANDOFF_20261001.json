@@ -1,7 +1,7 @@
 {
   "schema_version": "simwar.target-task-authorization-record.v1",
   "authorization_id": "OWNER_TARGET_AUTHORIZATION_GSI_STUDENT_HANDOFF_20261001",
-  "status": "TARGET_AUTHORIZED_PENDING_TECHNICAL_ADMISSION",
+  "status": "TARGET_AUTHORIZED_PENDING_CARRIER_MERGE_AND_TECHNICAL_ADMISSION",
   "portfolio_cycle": "SIMWAR-PROGRAM-VNEXT-20260922",
   "mission_id": "GSI-STUDENT-HANDOFF-TARGET-CLOSURE-20260922",
   "program": "MAIN",
@@ -21,7 +21,20 @@
     "repository": "qidianzhiku/SimWar",
     "protected_branch": "master",
     "base_sha": "bde91b5e212c54641b25b740177c2ec254a68722",
-    "source_tree": "c995ac284be4582a47aaa65c04a82efbcc63a851"
+    "source_tree": "c995ac284be4582a47aaa65c04a82efbcc63a851",
+    "registration_base_sha": "bde91b5e212c54641b25b740177c2ec254a68722",
+    "registration_base_tree": "c995ac284be4582a47aaa65c04a82efbcc63a851",
+    "activation_rule": {
+      "authorization_carrier_pr": 522,
+      "carrier_merge_exempt_from_expiry": true,
+      "carrier_scope": [
+        "docs/governance/owner-decisions/OWNER_TARGET_AUTHORIZATION_GSI_STUDENT_HANDOFF_20261001.json",
+        "docs/governance/TASK_CARD_GSI_STUDENT_HANDOFF_TARGET_CLOSURE_20261001.md",
+        "docs/planning/current-cycle.yaml"
+      ],
+      "condition": "The ordinary merge of PR #522 is exempt from master-move expiry only if its final diff remains exactly the three governance/planning carrier files. After merge, technical admission must fresh-read the actual master SHA/tree and prove no Product-source drift outside this carrier before any Product mutation.",
+      "activation_master_sha": "POST_MERGE_READBACK_REQUIRED"
+    }
   },
   "branch": "PENDING_TECHNICAL_ADMISSION",
   "worktree": "PENDING_TECHNICAL_ADMISSION",
@@ -145,7 +158,7 @@
     "CLI graph success does not prove MCP success or formal Graph Gate admission."
   ],
   "automatic_pause_triggers": [
-    "any protected master merge",
+    "any protected master merge after the authorization-carrier merge of PR #522",
     "PR #516 changed-file expansion touching any allowlisted file",
     "target branch/head changes outside the registered executor",
     "authority/writer change",
@@ -157,9 +170,10 @@
     "product outcome or authority boundary changes",
     "same target becomes superseded by a merged equivalent"
   ],
-  "expiry": "Any protected master merge or 2026-10-15T07:53:32Z, whichever comes first",
+  "expiry": "The PR #522 authorization-carrier merge itself is exempt. After that merge: any later protected-master merge or 2026-10-15T07:53:32Z, whichever comes first, triggers revalidation/expiry according to the registered rules.",
   "revalidation_triggers": [
-    "master SHA/tree change",
+    "post-PR-522 carrier-merge actual master SHA/tree readback before technical admission",
+    "any subsequent master SHA/tree change after the carrier merge",
     "PR #516 scope/head change affecting overlap",
     "Graph index/source-scope change",
     "five-file allowlist change",
