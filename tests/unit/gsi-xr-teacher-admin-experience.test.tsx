@@ -275,7 +275,7 @@ it("generates a Student handoff from ready exact context without candidate ident
     .match(/href="([^"]+)"[^>]*>生成 Student 学习查看链接/)?.[1]
     ?.replaceAll("&amp;", "&");
   expect(handoff).toBe(
-    "http://student.test/?gsi_course_id=course_demo&gsi_run_id=run_demo&gsi_team_id=team_demo&gsi_activity_id=activity_demo&gsi_role_key=CEO"
+    "http://student.test/?gsi_course_id=course_demo&gsi_run_id=run_demo&gsi_team_id=team_demo&gsi_activity_id=activity_demo&gsi_role_key=CEO#gsi-student-reflection"
   );
   expect(handoff).not.toContain("candidate_");
   expect(handoff).not.toContain("comparison_digest");

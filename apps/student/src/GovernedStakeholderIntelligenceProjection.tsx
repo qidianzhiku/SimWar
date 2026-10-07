@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { isGSICrossRoundPairOptions } from "@simwar/shared-contracts";
 import type {
   GSIStudentProjection,
   GSICrossRoundPairOptions,
@@ -171,6 +172,76 @@ export function GovernedStakeholderIntelligenceProjection({
   const comparisonController = useRef<AbortController | null>(null);
   const pairOptionsRequestId = useRef(0);
   const pairOptionsController = useRef<AbortController | null>(null);
+  const reflectionTarget = useRef<HTMLElement | null>(null);
+  const handoffFocus = useRef<{
+    href: string;
+    initialFocus: Element | null;
+    cancelled: boolean;
+    handled: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    const href = window.location.href;
+    if (handoffFocus.current?.href === href && handoffFocus.current.handled) return;
+    const params = new URLSearchParams(window.location.search);
+    const matchesContext =
+      selectionContext !== undefined &&
+      Object.entries(selectionContext).every(
+        ([key, value]) => params.get(`gsi_${key}`)?.trim() === value
+      );
+    const initialFocus = document.activeElement;
+    const loginEntry =
+      initialFocus instanceof HTMLButtonElement && initialFocus.textContent?.trim() === "学员登录";
+    const entry = {
+      href,
+      initialFocus,
+      cancelled:
+        window.location.hash !== "#gsi-student-reflection" ||
+        !matchesContext ||
+        (initialFocus !== document.body && initialFocus !== null && !loginEntry),
+      handled: false
+    };
+    handoffFocus.current = entry;
+    const preserveUserFocus = (event: FocusEvent) => {
+      if (event.target !== entry.initialFocus && event.target !== reflectionTarget.current) {
+        entry.cancelled = true;
+        entry.handled = true;
+      }
+    };
+    document.addEventListener("focusin", preserveUserFocus);
+    return () => {
+      entry.cancelled = true;
+      document.removeEventListener("focusin", preserveUserFocus);
+    };
+  }, [
+    selectionContext?.course_id,
+    selectionContext?.run_id,
+    selectionContext?.team_id,
+    selectionContext?.activity_id,
+    selectionContext?.role_key,
+    tenantId,
+    token
+  ]);
+
+  useEffect(() => {
+    const entry = handoffFocus.current;
+    if (
+      !entry ||
+      entry.handled ||
+      entry.cancelled ||
+      entry.href !== window.location.href ||
+      !selectionContext ||
+      pairOptionsState.kind !== "ready" ||
+      pairOptionsState.data.context.tenant_id !== tenantId ||
+      !Object.entries(selectionContext).every(
+        ([key, value]) =>
+          pairOptionsState.data.context[key as keyof GSICrossRoundSelectionContext] === value
+      )
+    )
+      return;
+    entry.handled = true;
+    reflectionTarget.current?.focus();
+  }, [pairOptionsState, selectionContext, tenantId]);
 
   useEffect(() => {
     const requestId = ++pairOptionsRequestId.current;
@@ -205,14 +276,24 @@ export function GovernedStakeholderIntelligenceProjection({
         const payload = (await response.json()) as PairOptionsEnvelope;
         if (controller.signal.aborted || requestId !== pairOptionsRequestId.current) return;
         const details = readEnvelopeError(payload);
-        if (!response.ok || !hasEnvelopeData(payload)) {
+        const options = payload.data;
+        if (
+          !response.ok ||
+          !hasEnvelopeData(payload) ||
+          !isGSICrossRoundPairOptions(options) ||
+          options.surface !== "student" ||
+          options.context.tenant_id !== tenantId ||
+          !Object.entries(selectionContext).every(
+            ([key, value]) => options.context[key as keyof GSICrossRoundSelectionContext] === value
+          )
+        ) {
           setPairOptionsState({
             kind: "error",
             message: details.message ?? "服务器回合配对暂不可用"
           });
           return;
         }
-        setPairOptionsState({ kind: "ready", data: payload.data });
+        setPairOptionsState({ kind: "ready", data: options });
       })
       .catch((cause) => {
         if (
@@ -311,6 +392,9 @@ export function GovernedStakeholderIntelligenceProjection({
   if (initialComparison) {
     return (
       <section
+        id="gsi-student-reflection"
+        ref={reflectionTarget}
+        tabIndex={-1}
         className="panel form-panel gsi-xr-panel"
         aria-label="Student cross-round stakeholder reflection"
       >
@@ -379,6 +463,9 @@ export function GovernedStakeholderIntelligenceProjection({
 
   return (
     <section
+      id="gsi-student-reflection"
+      ref={reflectionTarget}
+      tabIndex={-1}
       className="panel form-panel gsi-xr-panel"
       aria-label="Student cross-round stakeholder reflection"
     >

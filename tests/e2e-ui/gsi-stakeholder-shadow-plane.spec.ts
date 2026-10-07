@@ -1,4 +1,11 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Page,
+  type Request as BrowserRequest,
+  type TestInfo
+} from "@playwright/test";
 import type { ApiEnvelope, AuthSession, GSIReceipt } from "@simwar/shared-contracts";
 import { cleanupPlaywrightStore } from "./store-isolation";
 
@@ -93,11 +100,15 @@ async function publishRoundOne(
   });
 }
 
-async function captureResponsiveEvidence(page: Page, role: string): Promise<void> {
+async function captureResponsiveEvidence(
+  page: Page,
+  role: string,
+  testInfo: TestInfo
+): Promise<void> {
   for (const width of [390, 1024, 1280, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     await page.screenshot({
-      path: `tmp/playwright/gsi-xr-${role}-${width}.png`,
+      path: testInfo.outputPath(`gsi-xr-${role}-${width}.png`),
       fullPage: true
     });
   }
@@ -153,7 +164,7 @@ test.afterEach(() => {
 test("GSI-XR role journey resolves an explicit pair through the real BFF", async ({
   page,
   request
-}) => {
+}, testInfo) => {
   const teacherToken = await loginApi(request, "teacher", "teacher");
   const studentToken = await loginApi(request, "student", "student");
   const created = await api<{
@@ -206,87 +217,206 @@ test("GSI-XR role journey resolves an explicit pair through the real BFF", async
   });
 
   const gsiRequests: string[] = [];
+  const requestEvidence = new Map<
+    BrowserRequest,
+    {
+      id: number;
+      method: string;
+      path: string;
+      context: Record<string, string>;
+      status?: number;
+      finished: boolean;
+      failed: boolean;
+    }
+  >();
   page.on("request", (outgoing) => {
     if (outgoing.url().includes("/api/v1/bff/") && outgoing.url().includes("/gsi/")) {
       gsiRequests.push(outgoing.url());
+      const url = new URL(outgoing.url());
+      requestEvidence.set(outgoing, {
+        id: requestEvidence.size + 1,
+        method: outgoing.method(),
+        path: url.pathname,
+        context: Object.fromEntries(
+          [
+            "course_id",
+            "run_id",
+            "team_id",
+            "activity_id",
+            "role_key",
+            "from_round_id",
+            "to_round_id"
+          ]
+            .filter((key) => url.searchParams.has(key))
+            .map((key) => [key, url.searchParams.get(key)!])
+        ),
+        finished: false,
+        failed: false
+      });
     }
   });
-
-  await page.goto(teacherBaseUrl);
-  await signIn(page, "教师登录", "teacher");
-  await page.getByRole("button", { name: "开启回合" }).click();
-  await expect(page.getByRole("button", { name: "锁定回合" })).toBeVisible();
-  await page.getByLabel("角色流程队伍").selectOption("team_alpha");
-  const teacherPanel = page.getByRole("region", { name: "GSI-XR cross-round workspace" });
-  await expect(teacherPanel).toBeVisible();
-  await expect(teacherPanel.getByLabel("GSI from round")).toBeEnabled();
-  await teacherPanel.getByLabel("GSI from round").selectOption(roundOneId);
-  await teacherPanel.getByLabel("GSI to round").selectOption(roundTwoId);
-  await teacherPanel.getByRole("button", { name: "读取回合变化" }).click();
-  await expect(teacherPanel.getByText("INCREASED")).toBeVisible();
-  await expect(teacherPanel).toContainText("Round 1 ↔ Round 2");
-  await expect(teacherPanel).toContainText("CONTEXT_UNAVAILABLE");
-  const studentHandoff = teacherPanel.getByRole("link", {
-    name: "生成 Student 学习查看链接"
+  page.on("response", (response) => {
+    const evidence = requestEvidence.get(response.request());
+    if (evidence) evidence.status = response.status();
   });
-  await expect(studentHandoff).toBeVisible();
-  const studentHandoffHref = await studentHandoff.getAttribute("href");
-  expect(studentHandoffHref).not.toBeNull();
-  const handoffUrl = new URL(studentHandoffHref!);
-  expect(handoffUrl.origin).toBe(new URL(studentBaseUrl).origin);
-  expect(handoffUrl.search).toBe(
-    `?gsi_course_id=course_demo&gsi_run_id=${encodeURIComponent(
-      created.run.run_id
-    )}&gsi_team_id=team_alpha&gsi_activity_id=activity_consequence&gsi_role_key=CEO`
-  );
-  expect(handoffUrl.search).not.toContain("candidate");
-  expect(handoffUrl.search).not.toContain("digest");
-  await captureResponsiveEvidence(page, "teacher");
-
-  await page.goto(studentHandoffHref!);
-  await signIn(page, "学员登录", "student");
-  const studentPanel = page.getByRole("region", {
-    name: "Student cross-round stakeholder reflection"
+  page.on("requestfinished", (request) => {
+    const evidence = requestEvidence.get(request);
+    if (evidence) evidence.finished = true;
   });
-  await expect(studentPanel).toBeVisible();
-  await expect(studentPanel.getByLabel("Student from round")).toBeEnabled();
-  await studentPanel.getByLabel("Student from round").selectOption(roundOneId);
-  await studentPanel.getByLabel("Student to round").selectOption(roundTwoId);
-  await studentPanel.getByRole("button", { name: "查看变化" }).click();
-  await expect(studentPanel.getByText("INCREASED")).toBeVisible();
-  await expect(studentPanel.getByText("哪些压力变了，它会怎样影响你的下一步判断？")).toBeVisible();
-  await expect(studentPanel.getByLabel("GSI candidate ID")).toHaveCount(0);
-  await expect(studentPanel).not.toContainText("candidate_digest");
-  await expect(studentPanel).not.toContainText("comparison_digest");
-  await expect(studentPanel).not.toContainText("signal_key");
-  await expect(studentPanel).not.toContainText("Customers value predictable service");
-  await captureResponsiveEvidence(page, "student");
+  page.on("requestfailed", (request) => {
+    const evidence = requestEvidence.get(request);
+    if (evidence) evidence.failed = true;
+  });
 
-  await page.goto(adminBaseUrl);
-  await signIn(page, "管理员登录", "admin");
-  const adminPanel = page.getByRole("region", { name: "GSI-XR admin audit workspace" });
-  await expect(adminPanel).toBeVisible();
-  await adminPanel.getByLabel("GSI admin course context").fill("course_demo");
-  await adminPanel.getByLabel("GSI admin run context").fill(created.run.run_id);
-  await adminPanel.getByLabel("GSI admin team context").fill("team_alpha");
-  await adminPanel.getByText("高级：输入精确候选配对").click();
-  await adminPanel.getByLabel("GSI admin activity ID").fill("activity_consequence");
-  await adminPanel.getByRole("button", { name: "加载可比较回合" }).click();
-  await expect(adminPanel.getByLabel("GSI admin from round")).toBeEnabled();
-  await adminPanel.getByLabel("GSI admin from round").selectOption(roundOneId);
-  await adminPanel.getByLabel("GSI admin to round").selectOption(roundTwoId);
-  await adminPanel.getByRole("button", { name: "读取审计变化" }).click();
-  await expect(adminPanel.getByText("上升")).toBeVisible();
-  const adminProvenance = adminPanel.locator("details.gsi-xr-admin-provenance-details");
-  await expect(adminProvenance).toBeVisible();
-  await expect(adminProvenance).not.toHaveAttribute("open", "");
-  await adminProvenance.locator("summary").click();
-  await expect(adminProvenance).toHaveAttribute("open", "");
-  await expect(adminProvenance).toContainText("context_binding");
-  await expect(adminPanel).toContainText("official_truth_write=false");
-  await captureResponsiveEvidence(page, "admin");
+  try {
+    await page.goto(teacherBaseUrl);
+    await signIn(page, "教师登录", "teacher");
+    await page.getByRole("button", { name: "开启回合" }).click();
+    await expect(page.getByRole("button", { name: "锁定回合" })).toBeVisible();
+    await page.getByLabel("角色流程队伍").selectOption("team_alpha");
+    const teacherPanel = page.getByRole("region", { name: "GSI-XR cross-round workspace" });
+    await expect(teacherPanel).toBeVisible();
+    await expect(teacherPanel.getByLabel("GSI from round")).toBeEnabled();
+    await teacherPanel.getByLabel("GSI from round").selectOption(roundOneId);
+    await teacherPanel.getByLabel("GSI to round").selectOption(roundTwoId);
+    await teacherPanel.getByRole("button", { name: "读取回合变化" }).click();
+    await expect(teacherPanel.getByText("INCREASED")).toBeVisible();
+    await expect(teacherPanel).toContainText("Round 1 ↔ Round 2");
+    await expect(teacherPanel).toContainText("CONTEXT_UNAVAILABLE");
+    const studentHandoff = teacherPanel.getByRole("link", {
+      name: "生成 Student 学习查看链接"
+    });
+    await expect(studentHandoff).toBeVisible();
+    const studentHandoffHref = await studentHandoff.getAttribute("href");
+    expect(studentHandoffHref).not.toBeNull();
+    const handoffUrl = new URL(studentHandoffHref!);
+    expect(handoffUrl.origin).toBe(new URL(studentBaseUrl).origin);
+    expect(handoffUrl.search).toBe(
+      `?gsi_course_id=course_demo&gsi_run_id=${encodeURIComponent(
+        created.run.run_id
+      )}&gsi_team_id=team_alpha&gsi_activity_id=activity_consequence&gsi_role_key=CEO`
+    );
+    expect(handoffUrl.search).not.toContain("candidate");
+    expect(handoffUrl.search).not.toContain("digest");
+    expect(handoffUrl.hash).toBe("#gsi-student-reflection");
+    await captureResponsiveEvidence(page, "teacher", testInfo);
 
-  expect(gsiRequests.filter((url) => url.includes("/teacher/gsi/")).length).toBeGreaterThan(0);
-  expect(gsiRequests.filter((url) => url.includes("/student/gsi/")).length).toBeGreaterThan(0);
-  expect(gsiRequests.filter((url) => url.includes("/admin/gsi/")).length).toBeGreaterThan(0);
+    await page.goto(studentHandoffHref!);
+    await signIn(page, "学员登录", "student");
+    const studentPanel = page.getByRole("region", {
+      name: "Student cross-round stakeholder reflection"
+    });
+    await expect(studentPanel).toBeVisible();
+    await expect(studentPanel.getByLabel("Student from round")).toBeEnabled();
+    await expect(studentPanel).toHaveAttribute("id", "gsi-student-reflection");
+    await expect(studentPanel).toHaveAttribute("tabindex", "-1");
+    await expect(studentPanel).toBeFocused();
+    await expect(studentPanel.getByLabel("Student from round")).toHaveValue("");
+    await expect(studentPanel.getByLabel("Student to round")).toHaveValue("");
+    expect(
+      gsiRequests.filter((url) => url.includes("/student/gsi/candidates/compare?"))
+    ).toHaveLength(0);
+    await page.keyboard.press("Tab");
+    await expect(studentPanel.getByLabel("Student from round")).toBeFocused();
+    await studentPanel.getByLabel("Student from round").selectOption(roundOneId);
+    await studentPanel.getByLabel("Student to round").selectOption(roundTwoId);
+    await studentPanel.getByRole("button", { name: "查看变化" }).click();
+    await expect(studentPanel.getByText("INCREASED")).toBeVisible();
+    await expect(
+      studentPanel.getByText("哪些压力变了，它会怎样影响你的下一步判断？")
+    ).toBeVisible();
+    await expect(studentPanel.getByLabel("GSI candidate ID")).toHaveCount(0);
+    await expect(studentPanel).not.toContainText("candidate_digest");
+    await expect(studentPanel).not.toContainText("comparison_digest");
+    await expect(studentPanel).not.toContainText("signal_key");
+    await expect(studentPanel).not.toContainText("Customers value predictable service");
+    await captureResponsiveEvidence(page, "student", testInfo);
+
+    const wrongTeamHandoff = new URL(studentHandoffHref!);
+    wrongTeamHandoff.searchParams.set("gsi_team_id", "team_not_authorized");
+    const wrongTeamResponse = page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return (
+        url.pathname === "/api/v1/bff/student/gsi/candidates/pair-options" &&
+        url.searchParams.get("team_id") === "team_not_authorized"
+      );
+    });
+    await page.goto(wrongTeamHandoff.toString());
+    await signIn(page, "学员登录", "student");
+    expect((await wrongTeamResponse).status()).toBe(403);
+    await expect(studentPanel).toContainText("PAIR_SELECTION_UNAVAILABLE");
+    await expect(studentPanel).not.toBeFocused();
+    await expect(studentPanel.getByLabel("Student from round")).toBeDisabled();
+    await expect(studentPanel).not.toContainText("INCREASED");
+
+    await page.goto(studentHandoffHref!);
+    await signIn(page, "学员登录", "student");
+    await expect(studentPanel.getByLabel("Student from round")).toBeEnabled();
+    await expect(studentPanel).toBeFocused();
+    await expect(studentPanel.getByLabel("Student from round")).toHaveValue("");
+    await expect(studentPanel.getByLabel("Student to round")).toHaveValue("");
+
+    await page.goto(adminBaseUrl);
+    await signIn(page, "管理员登录", "admin");
+    const adminPanel = page.getByRole("region", { name: "GSI-XR admin audit workspace" });
+    await expect(adminPanel).toBeVisible();
+    await adminPanel.getByLabel("GSI admin course context").fill("course_demo");
+    await adminPanel.getByLabel("GSI admin run context").fill(created.run.run_id);
+    await adminPanel.getByLabel("GSI admin team context").fill("team_alpha");
+    await adminPanel.getByText("高级：输入精确候选配对").click();
+    await adminPanel.getByLabel("GSI admin activity ID").fill("activity_consequence");
+    await adminPanel.getByRole("button", { name: "加载可比较回合" }).click();
+    await expect(adminPanel.getByLabel("GSI admin from round")).toBeEnabled();
+    await adminPanel.getByLabel("GSI admin from round").selectOption(roundOneId);
+    await adminPanel.getByLabel("GSI admin to round").selectOption(roundTwoId);
+    await adminPanel.getByRole("button", { name: "读取审计变化" }).click();
+    await expect(adminPanel.getByText("上升")).toBeVisible();
+    const adminProvenance = adminPanel.locator("details.gsi-xr-admin-provenance-details");
+    await expect(adminProvenance).toBeVisible();
+    await expect(adminProvenance).not.toHaveAttribute("open", "");
+    await adminProvenance.locator("summary").click();
+    await expect(adminProvenance).toHaveAttribute("open", "");
+    await expect(adminProvenance).toContainText("context_binding");
+    await expect(adminPanel).toContainText("official_truth_write=false");
+    await captureResponsiveEvidence(page, "admin", testInfo);
+
+    expect(gsiRequests.filter((url) => url.includes("/teacher/gsi/")).length).toBeGreaterThan(0);
+    expect(gsiRequests.filter((url) => url.includes("/student/gsi/")).length).toBeGreaterThan(0);
+    expect(gsiRequests.filter((url) => url.includes("/admin/gsi/")).length).toBeGreaterThan(0);
+    expect(
+      [...requestEvidence.values()].some(
+        (evidence) =>
+          evidence.path === "/api/v1/bff/student/gsi/candidates/compare" &&
+          evidence.status === 200 &&
+          evidence.finished &&
+          !evidence.failed
+      )
+    ).toBe(true);
+    expect(
+      [...requestEvidence.values()].some(
+        (evidence) =>
+          evidence.path === "/api/v1/bff/student/gsi/candidates/pair-options" &&
+          evidence.context.team_id === "team_not_authorized" &&
+          evidence.status === 403 &&
+          evidence.finished &&
+          !evidence.failed
+      )
+    ).toBe(true);
+  } finally {
+    await testInfo.attach("gsi-real-bff-request-lifecycle", {
+      body: Buffer.from(
+        JSON.stringify(
+          {
+            named_case: testInfo.title,
+            route_mocks: 0,
+            response_substitution: 0,
+            requests: [...requestEvidence.values()]
+          },
+          null,
+          2
+        )
+      ),
+      contentType: "application/json"
+    });
+  }
 });
