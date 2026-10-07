@@ -1,0 +1,27 @@
+{
+  "schema_version": "simwar.owner-decision.authoritative-m3-identity.v1",
+  "record_type": "AUTHORITATIVE_M3_IDENTITY",
+  "record_id": "OWNER_DECISION_AUTHORITATIVE_M3_IDENTITY_20261007",
+  "decision_date": "2026-10-07",
+  "authority": "OWNER_ADOPTED",
+  "authority_basis": {
+    "type": "OWNER_EXPLICIT_REPOSITORY_LEDGER_DESIGNATION",
+    "designated_path": "docs/governance/owner-decisions/OWNER_DECISION_AUTHORITATIVE_M3_IDENTITY_20261007.json",
+    "source": "Owner direct Goal-mode instruction in SimWar AGT11 containing exact CONFIRM_LEDGER_PATH",
+    "scope": "M3 identity materialization only"
+  },
+  "relationship": "RESUME_SAME_M3_MACRO",
+  "program_id": "SIMWAR-AGT-GOVERNED-INTELLIGENCE",
+  "mission_id": "SIMWAR-AGT-M3-GOVERNED-TEACHER-EVIDENCE-CITATION-BUNDLE",
+  "macro_id": "SIMWAR-AGT-M3-GTEC-BUNDLE-V1",
+  "capability_key": "agt.retrieval.governed-teacher-evidence-citation-bundle.v1",
+  "canonical_seam": "w020-teacher-evidence-citation-bundle.v1",
+  "automatic_next_start": false,
+  "product_execution_authorized": false,
+  "product_mutation_authorized": false,
+  "notes": [
+    "This record materializes an already Owner-adopted M3 identity; it does not create a successor Macro.",
+    "Authoritative registration is complete only after merge to protected master and post-merge readback.",
+    "record_sha256 is intentionally not embedded to avoid self-reference."
+  ]
+}
