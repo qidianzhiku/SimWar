@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { isGSICrossRoundPairOptions } from "@simwar/shared-contracts";
 import type {
   GSIStudentProjection,
   GSICrossRoundPairOptions,
@@ -275,6 +274,11 @@ export function GovernedStakeholderIntelligenceProjection({
       .then(async (response) => {
         const payload = (await response.json()) as PairOptionsEnvelope;
         if (controller.signal.aborted || requestId !== pairOptionsRequestId.current) return;
+        // Keep the existing runtime schema guard off the initial entry transfer.
+        // Loading never grants readiness: identity must still match after it settles.
+        const { isGSICrossRoundPairOptions } =
+          await import("../../../packages/shared-contracts/src/gsi-governed-stakeholder-shadow-plane");
+        if (controller.signal.aborted || requestId !== pairOptionsRequestId.current) return;
         const details = readEnvelopeError(payload);
         const options = payload.data;
         if (
@@ -389,212 +393,180 @@ export function GovernedStakeholderIntelligenceProjection({
     setComparisonState({ kind: "unavailable", message: PAIR_SELECTION_MESSAGE });
   }
 
-  if (initialComparison) {
-    return (
-      <section
-        id="gsi-student-reflection"
-        ref={reflectionTarget}
-        tabIndex={-1}
-        className="panel form-panel gsi-xr-panel"
-        aria-label="Student cross-round stakeholder reflection"
-      >
-        <div className="panel-title">
-          <div>
-            <p className="eyebrow">Student · decision-learning timeline</p>
-            <h3>查看本轮变化</h3>
-          </div>
-          <span className="technical-compatibility">Provider OFF</span>
-        </div>
-        <p className="lifecycle-boundary">
-          这里只显示已发布、按当前角色裁剪的变化摘要。它用于帮助你反思下一步，不代表正式决策、结果或因果结论。
-        </p>
-        <ComparisonTimeline comparison={initialComparison} />
-      </section>
-    );
-  }
+  const projection = initialComparison ? undefined : initialProjection;
+  const pairOptions = pairOptionsState.kind === "ready" ? pairOptionsState.data.rounds : [];
+  const pairUnavailable = pairOptionsState.kind === "error" || pairOptions.length < 2;
+  const recoveryPanel =
+    comparisonState.kind === "rebase"
+      ? [
+          "error",
+          "REBASE_REQUIRED",
+          "课程上下文或内容已经变化，请重新选择回合。",
+          "重新选择精确回合"
+        ]
+      : comparisonState.kind === "context-unavailable"
+        ? [
+            "warning",
+            "CONTEXT_UNAVAILABLE",
+            "当前课程上下文暂不可用，变化摘要不会被当作空结果展示。",
+            "返回并重新进入课程"
+          ]
+        : comparisonState.kind === "error"
+          ? ["error", "暂时无法读取变化", comparisonState.message, "安全恢复"]
+          : undefined;
 
-  if (initialProjection) {
-    return (
-      <section
-        className="panel form-panel gsi-xr-panel"
-        aria-label="Student governed stakeholder projection"
-      >
-        <div className="panel-title">
-          <div>
-            <p className="eyebrow">Student · role-safe view</p>
-            <h3>利益相关方信号学习投影</h3>
-          </div>
-          <span className="technical-compatibility">Provider OFF</span>
+  return (
+    <section
+      id={projection ? undefined : "gsi-student-reflection"}
+      ref={projection ? undefined : reflectionTarget}
+      tabIndex={projection ? undefined : -1}
+      className="panel form-panel gsi-xr-panel"
+      aria-label={
+        projection
+          ? "Student governed stakeholder projection"
+          : "Student cross-round stakeholder reflection"
+      }
+    >
+      <div className="panel-title">
+        <div>
+          <p className="eyebrow">
+            {projection ? "Student · role-safe view" : "Student · decision-learning timeline"}
+          </p>
+          <h3>{projection ? "利益相关方信号学习投影" : "查看本轮变化"}</h3>
         </div>
-        <p className="lifecycle-boundary">
-          学员只接收已发布、按角色裁剪的 bounded signal；proposal 原文和教师/管理员 provenance
-          不在此投影中。
-        </p>
+        <span className="technical-compatibility">
+          {projection || initialComparison ? "Provider OFF" : "Provider OFF · read-only"}
+        </span>
+      </div>
+      <p className="lifecycle-boundary">
+        {projection
+          ? "学员只接收已发布、按角色裁剪的 bounded signal；proposal 原文和教师/管理员 provenance 不在此投影中。"
+          : `这里只显示${initialComparison ? "已发布、按当前角色裁剪" : "服务器确认发布且匹配当前角色"}的变化摘要。它用于帮助你反思下一步，不代表正式决策、结果或因果结论。`}
+      </p>
+      {initialComparison ? (
+        <ComparisonTimeline comparison={initialComparison} />
+      ) : projection ? (
         <article className="candidate-preview" aria-label="Student GSI projection">
-          <h4>角色：{initialProjection.role_key ?? "已授权角色"}</h4>
-          <p>{initialProjection.summary}</p>
+          <h4>角色：{projection.role_key ?? "已授权角色"}</h4>
+          <p>{projection.summary}</p>
           <ul>
-            {initialProjection.signals.map((signal) => (
+            {projection.signals.map((signal) => (
               <li key={`${signal.stakeholder_type}-${signal.intent}`}>
                 {signal.stakeholder_type} / {signal.intent}: {signal.bounded_value}
               </li>
             ))}
           </ul>
-          {initialProjection.abstentions.length ? (
+          {projection.abstentions.length ? (
             <p className="lifecycle-status">
-              有 {initialProjection.abstentions.length} 项信号在有界规则下未采纳。
+              有 {projection.abstentions.length} 项信号在有界规则下未采纳。
             </p>
           ) : null}
           <details>
             <summary>查看学习边界</summary>
             <ul>
-              {initialProjection.known_limits.map((limit) => (
+              {projection.known_limits.map((limit) => (
                 <li key={limit}>{limit}</li>
               ))}
             </ul>
           </details>
         </article>
-      </section>
-    );
-  }
-
-  const pairOptions = pairOptionsState.kind === "ready" ? pairOptionsState.data.rounds : [];
-  const pairUnavailable = pairOptionsState.kind === "error" || pairOptions.length < 2;
-
-  return (
-    <section
-      id="gsi-student-reflection"
-      ref={reflectionTarget}
-      tabIndex={-1}
-      className="panel form-panel gsi-xr-panel"
-      aria-label="Student cross-round stakeholder reflection"
-    >
-      <div className="panel-title">
-        <div>
-          <p className="eyebrow">Student · decision-learning timeline</p>
-          <h3>查看本轮变化</h3>
-        </div>
-        <span className="technical-compatibility">Provider OFF · read-only</span>
-      </div>
-      <p className="lifecycle-boundary">
-        这里只显示服务器确认发布且匹配当前角色的变化摘要。它用于帮助你反思下一步，不代表正式决策、结果或因果结论。
-      </p>
-      <form
-        className="gsi-xr-pair-form"
-        aria-label="Student exact cross-round comparison"
-        onSubmit={compareRounds}
-      >
-        <div className="gsi-xr-pair-heading">
-          <div>
-            <p className="eyebrow">Reflection action</p>
-            <h4>选择两个已发布回合</h4>
-          </div>
-          <span className="gsi-xr-state-badge">READ-ONLY</span>
-        </div>
-        <p className="gsi-xr-muted">
-          回合由服务器按当前课程、运行、队伍和角色筛选；请明确选择起始和目标回合，不使用默认顺序推断。
-        </p>
-        <div className="gsi-xr-field-grid">
-          <label>
-            From round
-            <select
-              aria-label="Student from round"
-              value={fromRoundId}
-              onChange={(event) => {
-                invalidateComparisonSelection();
-                setFromRoundId(event.target.value);
-              }}
-              disabled={pairOptionsState.kind !== "ready" || pairOptions.length < 2}
-            >
-              <option value="">选择起始回合</option>
-              {pairOptions.map((round) => (
-                <option key={round.round_id} value={round.round_id}>
-                  Round {round.round_no}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            To round
-            <select
-              aria-label="Student to round"
-              value={toRoundId}
-              onChange={(event) => {
-                invalidateComparisonSelection();
-                setToRoundId(event.target.value);
-              }}
-              disabled={pairOptionsState.kind !== "ready" || pairOptions.length < 2}
-            >
-              <option value="">选择目标回合</option>
-              {pairOptions.map((round) => (
-                <option key={round.round_id} value={round.round_id}>
-                  Round {round.round_no}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        {pairOptionsState.kind === "loading" ? (
-          <p className="gsi-xr-muted" role="status" aria-live="polite">
-            正在读取已发布的可比较回合…
-          </p>
-        ) : null}
-        {pairUnavailable ? (
-          <div className="gsi-xr-status gsi-xr-status-warning" role="status" aria-live="polite">
-            <strong>PAIR_SELECTION_UNAVAILABLE</strong>
-            <p>
-              {pairOptionsState.kind === "error"
-                ? pairOptionsState.message
-                : PAIR_SELECTION_MESSAGE}
+      ) : (
+        <>
+          <form
+            className="gsi-xr-pair-form"
+            aria-label="Student exact cross-round comparison"
+            onSubmit={compareRounds}
+          >
+            <div className="gsi-xr-pair-heading">
+              <div>
+                <p className="eyebrow">Reflection action</p>
+                <h4>选择两个已发布回合</h4>
+              </div>
+              <span className="gsi-xr-state-badge">READ-ONLY</span>
+            </div>
+            <p className="gsi-xr-muted">
+              回合由服务器按当前课程、运行、队伍和角色筛选；请明确选择起始和目标回合，不使用默认顺序推断。
             </p>
-            <span>安全下一步：返回课程上下文并等待两个已发布、角色匹配的回合。</span>
-          </div>
-        ) : null}
-        <div className="gsi-xr-actions">
-          <button type="submit" disabled={comparisonState.kind === "loading" || pairUnavailable}>
-            {comparisonState.kind === "loading" ? "正在读取…" : "查看变化"}
-          </button>
-          <button type="button" className="secondary" onClick={resetComparison}>
-            重新选择
-          </button>
-        </div>
-      </form>
-      {comparisonState.kind === "unavailable" && !pairUnavailable ? (
-        <div className="gsi-xr-status gsi-xr-status-warning" role="status" aria-live="polite">
-          <strong>PAIR_SELECTION_UNAVAILABLE</strong>
-          <p>{comparisonState.message}</p>
-        </div>
-      ) : null}
-      {comparisonState.kind === "rebase" ? (
-        <div className="gsi-xr-status gsi-xr-status-error" role="alert">
-          <strong>REBASE_REQUIRED</strong>
-          <p>课程上下文或内容已经变化，请重新选择回合。</p>
-          <button type="button" className="secondary" onClick={resetComparison}>
-            重新选择精确回合
-          </button>
-        </div>
-      ) : null}
-      {comparisonState.kind === "context-unavailable" ? (
-        <div className="gsi-xr-status gsi-xr-status-warning" role="status" aria-live="polite">
-          <strong>CONTEXT_UNAVAILABLE</strong>
-          <p>当前课程上下文暂不可用，变化摘要不会被当作空结果展示。</p>
-          <button type="button" className="secondary" onClick={resetComparison}>
-            返回并重新进入课程
-          </button>
-        </div>
-      ) : null}
-      {comparisonState.kind === "error" ? (
-        <div className="gsi-xr-status gsi-xr-status-error" role="alert">
-          <strong>暂时无法读取变化</strong>
-          <p>{comparisonState.message}</p>
-          <button type="button" className="secondary" onClick={resetComparison}>
-            安全恢复
-          </button>
-        </div>
-      ) : null}
-      {comparisonState.kind === "ready" ? (
-        <ComparisonTimeline comparison={comparisonState.data} />
-      ) : null}
+            <div className="gsi-xr-field-grid">
+              {(
+                [
+                  ["From round", "Student from round", fromRoundId, setFromRoundId, "选择起始回合"],
+                  ["To round", "Student to round", toRoundId, setToRoundId, "选择目标回合"]
+                ] as const
+              ).map(([label, ariaLabel, value, setValue, placeholder]) => (
+                <label key={ariaLabel}>
+                  {label}
+                  <select
+                    aria-label={ariaLabel}
+                    value={value}
+                    onChange={(event) => {
+                      invalidateComparisonSelection();
+                      setValue(event.target.value);
+                    }}
+                    disabled={pairOptionsState.kind !== "ready" || pairOptions.length < 2}
+                  >
+                    <option value="">{placeholder}</option>
+                    {pairOptions.map((round) => (
+                      <option key={round.round_id} value={round.round_id}>
+                        Round {round.round_no}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+            </div>
+            {pairOptionsState.kind === "loading" ? (
+              <p className="gsi-xr-muted" role="status" aria-live="polite">
+                正在读取已发布的可比较回合…
+              </p>
+            ) : null}
+            {pairUnavailable ? (
+              <div className="gsi-xr-status gsi-xr-status-warning" role="status" aria-live="polite">
+                <strong>PAIR_SELECTION_UNAVAILABLE</strong>
+                <p>
+                  {pairOptionsState.kind === "error"
+                    ? pairOptionsState.message
+                    : PAIR_SELECTION_MESSAGE}
+                </p>
+                <span>安全下一步：返回课程上下文并等待两个已发布、角色匹配的回合。</span>
+              </div>
+            ) : null}
+            <div className="gsi-xr-actions">
+              <button
+                type="submit"
+                disabled={comparisonState.kind === "loading" || pairUnavailable}
+              >
+                {comparisonState.kind === "loading" ? "正在读取…" : "查看变化"}
+              </button>
+              <button type="button" className="secondary" onClick={resetComparison}>
+                重新选择
+              </button>
+            </div>
+          </form>
+          {comparisonState.kind === "unavailable" && !pairUnavailable ? (
+            <div className="gsi-xr-status gsi-xr-status-warning" role="status" aria-live="polite">
+              <strong>PAIR_SELECTION_UNAVAILABLE</strong>
+              <p>{comparisonState.message}</p>
+            </div>
+          ) : null}
+          {recoveryPanel ? (
+            <div
+              className={`gsi-xr-status gsi-xr-status-${recoveryPanel[0]}`}
+              role={recoveryPanel[0] === "error" ? "alert" : "status"}
+              aria-live={recoveryPanel[0] === "warning" ? "polite" : undefined}
+            >
+              <strong>{recoveryPanel[1]}</strong>
+              <p>{recoveryPanel[2]}</p>
+              <button type="button" className="secondary" onClick={resetComparison}>
+                {recoveryPanel[3]}
+              </button>
+            </div>
+          ) : null}
+          {comparisonState.kind === "ready" ? (
+            <ComparisonTimeline comparison={comparisonState.data} />
+          ) : null}
+        </>
+      )}
     </section>
   );
 }

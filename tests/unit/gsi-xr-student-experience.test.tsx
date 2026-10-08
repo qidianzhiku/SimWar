@@ -55,6 +55,7 @@ const pairOptions: GSICrossRoundPairOptions = {
 };
 
 afterEach(() => {
+  vi.doUnmock("../../packages/shared-contracts/src/gsi-governed-stakeholder-shadow-plane");
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   window.history.replaceState({}, "", "/");
@@ -84,6 +85,7 @@ async function mountReflection(
     />
   );
   await act(async () => root.render(strict ? <React.StrictMode>{view}</React.StrictMode> : view));
+  await act(async () => vi.dynamicImportSettled());
   return { host, root, fetchSpy, view };
 }
 
@@ -93,6 +95,88 @@ async function unmountReflection(mounted: Awaited<ReturnType<typeof mountReflect
 }
 
 describe("GSI-XR Student experience", () => {
+  it("fails closed without focus or round readiness when the schema module cannot load", async () => {
+    vi.doMock("../../packages/shared-contracts/src/gsi-governed-stakeholder-shadow-plane", () => {
+      throw new Error("schema module unavailable");
+    });
+    const mounted = await mountReflection();
+    try {
+      // Vitest wraps a module-factory rejection; assert the consumer's closed
+      // error state, not the mock loader's framework-specific error wording.
+      expect(mounted.host.textContent).toContain("PAIR_SELECTION_UNAVAILABLE");
+      expect(mounted.host.textContent).not.toContain("正在读取已发布的可比较回合");
+      expect(
+        mounted.host.querySelector<HTMLSelectElement>('[aria-label="Student from round"]')!.disabled
+      ).toBe(true);
+      expect(document.activeElement).not.toBe(
+        mounted.host.querySelector("#gsi-student-reflection")
+      );
+      expect(mounted.fetchSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      await unmountReflection(mounted);
+    }
+  });
+
+  it("does not admit a response after context is removed while its schema module is loading", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.doMock(
+      "../../packages/shared-contracts/src/gsi-governed-stakeholder-shadow-plane",
+      async (importOriginal) => {
+        const actual = await importOriginal();
+        await gate;
+        return actual;
+      }
+    );
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    window.history.replaceState({}, "", handoffPath);
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ data: pairOptions }), { status: 200 })
+    );
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    try {
+      await act(async () =>
+        root.render(
+          <GovernedStakeholderIntelligenceProjection
+            apiBase="http://api.test"
+            tenantId="tenant_demo"
+            token="unit-session"
+            selectionContext={selectionContext}
+          />
+        )
+      );
+      expect(
+        host.querySelector<HTMLSelectElement>('[aria-label="Student from round"]')!.disabled
+      ).toBe(true);
+      await act(async () =>
+        root.render(
+          <GovernedStakeholderIntelligenceProjection
+            apiBase="http://api.test"
+            tenantId="tenant_demo"
+            token="unit-session"
+          />
+        )
+      );
+      await act(async () => {
+        release();
+        await vi.dynamicImportSettled();
+      });
+      expect(
+        host.querySelector<HTMLSelectElement>('[aria-label="Student from round"]')!.disabled
+      ).toBe(true);
+      expect(host.textContent).toContain("PAIR_SELECTION_UNAVAILABLE");
+      expect(document.activeElement).not.toBe(host.querySelector("#gsi-student-reflection"));
+    } finally {
+      release();
+      await act(async () => root.unmount());
+      host.remove();
+    }
+  });
+
   it.each([
     ["non-Student surface", { ...pairOptions, surface: "teacher" }],
     [
@@ -234,6 +318,7 @@ describe("GSI-XR Student experience", () => {
       await act(async () =>
         resolveOptions(new Response(JSON.stringify({ data: pairOptions }), { status: 200 }))
       );
+      await act(async () => vi.dynamicImportSettled());
       const region = host.querySelector<HTMLElement>(
         '[aria-label="Student cross-round stakeholder reflection"]'
       )!;
