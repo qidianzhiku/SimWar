@@ -86,11 +86,10 @@ export function validateM30CourseFactorySourceEvidence(
   const issues: string[] = [];
   const { evidence_digest, ...content } = evidence;
   const expected = buildM30CourseFactorySourceEvidence();
-  const m29 = buildM29MainPullConsumptionPack();
 
   if (evidence_digest !== contentDigest(content)) issues.push("evidence_digest");
   if (evidence.schema_version !== M30_SOURCE_EVIDENCE_SCHEMA_VERSION) issues.push("schema_version");
-  if (evidence.binding_request_id !== m29.main_binding_request.request_id)
+  if (evidence.binding_request_id !== expected.binding_request_id)
     issues.push("binding_request_id");
   if (
     evidence.source_epoch.epoch_id !== expected.source_epoch.epoch_id ||
@@ -131,7 +130,7 @@ export function validateM30CourseFactorySourceEvidence(
     if (evidence.formal_binding_eligible !== false) issues.push("formal_binding_eligible");
     else issues.push("source_evidence_boundary");
   }
-  if (!isExactDigest(evidence.m29_pack_digest) || evidence.m29_pack_digest !== m29.pack_digest)
+  if (!isExactDigest(evidence.m29_pack_digest) || evidence.m29_pack_digest !== expected.m29_pack_digest)
     issues.push("m29_pack_digest");
   if (stableDigest(evidence.exact_source_refs) !== stableDigest(expected.exact_source_refs))
     issues.push("exact_source_refs");

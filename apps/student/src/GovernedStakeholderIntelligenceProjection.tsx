@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { createElement, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type {
   GSIStudentProjection,
   GSICrossRoundPairOptions,
@@ -28,11 +28,13 @@ interface EnvelopeError {
 }
 
 interface PairOptionsEnvelope {
+  code?: string;
   data?: GSICrossRoundPairOptions | EnvelopeError;
   error?: EnvelopeError;
 }
 
 interface ComparisonEnvelope {
+  code?: string;
   data?: GSICrossRoundStudentProjection | EnvelopeError;
   error?: EnvelopeError;
 }
@@ -46,12 +48,75 @@ function isEnvelopeErrorData(value: unknown): value is EnvelopeError {
   );
 }
 
-function readEnvelopeError(payload: { data?: unknown; error?: EnvelopeError }): EnvelopeError {
-  return payload.error ?? (isEnvelopeErrorData(payload.data) ? payload.data : {});
+function readEnvelope<T>(payload: { data?: T | EnvelopeError; error?: EnvelopeError }): {
+  data: T | undefined;
+  error: EnvelopeError;
+} {
+  const data = payload.data;
+  return isEnvelopeErrorData(data)
+    ? { data: undefined, error: payload.error ?? data }
+    : { data, error: payload.error ?? {} };
 }
 
-function hasEnvelopeData<T>(payload: { data?: T | EnvelopeError }): payload is { data: T } {
-  return payload.data !== undefined && !isEnvelopeErrorData(payload.data);
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+type FieldRule = string | boolean | ((value: unknown) => boolean);
+function matchesShape(value: unknown, shape: Record<string, FieldRule>): boolean {
+  return (
+    isRecord(value) &&
+    Object.keys(value).every((key) => Object.hasOwn(shape, key)) &&
+    Object.entries(shape).every(([key, rule]) =>
+      typeof rule === "function" ? rule(value[key]) : value[key] === rule
+    )
+  );
+}
+const oneOf =
+  (...values: string[]) =>
+  (value: unknown) =>
+    values.includes(value as string);
+const optionalNumber = (limit: number) => (value: unknown) =>
+  value === undefined || (typeof value === "number" && Math.abs(value) <= limit);
+const movementShape = {
+  stakeholder_type: oneOf("customer", "regulator", "bank", "employee", "media"),
+  intent: oneOf(
+    "protect_demand",
+    "reduce_regulatory_risk",
+    "preserve_liquidity",
+    "retain_workforce",
+    "protect_reputation"
+  ),
+  direction: oneOf("NEW", "REMOVED", "INCREASED", "DECREASED", "STABLE"),
+  from_value: optionalNumber(1),
+  to_value: optionalNumber(1),
+  delta: optionalNumber(2)
+};
+const comparisonShape = {
+  surface: "student",
+  provider: "OFF",
+  non_causal: true,
+  causal_proof: false,
+  official_truth_write: false,
+  context_status: oneOf("AVAILABLE", "CONTEXT_UNAVAILABLE", "REBASE_REQUIRED"),
+  recovery: oneOf("RELOAD_EXACT_CONTEXT", "WAIT_FOR_PUBLICATION"),
+  known_limits: (value: unknown) =>
+    Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === "string"),
+  movements: (value: unknown) =>
+    Array.isArray(value) && value.every((item) => matchesShape(item, movementShape))
+};
+/** Runtime admission for the existing public projection, not a new response contract. */
+function isStudentComparison(value: unknown): value is GSICrossRoundStudentProjection {
+  return matchesShape(value, comparisonShape);
+}
+
+function matchesSelection(
+  context: GSICrossRoundSelectionContext,
+  selected: NonNullable<GovernedStakeholderIntelligenceProjectionProps["selectionContext"]>
+): boolean {
+  return Object.entries(selected).every(
+    ([key, value]) => context[key as keyof GSICrossRoundSelectionContext] === value
+  );
 }
 
 type PairOptionsState =
@@ -69,6 +134,9 @@ type ComparisonState =
   | { kind: "error"; message: string };
 
 const PAIR_SELECTION_MESSAGE = "当前还没有可比较的已发布回合。请返回课程上下文后再查看本轮变化。";
+function unavailableState(): { kind: "unavailable"; message: string } {
+  return { kind: "unavailable", message: PAIR_SELECTION_MESSAGE };
+}
 
 function statusCopy(status: GSICrossRoundStudentProjection["context_status"]): string {
   switch (status) {
@@ -83,21 +151,31 @@ function statusCopy(status: GSICrossRoundStudentProjection["context_status"]): s
   }
 }
 
-function comparisonStateForError(code: string | undefined, message: string): ComparisonState {
+function comparisonStateForError(code?: string, message = "两个回合的变化暂不可用"): ComparisonState {
   if (code === "GSI_REBASE_REQUIRED") return { kind: "rebase", message };
   if (code === "GSI_CONTEXT_UNAVAILABLE") return { kind: "context-unavailable", message };
   if (code === "GSI_PAIR_NOT_AVAILABLE" || code === "GSI_PAIR_AMBIGUOUS") {
-    return { kind: "unavailable", message: PAIR_SELECTION_MESSAGE };
+    return unavailableState();
   }
   return { kind: "error", message };
+}
+
+// Share intrinsic leaf construction without adding a component or changing DOM/escaping.
+function leaf(
+  tag: "span" | "p" | "strong" | "li" | "h3" | "h4" | "summary",
+  children: ReactNode,
+  className?: string,
+  key?: string | number
+) {
+  return createElement(tag, { className, key }, children);
 }
 
 function ComparisonTimeline({ comparison }: { comparison: GSICrossRoundStudentProjection }) {
   return (
     <>
       <div className="gsi-xr-context-strip" role="status" aria-live="polite">
-        <span>{statusCopy(comparison.context_status)}</span>
-        <span className="gsi-xr-badge">NON-CAUSAL</span>
+        {leaf("span", statusCopy(comparison.context_status))}
+        {leaf("span", "NON-CAUSAL", "gsi-xr-badge")}
       </div>
       <ol className="gsi-xr-timeline" aria-label="Stakeholder pressure movement">
         {comparison.movements.map((movement, index) => (
@@ -107,40 +185,45 @@ function ComparisonTimeline({ comparison }: { comparison: GSICrossRoundStudentPr
           >
             <div className="gsi-xr-timeline-marker" aria-hidden="true" />
             <div>
-              <strong>{movement.stakeholder_type} 的压力变化</strong>
-              <p>{movement.intent}</p>
-              <span className="gsi-xr-direction">{movement.direction}</span>
-              {movement.from_value !== undefined && movement.to_value !== undefined ? (
-                <span className="gsi-xr-value-change">
-                  {movement.from_value} → {movement.to_value}
-                  {movement.delta !== undefined ? `（变化 ${movement.delta}）` : ""}
-                </span>
-              ) : null}
+              {leaf("strong", [movement.stakeholder_type, " 的压力变化"])}
+              {leaf("p", movement.intent)}
+              {leaf("span", movement.direction, "gsi-xr-direction")}
+              {movement.from_value !== undefined && movement.to_value !== undefined
+                ? leaf(
+                    "span",
+                    [
+                      movement.from_value,
+                      " → ",
+                      movement.to_value,
+                      movement.delta !== undefined ? `（变化 ${movement.delta}）` : ""
+                    ],
+                    "gsi-xr-value-change"
+                  )
+                : null}
             </div>
           </li>
         ))}
       </ol>
       <aside className="gsi-xr-reflection" aria-label="Reflection prompt">
-        <strong>想一想</strong>
-        <p>哪些压力变了，它会怎样影响你的下一步判断？</p>
+        {leaf("strong", "想一想")}
+        {leaf("p", "哪些压力变了，它会怎样影响你的下一步判断？")}
       </aside>
       <div className="gsi-xr-boundary-grid">
         <div>
-          <span className="eyebrow">学习边界</span>
+          {leaf("span", "学习边界", "eyebrow")}
           <ul>
-            {comparison.known_limits.map((limit) => (
-              <li key={limit}>{limit}</li>
-            ))}
-            <li>不会写入正式 Truth、Settlement、Score 或 Rank</li>
+            {comparison.known_limits.map((limit) => leaf("li", limit, undefined, limit))}
+            {leaf("li", "不会写入正式 Truth、Settlement、Score 或 Rank")}
           </ul>
         </div>
         <div>
-          <span className="eyebrow">下一步</span>
-          <p>
-            {comparison.recovery === "WAIT_FOR_PUBLICATION"
+          {leaf("span", "下一步", "eyebrow")}
+          {leaf(
+            "p",
+            comparison.recovery === "WAIT_FOR_PUBLICATION"
               ? "等待课程内容发布后再查看。"
-              : "回到当前课程上下文后重新查看。"}
-          </p>
+              : "回到当前课程上下文后重新查看。"
+          )}
         </div>
       </div>
     </>
@@ -153,25 +236,33 @@ export function GovernedStakeholderIntelligenceProjection({
   token,
   selectionContext,
   initialProjection,
-  initialComparison
+  initialComparison: bootstrap
 }: GovernedStakeholderIntelligenceProjectionProps) {
+  const initialComparison = isStudentComparison(bootstrap) ? bootstrap : undefined;
+  const initialState =
+    bootstrap !== undefined && !initialComparison ? comparisonStateForError() : unavailableState();
   const [fromRoundId, setFromRoundId] = useState("");
   const [toRoundId, setToRoundId] = useState("");
   const [pairOptionsState, setPairOptionsState] = useState<PairOptionsState>(
-    selectionContext
-      ? { kind: "loading" }
-      : { kind: "unavailable", message: PAIR_SELECTION_MESSAGE }
+    selectionContext ? { kind: "loading" } : unavailableState()
   );
-  const [comparisonState, setComparisonState] = useState<ComparisonState>(
-    initialComparison
-      ? { kind: "ready", data: initialComparison }
-      : { kind: "unavailable", message: PAIR_SELECTION_MESSAGE }
-  );
+  const [comparisonState, setComparisonState] = useState<ComparisonState>(initialState);
   const comparisonRequestId = useRef(0);
   const comparisonController = useRef<AbortController | null>(null);
   const pairOptionsRequestId = useRef(0);
   const pairOptionsController = useRef<AbortController | null>(null);
   const reflectionTarget = useRef<HTMLElement | null>(null);
+  function fetchGsi(route: string, signal: AbortSignal): Promise<Response> {
+    return fetch(`${apiBase}/api/v1/bff/student/gsi/candidates/${route}`, {
+      headers: { authorization: `Bearer ${token}`, "x-tenant-id": tenantId },
+      signal
+    });
+  }
+  function invalidateComparisonRequest(): number {
+    const requestId = ++comparisonRequestId.current;
+    comparisonController.current?.abort();
+    return requestId;
+  }
   const handoffFocus = useRef<{
     href: string;
     initialFocus: Element | null;
@@ -232,10 +323,7 @@ export function GovernedStakeholderIntelligenceProjection({
       !selectionContext ||
       pairOptionsState.kind !== "ready" ||
       pairOptionsState.data.context.tenant_id !== tenantId ||
-      !Object.entries(selectionContext).every(
-        ([key, value]) =>
-          pairOptionsState.data.context[key as keyof GSICrossRoundSelectionContext] === value
-      )
+      !matchesSelection(pairOptionsState.data.context, selectionContext)
     )
       return;
     entry.handled = true;
@@ -245,77 +333,64 @@ export function GovernedStakeholderIntelligenceProjection({
   useEffect(() => {
     const requestId = ++pairOptionsRequestId.current;
     pairOptionsController.current?.abort();
-    comparisonRequestId.current += 1;
-    comparisonController.current?.abort();
+    invalidateComparisonRequest();
     if (initialComparison || !selectionContext) {
-      setPairOptionsState({ kind: "unavailable", message: PAIR_SELECTION_MESSAGE });
+      setPairOptionsState(unavailableState());
       setFromRoundId("");
       setToRoundId("");
-      setComparisonState(
-        initialComparison
-          ? { kind: "ready", data: initialComparison }
-          : { kind: "unavailable", message: PAIR_SELECTION_MESSAGE }
-      );
+      setComparisonState(initialState);
       return;
     }
 
     const controller = new AbortController();
+    const isStale = () => controller.signal.aborted || requestId !== pairOptionsRequestId.current;
     pairOptionsController.current = controller;
     const query = new URLSearchParams(selectionContext);
     setPairOptionsState({ kind: "loading" });
     setFromRoundId("");
     setToRoundId("");
-    setComparisonState({ kind: "unavailable", message: PAIR_SELECTION_MESSAGE });
+    setComparisonState(initialState);
 
-    void fetch(`${apiBase}/api/v1/bff/student/gsi/candidates/pair-options?${query.toString()}`, {
-      headers: { authorization: `Bearer ${token}`, "x-tenant-id": tenantId },
-      signal: controller.signal
-    })
+    void fetchGsi(`pair-options?${query.toString()}`, controller.signal)
       .then(async (response) => {
         const payload = (await response.json()) as PairOptionsEnvelope;
-        if (controller.signal.aborted || requestId !== pairOptionsRequestId.current) return;
+        if (isStale()) return;
         // Keep the existing runtime schema guard off the initial entry transfer.
         // Loading never grants readiness: identity must still match after it settles.
         const { isGSICrossRoundPairOptions } =
           await import("../../../packages/shared-contracts/src/gsi-governed-stakeholder-shadow-plane");
-        if (controller.signal.aborted || requestId !== pairOptionsRequestId.current) return;
-        const details = readEnvelopeError(payload);
-        const options = payload.data;
+        if (isStale()) return;
+        const { data: options } = readEnvelope(payload);
         if (
           !response.ok ||
-          !hasEnvelopeData(payload) ||
+          Object.hasOwn(payload, "error") ||
+          (payload.code !== undefined && payload.code !== "OK") ||
+          options === undefined ||
           !isGSICrossRoundPairOptions(options) ||
           options.surface !== "student" ||
           options.context.tenant_id !== tenantId ||
-          !Object.entries(selectionContext).every(
-            ([key, value]) => options.context[key as keyof GSICrossRoundSelectionContext] === value
-          )
+          !matchesSelection(options.context, selectionContext)
         ) {
           setPairOptionsState({
             kind: "error",
-            message: details.message ?? "服务器回合配对暂不可用"
+            message: "服务器回合配对暂不可用"
           });
           return;
         }
         setPairOptionsState({ kind: "ready", data: options });
       })
       .catch((cause) => {
-        if (
-          controller.signal.aborted ||
-          requestId !== pairOptionsRequestId.current ||
-          (cause instanceof DOMException && cause.name === "AbortError")
-        )
-          return;
+        if (isStale() || (cause instanceof DOMException && cause.name === "AbortError")) return;
         setPairOptionsState({
           kind: "error",
-          message: cause instanceof Error ? cause.message : "服务器回合配对暂不可用"
+          message: "服务器回合配对暂不可用"
         });
       });
 
     return () => controller.abort();
   }, [
     apiBase,
-    initialComparison,
+    bootstrap,
     selectionContext?.activity_id,
     selectionContext?.course_id,
     selectionContext?.role_key,
@@ -330,7 +405,7 @@ export function GovernedStakeholderIntelligenceProjection({
     const from = fromRoundId.trim();
     const to = toRoundId.trim();
     if (!selectionContext || !from || !to) {
-      setComparisonState({ kind: "unavailable", message: PAIR_SELECTION_MESSAGE });
+      setComparisonState(unavailableState());
       return;
     }
     if (from === to) {
@@ -341,8 +416,7 @@ export function GovernedStakeholderIntelligenceProjection({
       return;
     }
 
-    const requestId = ++comparisonRequestId.current;
-    comparisonController.current?.abort();
+    const requestId = invalidateComparisonRequest();
     const controller = new AbortController();
     comparisonController.current = controller;
     setComparisonState({ kind: "loading" });
@@ -353,47 +427,39 @@ export function GovernedStakeholderIntelligenceProjection({
     });
 
     try {
-      const response = await fetch(
-        `${apiBase}/api/v1/bff/student/gsi/candidates/compare?${query.toString()}`,
-        {
-          headers: { authorization: `Bearer ${token}`, "x-tenant-id": tenantId },
-          signal: controller.signal
-        }
-      );
+      const response = await fetchGsi(`compare?${query.toString()}`, controller.signal);
       const payload = (await response.json()) as ComparisonEnvelope;
       if (requestId !== comparisonRequestId.current) return;
-      const details = readEnvelopeError(payload);
-      if (!response.ok || !hasEnvelopeData(payload)) {
-        setComparisonState(
-          comparisonStateForError(details.code, details.message ?? "两个回合的变化暂不可用")
-        );
+      const { data, error: details } = readEnvelope(payload);
+      if (
+        !response.ok ||
+        !isStudentComparison(data) ||
+        Object.hasOwn(payload, "error") ||
+        (payload.code !== undefined && payload.code !== "OK")
+      ) {
+        setComparisonState(comparisonStateForError(details.code ?? payload.code));
         return;
       }
-      setComparisonState({ kind: "ready", data: payload.data });
-    } catch (cause) {
+      setComparisonState({ kind: "ready", data });
+    } catch {
       if (controller.signal.aborted || requestId !== comparisonRequestId.current) return;
-      setComparisonState({
-        kind: "error",
-        message: cause instanceof Error ? cause.message : "两个回合的变化暂不可用"
-      });
+      setComparisonState(comparisonStateForError());
     }
   }
 
   function resetComparison(): void {
-    comparisonRequestId.current += 1;
-    comparisonController.current?.abort();
+    invalidateComparisonRequest();
     setFromRoundId("");
     setToRoundId("");
-    setComparisonState({ kind: "unavailable", message: PAIR_SELECTION_MESSAGE });
+    setComparisonState(unavailableState());
   }
 
   function invalidateComparisonSelection(): void {
-    comparisonRequestId.current += 1;
-    comparisonController.current?.abort();
-    setComparisonState({ kind: "unavailable", message: PAIR_SELECTION_MESSAGE });
+    invalidateComparisonRequest();
+    setComparisonState(unavailableState());
   }
 
-  const projection = initialComparison ? undefined : initialProjection;
+  const projection = bootstrap === undefined ? initialProjection : undefined;
   const pairOptions = pairOptionsState.kind === "ready" ? pairOptionsState.data.rounds : [];
   const pairUnavailable = pairOptionsState.kind === "error" || pairOptions.length < 2;
   const recoveryPanel =
@@ -429,45 +495,52 @@ export function GovernedStakeholderIntelligenceProjection({
     >
       <div className="panel-title">
         <div>
-          <p className="eyebrow">
-            {projection ? "Student · role-safe view" : "Student · decision-learning timeline"}
-          </p>
-          <h3>{projection ? "利益相关方信号学习投影" : "查看本轮变化"}</h3>
+          {leaf(
+            "p",
+            projection ? "Student · role-safe view" : "Student · decision-learning timeline",
+            "eyebrow"
+          )}
+          {leaf("h3", projection ? "利益相关方信号学习投影" : "查看本轮变化")}
         </div>
-        <span className="technical-compatibility">
-          {projection || initialComparison ? "Provider OFF" : "Provider OFF · read-only"}
-        </span>
+        {leaf(
+          "span",
+          projection || initialComparison ? "Provider OFF" : "Provider OFF · read-only",
+          "technical-compatibility"
+        )}
       </div>
-      <p className="lifecycle-boundary">
-        {projection
+      {leaf(
+        "p",
+        projection
           ? "学员只接收已发布、按角色裁剪的 bounded signal；proposal 原文和教师/管理员 provenance 不在此投影中。"
-          : `这里只显示${initialComparison ? "已发布、按当前角色裁剪" : "服务器确认发布且匹配当前角色"}的变化摘要。它用于帮助你反思下一步，不代表正式决策、结果或因果结论。`}
-      </p>
+          : `这里只显示${initialComparison ? "已发布、按当前角色裁剪" : "服务器确认发布且匹配当前角色"}的变化摘要。它用于帮助你反思下一步，不代表正式决策、结果或因果结论。`,
+        "lifecycle-boundary"
+      )}
       {initialComparison ? (
         <ComparisonTimeline comparison={initialComparison} />
       ) : projection ? (
         <article className="candidate-preview" aria-label="Student GSI projection">
-          <h4>角色：{projection.role_key ?? "已授权角色"}</h4>
-          <p>{projection.summary}</p>
+          {leaf("h4", ["角色：", projection.role_key ?? "已授权角色"])}
+          {leaf("p", projection.summary)}
           <ul>
-            {projection.signals.map((signal) => (
-              <li key={`${signal.stakeholder_type}-${signal.intent}`}>
-                {signal.stakeholder_type} / {signal.intent}: {signal.bounded_value}
-              </li>
-            ))}
+            {projection.signals.map((signal) =>
+              leaf(
+                "li",
+                [signal.stakeholder_type, " / ", signal.intent, ": ", signal.bounded_value],
+                undefined,
+                `${signal.stakeholder_type}-${signal.intent}`
+              )
+            )}
           </ul>
-          {projection.abstentions.length ? (
-            <p className="lifecycle-status">
-              有 {projection.abstentions.length} 项信号在有界规则下未采纳。
-            </p>
-          ) : null}
+          {projection.abstentions.length
+            ? leaf(
+                "p",
+                ["有 ", projection.abstentions.length, " 项信号在有界规则下未采纳。"],
+                "lifecycle-status"
+              )
+            : null}
           <details>
-            <summary>查看学习边界</summary>
-            <ul>
-              {projection.known_limits.map((limit) => (
-                <li key={limit}>{limit}</li>
-              ))}
-            </ul>
+            {leaf("summary", "查看学习边界")}
+            <ul>{projection.known_limits.map((limit) => leaf("li", limit, undefined, limit))}</ul>
           </details>
         </article>
       ) : (
@@ -479,14 +552,16 @@ export function GovernedStakeholderIntelligenceProjection({
           >
             <div className="gsi-xr-pair-heading">
               <div>
-                <p className="eyebrow">Reflection action</p>
-                <h4>选择两个已发布回合</h4>
+                {leaf("p", "Reflection action", "eyebrow")}
+                {leaf("h4", "选择两个已发布回合")}
               </div>
-              <span className="gsi-xr-state-badge">READ-ONLY</span>
+              {leaf("span", "READ-ONLY", "gsi-xr-state-badge")}
             </div>
-            <p className="gsi-xr-muted">
-              回合由服务器按当前课程、运行、队伍和角色筛选；请明确选择起始和目标回合，不使用默认顺序推断。
-            </p>
+            {leaf(
+              "p",
+              "回合由服务器按当前课程、运行、队伍和角色筛选；请明确选择起始和目标回合，不使用默认顺序推断。",
+              "gsi-xr-muted"
+            )}
             <div className="gsi-xr-field-grid">
               {(
                 [
@@ -522,13 +597,14 @@ export function GovernedStakeholderIntelligenceProjection({
             ) : null}
             {pairUnavailable ? (
               <div className="gsi-xr-status gsi-xr-status-warning" role="status" aria-live="polite">
-                <strong>PAIR_SELECTION_UNAVAILABLE</strong>
-                <p>
-                  {pairOptionsState.kind === "error"
+                {leaf("strong", "PAIR_SELECTION_UNAVAILABLE")}
+                {leaf(
+                  "p",
+                  pairOptionsState.kind === "error"
                     ? pairOptionsState.message
-                    : PAIR_SELECTION_MESSAGE}
-                </p>
-                <span>安全下一步：返回课程上下文并等待两个已发布、角色匹配的回合。</span>
+                    : PAIR_SELECTION_MESSAGE
+                )}
+                {leaf("span", "安全下一步：返回课程上下文并等待两个已发布、角色匹配的回合。")}
               </div>
             ) : null}
             <div className="gsi-xr-actions">
@@ -545,8 +621,8 @@ export function GovernedStakeholderIntelligenceProjection({
           </form>
           {comparisonState.kind === "unavailable" && !pairUnavailable ? (
             <div className="gsi-xr-status gsi-xr-status-warning" role="status" aria-live="polite">
-              <strong>PAIR_SELECTION_UNAVAILABLE</strong>
-              <p>{comparisonState.message}</p>
+              {leaf("strong", "PAIR_SELECTION_UNAVAILABLE")}
+              {leaf("p", comparisonState.message)}
             </div>
           ) : null}
           {recoveryPanel ? (
@@ -555,8 +631,8 @@ export function GovernedStakeholderIntelligenceProjection({
               role={recoveryPanel[0] === "error" ? "alert" : "status"}
               aria-live={recoveryPanel[0] === "warning" ? "polite" : undefined}
             >
-              <strong>{recoveryPanel[1]}</strong>
-              <p>{recoveryPanel[2]}</p>
+              {leaf("strong", recoveryPanel[1])}
+              {leaf("p", recoveryPanel[2])}
               <button type="button" className="secondary" onClick={resetComparison}>
                 {recoveryPanel[3]}
               </button>
