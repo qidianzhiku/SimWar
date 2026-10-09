@@ -131,6 +131,7 @@ export function buildStudentGsiHandoffUrl(
     gsi_activity_id: context.activity_id,
     gsi_role_key: context.role_key
   }).toString();
+  url.hash = "gsi-student-reflection";
   return url.toString();
 }
 
