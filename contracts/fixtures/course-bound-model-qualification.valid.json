@@ -1,0 +1,243 @@
+{
+  "schema_version": "course-bound-model-qualification.v1",
+  "mission_id": "SIMWAR-MOD-ECF-MQ1-COURSE-BOUND-MODEL-QUALIFICATION-V2.0-20260830",
+  "consumer_id": "MAIN-ECF-O1-ENTERPRISE-COURSE-FACTORY",
+  "candidate_type": "CourseBoundModelQualificationCandidate",
+  "status": "ELIGIBLE_FOR_SHADOW_WITH_LIMITS",
+  "state_transition": { "from": "STATE_A", "to": "STATE_B" },
+  "exact_binding": {
+    "binding_digest": "e8d43f311d01a3897737be3a7ee0f2cd05f768cffbc15fa69a24b5ef9a28694f",
+    "no_implicit_latest": true,
+    "refs": {
+      "course_package": {
+        "resource_id": "course-package-demo",
+        "resource_type": "course_package",
+        "version": "1.0.0",
+        "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "scenario_package": {
+        "resource_id": "scenario-package-demo",
+        "resource_type": "scenario_package",
+        "version": "1.0.0",
+        "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "parameter_set": {
+        "resource_id": "parameter-set-demo",
+        "resource_type": "parameter_set",
+        "version": "1.0.0",
+        "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "model_version": {
+        "resource_id": "model-version-demo",
+        "resource_type": "model_version",
+        "version": "1.0.0",
+        "content_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "source_evidence": {
+        "resource_id": "source-evidence-demo",
+        "resource_type": "source_evidence",
+        "version": "1.0.0",
+        "content_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      }
+    }
+  },
+  "candidate": {
+    "status": "ELIGIBLE_FOR_SHADOW_WITH_LIMITS",
+    "reason_codes": [],
+    "compatibility": {
+      "tenant_match": true,
+      "course_scenario_match": true,
+      "course_parameter_match": true,
+      "scenario_parameter_match": true,
+      "model_family_match": true,
+      "feature_mapper_match": true,
+      "parameter_schema_match": true,
+      "solver_version_match": true,
+      "source_course_match": true,
+      "source_feature_schema_match": true,
+      "parameter_status_eligible": true,
+      "model_status_eligible": true,
+      "source_rights_eligible": true,
+      "source_freshness_eligible": true
+    },
+    "formal_binding_eligible": false,
+    "activation_permitted": false,
+    "official_truth_write": false,
+    "settlement_write": false,
+    "parameter_set_formal_write": false,
+    "replay_truth_write": false
+  },
+  "evidence": {
+    "inputs": [
+      {
+        "ref": {
+          "resource_id": "course-package-demo",
+          "resource_type": "course_package",
+          "version": "1.0.0",
+          "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "role": "TEACHER_ONLY"
+      },
+      {
+        "ref": {
+          "resource_id": "scenario-package-demo",
+          "resource_type": "scenario_package",
+          "version": "1.0.0",
+          "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "role": "TEACHER_ONLY"
+      },
+      {
+        "ref": {
+          "resource_id": "parameter-set-demo",
+          "resource_type": "parameter_set",
+          "version": "1.0.0",
+          "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "role": "INTERNAL_RESEARCH_ONLY"
+      },
+      {
+        "ref": {
+          "resource_id": "model-version-demo",
+          "resource_type": "model_version",
+          "version": "1.0.0",
+          "content_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "role": "INTERNAL_RESEARCH_ONLY"
+      },
+      {
+        "ref": {
+          "resource_id": "source-evidence-demo",
+          "resource_type": "source_evidence",
+          "version": "1.0.0",
+          "content_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "role": "RESTRICTED"
+      }
+    ],
+    "transformations": [
+      {
+        "input": ["course_package.scenario_package_reference", "scenario_package.reference"],
+        "rule": "Exact reference equality is required for the CoursePackage to name its ScenarioPackage",
+        "output": "course_scenario_binding",
+        "confidence": "HIGH",
+        "provenance": "course-package-demo@1.0.0"
+      },
+      {
+        "input": [
+          "course_package.parameter_set_reference",
+          "scenario_package.parameter_set_reference",
+          "parameter_set.reference"
+        ],
+        "rule": "Course and Scenario parameter references must equal the supplied ParameterSet",
+        "output": "parameter_binding",
+        "confidence": "HIGH",
+        "provenance": "parameter-set-demo@1.0.0"
+      },
+      {
+        "input": ["scenario_package", "parameter_set", "model_version"],
+        "rule": "Model family, feature mapper, schema versions, and solver compatibility are compared exactly",
+        "output": "model_compatibility",
+        "confidence": "HIGH",
+        "provenance": "model-version-demo@1.0.0"
+      },
+      {
+        "input": ["source_evidence", "course_package", "parameter_set"],
+        "rule": "Source evidence must bind to the exact course and feature schema with lawful fresh metadata",
+        "output": "source_evidence_compatibility",
+        "confidence": "MEDIUM",
+        "provenance": "source-evidence-demo@1.0.0"
+      }
+    ],
+    "conflicts": [],
+    "differential": {
+      "mode": "NON_OFFICIAL",
+      "replay_truth_write": false,
+      "official_result_overwrite": false
+    }
+  },
+  "mjp": {
+    "status": "PASS",
+    "fixture_count": 4,
+    "minimum_fixture_count": 4,
+    "fixture_ids": [
+      "course-bound-eligible-001",
+      "course-bound-rebase-parameter-002",
+      "course-bound-stale-source-003",
+      "course-bound-rebase-model-004"
+    ],
+    "fixtures": [
+      {
+        "fixture_id": "course-bound-eligible-001",
+        "expected_status": "ELIGIBLE_FOR_SHADOW_WITH_LIMITS",
+        "observed_status": "ELIGIBLE_FOR_SHADOW_WITH_LIMITS",
+        "input_digest": "7b098a0fca096f566d3ba07551e0318365dcad40e19df2a4fa6ed448c8b6a5c0",
+        "result_digest": "46532d16572f696ac0c2556b22f45410e04270a99913109a301f746930bd9235",
+        "executed": true
+      },
+      {
+        "fixture_id": "course-bound-rebase-parameter-002",
+        "expected_status": "REBASE_REQUIRED",
+        "observed_status": "REBASE_REQUIRED",
+        "input_digest": "81ee3e29786638076895f7df06cb0cacc7a70aa49ef556430bbd686184dc2370",
+        "result_digest": "c7a37cdb5997485bb9c76f26afc6296f46f9ddb73a6c988bb70b36dd802543a6",
+        "executed": true
+      },
+      {
+        "fixture_id": "course-bound-stale-source-003",
+        "expected_status": "NOT_ELIGIBLE",
+        "observed_status": "NOT_ELIGIBLE",
+        "input_digest": "fa9673bb8974c1402af6c891afa2abc6baed96d0d3f442355b019979592c1aec",
+        "result_digest": "9d5af54a5b7a330e248fd553c91070e4ac2203fc34800063a5a069088e754886",
+        "executed": true
+      },
+      {
+        "fixture_id": "course-bound-rebase-model-004",
+        "expected_status": "REBASE_REQUIRED",
+        "observed_status": "REBASE_REQUIRED",
+        "input_digest": "df586662f27262d9b760a6be52f44621384a57619243a6c90b09d41cebdcec1b",
+        "result_digest": "7c525f8ef7407ea76ecb90505b2f8374707ab1daab251c811c5fc088b651546a",
+        "executed": true
+      }
+    ]
+  },
+  "role_visibility": {
+    "teacher": {
+      "visibility": "TEACHER_ONLY",
+      "fields": ["qualification_status", "reason_codes", "compatibility", "exact_binding"]
+    },
+    "student": {
+      "visibility": "STUDENT_SAFE",
+      "fields": ["qualification_status", "compatibility_status", "reason_codes", "known_limits"]
+    },
+    "admin": {
+      "visibility": "INTERNAL_RESEARCH_ONLY",
+      "fields": ["exact_binding", "evidence", "authority", "known_limits"]
+    }
+  },
+  "authority": {
+    "candidate_writer": "MOD_SUPPORT_CANDIDATE_COMPILER",
+    "formal_writer": "NONE",
+    "official_truth_write": false,
+    "settlement_write": false,
+    "parameter_set_formal_write": false,
+    "replay_truth_write": false,
+    "provider": "OFF",
+    "runtime_authority": "JSON_INTERNAL_ONLY"
+  },
+  "join_request": {
+    "consumer_id": "MAIN-ECF-O1-ENTERPRISE-COURSE-FACTORY",
+    "need_by": "MAIN-ECF-O1-N+1-MODEL-CONTROL",
+    "consumer_ready": false,
+    "exact_binding_required": true,
+    "join_gate": "MAIN_INTEGRATION_LEASE_REQUIRED",
+    "requested_status": "ELIGIBLE_FOR_SHADOW_WITH_LIMITS"
+  },
+  "known_limits": [
+    "Candidate-only support evidence; no formal ModelVersion activation or official Truth write.",
+    "Provider is OFF; calibration and causal validity are not claimed by this compiler.",
+    "MAIN must revalidate consumer, role, rights, freshness, and integration-lease conditions.",
+    "Student projection is role-safe and intentionally excludes source provenance and exact digests."
+  ],
+  "candidate_digest": "4c6fa59dfb98110e4ad667b504075f79e6ecf66a998824c9a0842975b8a5c31a"
+}
