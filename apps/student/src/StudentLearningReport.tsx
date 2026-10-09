@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import type {
   StudentLearningReportPublic,
-  StudentLearningReportPublicListDto
+  StudentLearningReportPublicListDto,
+  W3OfficialConsequenceContext
 } from "@simwar/shared-contracts";
 import { fetchStudentLearningReports } from "./student-learning-report-client";
 
@@ -41,16 +42,27 @@ type ReportState =
 export function StudentLearningReportPanel({
   token,
   tenantId,
-  published = true
+  published = true,
+  context,
+  requestIdentity = ""
 }: {
   token: string;
   tenantId: string;
   published?: boolean;
+  context?: W3OfficialConsequenceContext | undefined;
+  requestIdentity?: string;
 }) {
-  const [state, setState] = useState<ReportState>({ kind: published ? "loading" : "blocked" });
+  const identity = JSON.stringify([token, tenantId, published, context, requestIdentity]);
+  const [result, setResult] = useState<{ identity: string; state: ReportState }>({
+    identity,
+    state: { kind: published ? "loading" : "blocked" }
+  });
+  const state: ReportState =
+    result.identity === identity ? result.state : { kind: published ? "loading" : "blocked" };
 
   useEffect(() => {
     const controller = new AbortController();
+    const setState = (state: ReportState) => setResult({ identity, state });
     if (!published) {
       setState({ kind: "blocked" });
       return () => controller.abort();
@@ -58,19 +70,42 @@ export function StudentLearningReportPanel({
     setState({ kind: "loading" });
     fetchStudentLearningReports(token, tenantId, controller.signal)
       .then((data) => {
-        if (!controller.signal.aborted)
-          setState(data.reports.length === 0 ? { kind: "empty", data } : { kind: "ready", data });
+        if (controller.signal.aborted) return;
+        if (
+          data?.report_schema_version !== "student-learning-report.public.v1" ||
+          data.scope !== "student_team" ||
+          !Array.isArray(data.reports) ||
+          !Array.isArray(data.known_limits)
+        )
+          throw new Error("Report unavailable");
+        const scoped = context
+          ? {
+              ...data,
+              reports: data.reports.filter(
+                (report) =>
+                  report?.context &&
+                  (
+                    ["course_id", "run_id", "team_id", "round_id", "round_no", "role_key"] as const
+                  ).every((key) => report.context[key] === context[key])
+              )
+            }
+          : data;
+        setState(
+          scoped.reports.length === 0
+            ? { kind: "empty", data: scoped }
+            : { kind: "ready", data: scoped }
+        );
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
         if (error instanceof DOMException && error.name === "AbortError") return;
         setState({
           kind: "error",
-          message: error instanceof Error ? error.message : "报告加载失败"
+          message: "报告加载失败"
         });
       });
     return () => controller.abort();
-  }, [published, tenantId, token]);
+  }, [identity, published, tenantId, token, context]);
 
   return (
     <section

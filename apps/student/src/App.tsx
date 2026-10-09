@@ -13,7 +13,6 @@ import {
   M1_TEACHING_OFFICIAL_RESULT_LABEL,
   M1_TEACHING_PRODUCT_PACKAGE,
   REAUTH_CONTEXT_STORAGE_KEY,
-  isSameReauthBusinessContext,
   normalizeW027RoleKey,
   parseReauthContext,
   serializeReauthContext,
@@ -45,7 +44,7 @@ import { ProjectBriefPanel, type ProjectAwareEvidenceAvailability } from "./Proj
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 import { RegionalTransferProjection } from "./features/regional-transfer-projection";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
-import { ModelQualificationProjection } from "./ModelQualificationProjection";
+const ModelQualificationProjection = lazy(() => import("./ModelQualificationProjection"));
 import { GovernedStakeholderIntelligenceProjection } from "./GovernedStakeholderIntelligenceProjection";
 import {
   getStudentDecisionDesktopState,
@@ -154,47 +153,7 @@ const W5DemandConvergencePanel = lazy(async () => {
   const module = await import("./W5DemandCandidatePanel");
   return { default: module.W5DemandConvergencePanel };
 });
-const W3_ENABLED =
-  import.meta.env.VITE_SIMWAR_W3_ENABLED === "true" ||
-  (typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).get("w3") === "true");
 const W3_ENVIRONMENT_ENABLED = import.meta.env.VITE_SIMWAR_W3_ENABLED === "true";
-
-function readW3QueryContext(): W3OfficialConsequenceContext | undefined {
-  if (typeof window === "undefined") return undefined;
-  const params = new URLSearchParams(window.location.search);
-  if (params.get("w3") !== "true") return undefined;
-  const activityId = params.get("activity_id");
-  const courseId = params.get("course_id");
-  const roleKey = params.get("role_key");
-  const roundId = params.get("round_id");
-  const roundNo = Number(params.get("round_no"));
-  const runId = params.get("run_id");
-  const teamId = params.get("team_id");
-  const tenantId = params.get("tenant_id");
-  if (
-    !activityId ||
-    !courseId ||
-    !roleKey ||
-    !roundId ||
-    !Number.isSafeInteger(roundNo) ||
-    !runId ||
-    !teamId ||
-    !tenantId
-  ) {
-    return undefined;
-  }
-  return {
-    activity_id: activityId,
-    course_id: courseId,
-    role_key: roleKey,
-    round_id: roundId,
-    round_no: roundNo,
-    run_id: runId,
-    team_id: teamId,
-    tenant_id: tenantId
-  };
-}
 const knownLimits = getKnownLimitsProjection("student");
 type LoginForm = {
   tenantId: string;
@@ -442,6 +401,13 @@ async function apiRequest<TData>(
 }
 
 export function App() {
+  const [search, setSearch] = useState(() =>
+    typeof window === "undefined" ? "" : window.location.search
+  );
+  const [authorizedLearning, setAuthorizedLearning] = useState<{
+    key: string;
+    context: W3OfficialConsequenceContext;
+  } | null>(null);
   const [state, setState] = useState<P0DemoState | null>(null);
   const [cockpit, setCockpit] = useState<StudentBffCockpitDTO | null>(null);
   const [decisionContextEvidence, setDecisionContextEvidence] =
@@ -477,6 +443,33 @@ export function App() {
   const authController = useRef<AbortController | null>(null);
   const decisionIdentity = useRef(0);
   const decisionController = useRef<AbortController | null>(null);
+  const requestContextKey = JSON.stringify([
+    authIdentity.current,
+    session?.user.user_id,
+    session?.user.tenant_id,
+    search
+  ]);
+  useEffect(() => {
+    const navigate = () => {
+      if (window.location.search === search) return;
+      refreshIdentity.current += 1;
+      refreshController.current?.abort();
+      decisionIdentity.current += 1;
+      decisionController.current?.abort();
+      setAuthorizedLearning(null);
+      setState(null);
+      setCockpit(null);
+      setDecisionContextEvidence(null);
+      setWorkspacePhase("loading");
+      setSearch(window.location.search);
+    };
+    window.addEventListener("popstate", navigate);
+    window.addEventListener("hashchange", navigate);
+    return () => {
+      window.removeEventListener("popstate", navigate);
+      window.removeEventListener("hashchange", navigate);
+    };
+  }, [search]);
   const w5DraftId =
     typeof window === "undefined"
       ? ""
@@ -527,25 +520,25 @@ export function App() {
   const w3RoleKey = normalizeW027RoleKey(
     (assignedW3RoleKey ?? "CEO") as Parameters<typeof normalizeW027RoleKey>[0]
   );
-  const w3QueryContext = readW3QueryContext();
   const gsiSelectionContext = readGSISelectionContext();
   const w3Context =
-    w3QueryContext ??
-    (latestRun && latestRound && team
-      ? {
-          activity_id: "activity_consequence",
-          course_id: latestRun.course_id,
-          role_key: w3RoleKey,
-          round_id: latestRound.round_id,
-          round_no: latestRound.round_no,
-          run_id: latestRun.run_id,
-          team_id: team.team_id,
-          tenant_id: login.tenantId
-        }
-      : undefined);
-  const w3ContextReady = isW3ContextAvailable(w3QueryContext, W3_ENVIRONMENT_ENABLED);
-  const ddtContext = w3QueryContext;
-  const ddtContextReady = isW3ContextAvailable(ddtContext, false);
+    authorizedLearning?.key === requestContextKey ? authorizedLearning.context : undefined;
+  const entryParams = new URLSearchParams(search);
+  const exactEntry = [
+    "w3",
+    "tenant_id",
+    "course_id",
+    "run_id",
+    "team_id",
+    "round_id",
+    "round_no",
+    "role_key",
+    "activity_id"
+  ].some((key) => entryParams.has(key));
+  const W3_ENABLED = W3_ENVIRONMENT_ENABLED || exactEntry || Boolean(w3Context);
+  const w3ContextReady = isW3ContextAvailable(w3Context, false);
+  const ddtContext = w3Context;
+  const ddtContextReady = w3ContextReady;
 
   const refresh = useCallback(async () => {
     const requestId = ++refreshIdentity.current;
@@ -557,6 +550,7 @@ export function App() {
     }
     setState(null);
     setCockpit(null);
+    setAuthorizedLearning(null);
     setDecisionContextEvidence(null);
     setProjectAwareEvidenceAvailability("checking");
     setWorkspacePhase("loading");
@@ -570,66 +564,37 @@ export function App() {
       };
       const nextState = await apiRequest<P0DemoState>("/api/v1/demo-state", auth);
       if (!isCurrentStudentRequest(requestId, refreshIdentity.current)) return;
-      const studentState = projectStudentBootstrapState(nextState, reauthContext ?? undefined);
-      const nextRun = reauthContext
-        ? studentState.runs.find(
-            (run) =>
-              run.run_id === reauthContext.run_id && run.course_id === reauthContext.course_id
-          )
-        : studentState.runs.at(-1);
-      const nextRound = nextRun
-        ? reauthContext
-          ? studentState.rounds.find(
-              (round) =>
-                round.run_id === nextRun.run_id &&
-                round.round_id === reauthContext.round_id &&
-                round.round_no === reauthContext.round_no
-            )
-          : studentState.rounds.find((round) => round.run_id === nextRun.run_id)
-        : undefined;
-      const nextTeam = studentState.teams.find(
-        (candidate) =>
-          candidate.tenant_id === login.tenantId &&
-          candidate.team_id === studentState.current_user.team_id
-      );
-
-      if (reauthContext && (!nextRun || !nextRound)) {
-        setCockpit(null);
+      const needsAdmission = Boolean(reauthContext) || exactEntry || W3_ENVIRONMENT_ENABLED;
+      const admission = needsAdmission ? await import("./student-request-context") : undefined;
+      if (!isCurrentStudentRequest(requestId, refreshIdentity.current)) return;
+      const requested = admission?.readStudentRequestContext(search);
+      if (requested?.kind === "INVALID") {
         setWorkspacePhase("error");
-        setContextRecoveryState("CONTEXT_STALE");
-        setNotice("CONTEXT_NOT_FOUND");
+        setNotice("EXACT_CONTEXT_INVALID");
         return;
       }
-
-      if (reauthContext && (!nextTeam || nextTeam.team_id !== reauthContext.team_id)) {
-        setCockpit(null);
+      const exact = requested?.kind === "EXACT" ? requested.context : undefined;
+      const selected = exact ?? reauthContext ?? undefined;
+      const studentState = projectStudentBootstrapState(nextState, selected);
+      const legacyRun = studentState.runs.at(-1);
+      const selection = admission
+        ? admission.resolveStudentSelection(studentState, selected, exact, session, login.tenantId)
+        : {
+            error: undefined,
+            run: legacyRun,
+            round: studentState.rounds.find((r) => r.run_id === legacyRun?.run_id),
+            context: undefined
+          };
+      if (selection.error) {
         setWorkspacePhase("error");
-        setContextRecoveryState("CONTEXT_UNAUTHORIZED");
-        setNotice("CONTEXT_UNAUTHORIZED");
+        setContextRecoveryState(
+          selection.error === "CONTEXT_NOT_FOUND" ? "CONTEXT_STALE" : "CONTEXT_UNAUTHORIZED"
+        );
+        setNotice(selection.error);
         return;
       }
-
-      if (reauthContext) {
-        const identityValidation = validateReauthIdentity(reauthContext, {
-          tenant_id: studentState.current_user.tenant_id,
-          user_id: studentState.current_user.user_id,
-          roles: session.user.roles,
-          role_slots: nextTeam
-            ? nextTeam.members
-                .filter((member) => member.user_id === session.user.user_id)
-                .map((member) => member.role_slot)
-            : []
-        });
-        if (identityValidation.status !== "RESTORE_ALLOWED") {
-          setCockpit(null);
-          setWorkspacePhase("error");
-          setContextRecoveryState("CONTEXT_UNAUTHORIZED");
-          setNotice("CONTEXT_UNAUTHORIZED");
-          return;
-        }
-      }
-
-      setState(studentState);
+      const { run: nextRun, round: nextRound } = selection;
+      if (!needsAdmission) setState(studentState);
 
       if (!nextRun || !nextRound) {
         setCockpit(null);
@@ -643,11 +608,7 @@ export function App() {
         auth
       );
       if (!isCurrentStudentRequest(requestId, refreshIdentity.current)) return;
-      if (
-        reauthContext &&
-        (nextCockpit.student_cockpit.tenant_id !== login.tenantId ||
-          !isSameReauthBusinessContext(reauthContext, nextCockpit.student_cockpit))
-      ) {
+      if (selected && !admission?.matchesStudentCockpit(selected, nextCockpit, login.tenantId)) {
         setState(studentState);
         setCockpit(null);
         setWorkspacePhase("error");
@@ -655,6 +616,29 @@ export function App() {
         setNotice("CONTEXT_NOT_FOUND");
         return;
       }
+      if (selection.context && admission && (selected || W3_ENVIRONMENT_ENABLED)) {
+        try {
+          const spine = await apiRequest<unknown>(
+            `/api/v1/bff/student/decision-thread/evidence-spine?${admission.studentSpineQuery(selection.context)}`,
+            auth
+          );
+          if (!isCurrentStudentRequest(requestId, refreshIdentity.current)) return;
+          if (!admission.matchesAuthorizedSpine(spine, selection.context))
+            throw new Error("CONTEXT_UNAUTHORIZED");
+        } catch {
+          if (
+            controller.signal.aborted ||
+            !isCurrentStudentRequest(requestId, refreshIdentity.current)
+          )
+            return;
+          setWorkspacePhase("error");
+          setContextRecoveryState("CONTEXT_UNAUTHORIZED");
+          setNotice("CONTEXT_UNAUTHORIZED");
+          return;
+        }
+        setAuthorizedLearning({ key: requestContextKey, context: selection.context });
+      }
+      setState(studentState);
       setCockpit(nextCockpit);
       if (w5DraftId) {
         try {
@@ -671,8 +655,8 @@ export function App() {
         setW5Projection(null);
       }
       setWorkspacePhase("ready");
-      if (reauthContext) {
-        setContextRecoveryState("READY");
+      if (selected) setContextRecoveryState("READY");
+      if (!exact && reauthContext) {
         // Keep the verified non-secret navigation context so the next full
         // reload still requires explicit reauthentication for this context.
         writeStoredReauthContext(reauthContext);
@@ -683,7 +667,16 @@ export function App() {
       setWorkspacePhase("error");
       throw error;
     }
-  }, [isStudentSession, login.tenantId, reauthContext, session, w5DraftId]);
+  }, [
+    isStudentSession,
+    login.tenantId,
+    reauthContext,
+    session,
+    w5DraftId,
+    search,
+    exactEntry,
+    requestContextKey
+  ]);
 
   function updateLogin(field: keyof LoginForm, value: string): void {
     authIdentity.current += 1;
@@ -732,7 +725,7 @@ export function App() {
         clearStoredReauthContext();
         setReauthContext(null);
         setContextRecoveryState("NONE");
-      } else if (reauthContext) {
+      } else if (reauthContext && !new URLSearchParams(search).has("w3")) {
         const identityValidation = validateReauthIdentity(reauthContext, {
           tenant_id: nextSession.user.tenant_id,
           user_id: nextSession.user.user_id,
@@ -883,6 +876,7 @@ export function App() {
   const hasStudentSurface = Boolean(
     session &&
     isStudentSession &&
+    (!exactEntry || w3Context) &&
     (contextRecoveryState === "NONE" || contextRecoveryState === "READY")
   );
   const activeSession = session && isStudentSession ? session : null;
@@ -1199,13 +1193,15 @@ export function App() {
         ) : null}
 
         {hasStudentSurface ? (
-          <ModelQualificationProjection
-            apiBase={API_BASE}
-            courseId={latestRun?.course_id}
-            qualificationId={MODEL_QUALIFICATION_ID}
-            tenantId={login.tenantId}
-            token={activeSession?.access_token ?? ""}
-          />
+          <Suspense fallback={<p className="muted">正在载入模型资格投影…</p>}>
+            <ModelQualificationProjection
+              apiBase={API_BASE}
+              courseId={latestRun?.course_id}
+              qualificationId={MODEL_QUALIFICATION_ID}
+              tenantId={login.tenantId}
+              token={activeSession?.access_token ?? ""}
+            />
+          </Suspense>
         ) : null}
 
         {hasStudentSurface ? (
@@ -1558,6 +1554,8 @@ export function App() {
             aria-label="W3 官方后果与决策学习"
           >
             <W3OfficialConsequenceLearningPanel
+              key={`${requestContextKey}:${w3Context ? "authorized" : "unbound"}`}
+              requestIdentity={requestContextKey}
               apiBase={API_BASE}
               context={W3_ENABLED && w3ContextReady ? w3Context : undefined}
               tenantId={login.tenantId}
@@ -1571,6 +1569,27 @@ export function App() {
             <StudentLearningReportPanel
               tenantId={login.tenantId}
               token={activeSession?.access_token ?? ""}
+              requestIdentity={requestContextKey}
+              published={
+                workspacePhase === "ready" &&
+                cockpit?.student_cockpit.visible_state.round_status === "published" &&
+                (!exactEntry || Boolean(w3Context))
+              }
+              context={
+                w3Context ??
+                (!exactEntry && cockpit && team
+                  ? {
+                      tenant_id: login.tenantId,
+                      course_id: cockpit.student_cockpit.course_id,
+                      run_id: cockpit.student_cockpit.run_id,
+                      team_id: cockpit.student_cockpit.team_id,
+                      round_id: cockpit.student_cockpit.round_id,
+                      round_no: cockpit.student_cockpit.round_no,
+                      role_key: w3RoleKey,
+                      activity_id: "activity_consequence"
+                    }
+                  : undefined)
+              }
             />
           </section>
         ) : null}
