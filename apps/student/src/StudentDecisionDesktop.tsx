@@ -7,7 +7,13 @@ import type {
   StudentBffCockpitDTO,
   StudentSafeTeamSettlement
 } from "@simwar/shared-contracts";
-import { AllowedActionButton, AuthorityBadge, KnownLimitBanner, StatePanel } from "@simwar/ui";
+import {
+  AllowedActionButton,
+  AuthorityBadge,
+  ContextBar,
+  KnownLimitBanner,
+  StatePanel
+} from "@simwar/ui";
 import {
   type StudentDecisionDesktopContext,
   type StudentDecisionDesktopState
@@ -204,7 +210,7 @@ export function StudentDecisionDesktop({
 
   return (
     <section
-      className="panel sdd"
+      className="panel sdd sw-ui"
       data-testid="student-decision-desktop"
       data-desktop-state={desktopState}
       aria-label="受治理的学员决策桌面"
@@ -229,24 +235,17 @@ export function StudentDecisionDesktop({
           <span>当前正式上下文</span>
           <strong>{context?.course_title ?? "等待服务端课程"}</strong>
         </div>
-        <div>
-          <span>课程 / Course</span>
-          <strong>{context?.course_id ?? "未绑定"}</strong>
-        </div>
-        <div>
-          <span>运行 / Run</span>
-          <strong>{context?.run_id ?? "未绑定"}</strong>
-        </div>
-        <div>
-          <span>回合 / Round</span>
-          <strong>
-            {context?.round_id ?? "未绑定"} · {context?.round_no ?? "—"}
-          </strong>
-        </div>
-        <div>
-          <span>队伍 / Team</span>
-          <strong>{context?.team_id ?? "未绑定"}</strong>
-        </div>
+        <ContextBar
+          context={{
+            tenant: context?.tenant_id,
+            course: context?.course_id,
+            run: context?.run_id,
+            round: context?.round_id
+              ? `${context.round_id} · ${context.round_no ?? "—"}`
+              : undefined,
+            team: context?.team_id
+          }}
+        />
       </div>
 
       {decisionContextEvidence ? (

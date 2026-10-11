@@ -1,0 +1,74 @@
+[
+  {
+    "node_id": "19:45",
+    "name": "Design System Board",
+    "screenshot_file": "screenshots/figma/19-45-design-system.png",
+    "rendered_width": 950,
+    "rendered_height": 1200,
+    "original_width": 1440,
+    "original_height": 1820,
+    "png_bytes": 121412,
+    "sha256": "9462cabc8354d54672413bc14b55de703b534489d086da6f9a8a6bad00c34735",
+    "source": "fresh Figma get_screenshot readback"
+  },
+  {
+    "node_id": "19:206",
+    "name": "Components Board",
+    "screenshot_file": "screenshots/figma/19-206-components.png",
+    "rendered_width": 745,
+    "rendered_height": 1200,
+    "original_width": 1440,
+    "original_height": 2320,
+    "png_bytes": 91390,
+    "sha256": "fadca315bff8024a1dae4c2b415d43a4be706f84a29cd06a17a230c4563aa97c",
+    "source": "fresh Figma get_screenshot readback"
+  },
+  {
+    "node_id": "20:2",
+    "name": "Teacher Portal Board",
+    "screenshot_file": "screenshots/figma/20-2-teacher-portal.png",
+    "rendered_width": 891,
+    "rendered_height": 1200,
+    "original_width": 1440,
+    "original_height": 1940,
+    "png_bytes": 105127,
+    "sha256": "0782938b8cca3b4c2bdc215d72ac14ecf7874c2d04cf2f8bfb66be196ad5e4ab",
+    "source": "fresh Figma get_screenshot readback"
+  },
+  {
+    "node_id": "20:105",
+    "name": "Student Portal Board",
+    "screenshot_file": "screenshots/figma/20-105-student-portal.png",
+    "rendered_width": 831,
+    "rendered_height": 1200,
+    "original_width": 1440,
+    "original_height": 2080,
+    "png_bytes": 101801,
+    "sha256": "d3423b35fc20608b8d7c5f32bef62a209b2b70a16b88ad7008495dc7c9392082",
+    "source": "fresh Figma get_screenshot readback"
+  },
+  {
+    "node_id": "20:210",
+    "name": "Admin Portal Board",
+    "screenshot_file": "screenshots/figma/20-210-admin-portal.png",
+    "rendered_width": 856,
+    "rendered_height": 1200,
+    "original_width": 1440,
+    "original_height": 2020,
+    "png_bytes": 103785,
+    "sha256": "327e1dd2af6df3e619cf7eefb5ca48d8c6c8271da230873591f39f84d4b8097c",
+    "source": "fresh Figma get_screenshot readback"
+  },
+  {
+    "node_id": "301:3",
+    "name": "UIV2 Governance Board",
+    "screenshot_file": "screenshots/figma/301-3-uiv2-governance.png",
+    "rendered_width": 1200,
+    "rendered_height": 697,
+    "original_width": 1440,
+    "original_height": 836,
+    "png_bytes": 74802,
+    "sha256": "13b8215183c69a1c42a066eddb57e2af794cb9066cf4a42e726e23e6d15d3c5d",
+    "source": "fresh Figma get_screenshot readback after authoring"
+  }
+]
