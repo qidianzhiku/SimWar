@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import type {
-  GSIExactBinding,
-  GSIProposal,
-  GSIReceipt,
-  GSICrossRoundPairOptions,
-  GSICrossRoundTeacherProjection
+import {
+  isGSICrossRoundPairOptions,
+  type GSIExactBinding,
+  type GSIProposal,
+  type GSIReceipt,
+  type GSICrossRoundPairOptions,
+  type GSICrossRoundTeacherProjection
 } from "@simwar/shared-contracts";
 import "./gsi-xr.css";
 
@@ -53,6 +54,9 @@ interface ComparisonEnvelope {
 }
 
 interface PairOptionsEnvelope {
+  code?: string;
+  message?: string;
+  request_id?: string;
   data?: GSICrossRoundPairOptions | EnvelopeError;
   error?: EnvelopeError;
 }
@@ -66,12 +70,60 @@ function isEnvelopeErrorData(value: unknown): value is EnvelopeError {
   );
 }
 
-function readEnvelopeError(payload: { data?: unknown; error?: EnvelopeError }): EnvelopeError {
-  return payload.error ?? (isEnvelopeErrorData(payload.data) ? payload.data : {});
+function normalizeEnvelopeError(value: unknown): EnvelopeError {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
+  const candidate = value as { code?: unknown; message?: unknown };
+  return {
+    ...(typeof candidate.code === "string" ? { code: candidate.code } : {}),
+    ...(typeof candidate.message === "string" ? { message: candidate.message } : {})
+  };
+}
+
+function readEnvelopeError(payload: unknown): EnvelopeError {
+  if (typeof payload !== "object" || payload === null || Array.isArray(payload)) return {};
+  const envelope = payload as { data?: unknown; error?: unknown };
+  if (envelope.error !== undefined && envelope.error !== null) {
+    return normalizeEnvelopeError(envelope.error);
+  }
+  return isEnvelopeErrorData(envelope.data) ? normalizeEnvelopeError(envelope.data) : {};
 }
 
 function hasEnvelopeData<T>(payload: { data?: T | EnvelopeError }): payload is { data: T } {
   return payload.data !== undefined && !isEnvelopeErrorData(payload.data);
+}
+
+function isPairOptionsEnvelope(value: unknown): value is PairOptionsEnvelope {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isAcceptedPairOptionsEnvelope(value: unknown): value is PairOptionsEnvelope {
+  return (
+    isPairOptionsEnvelope(value) &&
+    Object.keys(value).length === 4 &&
+    ["code", "data", "message", "request_id"].every((key) => Object.hasOwn(value, key)) &&
+    value.code === "OK" &&
+    typeof value.message === "string" &&
+    typeof value.request_id === "string"
+  );
+}
+
+function matchesPairSelection(
+  context: GSICrossRoundPairOptions["context"],
+  selected: {
+    course_id: string;
+    run_id: string;
+    team_id: string;
+    activity_id: string;
+    role_key: string;
+  }
+): boolean {
+  return (
+    context.course_id === selected.course_id &&
+    context.run_id === selected.run_id &&
+    context.team_id === selected.team_id &&
+    context.activity_id === selected.activity_id &&
+    context.role_key === selected.role_key
+  );
 }
 
 type ComparisonState =
@@ -185,30 +237,43 @@ export function GovernedStakeholderIntelligenceWorkspace({
     setFromRoundId("");
     setToRoundId("");
     setComparisonState({ kind: "unavailable", message: PAIR_SELECTION_MESSAGE });
-    const query = new URLSearchParams({
+    const selectionContext = {
       course_id: binding.course_id,
       run_id: binding.run_id,
       team_id: binding.team_id,
       activity_id: activityId.trim(),
       role_key: roleKey.trim()
-    });
+    };
+    const query = new URLSearchParams(selectionContext);
     setPairOptionsState({ kind: "loading" });
     void fetch(`${apiBase}/api/v1/bff/teacher/gsi/candidates/pair-options?${query.toString()}`, {
       headers: { authorization: `Bearer ${token}`, "x-tenant-id": tenantId },
       signal: controller.signal
     })
       .then(async (response) => {
-        const payload = (await response.json()) as PairOptionsEnvelope;
+        const payload = (await response.json()) as unknown;
         if (controller.signal.aborted || requestId !== pairOptionsRequestId.current) return;
-        const details = readEnvelopeError(payload);
-        if (!response.ok || !hasEnvelopeData(payload)) {
+        const details = isPairOptionsEnvelope(payload) ? readEnvelopeError(payload) : {};
+        const options =
+          isAcceptedPairOptionsEnvelope(payload) && hasEnvelopeData(payload)
+            ? payload.data
+            : undefined;
+        if (
+          !response.ok ||
+          !isAcceptedPairOptionsEnvelope(payload) ||
+          options === undefined ||
+          !isGSICrossRoundPairOptions(options) ||
+          options.surface !== "teacher" ||
+          options.context.tenant_id !== tenantId ||
+          !matchesPairSelection(options.context, selectionContext)
+        ) {
           setPairOptionsState({
             kind: "error",
             message: details.message ?? "服务器回合配对暂不可用"
           });
           return;
         }
-        setPairOptionsState({ kind: "ready", data: payload.data });
+        setPairOptionsState({ kind: "ready", data: options });
       })
       .catch((cause) => {
         if (
