@@ -1,0 +1,174 @@
+{
+  "schema_version": "simwar.main-concurrence.agt-m3-shared-scope.v1.5",
+  "record_type": "MAIN_CONCURRENCE_AGT_M3_SHARED_SCOPE",
+  "record_id": "MAIN_CONCURRENCE_AGT_M3_SHARED_SCOPE_20261007",
+  "status": "CONCURRED_CONDITIONAL",
+  "decision": "PASS",
+  "decision_scope": "The exact V1.5 local candidate allowlist and stated bounded budgets only; no product release or remote Product action.",
+  "decision_source": "MAIN11 action explicitly delegated in the current Owner direct-paste V1.5 prompt; decision is based on the fresh protected-master and PR evidence recorded below.",
+  "decision_actor": {
+    "role": "MAIN11",
+    "actor_kind": "task-assigned Codex executor",
+    "authority_basis": "Current Owner message expressly requests the MAIN11 admission decision and authorizes one governance-only PR/ordinary protected merge. This is not represented as a separate human reviewer identity."
+  },
+  "decided_at": "2026-10-07T15:40:04Z",
+  "program_id": "SIMWAR-AGT-GOVERNED-INTELLIGENCE",
+  "mission_id": "SIMWAR-AGT-M3-GOVERNED-TEACHER-EVIDENCE-CITATION-BUNDLE",
+  "macro_id": "SIMWAR-AGT-M3-GTEC-BUNDLE-V1",
+  "capability_key": "agt.retrieval.governed-teacher-evidence-citation-bundle.v1",
+  "canonical_seam": "w020-teacher-evidence-citation-bundle.v1",
+  "relationship": "RESUME_SAME_M3_MACRO",
+  "source_snapshot": {
+    "repository": "qidianzhiku/SimWar",
+    "protected_branch": "master",
+    "master_sha": "bf185a9628b13d7c6e0dc32741610b1ea6981188",
+    "master_tree": "57a7dcafc7cfdfdfdcf7a44d0eb757b565c42b7e",
+    "branch_protection": {
+      "strict_required_checks": [
+        "quality",
+        "browser-smoke",
+        "Analyze JavaScript and TypeScript"
+      ],
+      "required_approving_review_count": 0,
+      "conversation_resolution_required": true,
+      "enforce_admins": true,
+      "force_push_allowed": false,
+      "deletion_allowed": false
+    }
+  },
+  "allowlist_review": {
+    "decision": "ALL_24_PATHS_PRESENT_AND_ACCEPTED_AS_A_PERMISSION_CEILING",
+    "all_other_product_paths": "FORBIDDEN",
+    "paths": [
+      { "path": "packages/shared-contracts/src/w020-governed-ai-advisory.ts", "git_blob_sha": "f23e044e59e9856f56388372df369226d93d4beb" },
+      { "path": "contracts/schemas/w020-governed-ai-advisory.v1.json", "git_blob_sha": "fe6fce9628bf1936bd0d50477e062e2d094eb884" },
+      { "path": "contracts/fixtures/w020-governed-ai-advisory.valid.json", "git_blob_sha": "8bba674742b5fc03c3a322875db679cba521d28a" },
+      { "path": "contracts/fixtures/w020-governed-ai-advisory.invalid.json", "git_blob_sha": "033c3817cac3f5ec3e0e4feff3f2d5a36ca76429" },
+      { "path": "contracts/openapi/p0-api.openapi.yaml", "git_blob_sha": "6d402dad3294cde799d15092925f74123b8f616c", "operation_id": "W020_TEACHER_DEBRIEF_ADVISOR_POST_V1", "operation": "POST /api/v1/bff/teacher/advisors/debrief" },
+      { "path": "services/api/src/w020-advisory-service.ts", "git_blob_sha": "a093f9b19af1f425d8e5ea1dfc8804eaaa509900" },
+      { "path": "services/api/src/routes/w020-advisory-routes.ts", "git_blob_sha": "7dbbe14a695a1c3b3f54934780f879b84d036007" },
+      { "path": "services/api/src/server.ts", "git_blob_sha": "41f009c554fa9e1e99e77dc31242b419378cf416" },
+      { "path": "apps/teacher/src/EvidenceWorkbench.tsx", "git_blob_sha": "729418a7790a252a1a64c65026aa594b535ca32d" },
+      { "path": "apps/teacher/src/TeacherDebriefAdvisor.tsx", "git_blob_sha": "6f5b83b3d9c01561f39d4c8173abd2ccd74743d7" },
+      { "path": "apps/teacher/src/App.tsx", "git_blob_sha": "0cb6fec399ca8ed53140542b3ef112409c6298cd" },
+      { "path": "tests/contract/d2-evidence-provenance-contract.test.ts", "git_blob_sha": "c00ffdff3de5c4996c7675dad9b67be7347f43df" },
+      { "path": "tests/contract/w020-governed-ai-advisory-contract.test.ts", "git_blob_sha": "99bdcabcb440ff49a94f370050851615d1b6bcea" },
+      { "path": "tests/integration/d2-evidence-provenance-endpoint.test.ts", "git_blob_sha": "a0d3b48dc63108b54bf6b43fefd6e94685b830ae" },
+      { "path": "tests/integration/agt-w020-v112-real-consumer-paths.test.ts", "git_blob_sha": "5086597870ff2165d578117ca9ca728a01240f13" },
+      { "path": "tests/integration/w020-advisory-endpoint.test.ts", "git_blob_sha": "094a79f03bbf2a7a96fecedf56e4e0bd34b5c6ff" },
+      { "path": "tests/integration/openapi-contract-validation.test.ts", "git_blob_sha": "8f5fa6e426f67229abb4b857ba1a4ff848ee44c9" },
+      { "path": "tests/integration/l1-core-route-contract-parity.test.ts", "git_blob_sha": "0a8f27a56b11f7132f6f8a42d598ac4c9283a949" },
+      { "path": "tests/unit/d2-evidence-provenance-contract.test.ts", "git_blob_sha": "1c60a4d8752165aab55ab907731071e8719a9d73" },
+      { "path": "tests/unit/d2-evidence-provenance-service.test.ts", "git_blob_sha": "8a5e9cc63b87e451580fc104989849a827604a13" },
+      { "path": "tests/unit/w020-advisory-service.test.ts", "git_blob_sha": "dcddcda2a42dd028b6b80d1dfff69cf063128f7e" },
+      { "path": "tests/unit/w020-w6-v112-absorption.test.ts", "git_blob_sha": "3d06cd6ab7ab3f15485aa1cb85dfdbbd8002fe78" },
+      { "path": "tests/e2e-ui/d2-evidence-workbench.spec.ts", "git_blob_sha": "729a9d9c7217ee6903ed3e16fcfd7a8f9c9366bd" },
+      { "path": "tests/e2e-ui/w020-advisory.spec.ts", "git_blob_sha": "7652d7e43e41d9d417eef58eb0d39f50b5bc19c4" }
+    ]
+  },
+  "contract_closure_review": {
+    "w020_v1_schema_present": true,
+    "formal_v1_frozen_or_closed_decision_found": false,
+    "evidence": [
+      {
+        "source": "contracts/schemas/w020-governed-ai-advisory.v1.json",
+        "git_blob_sha": "fe6fce9628bf1936bd0d50477e062e2d094eb884",
+        "finding": "Current protected source contains the v1 schema; the schema itself contains no freeze/closure marker."
+      },
+      {
+        "source": "packages/shared-contracts/src/w020-governed-ai-advisory.ts",
+        "git_blob_sha": "f23e044e59e9856f56388372df369226d93d4beb",
+        "finding": "Current shared contract declares W020_ADVISORY_SCHEMA_VERSION=w020.governed.ai.advisory.v1."
+      },
+      {
+        "source": "docs/contracts/w020-governed-ai-advisory.md",
+        "git_blob_sha": "12b8227f53e6fb56e6c0471d76c664358850434c",
+        "finding": "Documents the existing Student and Teacher routes and advisory boundary; no explicit v1 freeze/closure statement was found."
+      },
+      {
+        "source": "PR #490",
+        "merge_commit": "4c835afffc8423dc2ddb94a0e033e1ece7d406af",
+        "merged_at": "2026-09-02T10:37:48Z",
+        "finding": "Merged W6 consumer composition reuses existing W020 request/response contract unchanged; it is consumer history, not an M3 candidate or a v1 closure decision."
+      }
+    ],
+    "future_mutation_guard": "This concurrence does not permit a breaking v1 change. If implementation requires a breaking contract change, a formally closed v1 contract, or an unlisted version/schema path, stop and obtain exact-path MAIN concurrence delta before that mutation."
+  },
+  "collision_and_ownership_review": {
+    "exact_seam_occurrences_in_protected_master": [
+      "docs/governance/owner-decisions/OWNER_DECISION_AUTHORITATIVE_M3_IDENTITY_20261007.json"
+    ],
+    "same_seam_product_candidate_found": false,
+    "open_prs_reviewed": [
+      { "number": 524, "title": "feat(gsi): complete Student handoff reflection entry", "overlap_with_allowlist": false },
+      { "number": 516, "title": "UIV2 / Figma × Storybook × Full-Surface SaaS Coherence", "overlap_with_allowlist": false },
+      { "number": 482, "title": "feat: add ECF MQ1 course-bound model qualification", "overlap_with_allowlist": false }
+    ],
+    "historical_prs": [
+      { "number": 486, "state": "CLOSED_AS_HISTORICAL", "action": "do_not_revive_rebase_or_cherry_pick" },
+      { "number": 490, "state": "MERGED", "role": "current W020 consumer history; not a second M3 candidate" }
+    ],
+    "path_ownership_note": "The W020 contract/API/Teacher composition files are shared Product paths. This concurrence is the exact-scope MAIN admission requested by the Owner; it does not delegate their future implementation to another writer or relax the single-writer gate."
+  },
+  "read_only_d2_integration_feasibility": {
+    "finding": "Existing D2 read ports can be injected through the already-allowlisted W020 service and server composition files; no repository-port or D2 capture-writer mutation is admitted by this decision.",
+    "source_anchors": [
+      {
+        "path": "services/api/src/repository-ports.ts",
+        "git_blob_sha": "f6b8560c7a1020fe71a3a143f0fd51f2e045451f",
+        "symbols": ["EvidenceProvenanceRepositoryPort.listEvidenceArtifacts", "EvidenceProvenanceRepositoryPort.listProvenanceEdges"]
+      },
+      {
+        "path": "services/api/src/w020-advisory-service.ts",
+        "git_blob_sha": "a093f9b19af1f425d8e5ea1dfc8804eaaa509900",
+        "symbols": ["W020AdvisoryServiceDependencies", "GovernedAdvisoryService"]
+      },
+      {
+        "path": "services/api/src/server.ts",
+        "git_blob_sha": "41f009c554fa9e1e99e77dc31242b419378cf416",
+        "symbols": ["GovernedAdvisoryService construction", "repositoryProvider.ports.evidenceProvenance"]
+      },
+      {
+        "path": "services/api/src/evidence-provenance.ts",
+        "git_blob_sha": "53d7bd3c508d0b7639772804087e0db766880647",
+        "symbols": ["D2 read/list and capture paths"],
+        "mutation_scope": "READ_ONLY_REFERENCE; D2 capture writer remains forbidden"
+      }
+    ],
+    "limitation": "This is a feasibility read, not proof that all implementation/contract closure will fit. If focused implementation proves an unlisted path is mandatory, stop before that path and request exact-path concurrence delta."
+  },
+  "approved_budgets": {
+    "governance_branch": 1,
+    "governance_commit": 1,
+    "governance_pr": 1,
+    "governance_ordinary_merge": 1,
+    "isolated_product_worktree": 1,
+    "local_product_commits_total": 3,
+    "same_mission_rework_cycles": 2,
+    "codegraph_rebuild": 1,
+    "codegraph_material_queries_max": 12,
+    "graphify_rebuild": 1,
+    "graphify_material_queries_max": 12,
+    "focused_validation_runs_max": 8,
+    "contract_validation_runs_max": 3,
+    "real_bff_qualification": 1,
+    "real_browser_qualification": 1,
+    "independent_h2_attempts": 1,
+    "product_push": 0,
+    "product_pr": 0,
+    "product_merge": 0,
+    "provider": 0,
+    "database": 0,
+    "human_validation": 0,
+    "pilot": 0,
+    "production": 0
+  },
+  "decision_limitations": [
+    "This MAIN concurrence is an admission decision for the V1.5 permission ceiling only; it is not L08 or L09 evidence and does not establish product execution readiness.",
+    "MAIN11 does not run L08/L09 or product implementation in this governance-only step.",
+    "L07 is complete only after all three records are merged to protected master and raw-byte read back.",
+    "The identity record remains identity-only; this record supplements rather than rewrites it."
+  ],
+  "automatic_next_start": false,
+  "record_sha256": "NOT_EMBEDDED_TO_AVOID_SELF_REFERENCE"
+}
