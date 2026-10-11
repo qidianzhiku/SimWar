@@ -41,6 +41,8 @@ interface ComparisonEnvelope {
 
 interface PairOptionsEnvelope {
   code?: string;
+  message?: string;
+  request_id?: string;
   data?: GSICrossRoundPairOptions | EnvelopeError;
   error?: EnvelopeError;
 }
@@ -83,8 +85,11 @@ function isPairOptionsEnvelope(value: unknown): value is PairOptionsEnvelope {
 function isAcceptedPairOptionsEnvelope(value: unknown): value is PairOptionsEnvelope {
   return (
     isPairOptionsEnvelope(value) &&
-    !Object.hasOwn(value, "error") &&
-    (value.code === undefined || value.code === "OK")
+    Object.keys(value).length === 4 &&
+    ["code", "data", "message", "request_id"].every((key) => Object.hasOwn(value, key)) &&
+    value.code === "OK" &&
+    typeof value.message === "string" &&
+    typeof value.request_id === "string"
   );
 }
 

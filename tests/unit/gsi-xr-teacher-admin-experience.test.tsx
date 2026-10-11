@@ -121,9 +121,17 @@ type InvalidPairOptionsCase =
   | "own error number message"
   | "null envelope"
   | "non-object envelope";
+type InvalidSuccessEnvelopeCase =
+  | "missing success code"
+  | "undefined success code"
+  | "missing success message"
+  | "missing request id"
+  | "nonstring success message"
+  | "nonstring request id"
+  | "extra envelope field";
 type PairSelectionContextField = "course_id" | "run_id" | "team_id" | "activity_id" | "role_key";
 
-const invalidPairOptionsCases: readonly InvalidPairOptionsCase[] = [
+const invalidPairOptionsCases: readonly (InvalidPairOptionsCase | InvalidSuccessEnvelopeCase)[] = [
   "malformed",
   "wrong surface",
   "wrong tenant",
@@ -134,7 +142,14 @@ const invalidPairOptionsCases: readonly InvalidPairOptionsCase[] = [
   "own error array message",
   "own error number message",
   "null envelope",
-  "non-object envelope"
+  "non-object envelope",
+  "missing success code",
+  "undefined success code",
+  "missing success message",
+  "missing request id",
+  "nonstring success message",
+  "nonstring request id",
+  "extra envelope field"
 ];
 const pairSelectionContextFields: readonly PairSelectionContextField[] = [
   "course_id",
@@ -180,59 +195,70 @@ function makeValidPairOptionsPayload(surface: PairOptionsSurface) {
 
 function makePairOptionsPayload(
   surface: PairOptionsSurface,
-  invalidCase: InvalidPairOptionsCase,
+  invalidCase: InvalidPairOptionsCase | InvalidSuccessEnvelopeCase,
   wrongContextField?: PairSelectionContextField
 ): unknown {
   const valid = makeValidPairOptionsPayload(surface);
+  const success = { code: "OK", data: valid, message: "OK", request_id: "req_pair_options" };
+  if (invalidCase === "missing success code") {
+    return { data: valid, message: "OK", request_id: "req_pair_options" };
+  }
+  if (invalidCase === "undefined success code") return { ...success, code: undefined };
+  if (invalidCase === "missing success message") {
+    return { code: "OK", data: valid, request_id: "req_pair_options" };
+  }
+  if (invalidCase === "missing request id") {
+    return { code: "OK", data: valid, message: "OK" };
+  }
+  if (invalidCase === "nonstring success message") return { ...success, message: 1 };
+  if (invalidCase === "nonstring request id") return { ...success, request_id: null };
+  if (invalidCase === "extra envelope field") return { ...success, unexpected: true };
   if (invalidCase === "malformed") {
-    return { code: "OK", data: { surface, context: valid.context, rounds: valid.rounds } };
+    return { ...success, data: { surface, context: valid.context, rounds: valid.rounds } };
   }
   if (invalidCase === "wrong surface") {
     return {
-      code: "OK",
+      ...success,
       data: { ...valid, surface: surface === "teacher" ? "student" : "teacher" }
     };
   }
   if (invalidCase === "wrong tenant") {
     return {
-      code: "OK",
+      ...success,
       data: { ...valid, context: { ...valid.context, tenant_id: "tenant_other" } }
     };
   }
   if (invalidCase === "wrong context") {
     const field = wrongContextField ?? "activity_id";
     return {
-      code: "OK",
+      ...success,
       data: { ...valid, context: { ...valid.context, [field]: `unexpected_${field}` } }
     };
   }
   if (invalidCase === "forbidden code") {
-    return { code: "FORBIDDEN", data: valid };
+    return { ...success, code: "FORBIDDEN" };
   }
   if (invalidCase === "own error null") {
-    return { code: "OK", data: valid, error: null };
+    return { ...success, error: null };
   }
   if (invalidCase === "own error undefined") {
-    return { code: "OK", data: valid, error: undefined };
+    return { ...success, error: undefined };
   }
   if (invalidCase === "own error object message") {
     return {
-      code: "OK",
-      data: valid,
+      ...success,
       error: { code: "GSI_PAIR_NOT_AVAILABLE", message: { reason: "malformed" } }
     };
   }
   if (invalidCase === "own error array message") {
     return {
-      code: "OK",
-      data: valid,
+      ...success,
       error: { code: "GSI_PAIR_NOT_AVAILABLE", message: ["malformed"] }
     };
   }
   if (invalidCase === "own error number message") {
     return {
-      code: "OK",
-      data: valid,
+      ...success,
       error: { code: "GSI_PAIR_NOT_AVAILABLE", message: 409 }
     };
   }
@@ -616,7 +642,12 @@ describe("GSI-XR Teacher/Admin experience", () => {
       const fetchSpy = vi
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(
-          responseWithJson({ code: "OK", data: makeValidPairOptionsPayload(surface) })
+          responseWithJson({
+            code: "OK",
+            data: makeValidPairOptionsPayload(surface),
+            message: "OK",
+            request_id: "req_pair_options"
+          })
         );
       const host = document.createElement("div");
       const root = createRoot(host);
