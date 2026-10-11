@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type {
+  GSIExactBinding,
   GSICrossRoundAdminProjection,
   GSICrossRoundTeacherProjection
 } from "@simwar/shared-contracts";
@@ -86,6 +87,182 @@ const adminComparison = {
   known_limits: ["read-only"],
   recovery: "WAIT_FOR_PUBLICATION"
 } satisfies GSICrossRoundAdminProjection;
+
+const pairOptionsBinding = {
+  tenant_id: "tenant_demo",
+  course_id: "course_demo",
+  run_id: "run_demo",
+  round_id: "round_1",
+  round_no: 1,
+  activity_id: "activity_gsi_xr",
+  role_key: "CEO",
+  team_id: "team_demo",
+  scenario_package_id: "scenario_demo",
+  scenario_version: "1.0.0",
+  parameter_set_id: "parameter_demo",
+  parameter_set_version: "1.0.0",
+  model_version_id: "model_demo",
+  model_version: "1.0.0",
+  model_artifact_id: "artifact_demo",
+  model_artifact_version: "1.0.0"
+} satisfies GSIExactBinding;
+
+type PairOptionsSurface = "teacher" | "admin";
+type InvalidPairOptionsCase =
+  | "malformed"
+  | "wrong surface"
+  | "wrong tenant"
+  | "wrong context"
+  | "forbidden code"
+  | "own error null"
+  | "own error undefined"
+  | "own error object message"
+  | "own error array message"
+  | "own error number message"
+  | "null envelope"
+  | "non-object envelope";
+type PairSelectionContextField = "course_id" | "run_id" | "team_id" | "activity_id" | "role_key";
+
+const invalidPairOptionsCases: readonly InvalidPairOptionsCase[] = [
+  "malformed",
+  "wrong surface",
+  "wrong tenant",
+  "forbidden code",
+  "own error null",
+  "own error undefined",
+  "own error object message",
+  "own error array message",
+  "own error number message",
+  "null envelope",
+  "non-object envelope"
+];
+const pairSelectionContextFields: readonly PairSelectionContextField[] = [
+  "course_id",
+  "run_id",
+  "team_id",
+  "activity_id",
+  "role_key"
+];
+
+function makeValidPairOptionsPayload(surface: PairOptionsSurface) {
+  const context = {
+    tenant_id: "tenant_demo",
+    course_id: "course_demo",
+    run_id: "run_demo",
+    team_id: "team_demo",
+    activity_id: "activity_gsi_xr",
+    role_key: "CEO"
+  };
+  const valid = {
+    surface,
+    context,
+    rounds: [
+      { round_id: "round_1", round_no: 1 },
+      { round_id: "round_2", round_no: 2 }
+    ],
+    provider: "OFF",
+    official_truth_write: false,
+    non_causal: true,
+    causal_proof: false,
+    known_limits: ["descriptive only"]
+  };
+  return {
+    surface,
+    context,
+    rounds: valid.rounds,
+    provider: valid.provider,
+    official_truth_write: valid.official_truth_write,
+    non_causal: valid.non_causal,
+    causal_proof: valid.causal_proof,
+    known_limits: valid.known_limits
+  };
+}
+
+function makePairOptionsPayload(
+  surface: PairOptionsSurface,
+  invalidCase: InvalidPairOptionsCase,
+  wrongContextField?: PairSelectionContextField
+): unknown {
+  const valid = makeValidPairOptionsPayload(surface);
+  if (invalidCase === "malformed") {
+    return { code: "OK", data: { surface, context: valid.context, rounds: valid.rounds } };
+  }
+  if (invalidCase === "wrong surface") {
+    return {
+      code: "OK",
+      data: { ...valid, surface: surface === "teacher" ? "student" : "teacher" }
+    };
+  }
+  if (invalidCase === "wrong tenant") {
+    return {
+      code: "OK",
+      data: { ...valid, context: { ...valid.context, tenant_id: "tenant_other" } }
+    };
+  }
+  if (invalidCase === "wrong context") {
+    const field = wrongContextField ?? "activity_id";
+    return {
+      code: "OK",
+      data: { ...valid, context: { ...valid.context, [field]: `unexpected_${field}` } }
+    };
+  }
+  if (invalidCase === "forbidden code") {
+    return { code: "FORBIDDEN", data: valid };
+  }
+  if (invalidCase === "own error null") {
+    return { code: "OK", data: valid, error: null };
+  }
+  if (invalidCase === "own error undefined") {
+    return { code: "OK", data: valid, error: undefined };
+  }
+  if (invalidCase === "own error object message") {
+    return {
+      code: "OK",
+      data: valid,
+      error: { code: "GSI_PAIR_NOT_AVAILABLE", message: { reason: "malformed" } }
+    };
+  }
+  if (invalidCase === "own error array message") {
+    return {
+      code: "OK",
+      data: valid,
+      error: { code: "GSI_PAIR_NOT_AVAILABLE", message: ["malformed"] }
+    };
+  }
+  if (invalidCase === "own error number message") {
+    return {
+      code: "OK",
+      data: valid,
+      error: { code: "GSI_PAIR_NOT_AVAILABLE", message: 409 }
+    };
+  }
+  if (invalidCase === "null envelope") {
+    return null;
+  }
+  return "not-an-envelope";
+}
+
+function responseWithJson(payload: unknown): Response {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => payload
+  } as Response;
+}
+
+async function enterAdminContext(host: HTMLElement): Promise<void> {
+  for (const [label, value] of [
+    ["GSI admin course context", "course_demo"],
+    ["GSI admin run context", "run_demo"],
+    ["GSI admin team context", "team_demo"]
+  ] as const) {
+    await act(async () => {
+      const input = host.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`)!;
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  }
+}
 
 describe("GSI-XR Teacher/Admin experience", () => {
   it.each(["success", "error"])(
@@ -242,6 +419,254 @@ describe("GSI-XR Teacher/Admin experience", () => {
     expect(markup).toContain("DDT admin exact round ID");
     expect(markup).toContain("不依赖 GSI 比较配对");
   });
+
+  it.each(
+    (["teacher", "admin"] as const).flatMap((surface) =>
+      invalidPairOptionsCases.map((invalidCase) => ({ surface, invalidCase }))
+    )
+  )(
+    "fails closed for a mounted $surface component on a $invalidCase pair-options payload",
+    async ({ surface, invalidCase }) => {
+      vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue(responseWithJson(makePairOptionsPayload(surface, invalidCase)));
+      const host = document.createElement("div");
+      const root = createRoot(host);
+      document.body.append(host);
+      try {
+        await act(async () => {
+          root.render(
+            surface === "teacher" ? (
+              <GovernedStakeholderIntelligenceWorkspace
+                apiBase="http://api.test"
+                binding={pairOptionsBinding}
+                tenantId="tenant_demo"
+                token="token"
+              />
+            ) : (
+              <GovernedStakeholderIntelligenceAuditPanel
+                apiBase="http://api.test"
+                tenantId="tenant_demo"
+                token="token"
+              />
+            )
+          );
+        });
+        if (surface === "admin") {
+          await enterAdminContext(host);
+          await act(async () => {
+            const button = [...host.querySelectorAll("button")].find((candidate) =>
+              candidate.textContent?.includes("加载可比较回合")
+            );
+            button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+            await Promise.resolve();
+            await Promise.resolve();
+          });
+        } else {
+          await act(async () => {
+            await Promise.resolve();
+            await Promise.resolve();
+          });
+        }
+        expect(host.textContent).toContain("PAIR_SELECTION_UNAVAILABLE");
+        expect(host.querySelector('option[value="round_1"]')).toBeNull();
+        expect(fetchSpy).toHaveBeenCalled();
+      } finally {
+        await act(async () => root.unmount());
+        fetchSpy.mockRestore();
+        vi.unstubAllGlobals();
+        host.remove();
+      }
+    }
+  );
+
+  it.each(["teacher", "admin"] as const)(
+    "preserves a legitimate string pair-options error message for a mounted %s component",
+    async (surface) => {
+      vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        responseWithJson({
+          code: "OK",
+          data: makeValidPairOptionsPayload(surface),
+          error: {
+            code: "GSI_PAIR_NOT_AVAILABLE",
+            message: "server rejected the current pair context"
+          }
+        })
+      );
+      const host = document.createElement("div");
+      const root = createRoot(host);
+      document.body.append(host);
+      try {
+        await act(async () => {
+          root.render(
+            surface === "teacher" ? (
+              <GovernedStakeholderIntelligenceWorkspace
+                apiBase="http://api.test"
+                binding={pairOptionsBinding}
+                tenantId="tenant_demo"
+                token="token"
+              />
+            ) : (
+              <GovernedStakeholderIntelligenceAuditPanel
+                apiBase="http://api.test"
+                tenantId="tenant_demo"
+                token="token"
+              />
+            )
+          );
+        });
+        if (surface === "admin") {
+          await enterAdminContext(host);
+          await act(async () => {
+            const button = [...host.querySelectorAll("button")].find((candidate) =>
+              candidate.textContent?.includes("加载可比较回合")
+            );
+            button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+            await Promise.resolve();
+            await Promise.resolve();
+          });
+        } else {
+          await act(async () => {
+            await Promise.resolve();
+            await Promise.resolve();
+          });
+        }
+        expect(host.textContent).toContain("PAIR_SELECTION_UNAVAILABLE");
+        expect(host.textContent).toContain("server rejected the current pair context");
+        expect(host.querySelector('option[value="round_1"]')).toBeNull();
+        expect(fetchSpy).toHaveBeenCalled();
+      } finally {
+        await act(async () => root.unmount());
+        fetchSpy.mockRestore();
+        vi.unstubAllGlobals();
+        host.remove();
+      }
+    }
+  );
+
+  it.each(
+    (["teacher", "admin"] as const).flatMap((surface) =>
+      pairSelectionContextFields.map((field) => ({ surface, field }))
+    )
+  )(
+    "fails closed for a mounted $surface component when pair-options $field does not match the request context",
+    async ({ surface, field }) => {
+      vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue(
+          responseWithJson(makePairOptionsPayload(surface, "wrong context", field))
+        );
+      const host = document.createElement("div");
+      const root = createRoot(host);
+      document.body.append(host);
+      try {
+        await act(async () => {
+          root.render(
+            surface === "teacher" ? (
+              <GovernedStakeholderIntelligenceWorkspace
+                apiBase="http://api.test"
+                binding={pairOptionsBinding}
+                tenantId="tenant_demo"
+                token="token"
+              />
+            ) : (
+              <GovernedStakeholderIntelligenceAuditPanel
+                apiBase="http://api.test"
+                tenantId="tenant_demo"
+                token="token"
+              />
+            )
+          );
+        });
+        if (surface === "admin") {
+          await enterAdminContext(host);
+          await act(async () => {
+            const button = [...host.querySelectorAll("button")].find((candidate) =>
+              candidate.textContent?.includes("加载可比较回合")
+            );
+            button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+            await Promise.resolve();
+            await Promise.resolve();
+          });
+        } else {
+          await act(async () => {
+            await Promise.resolve();
+            await Promise.resolve();
+          });
+        }
+        expect(host.textContent).toContain("PAIR_SELECTION_UNAVAILABLE");
+        expect(host.querySelector('option[value="round_1"]')).toBeNull();
+        expect(fetchSpy).toHaveBeenCalled();
+      } finally {
+        await act(async () => root.unmount());
+        fetchSpy.mockRestore();
+        vi.unstubAllGlobals();
+        host.remove();
+      }
+    }
+  );
+
+  it.each(["teacher", "admin"] as const)(
+    "admits a mounted %s component for a genuine code OK pair-options envelope",
+    async (surface) => {
+      vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue(
+          responseWithJson({ code: "OK", data: makeValidPairOptionsPayload(surface) })
+        );
+      const host = document.createElement("div");
+      const root = createRoot(host);
+      document.body.append(host);
+      try {
+        await act(async () => {
+          root.render(
+            surface === "teacher" ? (
+              <GovernedStakeholderIntelligenceWorkspace
+                apiBase="http://api.test"
+                binding={pairOptionsBinding}
+                tenantId="tenant_demo"
+                token="token"
+              />
+            ) : (
+              <GovernedStakeholderIntelligenceAuditPanel
+                apiBase="http://api.test"
+                tenantId="tenant_demo"
+                token="token"
+              />
+            )
+          );
+        });
+        if (surface === "admin") {
+          await enterAdminContext(host);
+          await act(async () => {
+            const button = [...host.querySelectorAll("button")].find((candidate) =>
+              candidate.textContent?.includes("加载可比较回合")
+            );
+            button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+            await Promise.resolve();
+            await Promise.resolve();
+          });
+        } else {
+          await act(async () => {
+            await Promise.resolve();
+            await Promise.resolve();
+          });
+        }
+        expect(host.querySelector('option[value="round_1"]')).not.toBeNull();
+        expect(host.querySelector('option[value="round_2"]')).not.toBeNull();
+        expect(fetchSpy).toHaveBeenCalled();
+      } finally {
+        await act(async () => root.unmount());
+        fetchSpy.mockRestore();
+        vi.unstubAllGlobals();
+        host.remove();
+      }
+    }
+  );
 });
 it("generates a Student handoff from ready exact context without candidate identifiers", () => {
   const markup = renderToStaticMarkup(
