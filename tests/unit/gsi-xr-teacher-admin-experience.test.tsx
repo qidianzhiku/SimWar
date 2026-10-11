@@ -276,6 +276,39 @@ function responseWithJson(payload: unknown): Response {
   } as Response;
 }
 
+async function setInputValue(host: HTMLElement, label: string, value: string): Promise<void> {
+  await act(async () => {
+    const input = host.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`)!;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+function invalidComparisonPayload(
+  surface: "teacher" | "admin",
+  invalidCase:
+    | "null data"
+    | "array data"
+    | "missing comparison"
+    | "array movements"
+    | "wrong digest type"
+    | "wrong context status"
+): unknown {
+  const base = surface === "teacher" ? teacherComparison : adminComparison;
+  if (invalidCase === "null data") return null;
+  if (invalidCase === "array data") return [];
+  if (invalidCase === "missing comparison") {
+    return Object.fromEntries(Object.entries(base).filter(([key]) => key !== "comparison"));
+  }
+  if (invalidCase === "array movements") {
+    return { ...base, comparison: { ...base.comparison, movements: "not-an-array" } };
+  }
+  if (invalidCase === "wrong digest type") {
+    return { ...base, comparison: { ...base.comparison, comparison_digest: 7 } };
+  }
+  return { ...base, context: { ...base.context, status: "NOT_A_STATUS" } };
+}
+
 async function enterAdminContext(host: HTMLElement): Promise<void> {
   for (const [label, value] of [
     ["GSI admin course context", "course_demo"],
@@ -445,6 +478,81 @@ describe("GSI-XR Teacher/Admin experience", () => {
     expect(markup).toContain("DDT admin exact round ID");
     expect(markup).toContain("不依赖 GSI 比较配对");
   });
+
+  it.each(
+    (["teacher", "admin"] as const).flatMap((surface) =>
+      (
+        [
+          "null data",
+          "array data",
+          "missing comparison",
+          "array movements",
+          "wrong digest type",
+          "wrong context status"
+        ] as const
+      ).map((invalidCase) => ({ surface, invalidCase }))
+    )
+  )(
+    "fails closed for a mounted $surface component on an invalid compare payload: $invalidCase",
+    async ({ surface, invalidCase }) => {
+      vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue(
+          responseWithJson({ data: invalidComparisonPayload(surface, invalidCase) })
+        );
+      const host = document.createElement("div");
+      const root = createRoot(host);
+      document.body.append(host);
+      try {
+        await act(async () => {
+          root.render(
+            surface === "teacher" ? (
+              <GovernedStakeholderIntelligenceWorkspace
+                apiBase="http://api.test"
+                binding={pairOptionsBinding}
+                tenantId="tenant_demo"
+                token="token"
+              />
+            ) : (
+              <GovernedStakeholderIntelligenceAuditPanel
+                apiBase="http://api.test"
+                tenantId="tenant_demo"
+                token="token"
+              />
+            )
+          );
+        });
+        const prefix = surface === "teacher" ? "GSI" : "GSI admin";
+        await setInputValue(host, `${prefix} from candidate ID`, "candidate_from");
+        await setInputValue(host, `${prefix} to candidate ID`, "candidate_to");
+        await act(async () => {
+          host
+            .querySelector<HTMLFormElement>(
+              surface === "teacher"
+                ? 'form[aria-label="GSI exact cross-round comparison"]'
+                : 'form[aria-label="GSI admin exact cross-round comparison"]'
+            )!
+            .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+          await Promise.resolve();
+          await Promise.resolve();
+        });
+        expect(
+          host.querySelector(
+            surface === "teacher"
+              ? '[aria-label="GSI cross-round comparison result"]'
+              : '[aria-label="GSI admin cross-round comparison result"]'
+          )
+        ).toBeNull();
+        expect(host.textContent).toContain("比较暂不可用");
+      } finally {
+        await act(async () => root.unmount());
+        fetchSpy.mockRestore();
+        vi.unstubAllGlobals();
+        host.remove();
+      }
+    }
+  );
 
   it.each(
     (["teacher", "admin"] as const).flatMap((surface) =>
@@ -639,16 +747,14 @@ describe("GSI-XR Teacher/Admin experience", () => {
     "admits a mounted %s component for a genuine code OK pair-options envelope",
     async (surface) => {
       vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-      const fetchSpy = vi
-        .spyOn(globalThis, "fetch")
-        .mockResolvedValue(
-          responseWithJson({
-            code: "OK",
-            data: makeValidPairOptionsPayload(surface),
-            message: "OK",
-            request_id: "req_pair_options"
-          })
-        );
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        responseWithJson({
+          code: "OK",
+          data: makeValidPairOptionsPayload(surface),
+          message: "OK",
+          request_id: "req_pair_options"
+        })
+      );
       const host = document.createElement("div");
       const root = createRoot(host);
       document.body.append(host);

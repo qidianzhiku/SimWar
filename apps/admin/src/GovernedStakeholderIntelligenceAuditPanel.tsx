@@ -78,6 +78,202 @@ function hasEnvelopeData<T>(payload: { data?: T | EnvelopeError }): payload is {
   return payload.data !== undefined && !isEnvelopeErrorData(payload.data);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasExactKeys(value: Record<string, unknown>, required: readonly string[]): boolean {
+  return (
+    Object.keys(value).length === required.length &&
+    required.every((key) => Object.hasOwn(value, key))
+  );
+}
+
+function isExactString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.trim() === value;
+}
+
+function isDigest(value: unknown): value is string {
+  return typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+}
+
+function isRoundSide(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const keys = ["candidate_id", "candidate_digest", "round_id", "round_no"];
+  return (
+    hasExactKeys(value, keys) &&
+    isExactString(value.candidate_id) &&
+    isDigest(value.candidate_digest) &&
+    isExactString(value.round_id) &&
+    Number.isSafeInteger(value.round_no) &&
+    Number(value.round_no) > 0
+  );
+}
+
+function isComparisonPair(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const keys = ["tenant_id", "course_id", "run_id", "team_id", "from", "to"];
+  return (
+    hasExactKeys(value, keys) &&
+    isExactString(value.tenant_id) &&
+    isExactString(value.course_id) &&
+    isExactString(value.run_id) &&
+    isExactString(value.team_id) &&
+    isRoundSide(value.from) &&
+    isRoundSide(value.to)
+  );
+}
+
+function isComparisonMovement(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const required = ["signal_key", "stakeholder_type", "intent", "direction"];
+  const optional = ["from_value", "to_value", "delta"];
+  if (
+    !required.every((key) => Object.hasOwn(value, key)) ||
+    !Object.keys(value).every((key) => required.includes(key) || optional.includes(key))
+  )
+    return false;
+  const inRange = (candidate: unknown, limit: number) =>
+    candidate === undefined ||
+    (typeof candidate === "number" && Number.isFinite(candidate) && Math.abs(candidate) <= limit);
+  return (
+    isExactString(value.signal_key) &&
+    ["customer", "regulator", "bank", "employee", "media"].includes(
+      String(value.stakeholder_type)
+    ) &&
+    [
+      "protect_demand",
+      "reduce_regulatory_risk",
+      "preserve_liquidity",
+      "retain_workforce",
+      "protect_reputation"
+    ].includes(String(value.intent)) &&
+    ["NEW", "REMOVED", "INCREASED", "DECREASED", "STABLE"].includes(String(value.direction)) &&
+    inRange(value.from_value, 1) &&
+    inRange(value.to_value, 1) &&
+    inRange(value.delta, 2)
+  );
+}
+
+function isComparison(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const keys = [
+    "discriminator",
+    "pair",
+    "movements",
+    "comparison_digest",
+    "non_causal",
+    "causal_proof",
+    "known_limits"
+  ];
+  return (
+    hasExactKeys(value, keys) &&
+    value.discriminator === "gsi_cross_round_comparison" &&
+    isComparisonPair(value.pair) &&
+    Array.isArray(value.movements) &&
+    value.movements.every(isComparisonMovement) &&
+    isDigest(value.comparison_digest) &&
+    value.non_causal === true &&
+    value.causal_proof === false &&
+    Array.isArray(value.known_limits) &&
+    value.known_limits.length > 0 &&
+    value.known_limits.every((limit) => typeof limit === "string")
+  );
+}
+
+function isContextBinding(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const keys = [
+    "activity_id",
+    "course_id",
+    "role_key",
+    "round_id",
+    "round_no",
+    "run_id",
+    "team_id",
+    "tenant_id"
+  ];
+  return (
+    hasExactKeys(value, keys) &&
+    ["activity_id", "course_id", "role_key", "round_id", "run_id", "team_id", "tenant_id"].every(
+      (key) => isExactString(value[key])
+    ) &&
+    Number.isSafeInteger(value.round_no) &&
+    Number(value.round_no) > 0
+  );
+}
+
+function isComparisonContext(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const keys = [
+    "status",
+    "context",
+    "anchors",
+    "context_digest",
+    "non_causal",
+    "causal_proof",
+    "official_outcome_recomputed",
+    "official_truth_write",
+    "recovery",
+    "known_limits",
+    "context_binding"
+  ];
+  if (
+    !hasExactKeys(value, keys) ||
+    !["AVAILABLE", "CONTEXT_UNAVAILABLE", "REBASE_REQUIRED"].includes(String(value.status)) ||
+    !isContextBinding(value.context) ||
+    !isContextBinding(value.context_binding) ||
+    !Array.isArray(value.anchors) ||
+    !value.anchors.every((anchor) => {
+      if (!isRecord(anchor)) return false;
+      return (
+        hasExactKeys(anchor, ["source", "context_digest", "status"]) &&
+        ["W3", "M2P5"].includes(String(anchor.source)) &&
+        isDigest(anchor.context_digest) &&
+        anchor.status === "PUBLISHED"
+      );
+    }) ||
+    !isDigest(value.context_digest) ||
+    value.non_causal !== true ||
+    value.causal_proof !== false ||
+    value.official_outcome_recomputed !== false ||
+    value.official_truth_write !== false ||
+    !["RELOAD_EXACT_CONTEXT", "WAIT_FOR_PUBLICATION"].includes(String(value.recovery)) ||
+    !Array.isArray(value.known_limits) ||
+    value.known_limits.length === 0 ||
+    !value.known_limits.every((limit) => typeof limit === "string")
+  )
+    return false;
+  return true;
+}
+
+function isAdminComparison(value: unknown): value is GSICrossRoundAdminProjection {
+  if (!isRecord(value)) return false;
+  const keys = [
+    "surface",
+    "tenant_id",
+    "comparison",
+    "context",
+    "provider",
+    "official_truth_write",
+    "known_limits",
+    "recovery"
+  ];
+  return (
+    hasExactKeys(value, keys) &&
+    value.surface === "admin" &&
+    isExactString(value.tenant_id) &&
+    isComparison(value.comparison) &&
+    isComparisonContext(value.context) &&
+    value.provider === "OFF" &&
+    value.official_truth_write === false &&
+    Array.isArray(value.known_limits) &&
+    value.known_limits.length > 0 &&
+    value.known_limits.every((limit) => typeof limit === "string") &&
+    ["RELOAD_EXACT_CONTEXT", "WAIT_FOR_PUBLICATION"].includes(String(value.recovery))
+  );
+}
+
 function isPairOptionsEnvelope(value: unknown): value is PairOptionsEnvelope {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -467,7 +663,7 @@ export function GovernedStakeholderIntelligenceAuditPanel({
       )
         return;
       const details = readEnvelopeError(payload);
-      if (!response.ok || !hasEnvelopeData(payload)) {
+      if (!response.ok || !isAdminComparison(payload.data)) {
         setComparisonState(
           stateForError(details.code, details.message ?? "两个回合的审计比较暂不可用")
         );
