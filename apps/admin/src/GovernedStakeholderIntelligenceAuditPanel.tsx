@@ -29,16 +29,6 @@ interface EnvelopeError {
   message?: string;
 }
 
-interface AuditEnvelope {
-  data?: GSIAdminProjection | EnvelopeError;
-  error?: EnvelopeError;
-}
-
-interface ComparisonEnvelope {
-  data?: GSICrossRoundAdminProjection | EnvelopeError;
-  error?: EnvelopeError;
-}
-
 interface PairOptionsEnvelope {
   code?: string;
   message?: string;
@@ -66,16 +56,344 @@ function normalizeEnvelopeError(value: unknown): EnvelopeError {
 }
 
 function readEnvelopeError(payload: unknown): EnvelopeError {
-  if (typeof payload !== "object" || payload === null || Array.isArray(payload)) return {};
-  const envelope = payload as { data?: unknown; error?: unknown };
+  if (!isRecord(payload)) return {};
+  const envelope = payload as {
+    code?: unknown;
+    data?: unknown;
+    error?: unknown;
+    message?: unknown;
+  };
+  const topLevel: EnvelopeError = {
+    ...(typeof envelope.code === "string" ? { code: envelope.code } : {}),
+    ...(typeof envelope.message === "string" ? { message: envelope.message } : {})
+  };
   if (envelope.error !== undefined && envelope.error !== null) {
-    return normalizeEnvelopeError(envelope.error);
+    return { ...topLevel, ...normalizeEnvelopeError(envelope.error) };
   }
-  return isEnvelopeErrorData(envelope.data) ? normalizeEnvelopeError(envelope.data) : {};
+  return isEnvelopeErrorData(envelope.data)
+    ? { ...topLevel, ...normalizeEnvelopeError(envelope.data) }
+    : topLevel;
 }
 
-function hasEnvelopeData<T>(payload: { data?: T | EnvelopeError }): payload is { data: T } {
-  return payload.data !== undefined && !isEnvelopeErrorData(payload.data);
+function hasEnvelopeData<T>(payload: unknown): payload is { data: T } {
+  return (
+    isRecord(payload) &&
+    Object.hasOwn(payload, "data") &&
+    payload.data !== undefined &&
+    !isEnvelopeErrorData(payload.data)
+  );
+}
+
+function hasEnvelopeError(payload: unknown): boolean {
+  return isRecord(payload) && Object.hasOwn(payload, "error");
+}
+
+function hasNonOkEnvelopeCode(payload: unknown): boolean {
+  return isRecord(payload) && payload.code !== undefined && payload.code !== "OK";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasExactKeys(value: Record<string, unknown>, required: readonly string[]): boolean {
+  return (
+    Object.keys(value).length === required.length &&
+    required.every((key) => Object.hasOwn(value, key))
+  );
+}
+
+function isExactString(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.trim() === value &&
+    !["latest", "current", "default", "fallback", "first", "last", "newest"].includes(
+      value.toLowerCase()
+    )
+  );
+}
+
+function isOneOf<T extends readonly string[]>(value: unknown, values: T): value is T[number] {
+  return typeof value === "string" && values.includes(value as T[number]);
+}
+
+function isDigest(value: unknown): value is string {
+  return typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+}
+
+function isRoundSide(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const keys = ["candidate_id", "candidate_digest", "round_id", "round_no"];
+  return (
+    hasExactKeys(value, keys) &&
+    isExactString(value.candidate_id) &&
+    isDigest(value.candidate_digest) &&
+    isExactString(value.round_id) &&
+    typeof value.round_no === "number" &&
+    Number.isSafeInteger(value.round_no) &&
+    value.round_no > 0
+  );
+}
+
+function isComparisonPair(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const keys = ["tenant_id", "course_id", "run_id", "team_id", "from", "to"];
+  return (
+    hasExactKeys(value, keys) &&
+    isExactString(value.tenant_id) &&
+    isExactString(value.course_id) &&
+    isExactString(value.run_id) &&
+    isExactString(value.team_id) &&
+    isRoundSide(value.from) &&
+    isRoundSide(value.to)
+  );
+}
+
+function isComparisonMovement(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const required = ["signal_key", "stakeholder_type", "intent", "direction"];
+  const optional = ["from_value", "to_value", "delta"];
+  if (
+    !required.every((key) => Object.hasOwn(value, key)) ||
+    !Object.keys(value).every((key) => required.includes(key) || optional.includes(key))
+  )
+    return false;
+  const inRange = (candidate: unknown, limit: number) =>
+    candidate === undefined ||
+    (typeof candidate === "number" && Number.isFinite(candidate) && Math.abs(candidate) <= limit);
+  return (
+    isExactString(value.signal_key) &&
+    isOneOf(value.stakeholder_type, ["customer", "regulator", "bank", "employee", "media"]) &&
+    isOneOf(value.intent, [
+      "protect_demand",
+      "reduce_regulatory_risk",
+      "preserve_liquidity",
+      "retain_workforce",
+      "protect_reputation"
+    ]) &&
+    isOneOf(value.direction, ["NEW", "REMOVED", "INCREASED", "DECREASED", "STABLE"]) &&
+    inRange(value.from_value, 1) &&
+    inRange(value.to_value, 1) &&
+    inRange(value.delta, 2)
+  );
+}
+
+function isComparison(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const keys = [
+    "discriminator",
+    "pair",
+    "movements",
+    "comparison_digest",
+    "non_causal",
+    "causal_proof",
+    "known_limits"
+  ];
+  return (
+    hasExactKeys(value, keys) &&
+    value.discriminator === "gsi_cross_round_comparison" &&
+    isComparisonPair(value.pair) &&
+    Array.isArray(value.movements) &&
+    value.movements.every(isComparisonMovement) &&
+    isDigest(value.comparison_digest) &&
+    value.non_causal === true &&
+    value.causal_proof === false &&
+    Array.isArray(value.known_limits) &&
+    value.known_limits.length > 0 &&
+    value.known_limits.every((limit) => typeof limit === "string")
+  );
+}
+
+function isContextBinding(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const keys = [
+    "activity_id",
+    "course_id",
+    "role_key",
+    "round_id",
+    "round_no",
+    "run_id",
+    "team_id",
+    "tenant_id"
+  ];
+  return (
+    hasExactKeys(value, keys) &&
+    ["activity_id", "course_id", "role_key", "round_id", "run_id", "team_id", "tenant_id"].every(
+      (key) => isExactString(value[key])
+    ) &&
+    typeof value.round_no === "number" &&
+    Number.isSafeInteger(value.round_no) &&
+    value.round_no > 0
+  );
+}
+
+function isComparisonContext(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const keys = [
+    "status",
+    "context",
+    "anchors",
+    "context_digest",
+    "non_causal",
+    "causal_proof",
+    "official_outcome_recomputed",
+    "official_truth_write",
+    "recovery",
+    "known_limits",
+    "context_binding"
+  ];
+  if (
+    !hasExactKeys(value, keys) ||
+    !isOneOf(value.status, ["AVAILABLE", "CONTEXT_UNAVAILABLE", "REBASE_REQUIRED"]) ||
+    !isContextBinding(value.context) ||
+    !isContextBinding(value.context_binding) ||
+    !Array.isArray(value.anchors) ||
+    !value.anchors.every((anchor) => {
+      if (!isRecord(anchor)) return false;
+      return (
+        hasExactKeys(anchor, ["source", "context_digest", "status"]) &&
+        isOneOf(anchor.source, ["W3", "M2P5"]) &&
+        isDigest(anchor.context_digest) &&
+        anchor.status === "PUBLISHED"
+      );
+    }) ||
+    !isDigest(value.context_digest) ||
+    value.non_causal !== true ||
+    value.causal_proof !== false ||
+    value.official_outcome_recomputed !== false ||
+    value.official_truth_write !== false ||
+    !isOneOf(value.recovery, ["RELOAD_EXACT_CONTEXT", "WAIT_FOR_PUBLICATION"]) ||
+    !Array.isArray(value.known_limits) ||
+    value.known_limits.length === 0 ||
+    !value.known_limits.every((limit) => typeof limit === "string")
+  )
+    return false;
+  return true;
+}
+
+function isAdminComparison(value: unknown): value is GSICrossRoundAdminProjection {
+  if (!isRecord(value)) return false;
+  const keys = [
+    "surface",
+    "tenant_id",
+    "comparison",
+    "context",
+    "provider",
+    "official_truth_write",
+    "known_limits",
+    "recovery"
+  ];
+  return (
+    hasExactKeys(value, keys) &&
+    value.surface === "admin" &&
+    isExactString(value.tenant_id) &&
+    isComparison(value.comparison) &&
+    isComparisonContext(value.context) &&
+    value.provider === "OFF" &&
+    value.official_truth_write === false &&
+    Array.isArray(value.known_limits) &&
+    value.known_limits.length > 0 &&
+    value.known_limits.every((limit) => typeof limit === "string") &&
+    isOneOf(value.recovery, ["RELOAD_EXACT_CONTEXT", "WAIT_FOR_PUBLICATION"])
+  );
+}
+
+function matchesContextBinding(
+  left: GSICrossRoundAdminProjection["context"]["context"],
+  right: GSICrossRoundAdminProjection["context"]["context"]
+): boolean {
+  return (
+    left.activity_id === right.activity_id &&
+    left.course_id === right.course_id &&
+    left.role_key === right.role_key &&
+    left.round_id === right.round_id &&
+    left.round_no === right.round_no &&
+    left.run_id === right.run_id &&
+    left.team_id === right.team_id &&
+    left.tenant_id === right.tenant_id
+  );
+}
+
+function hasAdminInternalIdentity(value: GSICrossRoundAdminProjection): boolean {
+  const pair = value.comparison.pair;
+  const context = value.context.context;
+  const contextBinding = value.context.context_binding;
+  return (
+    value.tenant_id === pair.tenant_id &&
+    pair.tenant_id === context.tenant_id &&
+    matchesContextBinding(context, contextBinding) &&
+    pair.course_id === context.course_id &&
+    pair.run_id === context.run_id &&
+    pair.team_id === context.team_id &&
+    context.round_id === pair.to.round_id &&
+    context.round_no === pair.to.round_no
+  );
+}
+
+function isAcceptedAdminBootstrap(
+  value: unknown,
+  tenantId: string
+): value is GSICrossRoundAdminProjection {
+  return (
+    isAdminComparison(value) && value.tenant_id === tenantId && hasAdminInternalIdentity(value)
+  );
+}
+
+type AdminComparisonSelection =
+  | {
+      mode: "candidate";
+      tenant_id: string;
+      activity_id: string;
+      role_key: string;
+      from_candidate_id: string;
+      to_candidate_id: string;
+      course_id?: string;
+      run_id?: string;
+      team_id?: string;
+    }
+  | {
+      mode: "round";
+      tenant_id: string;
+      course_id: string;
+      run_id: string;
+      team_id: string;
+      activity_id: string;
+      role_key: string;
+      from_round_id: string;
+      to_round_id: string;
+    };
+
+function isAcceptedAdminComparison(
+  value: unknown,
+  selection: AdminComparisonSelection
+): value is GSICrossRoundAdminProjection {
+  if (!isAdminComparison(value) || !hasAdminInternalIdentity(value)) return false;
+  const pair = value.comparison.pair;
+  const context = value.context.context;
+  if (
+    value.tenant_id !== selection.tenant_id ||
+    context.tenant_id !== selection.tenant_id ||
+    context.activity_id !== selection.activity_id ||
+    context.role_key !== selection.role_key
+  )
+    return false;
+  if (selection.mode === "round") {
+    return (
+      context.course_id === selection.course_id &&
+      context.run_id === selection.run_id &&
+      context.team_id === selection.team_id &&
+      pair.from.round_id === selection.from_round_id &&
+      pair.to.round_id === selection.to_round_id
+    );
+  }
+  return (
+    (selection.course_id === undefined || context.course_id === selection.course_id) &&
+    (selection.run_id === undefined || context.run_id === selection.run_id) &&
+    (selection.team_id === undefined || context.team_id === selection.team_id) &&
+    pair.from.candidate_id === selection.from_candidate_id &&
+    pair.to.candidate_id === selection.to_candidate_id
+  );
 }
 
 function isPairOptionsEnvelope(value: unknown): value is PairOptionsEnvelope {
@@ -171,6 +489,10 @@ export function GovernedStakeholderIntelligenceAuditPanel({
   const [roleKey, setRoleKey] = useState("CEO");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const acceptedInitialComparison =
+    initialComparison && isAcceptedAdminBootstrap(initialComparison, tenantId)
+      ? initialComparison
+      : undefined;
   const auditController = useRef<AbortController | null>(null);
   const auditIdentity = JSON.stringify([apiBase, tenantId, token, candidateId]);
   const currentAuditIdentity = useRef(auditIdentity);
@@ -183,8 +505,8 @@ export function GovernedStakeholderIntelligenceAuditPanel({
     return () => auditController.current?.abort();
   }, [auditIdentity]);
   const [comparisonState, setComparisonState] = useState<ComparisonState>(
-    initialComparison
-      ? { kind: "ready", data: initialComparison }
+    acceptedInitialComparison
+      ? { kind: "ready", data: acceptedInitialComparison }
       : { kind: "unavailable", message: PAIR_SELECTION_MESSAGE }
   );
   const [pairOptionsState, setPairOptionsState] = useState<PairOptionsState>({
@@ -391,10 +713,15 @@ export function GovernedStakeholderIntelligenceAuditPanel({
           signal: controller.signal
         }
       );
-      const payload = (await response.json()) as AuditEnvelope;
+      const payload = (await response.json()) as unknown;
       if (!isCurrent()) return;
       const details = readEnvelopeError(payload);
-      if (!response.ok || !hasEnvelopeData(payload)) {
+      if (
+        !response.ok ||
+        hasEnvelopeError(payload) ||
+        hasNonOkEnvelopeCode(payload) ||
+        !hasEnvelopeData<GSIAdminProjection>(payload)
+      ) {
         throw new Error(details.message ?? "利益相关方审计加载失败");
       }
       setProjection(payload.data);
@@ -413,6 +740,8 @@ export function GovernedStakeholderIntelligenceAuditPanel({
     const toRound = toRoundId.trim();
     const from = fromCandidateId.trim();
     const to = toCandidateId.trim();
+    const activity = activityId.trim();
+    const role = roleKey.trim();
     const selectedRounds = Boolean(fromRound && toRound);
     const selectedCandidates = Boolean(from && to);
     if (!selectedRounds && !selectedCandidates) {
@@ -435,22 +764,46 @@ export function GovernedStakeholderIntelligenceAuditPanel({
     const controller = new AbortController();
     comparisonController.current = controller;
     setComparisonState({ kind: "loading" });
-    const query = selectedRounds
-      ? new URLSearchParams({
+    const selection: AdminComparisonSelection = selectedRounds
+      ? {
+          mode: "round",
+          tenant_id: tenantId,
           course_id: courseId.trim(),
           run_id: runId.trim(),
           team_id: teamId.trim(),
+          activity_id: activity,
+          role_key: role,
           from_round_id: fromRound,
-          to_round_id: toRound,
-          activity_id: activityId.trim(),
-          role_key: roleKey.trim()
-        })
-      : new URLSearchParams({
+          to_round_id: toRound
+        }
+      : {
+          mode: "candidate",
+          tenant_id: tenantId,
+          activity_id: activity,
+          role_key: role,
           from_candidate_id: from,
           to_candidate_id: to,
-          activity_id: activityId.trim(),
-          role_key: roleKey.trim()
-        });
+          ...(courseId.trim() ? { course_id: courseId.trim() } : {}),
+          ...(runId.trim() ? { run_id: runId.trim() } : {}),
+          ...(teamId.trim() ? { team_id: teamId.trim() } : {})
+        };
+    const query =
+      selection.mode === "round"
+        ? new URLSearchParams({
+            course_id: selection.course_id,
+            run_id: selection.run_id,
+            team_id: selection.team_id,
+            from_round_id: fromRound,
+            to_round_id: toRound,
+            activity_id: activity,
+            role_key: role
+          })
+        : new URLSearchParams({
+            from_candidate_id: from,
+            to_candidate_id: to,
+            activity_id: activity,
+            role_key: role
+          });
     try {
       const response = await fetch(
         `${apiBase}/api/v1/bff/admin/gsi/candidates/compare?${query.toString()}`,
@@ -459,7 +812,7 @@ export function GovernedStakeholderIntelligenceAuditPanel({
           signal: controller.signal
         }
       );
-      const payload = (await response.json()) as ComparisonEnvelope;
+      const payload = (await response.json()) as unknown;
       if (
         controller.signal.aborted ||
         requestId !== comparisonRequestId.current ||
@@ -467,13 +820,19 @@ export function GovernedStakeholderIntelligenceAuditPanel({
       )
         return;
       const details = readEnvelopeError(payload);
-      if (!response.ok || !hasEnvelopeData(payload)) {
+      const data = isRecord(payload) ? payload.data : undefined;
+      if (
+        !response.ok ||
+        hasEnvelopeError(payload) ||
+        hasNonOkEnvelopeCode(payload) ||
+        !isAcceptedAdminComparison(data, selection)
+      ) {
         setComparisonState(
           stateForError(details.code, details.message ?? "两个回合的审计比较暂不可用")
         );
         return;
       }
-      setComparisonState({ kind: "ready", data: payload.data });
+      setComparisonState({ kind: "ready", data });
     } catch (cause) {
       if (
         controller.signal.aborted ||
