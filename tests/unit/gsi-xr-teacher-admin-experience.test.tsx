@@ -88,6 +88,26 @@ const adminComparison = {
   recovery: "WAIT_FOR_PUBLICATION"
 } satisfies GSICrossRoundAdminProjection;
 
+const teacherComparisonForRequest = {
+  ...teacherComparison,
+  context: {
+    ...teacherComparison.context,
+    context: { ...teacherComparison.context.context, activity_id: "activity_gsi_xr" }
+  }
+} satisfies GSICrossRoundTeacherProjection;
+
+const adminComparisonForRequest = {
+  ...adminComparison,
+  context: {
+    ...adminComparison.context,
+    context: { ...adminComparison.context.context, activity_id: "activity_gsi_xr" },
+    context_binding: {
+      ...adminComparison.context.context_binding,
+      activity_id: "activity_gsi_xr"
+    }
+  }
+} satisfies GSICrossRoundAdminProjection;
+
 const pairOptionsBinding = {
   tenant_id: "tenant_demo",
   course_id: "course_demo",
@@ -130,6 +150,18 @@ type InvalidSuccessEnvelopeCase =
   | "nonstring request id"
   | "extra envelope field";
 type PairSelectionContextField = "course_id" | "run_id" | "team_id" | "activity_id" | "role_key";
+type InvalidComparisonEnvelopeCase =
+  | "nonOK code"
+  | "own error null"
+  | "own error array"
+  | "top-level API error";
+type ComparisonIdentityCase =
+  | "wrong tenant"
+  | "wrong candidate"
+  | "wrong activity"
+  | "wrong role"
+  | "wrong context round"
+  | "wrong internal binding";
 
 const invalidPairOptionsCases: readonly (InvalidPairOptionsCase | InvalidSuccessEnvelopeCase)[] = [
   "malformed",
@@ -293,6 +325,9 @@ function invalidComparisonPayload(
     | "array movements"
     | "wrong digest type"
     | "wrong context status"
+    | "array direction"
+    | "array recovery"
+    | "reserved identifier"
 ): unknown {
   const base = surface === "teacher" ? teacherComparison : adminComparison;
   if (invalidCase === "null data") return null;
@@ -306,7 +341,177 @@ function invalidComparisonPayload(
   if (invalidCase === "wrong digest type") {
     return { ...base, comparison: { ...base.comparison, comparison_digest: 7 } };
   }
+  if (invalidCase === "array direction") {
+    return {
+      ...base,
+      comparison: {
+        ...base.comparison,
+        movements: base.comparison.movements.map((movement) => ({
+          ...movement,
+          direction: ["INCREASED"]
+        }))
+      }
+    };
+  }
+  if (invalidCase === "array recovery") {
+    return {
+      ...base,
+      context: { ...base.context, recovery: ["WAIT_FOR_PUBLICATION"] }
+    };
+  }
+  if (invalidCase === "reserved identifier") {
+    return {
+      ...base,
+      comparison: {
+        ...base.comparison,
+        pair: {
+          ...base.comparison.pair,
+          from: { ...base.comparison.pair.from, candidate_id: "latest" }
+        }
+      }
+    };
+  }
   return { ...base, context: { ...base.context, status: "NOT_A_STATUS" } };
+}
+
+function invalidComparisonEnvelope(
+  surface: PairOptionsSurface,
+  invalidCase: InvalidComparisonEnvelopeCase
+): unknown {
+  const data = surface === "teacher" ? teacherComparisonForRequest : adminComparisonForRequest;
+  if (invalidCase === "nonOK code") {
+    return { code: "FORBIDDEN", data, message: "top-level forbidden" };
+  }
+  if (invalidCase === "own error null") return { data, error: null };
+  if (invalidCase === "own error array") return { data, error: ["malformed"] };
+  return { code: "GSI_REBASE_REQUIRED", message: "top-level rebase" };
+}
+
+function comparisonForIdentityCase(
+  surface: PairOptionsSurface,
+  invalidCase: ComparisonIdentityCase
+): unknown {
+  if (surface === "teacher") {
+    const base = teacherComparisonForRequest;
+    if (invalidCase === "wrong tenant") {
+      return {
+        ...base,
+        comparison: {
+          ...base.comparison,
+          pair: { ...base.comparison.pair, tenant_id: "tenant_other" }
+        },
+        context: {
+          ...base.context,
+          context: { ...base.context.context, tenant_id: "tenant_other" }
+        }
+      };
+    }
+    if (invalidCase === "wrong candidate") {
+      return {
+        ...base,
+        comparison: {
+          ...base.comparison,
+          pair: {
+            ...base.comparison.pair,
+            from: { ...base.comparison.pair.from, candidate_id: "candidate_other" }
+          }
+        }
+      };
+    }
+    if (invalidCase === "wrong activity") {
+      return {
+        ...base,
+        context: {
+          ...base.context,
+          context: { ...base.context.context, activity_id: "activity_other" }
+        }
+      };
+    }
+    if (invalidCase === "wrong role") {
+      return {
+        ...base,
+        context: { ...base.context, context: { ...base.context.context, role_key: "CFO" } }
+      };
+    }
+    if (invalidCase === "wrong context round") {
+      return {
+        ...base,
+        context: {
+          ...base.context,
+          context: { ...base.context.context, round_id: "round_1", round_no: 1 }
+        }
+      };
+    }
+    return {
+      ...base,
+      context: { ...base.context, context: { ...base.context.context, course_id: "course_other" } }
+    };
+  }
+
+  const base = adminComparisonForRequest;
+  if (invalidCase === "wrong tenant") {
+    return {
+      ...base,
+      comparison: {
+        ...base.comparison,
+        pair: { ...base.comparison.pair, tenant_id: "tenant_other" }
+      },
+      context: {
+        ...base.context,
+        context: { ...base.context.context, tenant_id: "tenant_other" },
+        context_binding: { ...base.context.context_binding, tenant_id: "tenant_other" }
+      }
+    };
+  }
+  if (invalidCase === "wrong candidate") {
+    return {
+      ...base,
+      comparison: {
+        ...base.comparison,
+        pair: {
+          ...base.comparison.pair,
+          from: { ...base.comparison.pair.from, candidate_id: "candidate_other" }
+        }
+      }
+    };
+  }
+  if (invalidCase === "wrong activity") {
+    return {
+      ...base,
+      context: {
+        ...base.context,
+        context: { ...base.context.context, activity_id: "activity_other" },
+        context_binding: { ...base.context.context_binding, activity_id: "activity_other" }
+      }
+    };
+  }
+  if (invalidCase === "wrong role") {
+    return {
+      ...base,
+      context: {
+        ...base.context,
+        context: { ...base.context.context, role_key: "CFO" },
+        context_binding: { ...base.context.context_binding, role_key: "CFO" }
+      }
+    };
+  }
+  if (invalidCase === "wrong context round") {
+    return {
+      ...base,
+      context: {
+        ...base.context,
+        context: { ...base.context.context, round_id: "round_1", round_no: 1 },
+        context_binding: { ...base.context.context_binding, round_id: "round_1", round_no: 1 }
+      }
+    };
+  }
+  return {
+    ...base,
+    context: {
+      ...base.context,
+      context_binding: { ...base.context.context_binding, role_key: "CFO" }
+    }
+  };
 }
 
 async function enterAdminContext(host: HTMLElement): Promise<void> {
@@ -321,6 +526,41 @@ async function enterAdminContext(host: HTMLElement): Promise<void> {
       input.dispatchEvent(new Event("input", { bubbles: true }));
     });
   }
+}
+
+async function setSelectValue(host: HTMLElement, label: string, value: string): Promise<void> {
+  await act(async () => {
+    const select = host.querySelector<HTMLSelectElement>(`select[aria-label="${label}"]`)!;
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(select, value);
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+async function submitCandidateComparison(
+  host: HTMLElement,
+  surface: PairOptionsSurface
+): Promise<void> {
+  await setInputValue(
+    host,
+    `${surface === "teacher" ? "GSI" : "GSI admin"} from candidate ID`,
+    "candidate_from"
+  );
+  await setInputValue(
+    host,
+    `${surface === "teacher" ? "GSI" : "GSI admin"} to candidate ID`,
+    "candidate_to"
+  );
+  await act(async () => {
+    host
+      .querySelector<HTMLFormElement>(
+        surface === "teacher"
+          ? 'form[aria-label="GSI exact cross-round comparison"]'
+          : 'form[aria-label="GSI admin exact cross-round comparison"]'
+      )!
+      .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+  });
 }
 
 describe("GSI-XR Teacher/Admin experience", () => {
@@ -488,7 +728,10 @@ describe("GSI-XR Teacher/Admin experience", () => {
           "missing comparison",
           "array movements",
           "wrong digest type",
-          "wrong context status"
+          "wrong context status",
+          "array direction",
+          "array recovery",
+          "reserved identifier"
         ] as const
       ).map((invalidCase) => ({ surface, invalidCase }))
     )
@@ -553,6 +796,344 @@ describe("GSI-XR Teacher/Admin experience", () => {
       }
     }
   );
+
+  it.each(
+    (["teacher", "admin"] as const).flatMap((surface) =>
+      (["nonOK code", "own error null", "own error array", "top-level API error"] as const).map(
+        (invalidCase) => ({ surface, invalidCase })
+      )
+    )
+  )(
+    "fails closed for a mounted $surface component on a malformed compare envelope: $invalidCase",
+    async ({ surface, invalidCase }) => {
+      vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue(responseWithJson(invalidComparisonEnvelope(surface, invalidCase)));
+      const host = document.createElement("div");
+      const root = createRoot(host);
+      document.body.append(host);
+      try {
+        await act(async () => {
+          root.render(
+            surface === "teacher" ? (
+              <GovernedStakeholderIntelligenceWorkspace
+                apiBase="http://api.test"
+                binding={pairOptionsBinding}
+                tenantId="tenant_demo"
+                token="token"
+              />
+            ) : (
+              <GovernedStakeholderIntelligenceAuditPanel
+                apiBase="http://api.test"
+                tenantId="tenant_demo"
+                token="token"
+              />
+            )
+          );
+        });
+        await submitCandidateComparison(host, surface);
+        expect(
+          host.querySelector(
+            surface === "teacher"
+              ? '[aria-label="GSI cross-round comparison result"]'
+              : '[aria-label="GSI admin cross-round comparison result"]'
+          )
+        ).toBeNull();
+        expect(host.textContent).toContain(
+          invalidCase === "top-level API error"
+            ? "top-level rebase"
+            : invalidCase === "nonOK code"
+              ? "top-level forbidden"
+              : "比较暂不可用"
+        );
+      } finally {
+        await act(async () => root.unmount());
+        fetchSpy.mockRestore();
+        vi.unstubAllGlobals();
+        host.remove();
+      }
+    }
+  );
+
+  it.each(["teacher", "admin"] as const)(
+    "admits a mounted %s component for a valid compare fetch without a code field",
+    async (surface) => {
+      vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+      const requestUrls: string[] = [];
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+        const url = String(input);
+        requestUrls.push(url);
+        if (url.includes("/pair-options?")) {
+          return responseWithJson({
+            code: "OK",
+            data: makeValidPairOptionsPayload(surface),
+            message: "OK",
+            request_id: "req_pair_options"
+          });
+        }
+        return responseWithJson({
+          data: surface === "teacher" ? teacherComparisonForRequest : adminComparisonForRequest
+        });
+      });
+      const host = document.createElement("div");
+      const root = createRoot(host);
+      document.body.append(host);
+      try {
+        await act(async () => {
+          root.render(
+            surface === "teacher" ? (
+              <GovernedStakeholderIntelligenceWorkspace
+                apiBase="http://api.test"
+                binding={pairOptionsBinding}
+                tenantId="tenant_demo"
+                token="token"
+              />
+            ) : (
+              <GovernedStakeholderIntelligenceAuditPanel
+                apiBase="http://api.test"
+                tenantId="tenant_demo"
+                token="token"
+              />
+            )
+          );
+          await Promise.resolve();
+          await Promise.resolve();
+        });
+        await submitCandidateComparison(host, surface);
+        expect(
+          host.querySelector(
+            surface === "teacher"
+              ? '[aria-label="GSI cross-round comparison result"]'
+              : '[aria-label="GSI admin cross-round comparison result"]'
+          )
+        ).not.toBeNull();
+        const compareUrl = requestUrls.find((url) => url.includes("/compare?"));
+        expect(compareUrl).toBeDefined();
+        const query = new URL(compareUrl!).searchParams;
+        expect(query.get("from_candidate_id")).toBe("candidate_from");
+        expect(query.get("to_candidate_id")).toBe("candidate_to");
+        expect(query.get("course_id")).toBeNull();
+        expect(query.get("run_id")).toBeNull();
+        expect(query.get("team_id")).toBeNull();
+      } finally {
+        await act(async () => root.unmount());
+        fetchSpy.mockRestore();
+        vi.unstubAllGlobals();
+        host.remove();
+      }
+    }
+  );
+
+  it.each(
+    (["teacher", "admin"] as const).flatMap((surface) =>
+      (
+        [
+          "wrong tenant",
+          "wrong candidate",
+          "wrong activity",
+          "wrong role",
+          "wrong context round",
+          "wrong internal binding"
+        ] as const
+      ).map((invalidCase) => ({ surface, invalidCase }))
+    )
+  )(
+    "fails closed for a mounted $surface component when compare identity is not bound: $invalidCase",
+    async ({ surface, invalidCase }) => {
+      vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        responseWithJson({
+          code: "OK",
+          data: comparisonForIdentityCase(surface, invalidCase)
+        })
+      );
+      const host = document.createElement("div");
+      const root = createRoot(host);
+      document.body.append(host);
+      try {
+        await act(async () => {
+          root.render(
+            surface === "teacher" ? (
+              <GovernedStakeholderIntelligenceWorkspace
+                apiBase="http://api.test"
+                binding={pairOptionsBinding}
+                tenantId="tenant_demo"
+                token="token"
+              />
+            ) : (
+              <GovernedStakeholderIntelligenceAuditPanel
+                apiBase="http://api.test"
+                tenantId="tenant_demo"
+                token="token"
+              />
+            )
+          );
+        });
+        await submitCandidateComparison(host, surface);
+        expect(
+          host.querySelector(
+            surface === "teacher"
+              ? '[aria-label="GSI cross-round comparison result"]'
+              : '[aria-label="GSI admin cross-round comparison result"]'
+          )
+        ).toBeNull();
+        expect(host.textContent).toContain("比较暂不可用");
+      } finally {
+        await act(async () => root.unmount());
+        fetchSpy.mockRestore();
+        vi.unstubAllGlobals();
+        host.remove();
+      }
+    }
+  );
+
+  it("rejects an Admin candidate comparison when a populated scope field differs", async () => {
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    const response = {
+      ...adminComparisonForRequest,
+      comparison: {
+        ...adminComparisonForRequest.comparison,
+        pair: { ...adminComparisonForRequest.comparison.pair, course_id: "course_response" }
+      },
+      context: {
+        ...adminComparisonForRequest.context,
+        context: { ...adminComparisonForRequest.context.context, course_id: "course_response" },
+        context_binding: {
+          ...adminComparisonForRequest.context.context_binding,
+          course_id: "course_response"
+        }
+      }
+    };
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(responseWithJson({ code: "OK", data: response }));
+    const host = document.createElement("div");
+    const root = createRoot(host);
+    document.body.append(host);
+    try {
+      await act(async () => {
+        root.render(
+          <GovernedStakeholderIntelligenceAuditPanel
+            apiBase="http://api.test"
+            tenantId="tenant_demo"
+            token="token"
+          />
+        );
+      });
+      await enterAdminContext(host);
+      await submitCandidateComparison(host, "admin");
+      expect(
+        host.querySelector('[aria-label="GSI admin cross-round comparison result"]')
+      ).toBeNull();
+      expect(host.textContent).toContain("比较暂不可用");
+    } finally {
+      await act(async () => root.unmount());
+      fetchSpy.mockRestore();
+      vi.unstubAllGlobals();
+      host.remove();
+    }
+  });
+
+  it.each(["teacher", "admin"] as const)(
+    "rejects an invalid %s bootstrap without using outer scope",
+    (surface) => {
+      const invalid =
+        surface === "teacher"
+          ? {
+              ...teacherComparison,
+              context: {
+                ...teacherComparison.context,
+                context: { ...teacherComparison.context.context, round_id: "round_1", round_no: 1 }
+              }
+            }
+          : {
+              ...adminComparison,
+              context: {
+                ...adminComparison.context,
+                context_binding: { ...adminComparison.context.context_binding, role_key: "CFO" }
+              }
+            };
+      const markup = renderToStaticMarkup(
+        surface === "teacher" ? (
+          <GovernedStakeholderIntelligenceWorkspace
+            apiBase="http://api.test"
+            binding={pairOptionsBinding}
+            tenantId="tenant_demo"
+            token="token"
+            initialComparison={invalid as GSICrossRoundTeacherProjection}
+          />
+        ) : (
+          <GovernedStakeholderIntelligenceAuditPanel
+            apiBase="http://api.test"
+            tenantId="tenant_demo"
+            token="token"
+            initialComparison={invalid as GSICrossRoundAdminProjection}
+          />
+        )
+      );
+      expect(markup).not.toContain(
+        surface === "teacher"
+          ? 'aria-label="GSI cross-round comparison result"'
+          : 'aria-label="GSI admin cross-round comparison result"'
+      );
+      expect(markup).toContain("PAIR_SELECTION_UNAVAILABLE");
+    }
+  );
+
+  it("aborts an in-flight Teacher compare when the component unmounts", async () => {
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    let resolveCompare!: (value: Response) => void;
+    const comparePending = new Promise<Response>((resolve) => {
+      resolveCompare = resolve;
+    });
+    let compareSignal: AbortSignal | undefined;
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation((input, options) => {
+      if (String(input).includes("/compare?")) {
+        compareSignal = options?.signal as AbortSignal;
+        return comparePending;
+      }
+      return Promise.resolve(
+        responseWithJson({
+          code: "OK",
+          data: makeValidPairOptionsPayload("teacher"),
+          message: "OK",
+          request_id: "req_pair_options"
+        })
+      );
+    });
+    const host = document.createElement("div");
+    const root = createRoot(host);
+    document.body.append(host);
+    try {
+      await act(async () => {
+        root.render(
+          <GovernedStakeholderIntelligenceWorkspace
+            apiBase="http://api.test"
+            binding={pairOptionsBinding}
+            tenantId="tenant_demo"
+            token="token"
+          />
+        );
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      await submitCandidateComparison(host, "teacher");
+      expect(compareSignal).toBeDefined();
+      await act(async () => root.unmount());
+      expect(compareSignal?.aborted).toBe(true);
+      await act(async () => {
+        resolveCompare(responseWithJson({ data: teacherComparisonForRequest }));
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(host.querySelector('[aria-label="GSI cross-round comparison result"]')).toBeNull();
+    } finally {
+      fetchSpy.mockRestore();
+      vi.unstubAllGlobals();
+      host.remove();
+    }
+  });
 
   it.each(
     (["teacher", "admin"] as const).flatMap((surface) =>

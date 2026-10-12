@@ -43,16 +43,6 @@ interface EnvelopeError {
   message?: string;
 }
 
-interface ReceiptEnvelope {
-  data?: GSIReceipt | EnvelopeError;
-  error?: EnvelopeError;
-}
-
-interface ComparisonEnvelope {
-  data?: GSICrossRoundTeacherProjection | EnvelopeError;
-  error?: EnvelopeError;
-}
-
 interface PairOptionsEnvelope {
   code?: string;
   message?: string;
@@ -80,16 +70,40 @@ function normalizeEnvelopeError(value: unknown): EnvelopeError {
 }
 
 function readEnvelopeError(payload: unknown): EnvelopeError {
-  if (typeof payload !== "object" || payload === null || Array.isArray(payload)) return {};
-  const envelope = payload as { data?: unknown; error?: unknown };
+  if (!isRecord(payload)) return {};
+  const envelope = payload as {
+    code?: unknown;
+    data?: unknown;
+    error?: unknown;
+    message?: unknown;
+  };
+  const topLevel: EnvelopeError = {
+    ...(typeof envelope.code === "string" ? { code: envelope.code } : {}),
+    ...(typeof envelope.message === "string" ? { message: envelope.message } : {})
+  };
   if (envelope.error !== undefined && envelope.error !== null) {
-    return normalizeEnvelopeError(envelope.error);
+    return { ...topLevel, ...normalizeEnvelopeError(envelope.error) };
   }
-  return isEnvelopeErrorData(envelope.data) ? normalizeEnvelopeError(envelope.data) : {};
+  return isEnvelopeErrorData(envelope.data)
+    ? { ...topLevel, ...normalizeEnvelopeError(envelope.data) }
+    : topLevel;
 }
 
-function hasEnvelopeData<T>(payload: { data?: T | EnvelopeError }): payload is { data: T } {
-  return payload.data !== undefined && !isEnvelopeErrorData(payload.data);
+function hasEnvelopeData<T>(payload: unknown): payload is { data: T } {
+  return (
+    isRecord(payload) &&
+    Object.hasOwn(payload, "data") &&
+    payload.data !== undefined &&
+    !isEnvelopeErrorData(payload.data)
+  );
+}
+
+function hasEnvelopeError(payload: unknown): boolean {
+  return isRecord(payload) && Object.hasOwn(payload, "error");
+}
+
+function hasNonOkEnvelopeCode(payload: unknown): boolean {
+  return isRecord(payload) && payload.code !== undefined && payload.code !== "OK";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -104,7 +118,18 @@ function hasExactKeys(value: Record<string, unknown>, required: readonly string[
 }
 
 function isExactString(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0 && value.trim() === value;
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.trim() === value &&
+    !["latest", "current", "default", "fallback", "first", "last", "newest"].includes(
+      value.toLowerCase()
+    )
+  );
+}
+
+function isOneOf<T extends readonly string[]>(value: unknown, values: T): value is T[number] {
+  return typeof value === "string" && values.includes(value as T[number]);
 }
 
 function isDigest(value: unknown): value is string {
@@ -119,8 +144,9 @@ function isRoundSide(value: unknown): boolean {
     isExactString(value.candidate_id) &&
     isDigest(value.candidate_digest) &&
     isExactString(value.round_id) &&
+    typeof value.round_no === "number" &&
     Number.isSafeInteger(value.round_no) &&
-    Number(value.round_no) > 0
+    value.round_no > 0
   );
 }
 
@@ -152,17 +178,15 @@ function isComparisonMovement(value: unknown): boolean {
     (typeof candidate === "number" && Number.isFinite(candidate) && Math.abs(candidate) <= limit);
   return (
     isExactString(value.signal_key) &&
-    ["customer", "regulator", "bank", "employee", "media"].includes(
-      String(value.stakeholder_type)
-    ) &&
-    [
+    isOneOf(value.stakeholder_type, ["customer", "regulator", "bank", "employee", "media"]) &&
+    isOneOf(value.intent, [
       "protect_demand",
       "reduce_regulatory_risk",
       "preserve_liquidity",
       "retain_workforce",
       "protect_reputation"
-    ].includes(String(value.intent)) &&
-    ["NEW", "REMOVED", "INCREASED", "DECREASED", "STABLE"].includes(String(value.direction)) &&
+    ]) &&
+    isOneOf(value.direction, ["NEW", "REMOVED", "INCREASED", "DECREASED", "STABLE"]) &&
     inRange(value.from_value, 1) &&
     inRange(value.to_value, 1) &&
     inRange(value.delta, 2)
@@ -212,8 +236,9 @@ function isContextBinding(value: unknown): boolean {
     ["activity_id", "course_id", "role_key", "round_id", "run_id", "team_id", "tenant_id"].every(
       (key) => isExactString(value[key])
     ) &&
+    typeof value.round_no === "number" &&
     Number.isSafeInteger(value.round_no) &&
-    Number(value.round_no) > 0
+    value.round_no > 0
   );
 }
 
@@ -233,14 +258,14 @@ function isComparisonContext(value: unknown): boolean {
   ];
   if (
     !hasExactKeys(value, keys) ||
-    !["AVAILABLE", "CONTEXT_UNAVAILABLE", "REBASE_REQUIRED"].includes(String(value.status)) ||
+    !isOneOf(value.status, ["AVAILABLE", "CONTEXT_UNAVAILABLE", "REBASE_REQUIRED"]) ||
     !isContextBinding(value.context) ||
     !Array.isArray(value.anchors) ||
     !value.anchors.every((anchor) => {
       if (!isRecord(anchor)) return false;
       return (
         hasExactKeys(anchor, ["source", "context_digest", "status"]) &&
-        ["W3", "M2P5"].includes(String(anchor.source)) &&
+        isOneOf(anchor.source, ["W3", "M2P5"]) &&
         isDigest(anchor.context_digest) &&
         anchor.status === "PUBLISHED"
       );
@@ -250,7 +275,7 @@ function isComparisonContext(value: unknown): boolean {
     value.causal_proof !== false ||
     value.official_outcome_recomputed !== false ||
     value.official_truth_write !== false ||
-    !["RELOAD_EXACT_CONTEXT", "WAIT_FOR_PUBLICATION"].includes(String(value.recovery)) ||
+    !isOneOf(value.recovery, ["RELOAD_EXACT_CONTEXT", "WAIT_FOR_PUBLICATION"]) ||
     !Array.isArray(value.known_limits) ||
     value.known_limits.length === 0 ||
     !value.known_limits.every((limit) => typeof limit === "string")
@@ -280,7 +305,80 @@ function isTeacherComparison(value: unknown): value is GSICrossRoundTeacherProje
     Array.isArray(value.known_limits) &&
     value.known_limits.length > 0 &&
     value.known_limits.every((limit) => typeof limit === "string") &&
-    ["RELOAD_EXACT_CONTEXT", "WAIT_FOR_PUBLICATION"].includes(String(value.recovery))
+    isOneOf(value.recovery, ["RELOAD_EXACT_CONTEXT", "WAIT_FOR_PUBLICATION"])
+  );
+}
+
+function hasTeacherInternalIdentity(value: GSICrossRoundTeacherProjection): boolean {
+  const pair = value.comparison.pair;
+  const context = value.context.context;
+  return (
+    pair.tenant_id === context.tenant_id &&
+    pair.course_id === context.course_id &&
+    pair.run_id === context.run_id &&
+    pair.team_id === context.team_id &&
+    context.round_id === pair.to.round_id &&
+    context.round_no === pair.to.round_no
+  );
+}
+
+function isAcceptedTeacherBootstrap(
+  value: unknown,
+  tenantId: string
+): value is GSICrossRoundTeacherProjection {
+  return (
+    isTeacherComparison(value) &&
+    value.comparison.pair.tenant_id === tenantId &&
+    hasTeacherInternalIdentity(value)
+  );
+}
+
+type TeacherComparisonSelection =
+  | {
+      mode: "round";
+      tenant_id: string;
+      course_id: string;
+      run_id: string;
+      team_id: string;
+      activity_id: string;
+      role_key: string;
+      from_round_id: string;
+      to_round_id: string;
+    }
+  | {
+      mode: "candidate";
+      tenant_id: string;
+      course_id: string;
+      run_id: string;
+      team_id: string;
+      activity_id: string;
+      role_key: string;
+      from_candidate_id: string;
+      to_candidate_id: string;
+    };
+
+function isAcceptedTeacherComparison(
+  value: unknown,
+  selection: TeacherComparisonSelection
+): value is GSICrossRoundTeacherProjection {
+  if (!isTeacherComparison(value) || !hasTeacherInternalIdentity(value)) return false;
+  const pair = value.comparison.pair;
+  const context = value.context.context;
+  return (
+    pair.tenant_id === selection.tenant_id &&
+    pair.course_id === selection.course_id &&
+    pair.run_id === selection.run_id &&
+    pair.team_id === selection.team_id &&
+    context.tenant_id === selection.tenant_id &&
+    context.course_id === selection.course_id &&
+    context.run_id === selection.run_id &&
+    context.team_id === selection.team_id &&
+    context.activity_id === selection.activity_id &&
+    context.role_key === selection.role_key &&
+    (selection.mode === "round"
+      ? pair.from.round_id === selection.from_round_id && pair.to.round_id === selection.to_round_id
+      : pair.from.candidate_id === selection.from_candidate_id &&
+        pair.to.candidate_id === selection.to_candidate_id)
   );
 }
 
@@ -401,15 +499,28 @@ export function GovernedStakeholderIntelligenceWorkspace({
     kind: "unavailable",
     message: PAIR_SELECTION_MESSAGE
   });
+  const acceptedInitialComparison =
+    initialComparison && isAcceptedTeacherBootstrap(initialComparison, tenantId)
+      ? initialComparison
+      : undefined;
   const [comparisonState, setComparisonState] = useState<ComparisonState>(
-    initialComparison
-      ? { kind: "ready", data: initialComparison }
+    acceptedInitialComparison
+      ? { kind: "ready", data: acceptedInitialComparison }
       : { kind: "unavailable", message: PAIR_SELECTION_MESSAGE }
   );
   const pairOptionsRequestId = useRef(0);
   const pairOptionsController = useRef<AbortController | null>(null);
   const comparisonRequestId = useRef(0);
   const comparisonController = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      pairOptionsRequestId.current += 1;
+      pairOptionsController.current?.abort();
+      comparisonRequestId.current += 1;
+      comparisonController.current?.abort();
+    };
+  }, []);
 
   function invalidateComparison(): void {
     comparisonRequestId.current += 1;
@@ -512,9 +623,14 @@ export function GovernedStakeholderIntelligenceWorkspace({
           idempotency_key: `gsi-ui:${binding.run_id}:${binding.round_id}:${binding.team_id}`
         })
       });
-      const payload = (await response.json()) as ReceiptEnvelope;
+      const payload = (await response.json()) as unknown;
       const details = readEnvelopeError(payload);
-      if (!response.ok || !hasEnvelopeData(payload)) {
+      if (
+        !response.ok ||
+        hasEnvelopeError(payload) ||
+        hasNonOkEnvelopeCode(payload) ||
+        !hasEnvelopeData<GSIReceipt>(payload)
+      ) {
         throw new Error(details.message ?? "受控利益相关方候选创建失败");
       }
       setReceipt(payload.data);
@@ -553,22 +669,48 @@ export function GovernedStakeholderIntelligenceWorkspace({
     const controller = new AbortController();
     comparisonController.current = controller;
     setComparisonState({ kind: "loading" });
-    const query = selectedRounds
-      ? new URLSearchParams({
+    const activity = activityId.trim();
+    const role = roleKey.trim();
+    const selection: TeacherComparisonSelection = selectedRounds
+      ? {
+          mode: "round",
+          tenant_id: tenantId,
           course_id: binding.course_id,
           run_id: binding.run_id,
           team_id: binding.team_id,
+          activity_id: activity,
+          role_key: role,
           from_round_id: fromRound,
-          to_round_id: toRound,
-          activity_id: activityId.trim(),
-          role_key: roleKey.trim()
-        })
-      : new URLSearchParams({
+          to_round_id: toRound
+        }
+      : {
+          mode: "candidate",
+          tenant_id: tenantId,
+          course_id: binding.course_id,
+          run_id: binding.run_id,
+          team_id: binding.team_id,
+          activity_id: activity,
+          role_key: role,
           from_candidate_id: from,
-          to_candidate_id: to,
-          activity_id: activityId.trim(),
-          role_key: roleKey.trim()
-        });
+          to_candidate_id: to
+        };
+    const query =
+      selection.mode === "round"
+        ? new URLSearchParams({
+            course_id: selection.course_id,
+            run_id: selection.run_id,
+            team_id: selection.team_id,
+            from_round_id: selection.from_round_id,
+            to_round_id: selection.to_round_id,
+            activity_id: selection.activity_id,
+            role_key: selection.role_key
+          })
+        : new URLSearchParams({
+            from_candidate_id: selection.from_candidate_id,
+            to_candidate_id: selection.to_candidate_id,
+            activity_id: selection.activity_id,
+            role_key: selection.role_key
+          });
     try {
       const response = await fetch(
         `${apiBase}/api/v1/bff/teacher/gsi/candidates/compare?${query.toString()}`,
@@ -577,16 +719,22 @@ export function GovernedStakeholderIntelligenceWorkspace({
           signal: controller.signal
         }
       );
-      const payload = (await response.json()) as ComparisonEnvelope;
+      const payload = (await response.json()) as unknown;
       if (controller.signal.aborted || requestId !== comparisonRequestId.current) return;
       const details = readEnvelopeError(payload);
-      if (!response.ok || !isTeacherComparison(payload.data)) {
+      const data = isRecord(payload) ? payload.data : undefined;
+      if (
+        !response.ok ||
+        hasEnvelopeError(payload) ||
+        hasNonOkEnvelopeCode(payload) ||
+        !isAcceptedTeacherComparison(data, selection)
+      ) {
         setComparisonState(
           comparisonStateForError(details.code, details.message ?? "两个回合的比较暂不可用")
         );
         return;
       }
-      setComparisonState({ kind: "ready", data: payload.data });
+      setComparisonState({ kind: "ready", data });
     } catch (cause) {
       if (
         controller.signal.aborted ||
