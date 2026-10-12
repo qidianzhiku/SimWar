@@ -1451,3 +1451,162 @@ it("does not expose a Student handoff before an exact comparison is ready", () =
   expect(markup).not.toContain("生成 Student 学习查看链接");
   expect(markup).not.toContain("gsi_course_id=course_demo");
 });
+
+it("preserves an admitted Teacher bootstrap after mounted pair-options loading", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    responseWithJson({
+      code: "OK",
+      message: "OK",
+      request_id: "req_bootstrap",
+      data: makeValidPairOptionsPayload("teacher")
+    })
+  );
+  const host = document.createElement("div");
+  const root = createRoot(host);
+  document.body.append(host);
+  try {
+    await act(async () => {
+      root.render(
+        <GovernedStakeholderIntelligenceWorkspace
+          apiBase="http://api.test"
+          binding={pairOptionsBinding}
+          tenantId="tenant_demo"
+          token="token"
+          initialComparison={teacherComparison}
+        />
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(host.querySelector('[aria-label="GSI cross-round comparison result"]')).not.toBeNull();
+    expect(host.textContent).toContain("生成 Student 学习查看链接");
+  } finally {
+    await act(async () => root.unmount());
+    fetchSpy.mockRestore();
+    vi.unstubAllGlobals();
+    host.remove();
+  }
+});
+
+it("blocks all Teacher BFF operations when binding tenant differs from the authorized tenant", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const url = String(input);
+    if (url.includes("/pair-options?"))
+      return responseWithJson({
+        code: "OK",
+        message: "OK",
+        request_id: "req_tenant",
+        data: makeValidPairOptionsPayload("teacher")
+      });
+    if (url.includes("/compare?"))
+      return responseWithJson({ code: "OK", data: teacherComparisonForRequest });
+    return responseWithJson({ code: "GSI_INPUT_INVALID", message: "invalid tenant binding" });
+  });
+  const host = document.createElement("div");
+  const root = createRoot(host);
+  document.body.append(host);
+  try {
+    await act(async () => {
+      root.render(
+        <GovernedStakeholderIntelligenceWorkspace
+          apiBase="http://api.test"
+          binding={{ ...pairOptionsBinding, tenant_id: "tenant_other" }}
+          tenantId="tenant_demo"
+          token="token"
+        />
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await submitCandidateComparison(host, "teacher");
+    await act(async () => {
+      for (const form of host.querySelectorAll("form")) {
+        form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      }
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(host.querySelector('[aria-label="GSI cross-round comparison result"]')).toBeNull();
+    expect(host.textContent).not.toContain("生成 Student 学习查看链接");
+  } finally {
+    await act(async () => root.unmount());
+    fetchSpy.mockRestore();
+    vi.unstubAllGlobals();
+    host.remove();
+  }
+});
+
+it("refreshes Teacher activity and role when the mounted binding changes", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const requests: string[] = [];
+  const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    requests.push(String(input));
+    return responseWithJson({
+      code: "OK",
+      message: "OK",
+      request_id: "req_binding",
+      data: makeValidPairOptionsPayload("teacher")
+    });
+  });
+  const host = document.createElement("div");
+  const root = createRoot(host);
+  document.body.append(host);
+  try {
+    await act(async () => {
+      root.render(
+        <GovernedStakeholderIntelligenceWorkspace
+          apiBase="http://api.test"
+          binding={pairOptionsBinding}
+          tenantId="tenant_demo"
+          token="token"
+        />
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      root.render(
+        <GovernedStakeholderIntelligenceWorkspace
+          apiBase="http://api.test"
+          binding={{ ...pairOptionsBinding, activity_id: "activity_other", role_key: "CFO" }}
+          tenantId="tenant_demo"
+          token="token"
+        />
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const query = new URL(requests.at(-1)!).searchParams;
+    expect(query.get("activity_id")).toBe("activity_other");
+    expect(query.get("role_key")).toBe("CFO");
+    expect(host.querySelector('[aria-label="GSI cross-round comparison result"]')).toBeNull();
+  } finally {
+    await act(async () => root.unmount());
+    fetchSpy.mockRestore();
+    vi.unstubAllGlobals();
+    host.remove();
+  }
+});
+
+it("rejects an Admin bootstrap whose nested tenant conflicts with the comparison pair", () => {
+  const initialComparison = {
+    ...adminComparison,
+    context: {
+      ...adminComparison.context,
+      context: { ...adminComparison.context.context, tenant_id: "tenant_other" },
+      context_binding: { ...adminComparison.context.context_binding, tenant_id: "tenant_other" }
+    }
+  };
+  const markup = renderToStaticMarkup(
+    <GovernedStakeholderIntelligenceAuditPanel
+      apiBase="http://api.test"
+      tenantId="tenant_demo"
+      token="token"
+      initialComparison={initialComparison}
+    />
+  );
+  expect(markup).not.toContain('aria-label="GSI admin cross-round comparison result"');
+});

@@ -495,12 +495,18 @@ export function GovernedStakeholderIntelligenceWorkspace({
   const [toRoundId, setToRoundId] = useState("");
   const [activityId, setActivityId] = useState(binding.activity_id);
   const [roleKey, setRoleKey] = useState<string>(binding.role_key);
+  useEffect(() => {
+    setActivityId(binding.activity_id);
+    setRoleKey(binding.role_key);
+  }, [binding.activity_id, binding.role_key]);
   const [pairOptionsState, setPairOptionsState] = useState<PairOptionsState>({
     kind: "unavailable",
     message: PAIR_SELECTION_MESSAGE
   });
   const acceptedInitialComparison =
-    initialComparison && isAcceptedTeacherBootstrap(initialComparison, tenantId)
+    initialComparison &&
+    binding.tenant_id === tenantId &&
+    isAcceptedTeacherBootstrap(initialComparison, tenantId)
       ? initialComparison
       : undefined;
   const [comparisonState, setComparisonState] = useState<ComparisonState>(
@@ -512,6 +518,13 @@ export function GovernedStakeholderIntelligenceWorkspace({
   const pairOptionsController = useRef<AbortController | null>(null);
   const comparisonRequestId = useRef(0);
   const comparisonController = useRef<AbortController | null>(null);
+  const preserveBootstrapOnMount = useRef(
+    Boolean(
+      initialComparison &&
+      binding.tenant_id === tenantId &&
+      isAcceptedTeacherBootstrap(initialComparison, tenantId)
+    )
+  );
 
   useEffect(() => {
     return () => {
@@ -539,7 +552,16 @@ export function GovernedStakeholderIntelligenceWorkspace({
     setToCandidateId("");
     setFromRoundId("");
     setToRoundId("");
-    setComparisonState({ kind: "unavailable", message: PAIR_SELECTION_MESSAGE });
+    if (!preserveBootstrapOnMount.current) {
+      setComparisonState({ kind: "unavailable", message: PAIR_SELECTION_MESSAGE });
+    }
+    preserveBootstrapOnMount.current = false;
+    if (binding.tenant_id !== tenantId) {
+      const message = "当前绑定与已认证租户不一致，请重新读取精确上下文。";
+      setComparisonState({ kind: "error", message });
+      setPairOptionsState({ kind: "error", message });
+      return () => controller.abort();
+    }
     const selectionContext = {
       course_id: binding.course_id,
       run_id: binding.run_id,
@@ -597,6 +619,9 @@ export function GovernedStakeholderIntelligenceWorkspace({
     binding.course_id,
     binding.run_id,
     binding.team_id,
+    binding.tenant_id,
+    binding.activity_id,
+    binding.role_key,
     roleKey,
     tenantId,
     token
@@ -604,6 +629,10 @@ export function GovernedStakeholderIntelligenceWorkspace({
 
   async function freezeCandidate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (binding.tenant_id !== tenantId) {
+      setError("当前绑定与已认证租户不一致，请重新读取精确上下文。");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -643,6 +672,15 @@ export function GovernedStakeholderIntelligenceWorkspace({
 
   async function compareRounds(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (binding.tenant_id !== tenantId) {
+      comparisonRequestId.current += 1;
+      comparisonController.current?.abort();
+      setComparisonState({
+        kind: "error",
+        message: "当前绑定与已认证租户不一致，请重新读取精确上下文。"
+      });
+      return;
+    }
     const fromRound = fromRoundId.trim();
     const toRound = toRoundId.trim();
     const from = fromCandidateId.trim();

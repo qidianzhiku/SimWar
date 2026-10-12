@@ -321,6 +321,7 @@ function hasAdminInternalIdentity(value: GSICrossRoundAdminProjection): boolean 
   const contextBinding = value.context.context_binding;
   return (
     value.tenant_id === pair.tenant_id &&
+    pair.tenant_id === context.tenant_id &&
     matchesContextBinding(context, contextBinding) &&
     pair.course_id === context.course_id &&
     pair.run_id === context.run_id &&
@@ -786,22 +787,23 @@ export function GovernedStakeholderIntelligenceAuditPanel({
           ...(runId.trim() ? { run_id: runId.trim() } : {}),
           ...(teamId.trim() ? { team_id: teamId.trim() } : {})
         };
-    const query = selection.mode === "round"
-      ? new URLSearchParams({
-          course_id: selection.course_id,
-          run_id: selection.run_id,
-          team_id: selection.team_id,
-          from_round_id: fromRound,
-          to_round_id: toRound,
-          activity_id: activity,
-          role_key: role
-        })
-      : new URLSearchParams({
-          from_candidate_id: from,
-          to_candidate_id: to,
-          activity_id: activity,
-          role_key: role
-        });
+    const query =
+      selection.mode === "round"
+        ? new URLSearchParams({
+            course_id: selection.course_id,
+            run_id: selection.run_id,
+            team_id: selection.team_id,
+            from_round_id: fromRound,
+            to_round_id: toRound,
+            activity_id: activity,
+            role_key: role
+          })
+        : new URLSearchParams({
+            from_candidate_id: from,
+            to_candidate_id: to,
+            activity_id: activity,
+            role_key: role
+          });
     try {
       const response = await fetch(
         `${apiBase}/api/v1/bff/admin/gsi/candidates/compare?${query.toString()}`,
