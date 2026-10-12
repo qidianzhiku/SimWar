@@ -54,6 +54,48 @@ const expectedLocations = [
   ["student-learning-path", "学习路径"]
 ] as const;
 describe("Student executive workspace refoundation", () => {
+  it("does not duplicate the initial role-workspace read under StrictMode", async () => {
+    let roleWorkspaceRequests = 0;
+    const pending = new Promise<Response>(() => undefined);
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      if (String(input).includes("/api/v1/bff/student/role-workspace")) {
+        roleWorkspaceRequests += 1;
+        return pending;
+      }
+      return {
+        ok: false,
+        json: async () => ({ code: "UNEXPECTED_REQUEST", message: "unexpected request" })
+      } as Response;
+    });
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    act(() => {
+      root.render(
+        <React.StrictMode>
+          <StudentRoleWorkflowPanel
+            active
+            roundId="round-a"
+            runId="run-a"
+            teamId="team-a"
+            tenantId="tenant-a"
+            token="student-token"
+          />
+        </React.StrictMode>
+      );
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(roleWorkspaceRequests).toBe(1);
+
+    act(() => root.unmount());
+    container.remove();
+    fetchMock.mockRestore();
+  });
+
   it("derives divergence acknowledgement roles from the active team instead of assuming CHRO", () => {
     const workspace = {
       assignment: { role_key: "CEO" },

@@ -215,6 +215,10 @@ jobs:
       - name: Mark O7 core browser end
         if: always()
         run: node scripts/o7-observe-runtime.mjs --record-event test_command_end --evidence-root "$O7_OBS_EVIDENCE_ROOT"
+      - name: Run UIUX V2 real-BFF responsive and accessibility checks
+        env:
+          SIMWAR_PLAYWRIGHT_TSS: "true"
+        run: npx playwright test tests/e2e-ui/uiux-v2-responsive.spec.ts --config playwright.config.ts
       - name: Run SP-O3 real-BFF browser journey with isolated M4 fixture
         env:
           SIMWAR_PLAYWRIGHT_M4: "true"

@@ -1,0 +1,70 @@
+{
+  "schema_version": "simwar-token-parity-ledger.v1",
+  "read_at": "2026-09-22",
+  "code_authority": "packages/ui/src/tokens.css",
+  "figma_authority": "CURRENT_COLLECTION_READBACK_WITH_PARITY_GAPS",
+  "figma_collection": {
+    "id": "VariableCollectionId:14:2",
+    "name": "SimWar P1",
+    "mode": "Mode 1",
+    "variable_count": 31,
+    "text_style_count": 6,
+    "effect_style_count": 0
+  },
+  "code_connect": "NOT_PROVEN_UNAVAILABLE",
+  "dispositions": [
+    {
+      "token_family": "primitive and semantic color",
+      "code_source": "packages/ui/src/tokens.css",
+      "figma_mapping": [
+        "color/brand/primary",
+        "color/brand/secondary",
+        "color/official",
+        "color/replay",
+        "color/state/*",
+        "color/surface/*",
+        "color/text/*",
+        "color/focus/ring"
+      ],
+      "disposition": "MAP",
+      "scope_status": "REVIEW_REQUIRED_FOR_BROAD_SCOPES",
+      "reason": "Fresh Plugin read found matching SimWar P1 variables; some historical variables use ALL_FILLS scope and are not silently edited."
+    },
+    {
+      "token_family": "semantic aliases",
+      "code_source": "packages/ui/src/tokens.css",
+      "figma_mapping": ["color/state/*", "color/surface/*", "color/text/*", "color/focus/ring"],
+      "disposition": "MAP",
+      "scope_status": "PARTIAL",
+      "reason": "Semantic families are present in SimWar P1, but complete one-to-one alias parity is not proven."
+    },
+    {
+      "token_family": "font families and type scale",
+      "code_source": "packages/ui/src/tokens.css",
+      "figma_mapping": [
+        "SimWar / H1",
+        "SimWar / H2",
+        "SimWar / Title",
+        "SimWar / Body",
+        "SimWar / Caption",
+        "SimWar / Metric"
+      ],
+      "disposition": "CODE_ONLY",
+      "reason": "Figma text styles exist, but platform-native CJK fallback and complete code typography parity are not equivalent evidence."
+    },
+    {
+      "token_family": "spacing, control height and radius",
+      "code_source": "packages/ui/src/tokens.css",
+      "figma_mapping": ["space/*", "control/min-height", "radius/*"],
+      "disposition": "MAP",
+      "scope_status": "PARTIAL",
+      "reason": "Spacing, control height and radius variables are present; motion/easing parity is not proven and remains code-only."
+    }
+  ],
+  "rules": [
+    "Do not mechanically mirror implementation-only tokens.",
+    "Any future Figma variable must have an explicit scope and code syntax.",
+    "Do not claim pixel parity from partial token mapping.",
+    "Current Figma scope debt is recorded; no existing variable is silently edited in Phase 1."
+  ]
+}

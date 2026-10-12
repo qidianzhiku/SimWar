@@ -315,6 +315,12 @@ h2 {
   margin-bottom: 18px;
 }
 
+@media (min-width: 1281px) {
+  .sdd-context > .sw-context-bar {
+    grid-column: 2 / -1;
+  }
+}
+
 @media (max-width: 1280px) {
   .bff-surface {
     grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -1,0 +1,279 @@
+{
+  "schema_version": "simwar-uiux-v2-current-reality.v1",
+  "phase": "PHASE_1_FOUNDATION",
+  "read_at": "2026-09-22",
+  "repository": "qidianzhiku/SimWar",
+  "protected_master": {
+    "head": "91569bd7396899589acbca324bc68d8ece660366",
+    "tree": "9c4c42117d3f331eeadb4fdaa6cb82788c723dd0",
+    "branch": "master",
+    "protected": true,
+    "required_checks": [
+      "quality",
+      "browser-smoke",
+      "Analyze JavaScript and TypeScript"
+    ]
+  },
+  "predecessor": {
+    "pr": 514,
+    "state": "MERGED",
+    "merged_at": "2026-09-22T03:42:42Z",
+    "merge_commit": "91569bd7396899589acbca324bc68d8ece660366",
+    "head_before_merge": "f1b864966061c1a84bb5ebe89d35fefc09ddf1f4",
+    "changed_files": 7
+  },
+  "working_branch": {
+    "branch": "codex/uiux-v2-phase1",
+    "base": "origin/master",
+    "worktree": "D:\\codex\\simwar-uiux-v2-phase1",
+    "tracked_status_before_phase1": "CLEAN"
+  },
+  "surface_census": {
+    "teacher": 12,
+    "student": 13,
+    "admin": 11,
+    "total_reachable_navigation_targets": 36,
+    "registry": "docs/uiux-v2/phase1/UI_SURFACE_REGISTRY.csv"
+  },
+  "shared_ui": {
+    "package": "@simwar/ui",
+    "token_source": "packages/ui/src/tokens.css",
+    "storybook_before_phase1": false,
+    "design_system_lab": "packages/ui/src/DesignSystemLab.tsx",
+    "foundation_components": [
+      "WorkbenchFrame",
+      "AuthorityBadge",
+      "ContextBar",
+      "StatePanel",
+      "KnownLimitBanner",
+      "ReceiptPanel",
+      "RoleNavigation"
+    ]
+  },
+  "figma": {
+    "file_key": "6ezOykmrZbMbFEYPfIkZ07",
+    "read_method": "Figma Plugin API via use_figma; connector get_metadata is a partial top-level summary",
+    "top_level_pages": [
+      {
+        "id": "18:2",
+        "name": "00 Cover"
+      },
+      {
+        "id": "18:3",
+        "name": "01 Design System"
+      },
+      {
+        "id": "18:4",
+        "name": "02 Components"
+      },
+      {
+        "id": "18:5",
+        "name": "03 Teacher Portal"
+      },
+      {
+        "id": "18:6",
+        "name": "04 Student Portal"
+      },
+      {
+        "id": "18:7",
+        "name": "05 Admin Portal"
+      },
+      {
+        "id": "18:8",
+        "name": "06 Scenario & Plugin"
+      },
+      {
+        "id": "18:9",
+        "name": "07 AI & Replay"
+      },
+      {
+        "id": "18:10",
+        "name": "08 Prototype Flow"
+      },
+      {
+        "id": "18:11",
+        "name": "09 Mobile & Tablet"
+      },
+      {
+        "id": "18:12",
+        "name": "10 Archive"
+      },
+      {
+        "id": "39:2",
+        "name": "11 P2-B Decision Learning & Teacher Debrief"
+      },
+      {
+        "id": "83:2",
+        "name": "12 W4 Strategic Enterprise Evolution"
+      },
+      {
+        "id": "117:4",
+        "name": "13 W5 Governed Model Insight"
+      },
+      {
+        "id": "136:2",
+        "name": "13A W5 HVB Candidate States"
+      },
+      {
+        "id": "149:2",
+        "name": "FE-M9 · AutoSeq 04 · Demand Intelligence"
+      },
+      {
+        "id": "157:4",
+        "name": "14 FE-M10 Governed Intelligence"
+      },
+      {
+        "id": "164:2",
+        "name": "FE-GAI Governed Advisory"
+      },
+      {
+        "id": "169:2",
+        "name": "FE-TSS Coupled Review"
+      },
+      {
+        "id": "175:2",
+        "name": "15 FE-M10 Governed Intelligence · Redesign Candidate R1"
+      },
+      {
+        "id": "189:2",
+        "name": "16 FE-M8 Strategic Evolution · Redesign Candidate R1"
+      },
+      {
+        "id": "201:2",
+        "name": "17 FE-M9 Model & Shanghai · Redesign Candidate R1"
+      },
+      {
+        "id": "222:2",
+        "name": "GSI-XR / Role-safe cross-round stakeholder experience / O1"
+      },
+      {
+        "id": "269:2",
+        "name": "FE-TSS R5 Task-first Redesign"
+      },
+      {
+        "id": "273:2",
+        "name": "FE-GSI R1 Cross-round Debrief Redesign"
+      },
+      {
+        "id": "276:2",
+        "name": "FE ALL UI · macOS Current SaaS Redesign · R1"
+      },
+      {
+        "id": "280:2",
+        "name": "DDT-O1 / Cross-capability Evidence Spine"
+      },
+      {
+        "id": "282:2",
+        "name": "FE ALL UI R2 · 00 Foundation & Registry"
+      },
+      {
+        "id": "286:2",
+        "name": "FE ALL UI R3 · Cross-role HiFi Pilot"
+      },
+      {
+        "id": "287:2",
+        "name": "FE-Figma Restart R1 · TSS + GSI Role Spine"
+      },
+      {
+        "id": "301:2",
+        "name": "UIV2 · 00 Governance & Registry"
+      }
+    ],
+    "read_frames": [
+      {
+        "id": "19:2",
+        "name": "Cover Board",
+        "width": 1440,
+        "height": 1050
+      },
+      {
+        "id": "19:45",
+        "name": "Design System Board",
+        "width": 1440,
+        "height": 1820
+      },
+      {
+        "id": "19:206",
+        "name": "Components Board",
+        "width": 1440,
+        "height": 2320
+      },
+      {
+        "id": "20:210",
+        "name": "Admin Portal Board",
+        "width": 1440,
+        "height": 2020
+      },
+      {
+        "id": "270:191",
+        "name": "TSS R5 / Directions & Converge",
+        "width": 1160,
+        "height": 900
+      },
+      {
+        "id": "270:192",
+        "name": "TSS R5 / Design System Reuse Map",
+        "width": 1160,
+        "height": 900
+      },
+      {
+        "id": "20:2",
+        "name": "Teacher Portal Board",
+        "width": 1440,
+        "height": 1940
+      },
+      {
+        "id": "20:105",
+        "name": "Student Portal Board",
+        "width": 1440,
+        "height": 2080
+      },
+      {
+        "id": "301:3",
+        "name": "UIV2 Governance Board",
+        "width": 1440,
+        "height": 836
+      }
+    ],
+    "variables": {
+      "collection_id": "VariableCollectionId:14:2",
+      "collection_name": "SimWar P1",
+      "mode": "Mode 1",
+      "count": 31,
+      "code_syntax": "present on inspected variables",
+      "scope_note": "Several historical variables use broad ALL_FILLS scope and require scope review; no silent mutation was performed."
+    },
+    "text_styles": {
+      "count": 6,
+      "font_family": "Inter",
+      "locale_note": "CJK fallback parity remains unproven."
+    },
+    "effect_styles": {
+      "count": 0
+    },
+    "code_connect": "UNAVAILABLE_CURRENT_SEAT_OR_PLAN",
+    "libraries": "8 community libraries subscribed; reference-only; no libraries available to add",
+    "current_role_page_authority": "NOT_PROVEN_FOR_36_SURFACE_EXACT_BINDING",
+    "foundation_page_authority": {
+      "design_system": "CURRENT_REFERENCE_CANDIDATE",
+      "components": "CURRENT_REFERENCE_CANDIDATE",
+      "teacher_portal": "CURRENT_REFERENCE_CANDIDATE_EXACT_BOARD_READ",
+      "student_portal": "CURRENT_REFERENCE_CANDIDATE_EXACT_BOARD_READ",
+      "admin_portal": "CURRENT_REFERENCE_CANDIDATE"
+    },
+    "authoring": {
+      "status": "AUTHORED_ISOLATED_GOVERNANCE_BOARD",
+      "page_id": "301:2",
+      "board_id": "301:3",
+      "created_node_count": 21,
+      "protected_existing_nodes_untouched": true,
+      "readback": "metadata_and_screenshot_pass"
+    }
+  },
+  "limits": [
+    "Current foundation and portal boards exist, but no exact frame-to-code authority is proven for all 36 reachable navigation targets.",
+    "Figma variables and text styles exist; full token parity against packages/ui/src/tokens.css is not yet proven.",
+    "Code Connect is unavailable for the current seat/plan.",
+    "No browser baseline captures were created by this foundation census yet."
+  ]
+}
