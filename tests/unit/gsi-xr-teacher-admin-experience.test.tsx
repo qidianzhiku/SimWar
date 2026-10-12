@@ -1602,3 +1602,55 @@ it("rejects an Admin bootstrap whose nested tenant conflicts with the comparison
   );
   expect(markup).not.toContain('aria-label="GSI admin cross-round comparison result"');
 });
+
+it("preserves Teacher bootstrap across StrictMode replay but never revives it after a real selection identity change", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    responseWithJson({
+      code: "OK",
+      message: "OK",
+      request_id: "req_strict_bootstrap",
+      data: makeValidPairOptionsPayload("teacher")
+    })
+  );
+  const host = document.createElement("div");
+  const root = createRoot(host);
+  document.body.append(host);
+  const view = (binding: GSIExactBinding) => (
+    <React.StrictMode>
+      <GovernedStakeholderIntelligenceWorkspace
+        apiBase="http://api.test"
+        binding={binding}
+        tenantId="tenant_demo"
+        token="token"
+        initialComparison={teacherComparison}
+      />
+    </React.StrictMode>
+  );
+  try {
+    await act(async () => {
+      root.render(view(pairOptionsBinding));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(host.querySelector('[aria-label="GSI cross-round comparison result"]')).not.toBeNull();
+    expect(host.textContent).toContain("生成 Student 学习查看链接");
+    await act(async () => {
+      root.render(view({ ...pairOptionsBinding, course_id: "course_other" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(host.querySelector('[aria-label="GSI cross-round comparison result"]')).toBeNull();
+    await act(async () => {
+      root.render(view(pairOptionsBinding));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(host.querySelector('[aria-label="GSI cross-round comparison result"]')).toBeNull();
+  } finally {
+    await act(async () => root.unmount());
+    fetchSpy.mockRestore();
+    vi.unstubAllGlobals();
+    host.remove();
+  }
+});

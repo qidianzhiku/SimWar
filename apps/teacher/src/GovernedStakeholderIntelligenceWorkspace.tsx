@@ -518,12 +518,21 @@ export function GovernedStakeholderIntelligenceWorkspace({
   const pairOptionsController = useRef<AbortController | null>(null);
   const comparisonRequestId = useRef(0);
   const comparisonController = useRef<AbortController | null>(null);
-  const preserveBootstrapOnMount = useRef(
-    Boolean(
-      initialComparison &&
-      binding.tenant_id === tenantId &&
-      isAcceptedTeacherBootstrap(initialComparison, tenantId)
-    )
+  const selectionIdentity = JSON.stringify([
+    apiBase,
+    tenantId,
+    token,
+    binding.tenant_id,
+    binding.course_id,
+    binding.run_id,
+    binding.team_id,
+    binding.activity_id,
+    binding.role_key,
+    activityId,
+    roleKey
+  ]);
+  const bootstrapSelectionIdentity = useRef<string | null>(
+    acceptedInitialComparison ? selectionIdentity : null
   );
 
   useEffect(() => {
@@ -536,6 +545,7 @@ export function GovernedStakeholderIntelligenceWorkspace({
   }, []);
 
   function invalidateComparison(): void {
+    bootstrapSelectionIdentity.current = null;
     comparisonRequestId.current += 1;
     comparisonController.current?.abort();
     setComparisonState({ kind: "unavailable", message: PAIR_SELECTION_MESSAGE });
@@ -552,10 +562,10 @@ export function GovernedStakeholderIntelligenceWorkspace({
     setToCandidateId("");
     setFromRoundId("");
     setToRoundId("");
-    if (!preserveBootstrapOnMount.current) {
+    if (bootstrapSelectionIdentity.current !== selectionIdentity) {
+      bootstrapSelectionIdentity.current = null;
       setComparisonState({ kind: "unavailable", message: PAIR_SELECTION_MESSAGE });
     }
-    preserveBootstrapOnMount.current = false;
     if (binding.tenant_id !== tenantId) {
       const message = "当前绑定与已认证租户不一致，请重新读取精确上下文。";
       setComparisonState({ kind: "error", message });
@@ -615,6 +625,7 @@ export function GovernedStakeholderIntelligenceWorkspace({
     return () => controller.abort();
   }, [
     activityId,
+    selectionIdentity,
     apiBase,
     binding.course_id,
     binding.run_id,
@@ -672,6 +683,7 @@ export function GovernedStakeholderIntelligenceWorkspace({
 
   async function compareRounds(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    bootstrapSelectionIdentity.current = null;
     if (binding.tenant_id !== tenantId) {
       comparisonRequestId.current += 1;
       comparisonController.current?.abort();
