@@ -528,14 +528,6 @@ async function enterAdminContext(host: HTMLElement): Promise<void> {
   }
 }
 
-async function setSelectValue(host: HTMLElement, label: string, value: string): Promise<void> {
-  await act(async () => {
-    const select = host.querySelector<HTMLSelectElement>(`select[aria-label="${label}"]`)!;
-    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(select, value);
-    select.dispatchEvent(new Event("change", { bubbles: true }));
-  });
-}
-
 async function submitCandidateComparison(
   host: HTMLElement,
   surface: PairOptionsSurface
