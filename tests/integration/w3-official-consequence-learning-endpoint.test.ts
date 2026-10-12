@@ -58,7 +58,7 @@ async function login(baseUrl: string, username: "teacher" | "student"): Promise<
   return response.body.data.access_token;
 }
 
-function seedFixture(store: SimWarStore): void {
+function seedFixture(store: SimWarStore, officialScore = 80): void {
   const course = store.courses.find((candidate) => candidate.course_id === courseId);
   const team = store.teams.find((candidate) => candidate.team_id === teamId);
   if (!course || !team) throw new Error("W3 endpoint fixture requires default course and team");
@@ -121,7 +121,7 @@ function seedFixture(store: SimWarStore): void {
           profit_band: "healthy",
           rank: 1,
           revenue: 180000,
-          score: 80,
+          score: officialScore,
           served_demand: 100
         },
         state_true: {
@@ -132,7 +132,7 @@ function seedFixture(store: SimWarStore): void {
           profit: 40000,
           rank: 1,
           revenue: 180000,
-          score: 80,
+          score: officialScore,
           served_demand: 100,
           settlement_status: "settled"
         },
@@ -338,17 +338,33 @@ function seedLearningEvidence(store: SimWarStore): void {
   const edge: D2ProvenanceEdge = {
     discriminator: "d2_provenance_edge",
     relation: "derived_from",
-    source_ref: eventRef,
-    target_ref: evidenceRef
+    source_ref: evidenceRef,
+    target_ref: eventRef
   };
   store.evidenceArtifacts.push(artifact);
   store.evidenceProvenanceEdges.push(edge);
   store.teacherConfirmationVersions.push(confirmation);
 }
 
-async function startServer(): Promise<{ baseUrl: string; server: Server; store: SimWarStore }> {
+async function startServer(
+  officialScore = 80
+): Promise<{ baseUrl: string; server: Server; store: SimWarStore }> {
   const store = createP1Store();
-  seedFixture(store);
+  seedFixture(store, officialScore);
+  store.studentRoleAssignments.push({
+    assignment_id: "assignment_w3_endpoint",
+    tenant_id: tenantId,
+    course_id: courseId,
+    run_id: runId,
+    team_id: teamId,
+    user_id: "usr_student",
+    role_key: "CEO",
+    role_template_id: "role_template_ceo",
+    status: "active",
+    source: "teacher_assigned",
+    assigned_by: "usr_teacher",
+    assigned_at: "2026-08-18T00:00:00.000Z"
+  });
   const server = createApiServer(store);
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -379,6 +395,685 @@ function commandContext() {
 }
 
 describe("W3 official consequence BFF endpoint", () => {
+  it.each([80, 37.25])(
+    "reads public score %s losslessly through selection, Student GET and reflection",
+    async (officialScore) => {
+      const { baseUrl, server, store } = await startServer(officialScore);
+      seedLearningEvidence(store);
+      store.teacherConfirmationVersions[0] = {
+        ...store.teacherConfirmationVersions[0]!,
+        context: {
+          ...store.teacherConfirmationVersions[0]!.context,
+          round_id: roundId,
+          round_no: 1
+        }
+      };
+      store.evidenceArtifacts[0] = {
+        ...store.evidenceArtifacts[0]!,
+        context: { ...store.evidenceArtifacts[0]!.context, round_id: roundId, round_no: 1 }
+      };
+      try {
+        const teacherToken = await login(baseUrl, "teacher");
+        const studentToken = await login(baseUrl, "student");
+        const truthBefore = JSON.stringify([
+          store.decisions,
+          store.settlementResults,
+          store.rounds
+        ]);
+        const context = commandContext();
+        const selected = await request<W3OfficialConsequenceResponse>(
+          baseUrl,
+          "/api/v1/bff/teacher/w3/evidence-selection",
+          {
+            token: teacherToken,
+            method: "POST",
+            body: {
+              context,
+              evidence_refs: [store.evidenceArtifacts[0]!.artifact_ref],
+              idempotency_key: `selection-public-score-${officialScore}`
+            }
+          }
+        );
+        expect(selected.status).toBe(201);
+        expect(selected.body.data.record.official_result.score).toBe(officialScore);
+        expect(selected.body.data.record.learning.evidence_selection_status).toBe("SELECTED");
+        const get = await request<W3OfficialConsequenceResponse>(
+          baseUrl,
+          `/api/v1/bff/student/w3/consequence?${contextQuery}`,
+          { token: studentToken }
+        );
+        expect(get.status).toBe(200);
+        expect(get.body.data.record.official_result.score).toBe(officialScore);
+        expect(get.body.data.record.official_result.rank).toBe(1);
+        expect(get.body.data.record.context.round_no).toBe(1);
+        const reflected = await request<W3OfficialConsequenceResponse>(
+          baseUrl,
+          "/api/v1/bff/student/w3/reflection",
+          {
+            token: studentToken,
+            method: "POST",
+            body: {
+              context,
+              idempotency_key: `reflection-public-score-${officialScore}`,
+              prompt_id: "w3-reflection-off-v1",
+              response: "A bounded public-score observation."
+            }
+          }
+        );
+        expect(reflected.status).toBe(201);
+        expect(reflected.body.data.record.official_result.score).toBe(officialScore);
+        expect(JSON.stringify([store.decisions, store.settlementResults, store.rounds])).toBe(
+          truthBefore
+        );
+        expect(JSON.stringify(get.body.data)).not.toContain("state_true");
+        expect(JSON.stringify(get.body.data)).not.toContain("raw_private_payload");
+      } finally {
+        await stopServer(server);
+      }
+    }
+  );
+
+  it.each(["wrong role", "inactive", "missing"])(
+    "rejects native Student GET and POST with %s assignment without learning writes",
+    async (mode) => {
+      const { baseUrl, server, store } = await startServer();
+      if (mode === "inactive") store.studentRoleAssignments[0]!.status = "inactive";
+      if (mode === "missing") store.studentRoleAssignments.splice(0);
+      const context = {
+        ...commandContext(),
+        ...(mode === "wrong role" ? { role_key: "CFO" } : {})
+      };
+      try {
+        const token = await login(baseUrl, "student");
+        const before = JSON.stringify([store.auditLogs, store.decisions, store.settlementResults]);
+        const get = await request(
+          baseUrl,
+          `/api/v1/bff/student/w3/consequence?${new URLSearchParams(
+            Object.entries(context).map(([key, value]) => [key, String(value)])
+          )}`,
+          { token }
+        );
+        expect(get.status).toBe(403);
+        expect(get.body.code).toBe("W3_ACTOR_SCOPE_VIOLATION");
+        expect(get.body.data).toBeUndefined();
+        const post = await request(baseUrl, "/api/v1/bff/student/w3/reflection", {
+          method: "POST",
+          token,
+          body: {
+            context,
+            idempotency_key: "unauthorized-role",
+            prompt_id: "prompt",
+            response: "Do not write this."
+          }
+        });
+        expect(post.status).toBe(403);
+        expect(post.body.data).toBeUndefined();
+        expect(JSON.stringify([store.auditLogs, store.decisions, store.settlementResults])).toBe(
+          before
+        );
+      } finally {
+        await stopServer(server);
+      }
+    }
+  );
+
+  it("rejects unsupported native activity before reflection writes", async () => {
+    const { baseUrl, server, store } = await startServer();
+    try {
+      const token = await login(baseUrl, "student");
+      const before = JSON.stringify(store.auditLogs);
+      const get = await request(
+        baseUrl,
+        `/api/v1/bff/student/w3/consequence?${contextQuery.replace("activity_consequence", "activity_other")}`,
+        { token }
+      );
+      expect(get.status).toBe(422);
+      const post = await request(baseUrl, "/api/v1/bff/student/w3/reflection", {
+        method: "POST",
+        token,
+        body: {
+          context: { ...commandContext(), activity_id: "activity_other" },
+          idempotency_key: "other-activity",
+          prompt_id: "prompt",
+          response: "Do not write this."
+        }
+      });
+      expect(post.status).toBe(422);
+      expect(JSON.stringify(store.auditLogs)).toBe(before);
+    } finally {
+      await stopServer(server);
+    }
+  });
+  it("rejects a supplied foreign tenant instead of silently rebinding it to the authenticated tenant", async () => {
+    const { baseUrl, server, store } = await startServer();
+    try {
+      const token = await login(baseUrl, "student");
+      const before = JSON.stringify(store.auditLogs);
+      const get = await request(
+        baseUrl,
+        `/api/v1/bff/student/w3/consequence?${contextQuery}&tenant_id=tenant_other`,
+        { token }
+      );
+      expect(get.status).toBe(403);
+      const post = await request(baseUrl, "/api/v1/bff/student/w3/reflection", {
+        method: "POST",
+        token,
+        body: {
+          context: { ...commandContext(), tenant_id: "tenant_other" },
+          idempotency_key: "foreign-tenant",
+          prompt_id: "prompt",
+          response: "Do not write this."
+        }
+      });
+      expect(post.status).toBe(403);
+      expect(JSON.stringify(store.auditLogs)).toBe(before);
+    } finally {
+      await stopServer(server);
+    }
+  });
+  it.each(["extra authority field", "string round number"])(
+    "rejects malformed native POST context with %s",
+    async (mode) => {
+      const { baseUrl, server, store } = await startServer();
+      try {
+        const token = await login(baseUrl, "student");
+        const before = JSON.stringify(store.auditLogs);
+        const context = {
+          ...commandContext(),
+          ...(mode === "extra authority field" ? { actor_id: "another-actor" } : { round_no: "1" })
+        };
+        const post = await request(baseUrl, "/api/v1/bff/student/w3/reflection", {
+          method: "POST",
+          token,
+          body: {
+            context,
+            idempotency_key: "malformed-context",
+            prompt_id: "prompt",
+            response: "Do not write this."
+          }
+        });
+        expect(post.status).toBe(422);
+        expect(post.body.data).toBeUndefined();
+        expect(JSON.stringify(store.auditLogs)).toBe(before);
+      } finally {
+        await stopServer(server);
+      }
+    }
+  );
+
+  it.each(["role_key", "activity_id", "round_id", "missing context"])(
+    "does not project old reflection, counterfactual or selection audits with different %s",
+    async (field) => {
+      const { baseUrl, server, store } = await startServer();
+      const context = { ...commandContext(), tenant_id: tenantId };
+      const wrong =
+        field === "missing context" ? undefined : { ...context, [field]: "other_identity" };
+      seedLearningEvidence(store);
+      store.evidenceArtifacts[0] = {
+        ...store.evidenceArtifacts[0]!,
+        context: { ...store.evidenceArtifacts[0]!.context, round_id: roundId, round_no: 1 }
+      };
+      store.auditLogs.push({
+        action: "w3.reflection.save",
+        actor_id: "usr_student",
+        actor_role: "learner",
+        audit_id: "old_wrong_reflection",
+        created_at: "2026-08-18T00:00:00.000Z",
+        request_id: "old",
+        resource_id: "old",
+        resource_type: "w3_official_consequence",
+        tenant_id: tenantId,
+        after: {
+          record_id: `w3_consequence_${runId}_1_${teamId}`,
+          context: wrong,
+          reflection: {
+            ai_used: false,
+            advisory_only: true,
+            reflection_id: "old",
+            prompt_id: "prompt",
+            response: "wrong-context-content",
+            status: "SUBMITTED"
+          }
+        }
+      });
+      store.auditLogs.push(
+        {
+          action: "w3.counterfactual.create",
+          actor_id: "usr_teacher",
+          actor_role: "teacher",
+          audit_id: "old_wrong_counterfactual",
+          created_at: "2026-08-18T00:00:00.000Z",
+          request_id: "old",
+          resource_id: "old_cf",
+          resource_type: "w3_official_consequence",
+          tenant_id: tenantId,
+          after: {
+            record_id: `w3_consequence_${runId}_1_${teamId}`,
+            context: wrong,
+            counterfactual: {
+              causal_label: "model_conditioned_association",
+              changed_field: "marketing_budget",
+              changed_value_digest: "a".repeat(64),
+              original_value_digest: "b".repeat(64),
+              comparison: {
+                official_score: 80,
+                counterfactual_score: 81,
+                score_delta: 1,
+                official_rank: 1,
+                counterfactual_rank: 1,
+                rank_delta: 0
+              },
+              counterfactual_id: "old_cf",
+              exact_context_ref: {
+                discriminator: "exact_ref",
+                resource_type: "round",
+                resource_id: roundId,
+                tenant_id: tenantId,
+                version: "1.0.0",
+                content_digest: "c".repeat(64)
+              },
+              official: false
+            }
+          }
+        },
+        {
+          action: "w3.evidence.select",
+          actor_id: "usr_teacher",
+          actor_role: "teacher",
+          audit_id: "old_wrong_selection",
+          created_at: "2026-08-18T00:00:00.000Z",
+          request_id: "old",
+          resource_id: "old_sel",
+          resource_type: "w3_official_consequence",
+          tenant_id: tenantId,
+          after: {
+            record_id: `w3_consequence_${runId}_1_${teamId}`,
+            context: wrong,
+            selection: {
+              status: "SELECTED",
+              selection_id: "old_sel",
+              evidence_refs: [store.evidenceArtifacts[0]!.artifact_ref]
+            }
+          }
+        }
+      );
+      try {
+        const token = await login(baseUrl, "student");
+        const old = JSON.stringify(
+          store.auditLogs.find((audit) => audit.audit_id === "old_wrong_reflection")
+        );
+        const get = await request<W3OfficialConsequenceResponse>(
+          baseUrl,
+          `/api/v1/bff/student/w3/consequence?${contextQuery}`,
+          { token }
+        );
+        expect(get.status).toBe(200);
+        expect(get.body.data.record.reflection).toBeUndefined();
+        expect(get.body.data.record.counterfactual).toBeUndefined();
+        expect(get.body.data.record.learning.evidence_selection_status).toBe("NOT_SELECTED");
+        expect(JSON.stringify(get.body)).not.toContain("wrong-context-content");
+        expect(
+          JSON.stringify(store.auditLogs.find((audit) => audit.audit_id === "old_wrong_reflection"))
+        ).toBe(old);
+      } finally {
+        await stopServer(server);
+      }
+    }
+  );
+
+  const invalidEvidenceRounds: readonly {
+    label: string;
+    round: { round_id?: string; round_no?: number };
+  }[] = [
+    { label: "missing round_id", round: { round_no: 1 } },
+    { label: "missing round_no", round: { round_id: roundId } },
+    { label: "wrong round_id", round: { round_id: "another_round", round_no: 1 } },
+    { label: "wrong round_no", round: { round_id: roundId, round_no: 2 } }
+  ];
+
+  it.each(invalidEvidenceRounds)("rejects new D2 selection with $label", async ({ round }) => {
+    const { baseUrl, server, store } = await startServer();
+    seedLearningEvidence(store);
+    store.evidenceArtifacts[0] = {
+      ...store.evidenceArtifacts[0]!,
+      context: { ...store.evidenceArtifacts[0]!.context, ...round }
+    };
+    try {
+      const token = await login(baseUrl, "teacher");
+      const before = JSON.stringify([store.auditLogs, store.decisions, store.settlementResults]);
+      const selected = await request<W3OfficialConsequenceResponse>(
+        baseUrl,
+        "/api/v1/bff/teacher/w3/evidence-selection",
+        {
+          body: {
+            context: commandContext(),
+            evidence_refs: [store.evidenceArtifacts[0]!.artifact_ref],
+            idempotency_key: "strict-selection"
+          },
+          method: "POST",
+          token
+        }
+      );
+      expect(selected.status).toBe(404);
+      expect(selected.body.code).toBe("W3_EVIDENCE_NOT_FOUND");
+      expect(JSON.stringify([store.auditLogs, store.decisions, store.settlementResults])).toBe(
+        before
+      );
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it.each([
+    "wrong tenant",
+    "wrong resource type",
+    "wrong version",
+    "wrong digest",
+    "missing artifact"
+  ])("rejects selected evidence with %s", async (mode) => {
+    const { baseUrl, server, store } = await startServer();
+    seedLearningEvidence(store);
+    store.evidenceArtifacts[0] = {
+      ...store.evidenceArtifacts[0]!,
+      context: { ...store.evidenceArtifacts[0]!.context, round_id: roundId, round_no: 1 }
+    };
+    const ref = {
+      ...store.evidenceArtifacts[0]!.artifact_ref,
+      ...(mode === "wrong tenant" ? { tenant_id: "tenant_other" } : {}),
+      ...(mode === "wrong resource type" ? { resource_type: "round" } : {}),
+      ...(mode === "wrong version" ? { version: "9.0.0" } : {}),
+      ...(mode === "wrong digest" ? { content_digest: "f".repeat(64) } : {})
+    };
+    if (mode === "missing artifact") {
+      // Isolate selection admission from a separate D4 report dependency failure.
+      store.teacherConfirmationVersions.splice(0);
+      store.evidenceArtifacts.splice(0);
+    }
+    try {
+      const token = await login(baseUrl, "teacher");
+      const selected = await request(baseUrl, "/api/v1/bff/teacher/w3/evidence-selection", {
+        body: {
+          context: commandContext(),
+          evidence_refs: [ref],
+          idempotency_key: "metadata-selection"
+        },
+        method: "POST",
+        token
+      });
+      expect(selected.status).toBe(mode === "wrong tenant" ? 422 : 404);
+      expect(store.auditLogs.filter((audit) => audit.action === "w3.evidence.select")).toHaveLength(
+        0
+      );
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it.each(["null ref", "private extra field"])(
+    "rejects malformed selection input %s before audit writes",
+    async (mode) => {
+      const { baseUrl, server, store } = await startServer();
+      seedLearningEvidence(store);
+      const ref =
+        mode === "null ref"
+          ? null
+          : {
+              ...store.evidenceArtifacts[0]!.artifact_ref,
+              private_payload: "must-not-be-projected"
+            };
+      try {
+        const token = await login(baseUrl, "teacher");
+        const result = await request(baseUrl, "/api/v1/bff/teacher/w3/evidence-selection", {
+          body: {
+            context: commandContext(),
+            evidence_refs: [ref],
+            idempotency_key: "malformed-selection"
+          },
+          method: "POST",
+          token
+        });
+        expect(result.status).toBe(422);
+        expect(JSON.stringify(result.body)).not.toContain("must-not-be-projected");
+        expect(
+          store.auditLogs.filter((audit) => audit.action === "w3.evidence.select")
+        ).toHaveLength(0);
+      } finally {
+        await stopServer(server);
+      }
+    }
+  );
+
+  it.each(invalidEvidenceRounds)(
+    "keeps old $label selection readonly but unqualified on exact reads",
+    async ({ round }) => {
+      const { baseUrl, server, store } = await startServer();
+      seedLearningEvidence(store);
+      store.teacherConfirmationVersions[0] = {
+        ...store.teacherConfirmationVersions[0]!,
+        context: {
+          ...store.teacherConfirmationVersions[0]!.context,
+          round_id: roundId,
+          round_no: 1
+        }
+      };
+      store.evidenceArtifacts[0] = {
+        ...store.evidenceArtifacts[0]!,
+        context: { ...store.evidenceArtifacts[0]!.context, ...round }
+      };
+      try {
+        const teacher = await login(baseUrl, "teacher");
+        const student = await login(baseUrl, "student");
+        const reflection = await request<W3OfficialConsequenceResponse>(
+          baseUrl,
+          "/api/v1/bff/student/w3/reflection",
+          {
+            body: {
+              context: commandContext(),
+              idempotency_key: "old-selection-reflection",
+              prompt_id: "prompt",
+              response: "An exact-round reflection."
+            },
+            method: "POST",
+            token: student
+          }
+        );
+        expect(reflection.status).toBe(201);
+        const recordId = reflection.body.data.record.record_id;
+        store.auditLogs.push({
+          action: "w3.evidence.select",
+          actor_id: "usr_teacher",
+          actor_role: "teacher",
+          audit_id: "old_selection_audit",
+          created_at: "2026-08-18T00:00:00.000Z",
+          request_id: "old_selection_request",
+          resource_id: "old_selection",
+          resource_type: "w3_official_consequence",
+          tenant_id: tenantId,
+          after: {
+            context: { ...commandContext(), tenant_id: tenantId },
+            record_id: recordId,
+            selection: {
+              selection_id: "old_selection",
+              status: "SELECTED",
+              evidence_refs: [store.evidenceArtifacts[0]!.artifact_ref]
+            }
+          }
+        });
+        const oldAudit = JSON.stringify(
+          store.auditLogs.find((audit) => audit.audit_id === "old_selection_audit")
+        );
+        const legacy = await request<W3OfficialConsequenceResponse>(
+          baseUrl,
+          `/api/v1/bff/teacher/w3/consequence?${contextQuery}`,
+          { token: teacher }
+        );
+        expect(legacy.body.data.record.learning.evidence_selection_status).toBe("SELECTED");
+        const exact = await request<W3OfficialConsequenceResponse>(
+          baseUrl,
+          `/api/v1/bff/student/w3/consequence?${contextQuery}`,
+          { token: student }
+        );
+        expect(exact.status).toBe(200);
+        expect(exact.body.data.record.learning.evidence_selection_status).toBe("NOT_SELECTED");
+        const hypothesis = await request<W3OfficialConsequenceResponse>(
+          baseUrl,
+          "/api/v1/bff/teacher/w3/next-round-hypothesis",
+          { body: { context: commandContext() }, method: "POST", token: teacher }
+        );
+        expect(hypothesis.status).toBe(200);
+        expect(hypothesis.body.data.record.learning.next_round_hypothesis_status).toBe("BLOCKED");
+        expect(hypothesis.body.data.record.next_round_hypothesis).toBeUndefined();
+        expect(
+          JSON.stringify(store.auditLogs.find((audit) => audit.audit_id === "old_selection_audit"))
+        ).toBe(oldAudit);
+      } finally {
+        await stopServer(server);
+      }
+    }
+  );
+
+  it("keeps unbound D3/D4 out of native Student GET and POST while retaining Teacher legacy reads", async () => {
+    const { baseUrl, server, store } = await startServer();
+    seedLearningEvidence(store);
+    try {
+      const teacherToken = await login(baseUrl, "teacher");
+      const studentToken = await login(baseUrl, "student");
+      const teacher = await request<W3OfficialConsequenceResponse>(
+        baseUrl,
+        `/api/v1/bff/teacher/w3/consequence?${contextQuery}`,
+        { token: teacherToken }
+      );
+      expect(teacher.body.data.record.learning.teacher_confirmation_status).toBe("CONFIRMED");
+      expect(teacher.body.data.record.learning.student_learning_report_ref).toBeDefined();
+      const beforeTruth = JSON.stringify([store.decisions, store.settlementResults]);
+      const student = await request<W3OfficialConsequenceResponse>(
+        baseUrl,
+        `/api/v1/bff/student/w3/consequence?${contextQuery}`,
+        { token: studentToken }
+      );
+      expect(student.status).toBe(200);
+      expect(student.body.data.record.learning.teacher_confirmation_status).toBe("MISSING");
+      expect(student.body.data.record.learning.student_learning_report_ref).toBeUndefined();
+      const body = {
+        context: commandContext(),
+        idempotency_key: "native-exact-reflection",
+        prompt_id: "w3-reflection-off-v1",
+        response: "An exact-round reflection."
+      };
+      const saved = await request<W3OfficialConsequenceResponse>(
+        baseUrl,
+        "/api/v1/bff/student/w3/reflection",
+        { body, method: "POST", token: studentToken }
+      );
+      expect(saved.status).toBe(201);
+      expect(saved.body.data.record.reflection?.status).toBe("SUBMITTED");
+      expect(saved.body.data.record.learning.teacher_confirmation_status).toBe("MISSING");
+      expect(saved.body.data.record.learning.student_learning_report_ref).toBeUndefined();
+      const again = await request<W3OfficialConsequenceResponse>(
+        baseUrl,
+        "/api/v1/bff/student/w3/reflection",
+        { body, method: "POST", token: studentToken }
+      );
+      expect(again.body.data.record.reflection).toEqual(saved.body.data.record.reflection);
+      expect(store.auditLogs.filter((audit) => audit.action === "w3.reflection.save")).toHaveLength(
+        1
+      );
+      expect(JSON.stringify([store.decisions, store.settlementResults])).toBe(beforeTruth);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("does not qualify a hypothesis with unbound D3 or expose a legacy ready audit on exact Student reads", async () => {
+    const { baseUrl, server, store } = await startServer();
+    seedLearningEvidence(store);
+    try {
+      const teacherToken = await login(baseUrl, "teacher");
+      const studentToken = await login(baseUrl, "student");
+      const context = commandContext();
+      await request(baseUrl, "/api/v1/bff/student/w3/reflection", {
+        body: {
+          context,
+          idempotency_key: "hyp-reflection",
+          prompt_id: "prompt",
+          response: "Bounded observation."
+        },
+        method: "POST",
+        token: studentToken
+      });
+      await request(baseUrl, "/api/v1/bff/teacher/w3/evidence-selection", {
+        body: {
+          context,
+          idempotency_key: "hyp-selection",
+          evidence_refs: [store.evidenceArtifacts[0]!.artifact_ref]
+        },
+        method: "POST",
+        token: teacherToken
+      });
+      const blocked = await request<W3OfficialConsequenceResponse>(
+        baseUrl,
+        "/api/v1/bff/teacher/w3/next-round-hypothesis",
+        { body: { context }, method: "POST", token: teacherToken }
+      );
+      expect(blocked.status).toBe(200);
+      expect(blocked.body.data.record.learning.next_round_hypothesis_status).toBe("BLOCKED");
+      expect(
+        store.auditLogs.filter((audit) => audit.action === "w3.next_round_hypothesis.ready")
+      ).toHaveLength(0);
+      // An old learning audit is retained, not migrated into exact evidence.
+      store.auditLogs.push({
+        action: "w3.next_round_hypothesis.ready",
+        actor_id: "usr_teacher",
+        actor_role: "teacher",
+        audit_id: "legacy_hypothesis",
+        created_at: "2026-08-18T00:00:00.000Z",
+        request_id: "legacy_request",
+        resource_id: blocked.body.data.record.record_id,
+        resource_type: "w3_official_consequence",
+        tenant_id: tenantId,
+        after: {
+          record_id: blocked.body.data.record.record_id,
+          context: { ...context, tenant_id: tenantId },
+          hypothesis: {
+            status: "READY",
+            basis: "legacy",
+            hypothesis: "Legacy unqualified hypothesis"
+          }
+        }
+      });
+      const exact = await request<W3OfficialConsequenceResponse>(
+        baseUrl,
+        `/api/v1/bff/student/w3/consequence?${contextQuery}`,
+        { token: studentToken }
+      );
+      expect(exact.body.data.record.learning.next_round_hypothesis_status).toBe("BLOCKED");
+      expect(exact.body.data.record.next_round_hypothesis).toBeUndefined();
+      expect(store.auditLogs.some((audit) => audit.audit_id === "legacy_hypothesis")).toBe(true);
+      store.teacherConfirmationVersions[0] = {
+        ...store.teacherConfirmationVersions[0]!,
+        context: {
+          ...store.teacherConfirmationVersions[0]!.context,
+          round_id: roundId,
+          round_no: 1
+        }
+      };
+      store.evidenceArtifacts[0] = {
+        ...store.evidenceArtifacts[0]!,
+        context: { ...store.evidenceArtifacts[0]!.context, round_id: roundId, round_no: 1 }
+      };
+      const nowBound = await request<W3OfficialConsequenceResponse>(
+        baseUrl,
+        `/api/v1/bff/student/w3/consequence?${contextQuery}`,
+        { token: studentToken }
+      );
+      expect(nowBound.body.data.record.learning.teacher_confirmation_status).toBe("CONFIRMED");
+      expect(nowBound.body.data.record.next_round_hypothesis).toBeUndefined();
+      expect(nowBound.body.data.record.learning.next_round_hypothesis_status).toBe("BLOCKED");
+    } finally {
+      await stopServer(server);
+    }
+  });
+
   it("keeps student-safe output, published reflection, and one-change retry conflict bounded", async () => {
     const { baseUrl, server, store } = await startServer();
     try {
@@ -507,6 +1202,14 @@ describe("W3 official consequence BFF endpoint", () => {
   it("reads D2 and D3 evidence into a bounded next-round hypothesis", async () => {
     const { baseUrl, server, store } = await startServer();
     seedLearningEvidence(store);
+    store.teacherConfirmationVersions[0] = {
+      ...store.teacherConfirmationVersions[0]!,
+      context: { ...store.teacherConfirmationVersions[0]!.context, round_id: roundId, round_no: 1 }
+    };
+    store.evidenceArtifacts[0] = {
+      ...store.evidenceArtifacts[0]!,
+      context: { ...store.evidenceArtifacts[0]!.context, round_id: roundId, round_no: 1 }
+    };
     try {
       const teacherToken = await login(baseUrl, "teacher");
       const studentToken = await login(baseUrl, "student");
@@ -560,6 +1263,19 @@ describe("W3 official consequence BFF endpoint", () => {
       );
       expect(hypothesis.status).toBe(200);
       expect(hypothesis.body.data.record.next_round_hypothesis?.status).toBe("READY");
+      const retainedAudits = JSON.stringify(store.auditLogs);
+      store.evidenceArtifacts.splice(0);
+      const noLongerBound = await request<W3OfficialConsequenceResponse>(
+        baseUrl,
+        `/api/v1/bff/student/w3/consequence?${contextQuery}`,
+        { token: studentToken }
+      );
+      expect(noLongerBound.status).toBe(409);
+      expect(noLongerBound.body.code).toBe("W3_OUTPUT_INVALID");
+      expect(noLongerBound.body.message).toBe("W3 official consequence request rejected");
+      expect(noLongerBound.body.data).toBeUndefined();
+      expect(JSON.stringify(noLongerBound.body)).not.toContain("D4_REPORT_NOT_AVAILABLE");
+      expect(JSON.stringify(store.auditLogs)).toBe(retainedAudits);
     } finally {
       await stopServer(server);
     }

@@ -47,4 +47,184 @@ describe("W3 official consequence and decision learning contract", () => {
       openApi.components?.schemas?.W3OfficialConsequenceResponse?.properties?.record?.$ref
     ).toBe("../schemas/w3-official-consequence-learning.v1.json");
   });
+
+  type ScoreDomainCase =
+    | {
+        label: string;
+        kind: "value";
+        score: unknown;
+        runtimeExpected: boolean;
+        schemaExpected: boolean;
+      }
+    | {
+        label: string;
+        kind: "missing";
+        runtimeExpected: boolean;
+        schemaExpected: boolean;
+      };
+
+  type ScoreDomainRecord = {
+    context: Record<string, unknown>;
+    official_result: Record<string, unknown>;
+  };
+
+  const scoreDomainCases: readonly ScoreDomainCase[] = [
+    {
+      label: "finite fractional score 24.75",
+      kind: "value",
+      score: 24.75,
+      runtimeExpected: true,
+      schemaExpected: true
+    },
+    {
+      label: "finite fractional score 37.25",
+      kind: "value",
+      score: 37.25,
+      runtimeExpected: true,
+      schemaExpected: true
+    },
+    {
+      label: "original integer score 0",
+      kind: "value",
+      score: 0,
+      runtimeExpected: true,
+      schemaExpected: true
+    },
+    {
+      label: "original integer score 80",
+      kind: "value",
+      score: 80,
+      runtimeExpected: true,
+      schemaExpected: true
+    },
+    {
+      label: "original integer score 100",
+      kind: "value",
+      score: 100,
+      runtimeExpected: true,
+      schemaExpected: true
+    },
+    {
+      label: "NaN",
+      kind: "value",
+      score: Number.NaN,
+      runtimeExpected: false,
+      schemaExpected: false
+    },
+    {
+      label: "+Infinity",
+      kind: "value",
+      score: Number.POSITIVE_INFINITY,
+      runtimeExpected: false,
+      schemaExpected: false
+    },
+    {
+      label: "-Infinity",
+      kind: "value",
+      score: Number.NEGATIVE_INFINITY,
+      runtimeExpected: false,
+      schemaExpected: false
+    },
+    {
+      label: "string score",
+      kind: "value",
+      score: "80",
+      runtimeExpected: false,
+      schemaExpected: false
+    },
+    {
+      label: "null score",
+      kind: "value",
+      score: null,
+      runtimeExpected: false,
+      schemaExpected: false
+    },
+    {
+      label: "undefined score",
+      kind: "value",
+      score: undefined,
+      runtimeExpected: false,
+      schemaExpected: false
+    },
+    {
+      label: "missing score",
+      kind: "missing",
+      runtimeExpected: false,
+      schemaExpected: false
+    },
+    {
+      label: "boxed number object score",
+      kind: "value",
+      score: Object(80),
+      runtimeExpected: false,
+      schemaExpected: false
+    },
+    {
+      label: "boolean score",
+      kind: "value",
+      score: true,
+      runtimeExpected: false,
+      schemaExpected: false
+    }
+  ];
+
+  const cloneSafeRecordForScoreCase = (
+    valid: unknown,
+    scoreCase: ScoreDomainCase
+  ): ScoreDomainRecord => {
+    const record = JSON.parse(JSON.stringify(valid)) as ScoreDomainRecord;
+    if (scoreCase.kind === "missing") {
+      delete record.official_result.score;
+    } else {
+      record.official_result.score = scoreCase.score;
+    }
+    return record;
+  };
+
+  it.each(scoreDomainCases)("runtime validator score domain: $label", (scoreCase) => {
+    const valid = readJson("contracts/fixtures/w3-official-consequence-learning.valid.json");
+    const record = cloneSafeRecordForScoreCase(valid, scoreCase);
+
+    expect(record.official_result.rank).toBe(1);
+    expect(record.context.round_no).toBe(1);
+    if (scoreCase.kind === "missing") {
+      expect(Object.prototype.hasOwnProperty.call(record.official_result, "score")).toBe(false);
+    } else {
+      expect(record.official_result.score).toBe(scoreCase.score);
+    }
+    expect(isW3OfficialConsequenceRecord(record)).toBe(scoreCase.runtimeExpected);
+  });
+
+  it.each(scoreDomainCases)("Ajv2020 JSON Schema score domain: $label", (scoreCase) => {
+    const schema = readJson("contracts/schemas/w3-official-consequence-learning.v1.json");
+    const valid = readJson("contracts/fixtures/w3-official-consequence-learning.valid.json");
+    const validate = new Ajv2020({ strict: true, validateFormats: false }).compile(schema);
+    const record = cloneSafeRecordForScoreCase(valid, scoreCase);
+
+    expect(record.official_result.rank).toBe(1);
+    expect(record.context.round_no).toBe(1);
+    if (scoreCase.kind === "missing") {
+      expect(Object.prototype.hasOwnProperty.call(record.official_result, "score")).toBe(false);
+    } else {
+      expect(record.official_result.score).toBe(scoreCase.score);
+    }
+    expect(validate(record)).toBe(scoreCase.schemaExpected);
+  });
+
+  it.each(["rank", "round_no"])(
+    "keeps %s integer-only when the public score is fractional",
+    (field) => {
+      const record = JSON.parse(
+        JSON.stringify(readJson("contracts/fixtures/w3-official-consequence-learning.valid.json"))
+      ) as ScoreDomainRecord;
+      record.official_result.score = 37.25;
+      if (field === "rank") record.official_result.rank = 1.5;
+      else record.context.round_no = 1.5;
+      const validate = new Ajv2020({ strict: true, validateFormats: false }).compile(
+        readJson("contracts/schemas/w3-official-consequence-learning.v1.json")
+      );
+      expect(isW3OfficialConsequenceRecord(record)).toBe(false);
+      expect(validate(record)).toBe(false);
+    }
+  );
 });

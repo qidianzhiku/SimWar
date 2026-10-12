@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { isW3OfficialConsequenceRecord } from "@simwar/shared-contracts";
 import type {
   W3OfficialConsequenceContext,
   W3OfficialConsequenceResponse
@@ -24,15 +25,7 @@ function contextQuery(context: W3OfficialConsequenceContext): string {
   return query.toString();
 }
 
-function errorMessage(value: unknown): string {
-  if (
-    value &&
-    typeof value === "object" &&
-    "message" in value &&
-    typeof value.message === "string"
-  ) {
-    return value.message;
-  }
+function errorMessage(_value: unknown): string {
   return "W3 官方结果暂不可用";
 }
 
@@ -47,6 +40,7 @@ export function W3OfficialConsequenceLearningPanel(props: Props) {
   const currentIdentity = useRef(identity);
   currentIdentity.current = identity;
   const reflectionController = useRef<AbortController | null>(null);
+  const [readAttempt, setReadAttempt] = useState(0);
   const [result, setResult] = useState<{ identity: string; state: PanelState }>({
     identity,
     state: { phase: "idle" }
@@ -79,15 +73,20 @@ export function W3OfficialConsequenceLearningPanel(props: Props) {
         const envelope = (await response.json()) as {
           data?: W3OfficialConsequenceResponse;
           message?: string;
+          code?: string;
+          error?: unknown;
         };
         if (!current()) return;
         if (response.status === 404) {
-          setState({ phase: "empty", message: envelope.message ?? "等待官方发布" });
+          setState({ phase: "empty", message: "等待官方发布" });
           return;
         }
         if (!response.ok || !envelope.data)
           throw new Error(envelope.message ?? "W3 request failed");
-        if (!sameContext(envelope.data, props.context)) throw new Error("W3 context unavailable");
+        if (envelope.error !== undefined || (envelope.code !== undefined && envelope.code !== "OK"))
+          throw new Error("W3 response unavailable");
+        if (!isStudentW3ResponseForContext(envelope.data, props.context))
+          throw new Error("W3 context unavailable");
         setState({ phase: "ready", response: envelope.data });
       })
       .catch((error: unknown) => {
@@ -100,7 +99,7 @@ export function W3OfficialConsequenceLearningPanel(props: Props) {
       controller.abort();
       reflectionController.current?.abort();
     };
-  }, [identity, props.apiBase, props.context, props.tenantId, props.token]);
+  }, [identity, props.apiBase, props.context, props.tenantId, props.token, readAttempt]);
 
   async function submitReflection(): Promise<void> {
     if (state.phase !== "ready" || !props.context || !reflection.trim() || reflectionBusy) return;
@@ -128,11 +127,16 @@ export function W3OfficialConsequenceLearningPanel(props: Props) {
       const envelope = (await response.json()) as {
         data?: W3OfficialConsequenceResponse;
         message?: string;
+        code?: string;
+        error?: unknown;
       };
       if (!current()) return;
       if (!response.ok || !envelope.data)
         throw new Error(envelope.message ?? "reflection rejected");
-      if (!sameContext(envelope.data, props.context)) throw new Error("W3 context unavailable");
+      if (envelope.error !== undefined || (envelope.code !== undefined && envelope.code !== "OK"))
+        throw new Error("W3 response unavailable");
+      if (!isStudentW3ResponseForContext(envelope.data, props.context))
+        throw new Error("W3 context unavailable");
       setState({ phase: "ready", response: envelope.data });
       setReflectionMessage("反思已记录，等待教师确认学习证据");
     } catch (error: unknown) {
@@ -172,7 +176,14 @@ export function W3OfficialConsequenceLearningPanel(props: Props) {
       {state.phase === "empty" ? (
         <p className="muted">{state.message}。结算但未发布时，学员结果保持不可见。</p>
       ) : null}
-      {state.phase === "error" ? <p role="alert">{state.message}</p> : null}
+      {state.phase === "error" ? (
+        <div role="alert">
+          {state.message}
+          <button type="button" onClick={() => setReadAttempt((attempt) => attempt + 1)}>
+            重新读取官方学习记录
+          </button>
+        </div>
+      ) : null}
       {record ? (
         <>
           <div className="status-grid">
@@ -275,16 +286,31 @@ export function W3OfficialConsequenceLearningPanel(props: Props) {
   );
 }
 
-function sameContext(
-  value: W3OfficialConsequenceResponse,
+export function isStudentW3ResponseForContext(
+  input: unknown,
   context: W3OfficialConsequenceContext | undefined
-): boolean {
+): input is W3OfficialConsequenceResponse {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return false;
+  const value = input as Record<string, unknown>;
+  const record = value.record;
   return Boolean(
     context &&
     value?.visibility === "student_safe" &&
-    value.record?.context &&
+    value.runtime_authority === "JSON_INTERNAL_ONLY" &&
+    Array.isArray(value.known_limits) &&
+    value.known_limits.every((x) => typeof x === "string") &&
+    isW3OfficialConsequenceRecord(record) &&
+    record.publication.status === "PUBLISHED" &&
+    record.official_result.outcome_label === "official_published" &&
+    record.official_result.team_id === context.team_id &&
+    record.source.round_ref.resource_id === context.round_id &&
+    [
+      record.source.round_ref,
+      record.source.canonical_decision_ref,
+      record.source.settlement_ref
+    ].every((ref) => ref.tenant_id === context.tenant_id) &&
     (Object.keys(context) as (keyof W3OfficialConsequenceContext)[]).every(
-      (key) => value.record.context[key] === context[key]
+      (key) => record.context[key] === context[key]
     )
   );
 }

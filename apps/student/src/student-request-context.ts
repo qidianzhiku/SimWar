@@ -132,10 +132,39 @@ export function matchesStudentCockpit(
   tenant: string
 ): boolean {
   return (
-    cockpit?.student_cockpit?.tenant_id === tenant &&
-    (["course_id", "run_id", "team_id", "round_id", "round_no"] as const).every(
-      (key) => selected[key] === cockpit.student_cockpit[key]
-    )
+    [
+      cockpit?.student_cockpit,
+      cockpit?.decision_form,
+      cockpit?.published_result,
+      cockpit?.learning_report,
+      cockpit?.three_part_feedback
+    ].every(
+      (projection) =>
+        projection?.tenant_id === tenant &&
+        (["course_id", "run_id", "team_id", "round_id", "round_no"] as const).every(
+          (key) => selected[key] === projection[key]
+        ) &&
+        Array.isArray(projection.allowed_actions) &&
+        projection.allowed_actions.every((x) => typeof x === "string") &&
+        Array.isArray(projection.forbidden_fields) &&
+        Array.isArray(projection.advisory_slots)
+    ) &&
+    typeof cockpit.student_cockpit.visible_state?.team_name === "string" &&
+    ["draft", "open", "locked", "settled", "published"].includes(
+      cockpit.student_cockpit.visible_state.round_status
+    ) &&
+    Array.isArray(cockpit.decision_form.editable_fields) &&
+    cockpit.decision_form.editable_fields.every((x) => typeof x === "string") &&
+    cockpit.decision_form.decision_schema_version === "m1-decision-form.v1" &&
+    typeof cockpit.published_result.result_label === "string" &&
+    Boolean(
+      cockpit.three_part_feedback.feedback &&
+      typeof cockpit.three_part_feedback.feedback === "object"
+    ) &&
+    cockpit.learning_report.learning_evidence?.advisory_only === true &&
+    cockpit.learning_report.learning_evidence.formal_grade === false &&
+    Array.isArray(cockpit.learning_report.learning_evidence.prompts) &&
+    cockpit.learning_report.learning_evidence.prompts.every((x) => typeof x === "string")
   );
 }
 

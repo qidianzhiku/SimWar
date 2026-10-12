@@ -1,4 +1,6 @@
-import { createP1Store } from "../../services/api/src/store";
+import { createJsonRoleWorkflowRepositoryPort } from "../../services/api/src/json-repository-adapter";
+import { RoleWorkflowCommandService } from "../../services/api/src/role-workflow";
+import { createP1Store, type SimWarStore } from "../../services/api/src/store";
 
 const tenantId = "tenant_demo";
 const runId = "run_w3_browser";
@@ -6,9 +8,71 @@ const roundId = "round_w3_browser_1";
 const decisionId = "decision_w3_browser";
 const settlementId = "settlement_w3_browser";
 
-export function seedW3OfficialConsequenceFixture(storeFile: string): void {
+async function ensureStudentRoleAssignment(store: SimWarStore): Promise<void> {
+  const run = store.runs.find((candidate) => candidate.run_id === runId);
+  const round = store.rounds.find((candidate) => candidate.round_id === roundId);
+  const teacher = store.users.find((candidate) => candidate.user_id === "usr_teacher");
+  if (
+    !run ||
+    run.tenant_id !== tenantId ||
+    run.course_id !== "course_demo" ||
+    !round ||
+    round.tenant_id !== tenantId ||
+    round.run_id !== runId ||
+    round.round_no !== 1 ||
+    round.status !== "published" ||
+    !teacher ||
+    teacher.tenant_id !== tenantId ||
+    !teacher.roles.includes("teacher")
+  ) {
+    throw new Error("W3 fixture requires the exact published scope and Teacher actor.");
+  }
+
+  const repository = createJsonRoleWorkflowRepositoryPort(store);
+  const scope = { course_id: "course_demo", run_id: runId, team_id: "team_alpha" };
+  const snapshot = await repository.readRoleWorkflow({ tenant_id: tenantId, ...scope });
+  const active = snapshot.assignments.filter((assignment) => assignment.status === "active");
+  const existing = active.filter(
+    (assignment) => assignment.user_id === "usr_student" || assignment.role_key === "CEO"
+  );
+  if (existing.length) {
+    const assignment = existing[0];
+    if (
+      existing.length !== 1 ||
+      assignment.tenant_id !== tenantId ||
+      assignment.course_id !== scope.course_id ||
+      assignment.run_id !== runId ||
+      assignment.team_id !== scope.team_id ||
+      assignment.user_id !== "usr_student" ||
+      assignment.role_key !== "CEO" ||
+      assignment.source !== "teacher_assigned" ||
+      assignment.assigned_by !== teacher.user_id ||
+      !snapshot.events.some(
+        (event) =>
+          event.event_type === "role_assigned" &&
+          event.resource_id === assignment.assignment_id &&
+          event.tenant_id === tenantId &&
+          event.run_id === runId &&
+          event.team_id === scope.team_id &&
+          event.actor_id === teacher.user_id
+      )
+    ) {
+      throw new Error("W3 fixture role assignment cannot be safely reused.");
+    }
+    return;
+  }
+
+  const workflow = new RoleWorkflowCommandService(repository);
+  await workflow.assignRole(
+    { actor_id: teacher.user_id, actor_role: "teacher", tenant_id: tenantId },
+    { ...scope, user_id: "usr_student", role_key: "CEO" }
+  );
+}
+
+export async function seedW3OfficialConsequenceFixture(storeFile: string): Promise<void> {
   const store = createP1Store({ persistenceFile: storeFile });
   if (store.runs.some((run) => run.run_id === runId)) {
+    await ensureStudentRoleAssignment(store);
     return;
   }
   const course = store.courses.find((candidate) => candidate.course_id === "course_demo");
@@ -107,4 +171,5 @@ export function seedW3OfficialConsequenceFixture(storeFile: string): void {
     tenant_id: tenantId
   });
   store.persist();
+  await ensureStudentRoleAssignment(store);
 }

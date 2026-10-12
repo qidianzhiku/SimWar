@@ -3,11 +3,12 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { REAUTH_CONTEXT_STORAGE_KEY } from "@simwar/shared-contracts";
-import { App } from "../../apps/student/src/App";
+import { App, StudentLearningLoadBoundary } from "../../apps/student/src/App";
 import { StudentLearningReportPanel } from "../../apps/student/src/StudentLearningReport";
 import { W3OfficialConsequenceLearningPanel } from "../../apps/student/src/W3OfficialConsequenceLearningPanel";
 import {
   matchesAuthorizedSpine,
+  matchesStudentCockpit,
   readStudentRequestContext,
   studentSpineQuery
 } from "../../apps/student/src/student-request-context";
@@ -105,7 +106,14 @@ function reportList() {
     known_limits: ["Published role-safe projection"],
     reports: [learningContext, secondContext].map((context) => ({
       report_id: `report-${context.round_no}`,
-      context,
+      context: {
+        course_id: context.course_id,
+        run_id: context.run_id,
+        team_id: context.team_id,
+        round_id: context.round_id,
+        round_no: context.round_no,
+        role_key: context.role_key
+      },
       status: "CONFIRMED",
       learning_evidence: { criterion_results: [], student_visible_feedback: [] },
       business_outcome: {
@@ -116,11 +124,11 @@ function reportList() {
   };
 }
 function consequence(context = learningContext) {
-  const ref = (resource_id: string) => ({
+  const ref = (resource_id: string, resource_type = "round") => ({
     resource_id,
     discriminator: "exact_ref",
     content_digest: "a".repeat(64),
-    resource_type: "round",
+    resource_type,
     tenant_id: "tenant-a",
     version: "1.0.0"
   });
@@ -145,16 +153,19 @@ function consequence(context = learningContext) {
         decision_summary: `story round ${context.round_no}`,
         consequence_summary: "published consequence"
       },
-      causal_debrief: { label: "model_conditioned_association", statements: [] },
+      causal_debrief: {
+        label: "model_conditioned_association",
+        statements: ["Association is not causal proof"]
+      },
       learning: {
         evidence_selection_status: "NOT_SELECTED",
-        teacher_confirmation_status: "PENDING",
-        next_round_hypothesis_status: "NOT_STARTED"
+        teacher_confirmation_status: "MISSING",
+        next_round_hypothesis_status: "BLOCKED"
       },
       source: {
-        canonical_decision_ref: ref("decision"),
+        canonical_decision_ref: ref("decision", "canonical_decision"),
         round_ref: ref(context.round_id),
-        settlement_ref: ref("settlement")
+        settlement_ref: ref("settlement", "settlement_result")
       },
       known_limits: ["non-causal"]
     }
@@ -168,6 +179,15 @@ function deferred<T>() {
     reject = no;
   });
   return { promise, resolve, reject };
+}
+class RenderBoundary extends React.Component<{ children: React.ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? <p>renderer failed</p> : this.props.children;
+  }
 }
 async function mountPanel(element: React.ReactNode) {
   const host = document.createElement("div");
@@ -185,7 +205,250 @@ async function mountPanel(element: React.ReactNode) {
     }
   };
 }
+describe("native runtime structural ingress", () => {
+  it.each(["independent error", "non-success code"])(
+    "rejects report %s with otherwise valid HTTP2xx data",
+    async (kind) => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            data: reportList(),
+            ...(kind === "independent error"
+              ? { error: { message: "private report error" } }
+              : { code: "REPORT_ERROR" })
+          })
+        )
+      );
+      const panel = await mountPanel(
+        <StudentLearningReportPanel
+          token="token"
+          tenantId="tenant-a"
+          published
+          context={learningContext}
+        />
+      );
+      try {
+        expect(panel.host.querySelector('[role="alert"]')).not.toBeNull();
+        expect(panel.host.textContent).not.toContain("report outcome round 1");
+        expect(panel.host.textContent).not.toContain("private report error");
+      } finally {
+        await panel.close();
+      }
+    }
+  );
+  it("does not display private W3 HTTP error detail", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ message: "private W3 error detail" }), { status: 503 })
+    );
+    const panel = await mountPanel(
+      <W3OfficialConsequenceLearningPanel
+        apiBase="http://api.test"
+        token="token"
+        tenantId="tenant-a"
+        context={learningContext}
+      />
+    );
+    try {
+      expect(panel.host.querySelector('[role="alert"]')).not.toBeNull();
+      expect(panel.host.textContent).not.toContain("private W3 error detail");
+    } finally {
+      await panel.close();
+    }
+  });
+  it.each(["decision_form", "published_result", "learning_report", "three_part_feedback"])(
+    "rejects contradictory %s even when root cockpit is exact R1",
+    (name) => {
+      const base = {
+        tenant_id: "tenant-a",
+        course_id: "course-a",
+        run_id: "run-a",
+        team_id: "team-a",
+        round_id: "round-1",
+        round_no: 1
+      };
+      const dto = {
+        student_cockpit: base,
+        decision_form: base,
+        published_result: base,
+        learning_report: base,
+        three_part_feedback: base
+      };
+      expect(
+        matchesStudentCockpit(
+          { ...learningContext },
+          {
+            ...dto,
+            [name]: { ...base, round_id: "round-2", round_no: 2 }
+          } as unknown as Parameters<typeof matchesStudentCockpit>[1],
+          "tenant-a"
+        )
+      ).toBe(false);
+    }
+  );
+  it.each(["publication", "official_result", "decision_story", "known_limits", "source"])(
+    "fails closed for malformed W3 %s without renderer exception",
+    async (field) => {
+      const data = consequence();
+      const malformed = { ...data, record: { ...data.record, [field]: null } };
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(JSON.stringify({ data: malformed }))
+      );
+      const panel = await mountPanel(
+        <RenderBoundary>
+          <W3OfficialConsequenceLearningPanel
+            apiBase="http://api.test"
+            token="token"
+            tenantId="tenant-a"
+            context={learningContext}
+          />
+        </RenderBoundary>
+      );
+      try {
+        expect(panel.host.querySelector('[role="alert"]')).not.toBeNull();
+        expect(panel.host.textContent).not.toContain("renderer failed");
+        expect(panel.host.textContent).not.toContain("story round 1");
+      } finally {
+        await panel.close();
+      }
+    }
+  );
+  it.each(["wrong source round", "wrong result team", "unpublished result", "independent error"])(
+    "rejects W3 %s on HTTP2xx",
+    async (kind) => {
+      const data = consequence();
+      if (kind === "wrong source round") data.record.source.round_ref.resource_id = "round-2";
+      if (kind === "wrong result team") data.record.official_result.team_id = "other-team";
+      if (kind === "unpublished result") data.record.publication.status = "NOT_PUBLISHED";
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            data,
+            ...(kind === "independent error" ? { error: { message: "private error" } } : {})
+          })
+        )
+      );
+      const panel = await mountPanel(
+        <W3OfficialConsequenceLearningPanel
+          apiBase="http://api.test"
+          token="token"
+          tenantId="tenant-a"
+          context={learningContext}
+        />
+      );
+      try {
+        expect(panel.host.querySelector('[role="alert"]')).not.toBeNull();
+        expect(panel.host.textContent).not.toContain("story round 1");
+        expect(panel.host.textContent).not.toContain("private error");
+      } finally {
+        await panel.close();
+      }
+    }
+  );
+  it.each(["learning_evidence", "business_outcome", "status"])(
+    "rejects matching report with malformed %s before rendering",
+    async (field) => {
+      const data = reportList();
+      const malformed = { ...data, reports: [{ ...data.reports[0], [field]: null }] };
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(JSON.stringify({ data: malformed }))
+      );
+      const panel = await mountPanel(
+        <RenderBoundary>
+          <StudentLearningReportPanel
+            token="token"
+            tenantId="tenant-a"
+            published
+            context={learningContext}
+          />
+        </RenderBoundary>
+      );
+      try {
+        expect(panel.host.querySelector('[role="alert"]')).not.toBeNull();
+        expect(panel.host.textContent).not.toContain("renderer failed");
+        expect(panel.host.textContent).not.toContain("report outcome round 1");
+      } finally {
+        await panel.close();
+      }
+    }
+  );
+});
 describe("exact-round report and native W3 lifecycle", () => {
+  it("contains a rejected lazy module while preserving admitted siblings and explicit reload", async () => {
+    const onReload = vi.fn();
+    const failure = deferred<{ default: React.ComponentType }>();
+    const Module = React.lazy(() => failure.promise);
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const panel = await mountPanel(
+      <>
+        <p>admitted cockpit remains available</p>
+        <StudentLearningLoadBoundary onReload={onReload}>
+          <React.Suspense fallback={<p>loading module</p>}>
+            <Module />
+          </React.Suspense>
+        </StudentLearningLoadBoundary>
+      </>
+    );
+    try {
+      await act(async () => failure.reject(new Error("private module URL")));
+      expect(panel.host.textContent).toContain("admitted cockpit remains available");
+      expect(panel.host.textContent).toContain("学习模块暂不可用");
+      expect(panel.host.textContent).not.toContain("private module URL");
+      await act(async () => panel.host.querySelector("button")!.click());
+      expect(onReload).toHaveBeenCalledTimes(1);
+    } finally {
+      consoleError.mockRestore();
+      await panel.close();
+    }
+  });
+  it.each(["native W3", "D4 report"])(
+    "allows explicit same-identity read recovery for %s without a POST",
+    async (kind) => {
+      const fetcher = vi
+        .spyOn(globalThis, "fetch")
+        .mockRejectedValueOnce(new Error("private read failure"))
+        .mockResolvedValue(
+          new Response(
+            JSON.stringify({
+              data: kind === "native W3" ? consequence(learningContext) : reportList()
+            })
+          )
+        );
+      const panel = await mountPanel(
+        kind === "native W3" ? (
+          <W3OfficialConsequenceLearningPanel
+            apiBase=""
+            token="token"
+            tenantId="tenant-a"
+            context={learningContext}
+          />
+        ) : (
+          <StudentLearningReportPanel
+            token="token"
+            tenantId="tenant-a"
+            context={learningContext}
+            published
+          />
+        )
+      );
+      try {
+        expect(panel.host.textContent).not.toContain("private read failure");
+        const retry = Array.from(panel.host.querySelectorAll("button")).find((button) =>
+          button.textContent?.includes("重新读取")
+        );
+        expect(retry).toBeDefined();
+        await act(async () => retry!.click());
+        expect(fetcher).toHaveBeenCalledTimes(2);
+        expect(fetcher.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(
+          true
+        );
+        expect(panel.host.textContent).toContain(
+          kind === "native W3" ? "PUBLISHED" : "report outcome round 1"
+        );
+      } finally {
+        await panel.close();
+      }
+    }
+  );
   const Report = StudentLearningReportPanel as React.ComponentType<
     React.ComponentProps<typeof StudentLearningReportPanel> & {
       context?: typeof learningContext | undefined;
@@ -206,6 +469,110 @@ describe("exact-round report and native W3 lifecycle", () => {
       await panel.close();
     }
   });
+  it("does not read or show a report before native source admission and joins only the admitted ID", async () => {
+    const admitted = deferred<Response>();
+    let reportReads = 0;
+    const data = reportList();
+    data.reports.push({
+      ...data.reports[0]!,
+      report_id: "other-activity-report",
+      business_outcome: {
+        ...data.reports[0]!.business_outcome,
+        summary: "same round different source"
+      }
+    });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      if (String(input).includes("/w3/consequence")) return admitted.promise;
+      reportReads += 1;
+      expect(String(input)).toContain("/learning-reports/report-1");
+      return new Response(JSON.stringify({ code: "OK", data }));
+    });
+    const panel = await mountPanel(
+      <Report
+        token="token"
+        tenantId="tenant-a"
+        published
+        context={learningContext}
+        requireExactSourceAdmission
+      />
+    );
+    try {
+      expect(reportReads).toBe(0);
+      expect(panel.host.textContent).not.toContain("report outcome round 1");
+      const native = consequence();
+      const source = {
+        ...native.record.source.round_ref,
+        resource_type: "student_learning_report",
+        resource_id: "report-1"
+      };
+      await act(async () =>
+        admitted.resolve(
+          new Response(
+            JSON.stringify({
+              code: "OK",
+              data: {
+                ...native,
+                record: {
+                  ...native.record,
+                  learning: { ...native.record.learning, student_learning_report_ref: source }
+                }
+              }
+            })
+          )
+        )
+      );
+      expect(reportReads).toBe(1);
+      expect(panel.host.textContent).toContain("report outcome round 1");
+      expect(panel.host.textContent).not.toContain("same round different source");
+      expect(panel.host.textContent).not.toContain("report outcome round 2");
+    } finally {
+      await panel.close();
+    }
+  });
+  it.each(["wrong context", "unpublished", "no source", "error envelope"])(
+    "does not read public report data when native source admission has %s",
+    async (mode) => {
+      const native = consequence();
+      const record = {
+        ...native.record,
+        learning: {
+          ...native.record.learning,
+          student_learning_report_ref: {
+            ...native.record.source.round_ref,
+            resource_type: "student_learning_report",
+            resource_id: "report-1"
+          }
+        }
+      };
+      if (mode === "wrong context") record.context = secondContext;
+      if (mode === "unpublished") record.publication.status = "SETTLED_UNPUBLISHED";
+      const envelope: Record<string, unknown> = { code: "OK", data: { ...native, record } };
+      if (mode === "no source")
+        delete (record.learning as Record<string, unknown>).student_learning_report_ref;
+      if (mode === "error envelope") envelope.error = "private-source-error";
+      let reports = 0;
+      vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+        if (!String(input).includes("/w3/consequence")) reports += 1;
+        return new Response(JSON.stringify(envelope));
+      });
+      const panel = await mountPanel(
+        <Report
+          token="token"
+          tenantId="tenant-a"
+          published
+          context={learningContext}
+          requireExactSourceAdmission
+        />
+      );
+      try {
+        expect(reports).toBe(0);
+        expect(panel.host.textContent).toContain("学习报告暂不可用");
+        expect(panel.host.textContent).not.toContain("private-source-error");
+      } finally {
+        await panel.close();
+      }
+    }
+  );
   it("does not restore a late report when publication or exact context becomes unavailable", async () => {
     const old = deferred<Response>();
     vi.spyOn(globalThis, "fetch").mockReturnValue(old.promise);

@@ -54,7 +54,14 @@ export interface TeacherConfirmationEvidenceLookup {
     reference: TeacherConfirmationExactRef
   ): Promise<{
     artifact_ref: TeacherConfirmationExactRef;
-    context: { course_id: string; run_id: string; team_id: string; role_key: string };
+    context: {
+      course_id: string;
+      run_id: string;
+      team_id: string;
+      role_key: string;
+      round_id?: string;
+      round_no?: number;
+    };
     visibility: "teacher_only";
   } | null>;
 }
@@ -141,6 +148,20 @@ function versionNumber(version: string): number {
 
 function equalRef(left: TeacherConfirmationExactRef, right: TeacherConfirmationExactRef): boolean {
   return canonicalize(left) === canonicalize(right);
+}
+
+function exactRoundContextMatches(
+  requested: TeacherConfirmationContext,
+  actual: { round_id?: string; round_no?: number }
+): boolean {
+  const exactRoundRequested = requested.round_id !== undefined || requested.round_no !== undefined;
+  if (!exactRoundRequested) return true;
+  return (
+    requested.round_id !== undefined &&
+    requested.round_no !== undefined &&
+    actual.round_id === requested.round_id &&
+    actual.round_no === requested.round_no
+  );
 }
 
 function ensureSameTenant(tenantId: string, refs: readonly TeacherConfirmationExactRef[]): void {
@@ -471,7 +492,8 @@ export class TeacherConfirmationCommandService {
         evidence.context.course_id !== input.context.course_id ||
         evidence.context.run_id !== input.context.run_id ||
         evidence.context.team_id !== input.context.team_id ||
-        evidence.context.role_key !== input.context.role_key
+        evidence.context.role_key !== input.context.role_key ||
+        !exactRoundContextMatches(input.context, evidence.context)
       )
         throw new TeacherConfirmationError("D3_EVIDENCE_INVALID");
     }

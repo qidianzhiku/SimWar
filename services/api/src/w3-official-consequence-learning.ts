@@ -9,6 +9,8 @@ import type {
   TeacherConfirmationVersion
 } from "@simwar/shared-contracts";
 import {
+  isW3ExactRef,
+  isD2EvidenceArtifactVersion,
   isW3OfficialConsequenceContext,
   isW3OfficialConsequenceRecord,
   type W3CounterfactualCommandInput,
@@ -31,6 +33,7 @@ import type {
   StudentLearningReportListDto
 } from "@simwar/shared-contracts";
 import { previewSettlementReplay } from "./simulation.js";
+import type { RoleWorkflowRepositoryPort } from "./repository-ports.js";
 
 export const W3_KNOWN_LIMITS = [
   "W3 records are auditable learning traces, not a second Truth or SettlementResult authority.",
@@ -195,6 +198,7 @@ export class W3OfficialConsequenceLearningService {
       readonly operatingWorldConsequence?: W3OperatingWorldConsequenceProvider;
       readonly reports: W3ReportProjection;
       readonly repository: W3Repository;
+      readonly roleWorkflow?: Pick<RoleWorkflowRepositoryPort, "readRoleWorkflow">;
     }
   ) {
     this.now = dependencies.now ?? (() => new Date().toISOString());
@@ -359,7 +363,7 @@ export class W3OfficialConsequenceLearningService {
   ): Promise<W3OfficialConsequenceResponse> {
     this.requireStudent(actor);
     const context = this.validateContext(input.context);
-    const record = await this.buildRecord(actor, context, "student");
+    const record = await this.buildRecord(actor, context, "student", "exact_round");
     if (record.publication.status !== "PUBLISHED") {
       throw new W3OfficialConsequenceLearningError("W3_OFFICIAL_RESULT_NOT_PUBLISHED");
     }
@@ -392,7 +396,7 @@ export class W3OfficialConsequenceLearningService {
         reflection
       });
     }
-    return this.getConsequence(actor, context, "student");
+    return this.getConsequenceExact(actor, context, "student");
   }
 
   async selectEvidence(
@@ -405,23 +409,13 @@ export class W3OfficialConsequenceLearningService {
     const record = await this.buildRecord(actor, context, "teacher");
     if (
       input.evidence_refs.length === 0 ||
-      input.evidence_refs.some((ref) => ref.tenant_id !== actor.tenant_id)
+      input.evidence_refs.some((ref) => !isW3ExactRef(ref) || ref.tenant_id !== actor.tenant_id)
     ) {
       throw new W3OfficialConsequenceLearningError("W3_REQUEST_INVALID");
     }
     const artifacts = await this.dependencies.evidence.listEvidenceArtifacts(actor.tenant_id);
     const valid = input.evidence_refs.every((ref) =>
-      artifacts.some(
-        (artifact) =>
-          artifact.artifact_ref.resource_id === ref.resource_id &&
-          artifact.artifact_ref.version === ref.version &&
-          artifact.artifact_ref.content_digest === ref.content_digest &&
-          artifact.context.activity_id === context.activity_id &&
-          artifact.context.course_id === context.course_id &&
-          artifact.context.role_key === context.role_key &&
-          artifact.context.run_id === context.run_id &&
-          artifact.context.team_id === context.team_id
-      )
+      artifacts.some((artifact) => exactEvidenceMatches(artifact, ref, context))
     );
     if (!valid) throw new W3OfficialConsequenceLearningError("W3_EVIDENCE_NOT_FOUND");
     const selectionId = `w3_selection_${hash({ context, idempotency_key: input.idempotency_key }).slice(0, 24)}`;
@@ -457,7 +451,7 @@ export class W3OfficialConsequenceLearningService {
   ): Promise<W3OfficialConsequenceResponse> {
     this.requireTeacher(actor);
     const context = this.validateContext(input.context);
-    const record = await this.buildRecord(actor, context, "teacher");
+    const record = await this.buildRecord(actor, context, "teacher", "exact_round");
     if (record.publication.status !== "PUBLISHED") {
       throw new W3OfficialConsequenceLearningError("W3_OFFICIAL_RESULT_NOT_PUBLISHED");
     }
@@ -468,7 +462,7 @@ export class W3OfficialConsequenceLearningService {
     if (record.learning.evidence_selection_status !== "SELECTED")
       reasons.push("evidence_selection_required");
     if (reasons.length > 0) {
-      return this.getConsequence(actor, context, "teacher");
+      return this.getConsequenceExact(actor, context, "teacher");
     }
     const hypothesis: W3NextRoundHypothesis = {
       basis: "published official result plus confirmed learning evidence",
@@ -485,10 +479,13 @@ export class W3OfficialConsequenceLearningService {
       await this.appendAudit(actor, requestId, "w3.next_round_hypothesis.ready", record.record_id, {
         context,
         hypothesis,
-        record_id: record.record_id
+        record_id: record.record_id,
+        teacher_confirmation_ref: record.learning.teacher_confirmation_ref,
+        reflection_id: record.reflection?.reflection_id,
+        selection_id: record.evidence_selection?.selection_id
       });
     }
-    return this.getConsequence(actor, context, "teacher");
+    return this.getConsequenceExact(actor, context, "teacher");
   }
 
   private async buildRecord(
@@ -497,6 +494,9 @@ export class W3OfficialConsequenceLearningService {
     surface: W3Surface,
     evidenceScope: "exact_round" | "legacy_compatible" = "legacy_compatible"
   ): Promise<W3OfficialConsequenceRecord> {
+    if (evidenceScope === "exact_round" && context.activity_id !== "activity_consequence") {
+      throw new W3OfficialConsequenceLearningError("W3_CONTEXT_INVALID");
+    }
     const run = await this.dependencies.repository.runs.getRun(actor.tenant_id, context.run_id);
     const rounds = await this.dependencies.repository.rounds.listRoundsForRun(
       actor.tenant_id,
@@ -519,6 +519,9 @@ export class W3OfficialConsequenceLearningService {
     }
     if (surface === "student" && !team.members.some((member) => member.user_id === actor.user_id)) {
       throw new W3OfficialConsequenceLearningError("W3_ACTOR_SCOPE_VIOLATION");
+    }
+    if (surface === "student") {
+      await this.requireAssignedStudentRole(actor, context);
     }
     const decision = await this.getCanonicalDecision(actor.tenant_id, context);
     const settlements =
@@ -559,18 +562,44 @@ export class W3OfficialConsequenceLearningService {
         tenant_id: actor.tenant_id
       })
     ]);
-    const recordAudits = audits.filter((audit) => audit.after?.record_id === recordId(context));
-    const confirmation = latestConfirmation(
+    const recordAudits = audits.filter(
+      (audit) =>
+        audit.after?.record_id === recordId(context) &&
+        (evidenceScope !== "exact_round" || exactAuditContextMatches(audit.after?.context, context))
+    );
+    let confirmation = latestConfirmation(
       await this.dependencies.confirmations.list(actor.tenant_id),
       context,
       evidenceScope
     );
+    if (
+      evidenceScope === "exact_round" &&
+      confirmation &&
+      !(await this.exactSourceRefsMatch(confirmation.evidence_refs, context))
+    ) {
+      confirmation = undefined;
+    }
     const report = await this.findReport(actor, context, surface, evidenceScope);
-    const selection = latestAfter<W3EvidenceSelectionProjection>(
+    const storedSelection = latestAfter<W3EvidenceSelectionProjection>(
       recordAudits,
       "w3.evidence.select",
       "selection"
     );
+    // Old learning audits remain readonly. A selection ID is not evidence of
+    // round provenance; exact reads re-admit every underlying immutable ref.
+    let selection = storedSelection;
+    if (evidenceScope === "exact_round" && storedSelection) {
+      const artifacts = await this.dependencies.evidence.listEvidenceArtifacts(actor.tenant_id);
+      if (
+        !Array.isArray(storedSelection.evidence_refs) ||
+        storedSelection.evidence_refs.length === 0 ||
+        !storedSelection.evidence_refs.every((ref) =>
+          artifacts.some((artifact) => exactEvidenceMatches(artifact, ref, context))
+        )
+      ) {
+        selection = undefined;
+      }
+    }
     const reflection = latestAfter<W3ReflectionProjection>(
       recordAudits,
       "w3.reflection.save",
@@ -581,8 +610,31 @@ export class W3OfficialConsequenceLearningService {
       "w3.counterfactual.create",
       "counterfactual"
     );
+    // Legacy audits remain intact. Exact reads require the evidence actually bound
+    // when the hypothesis was prepared, not a later same-team confirmation.
+    const hypothesisAudits =
+      evidenceScope === "exact_round"
+        ? recordAudits.filter((audit) => {
+            const after = audit.after;
+            const boundContext = after?.context as Partial<W3RoundContext> | undefined;
+            return (
+              confirmation?.status === "CONFIRMED" &&
+              reflection &&
+              selection &&
+              round.status === "published" &&
+              boundContext &&
+              (Object.keys(context) as (keyof W3RoundContext)[]).every(
+                (key) => boundContext[key] === context[key]
+              ) &&
+              after?.teacher_confirmation_ref !== undefined &&
+              hash(after.teacher_confirmation_ref) === hash(confirmation.confirmation_ref) &&
+              after?.reflection_id === reflection.reflection_id &&
+              after?.selection_id === selection.selection_id
+            );
+          })
+        : recordAudits;
     const hypothesis = latestAfter<W3NextRoundHypothesis>(
-      recordAudits,
+      hypothesisAudits,
       "w3.next_round_hypothesis.ready",
       "hypothesis"
     );
@@ -701,14 +753,79 @@ export class W3OfficialConsequenceLearningService {
             tenant_id: actor.tenant_id,
             user_id: actor.user_id
           });
-    return data.reports.find(
-      (report) =>
-        report.context.course_id === context.course_id &&
-        report.context.run_id === context.run_id &&
-        report.context.team_id === context.team_id &&
-        report.context.role_key === context.role_key &&
-        roundEvidenceMatches(report.context, context, evidenceScope)
-    );
+    for (const candidate of data.reports) {
+      const matches =
+        candidate.context.course_id === context.course_id &&
+        candidate.context.run_id === context.run_id &&
+        candidate.context.team_id === context.team_id &&
+        candidate.context.role_key === context.role_key &&
+        roundEvidenceMatches(candidate.context, context, evidenceScope);
+      if (!matches) continue;
+      if (
+        evidenceScope === "exact_round" &&
+        !(await this.exactSourceRefsMatch(candidate.evidence_refs, context))
+      )
+        continue;
+      return candidate;
+    }
+    return undefined;
+  }
+
+  private async exactSourceRefsMatch(
+    refs: readonly unknown[],
+    context: W3RoundContext
+  ): Promise<boolean> {
+    if (refs.length === 0 || !refs.every(isW3ExactRef)) return false;
+    const artifacts = await this.dependencies.evidence.listEvidenceArtifacts(context.tenant_id);
+    for (const ref of refs) {
+      if (ref.resource_type !== "evidence_artifact") return false;
+      const artifact = artifacts.find(
+        (item) =>
+          item.artifact_ref.resource_id === ref.resource_id &&
+          item.artifact_ref.version === ref.version
+      );
+      // Preserve the existing whole-record missing-D4-dependency fail-closed contract.
+      if (!artifact) throw new W3OfficialConsequenceLearningError("W3_OUTPUT_INVALID");
+      if (!exactEvidenceMatches(artifact, ref, context)) return false;
+    }
+    return true;
+  }
+
+  private async requireAssignedStudentRole(actor: W3Actor, context: W3RoundContext): Promise<void> {
+    if (!this.dependencies.roleWorkflow)
+      throw new W3OfficialConsequenceLearningError("W3_ACTOR_SCOPE_VIOLATION");
+    const snapshot = await this.dependencies.roleWorkflow.readRoleWorkflow({
+      tenant_id: context.tenant_id,
+      run_id: context.run_id,
+      round_id: context.round_id,
+      team_id: context.team_id
+    });
+    if (
+      snapshot.course?.tenant_id !== context.tenant_id ||
+      snapshot.course.course_id !== context.course_id ||
+      snapshot.run?.tenant_id !== context.tenant_id ||
+      snapshot.run.run_id !== context.run_id ||
+      snapshot.run.course_id !== context.course_id ||
+      snapshot.round?.tenant_id !== context.tenant_id ||
+      snapshot.round.run_id !== context.run_id ||
+      snapshot.round.round_id !== context.round_id ||
+      snapshot.round.round_no !== context.round_no ||
+      snapshot.team?.tenant_id !== context.tenant_id ||
+      snapshot.team.team_id !== context.team_id ||
+      snapshot.team.course_id !== context.course_id ||
+      !snapshot.assignments.some(
+        (assignment) =>
+          assignment.status === "active" &&
+          assignment.tenant_id === context.tenant_id &&
+          assignment.course_id === context.course_id &&
+          assignment.run_id === context.run_id &&
+          assignment.team_id === context.team_id &&
+          assignment.user_id === actor.user_id &&
+          assignment.role_key === context.role_key
+      )
+    ) {
+      throw new W3OfficialConsequenceLearningError("W3_ACTOR_SCOPE_VIOLATION");
+    }
   }
 
   private validateContext(context: W3RoundContext): W3RoundContext {
@@ -765,6 +882,41 @@ export class W3OfficialConsequenceLearningService {
       after
     });
   }
+}
+
+function exactEvidenceMatches(
+  artifact: D2EvidenceArtifactVersion,
+  ref: W3ExactRef,
+  context: W3RoundContext
+): boolean {
+  return Boolean(
+    isD2EvidenceArtifactVersion(artifact) &&
+    isW3ExactRef(ref) &&
+    ref.resource_type === "evidence_artifact" &&
+    ref.tenant_id === context.tenant_id &&
+    artifact.artifact_ref.discriminator === ref.discriminator &&
+    artifact.artifact_ref.tenant_id === ref.tenant_id &&
+    artifact.artifact_ref.resource_type === ref.resource_type &&
+    artifact.artifact_ref.resource_id === ref.resource_id &&
+    artifact.artifact_ref.version === ref.version &&
+    artifact.artifact_ref.content_digest === ref.content_digest &&
+    artifact.artifact_digest === ref.content_digest &&
+    artifact.context.activity_id === context.activity_id &&
+    artifact.context.course_id === context.course_id &&
+    artifact.context.run_id === context.run_id &&
+    artifact.context.team_id === context.team_id &&
+    artifact.context.role_key === context.role_key &&
+    artifact.context.round_id === context.round_id &&
+    artifact.context.round_no === context.round_no
+  );
+}
+
+function exactAuditContextMatches(value: unknown, context: W3RoundContext): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const bound = value as Partial<W3RoundContext>;
+  return (Object.keys(context) as (keyof W3RoundContext)[]).every(
+    (key) => bound[key] === context[key]
+  );
 }
 
 function exactRef(
@@ -839,7 +991,9 @@ function latestConfirmation(
         roundEvidenceMatches(confirmation.context, context, evidenceScope)
     )
     .sort((left, right) =>
-      left.confirmation_ref.version.localeCompare(right.confirmation_ref.version)
+      left.confirmation_ref.version.localeCompare(right.confirmation_ref.version, undefined, {
+        numeric: true
+      })
     )
     .at(-1);
 }

@@ -271,8 +271,8 @@ function addCoreScenario(store: SimWarStore): void {
   const edge: D2ProvenanceEdge = {
     discriminator: "d2_provenance_edge",
     relation: "derived_from",
-    source_ref: eventRef,
-    target_ref: evidenceRef
+    source_ref: evidenceRef,
+    target_ref: eventRef
   };
   store.evidenceProvenanceEdges.push(edge);
   const roundTwoCreatedAt = "2026-08-23T11:00:00.000Z";
@@ -307,8 +307,8 @@ function addCoreScenario(store: SimWarStore): void {
   store.evidenceProvenanceEdges.push({
     discriminator: "d2_provenance_edge",
     relation: "derived_from",
-    source_ref: roundTwoEventRef,
-    target_ref: roundTwoEvidenceRef
+    source_ref: roundTwoEvidenceRef,
+    target_ref: roundTwoEventRef
   });
   const confirmationRef = ref("teacher_confirmation_version", M2P5_CONFIRMATION_ID);
   const confirmation: TeacherConfirmationVersion = {

@@ -1,4 +1,5 @@
 import {
+  Component,
   lazy,
   Suspense,
   useCallback,
@@ -8,6 +9,29 @@ import {
   useState,
   type ReactNode
 } from "react";
+
+/** A rejected lazy module must not remove the other admitted Student surfaces. */
+export class StudentLearningLoadBoundary extends Component<
+  { children: ReactNode; onReload?: () => void },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? (
+      <div role="alert">
+        学习模块暂不可用，其他已准入内容仍可使用。
+        <button type="button" onClick={this.props.onReload ?? (() => window.location.reload())}>
+          重新加载学习页面
+        </button>
+      </div>
+    ) : (
+      this.props.children
+    );
+  }
+}
 import {
   getKnownLimitsProjection,
   M1_TEACHING_OFFICIAL_RESULT_LABEL,
@@ -34,15 +58,27 @@ import type {
   W5GovernedModelStudentProjection,
   W3OfficialConsequenceContext
 } from "@simwar/shared-contracts";
-import { OperatingWorldBrief } from "./OperatingWorldBrief";
+const OperatingWorldBrief = lazy(() =>
+  import("./OperatingWorldBrief").then(({ OperatingWorldBrief }) => ({
+    default: OperatingWorldBrief
+  }))
+);
 const StudentRoleWorkflowPanel = lazy(() => import("./StudentRoleWorkflowPanel"));
 import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { StudentLearningReportPanel } from "./StudentLearningReport";
-import { W3OfficialConsequenceLearningPanel } from "./W3OfficialConsequenceLearningPanel";
+const W3OfficialConsequenceLearningPanel = lazy(() =>
+  import("./W3OfficialConsequenceLearningPanel").then(({ W3OfficialConsequenceLearningPanel }) => ({
+    default: W3OfficialConsequenceLearningPanel
+  }))
+);
 const ShanghaiFullVerticalStudentPanel = lazy(() => import("./ShanghaiFullVerticalPanel"));
 import { ProjectBriefPanel, type ProjectAwareEvidenceAvailability } from "./ProjectBriefPanel";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
-import { RegionalTransferProjection } from "./features/regional-transfer-projection";
+const RegionalTransferProjection = lazy(() =>
+  import("./features/regional-transfer-projection").then(({ RegionalTransferProjection }) => ({
+    default: RegionalTransferProjection
+  }))
+);
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
 const ModelQualificationProjection = lazy(() => import("./ModelQualificationProjection"));
 import { GovernedStakeholderIntelligenceProjection } from "./GovernedStakeholderIntelligenceProjection";
@@ -1290,11 +1326,15 @@ export function App() {
             className="student-location"
             aria-label="区域迁移与场景演化"
           >
-            <RegionalTransferProjection
-              apiBase={API_BASE}
-              candidateId={REGIONAL_TRANSFER_CANDIDATE_ID}
-              token={activeSession?.access_token ?? ""}
-            />
+            <StudentLearningLoadBoundary key={requestContextKey}>
+              <Suspense fallback={<p role="status">正在载入区域迁移投影…</p>}>
+                <RegionalTransferProjection
+                  apiBase={API_BASE}
+                  candidateId={REGIONAL_TRANSFER_CANDIDATE_ID}
+                  token={activeSession?.access_token ?? ""}
+                />
+              </Suspense>
+            </StudentLearningLoadBoundary>
           </section>
         ) : null}
 
@@ -1304,15 +1344,19 @@ export function App() {
             className="student-location"
             aria-label="Operating World Brief"
           >
-            <OperatingWorldBrief
-              apiBase={API_BASE}
-              courseId={latestRun?.course_id}
-              draftId={operatingWorldDraftId}
-              roundNo={latestRound?.round_no}
-              runId={latestRun?.run_id}
-              tenantId={login.tenantId}
-              token={activeSession?.access_token ?? ""}
-            />
+            <StudentLearningLoadBoundary key={requestContextKey}>
+              <Suspense fallback={<p role="status">正在载入 Operating World Brief…</p>}>
+                <OperatingWorldBrief
+                  apiBase={API_BASE}
+                  courseId={latestRun?.course_id}
+                  draftId={operatingWorldDraftId}
+                  roundNo={latestRound?.round_no}
+                  runId={latestRun?.run_id}
+                  tenantId={login.tenantId}
+                  token={activeSession?.access_token ?? ""}
+                />
+              </Suspense>
+            </StudentLearningLoadBoundary>
           </section>
         ) : null}
 
@@ -1509,29 +1553,31 @@ export function App() {
               badge={<AuthorityBadge authority="advisory" />}
               boundary="正式结果只读；学习输入与建议不能写入正式决策或结算真值。"
             >
-              <Suspense fallback={<p className="muted">正在载入学习旅程…</p>}>
-                <StudentDecisionLearningJourney
-                  apiBase={API_BASE}
-                  context={W3_ENABLED && w3ContextReady ? w3Context : undefined}
-                  tenantId={login.tenantId}
-                  token={activeSession?.access_token ?? ""}
-                  published={W3_ENABLED && w3ContextReady && Boolean(myResult)}
-                  decisionContextEvidence={
-                    projectAwareEvidenceExpected ? (decisionContextEvidence ?? null) : null
-                  }
-                  decisionContextEvidenceRequired={projectAwareEvidenceGateRequired}
-                  crossRoundEnabled={W3_ENABLED && w3ContextReady}
-                  evidenceSpineContext={W3_ENABLED && ddtContextReady ? ddtContext : undefined}
-                  evidenceSpineEnabled={W3_ENABLED && ddtContextReady}
-                  onReauthenticate={() =>
-                    document.querySelector<HTMLInputElement>('[aria-label="tenant"]')?.focus()
-                  }
-                  m4={
-                    latestRun &&
-                    latestRound && [latestRun.course_id, latestRun.run_id, latestRound.round_no]
-                  }
-                />
-              </Suspense>
+              <StudentLearningLoadBoundary key={requestContextKey}>
+                <Suspense fallback={<p className="muted">正在载入学习旅程…</p>}>
+                  <StudentDecisionLearningJourney
+                    apiBase={API_BASE}
+                    context={W3_ENABLED && w3ContextReady ? w3Context : undefined}
+                    tenantId={login.tenantId}
+                    token={activeSession?.access_token ?? ""}
+                    published={W3_ENABLED && w3ContextReady && Boolean(myResult)}
+                    decisionContextEvidence={
+                      projectAwareEvidenceExpected ? (decisionContextEvidence ?? null) : null
+                    }
+                    decisionContextEvidenceRequired={projectAwareEvidenceGateRequired}
+                    crossRoundEnabled={W3_ENABLED && w3ContextReady}
+                    evidenceSpineContext={W3_ENABLED && ddtContextReady ? ddtContext : undefined}
+                    evidenceSpineEnabled={W3_ENABLED && ddtContextReady}
+                    onReauthenticate={() =>
+                      document.querySelector<HTMLInputElement>('[aria-label="tenant"]')?.focus()
+                    }
+                    m4={
+                      latestRun &&
+                      latestRound && [latestRun.course_id, latestRun.run_id, latestRound.round_no]
+                    }
+                  />
+                </Suspense>
+              </StudentLearningLoadBoundary>
               <Suspense fallback={<p className="muted">正在载入 Student Coach…</p>}>
                 <StudentCoachPanel
                   apiBase={API_BASE}
@@ -1553,20 +1599,25 @@ export function App() {
             className="student-location"
             aria-label="W3 官方后果与决策学习"
           >
-            <W3OfficialConsequenceLearningPanel
-              key={`${requestContextKey}:${w3Context ? "authorized" : "unbound"}`}
-              requestIdentity={requestContextKey}
-              apiBase={API_BASE}
-              context={W3_ENABLED && w3ContextReady ? w3Context : undefined}
-              tenantId={login.tenantId}
-              token={activeSession?.access_token ?? ""}
-            />
+            <StudentLearningLoadBoundary key={requestContextKey}>
+              <Suspense fallback={<p role="status">正在载入官方学习投影…</p>}>
+                <W3OfficialConsequenceLearningPanel
+                  key={`${requestContextKey}:${w3Context ? "authorized" : "unbound"}`}
+                  requestIdentity={requestContextKey}
+                  apiBase={API_BASE}
+                  context={W3_ENABLED && w3ContextReady ? w3Context : undefined}
+                  tenantId={login.tenantId}
+                  token={activeSession?.access_token ?? ""}
+                />
+              </Suspense>
+            </StudentLearningLoadBoundary>
           </section>
         ) : null}
 
         {hasStudentSurface ? (
           <section id="student-learning-report" className="student-location" aria-label="学习报告">
             <StudentLearningReportPanel
+              requireExactSourceAdmission={W3_ENABLED}
               tenantId={login.tenantId}
               token={activeSession?.access_token ?? ""}
               requestIdentity={requestContextKey}

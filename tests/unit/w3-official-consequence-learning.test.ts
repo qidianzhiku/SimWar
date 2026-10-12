@@ -5,6 +5,8 @@ import {
 } from "../../packages/shared-contracts/src/w3-official-consequence-learning.js";
 import type {
   Decision,
+  D2EvidenceArtifactVersion,
+  D2ExactRef,
   SettlementResult,
   StudentLearningReport,
   StudentLearningReportExactRef,
@@ -12,6 +14,8 @@ import type {
   TeacherConfirmationVersion
 } from "@simwar/shared-contracts";
 import { W3OfficialConsequenceLearningService } from "../../services/api/src/w3-official-consequence-learning.js";
+import { createP1Store } from "../../services/api/src/store.js";
+import { createJsonRoleWorkflowRepositoryPort } from "../../services/api/src/json-repository-adapter.js";
 
 const digest = "a".repeat(64);
 
@@ -195,7 +199,8 @@ function report(source: TeacherConfirmationVersion, reportId: string): StudentLe
 
 function learningReadService(
   confirmations: readonly TeacherConfirmationVersion[],
-  reports: readonly StudentLearningReport[]
+  reports: readonly StudentLearningReport[],
+  officialScore = 80
 ): W3OfficialConsequenceLearningService {
   const decision: Decision = {
     canonical_source: "role_merge_commit",
@@ -238,7 +243,7 @@ function learningReadService(
           profit_band: "healthy",
           rank: 1,
           revenue: 1,
-          score: 80,
+          score: officialScore,
           served_demand: 1
         },
         state_true: {
@@ -249,7 +254,7 @@ function learningReadService(
           profit: 1,
           rank: 1,
           revenue: 1,
-          score: 80,
+          score: officialScore,
           served_demand: 1,
           settlement_status: "settled"
         },
@@ -266,16 +271,97 @@ function learningReadService(
     runtime_authority: "JSON_INTERNAL_ONLY" as const,
     scope
   });
+  const workflowStore = createP1Store();
+  workflowStore.courses.push({
+    ...workflowStore.courses[0]!,
+    course_id: "course_w3",
+    tenant_id: "tenant_w3"
+  });
+  workflowStore.runs.push({
+    course_id: "course_w3",
+    parameter_set_id: "params_w3",
+    run_id: "run_w3",
+    scenario_package_id: "scenario_w3",
+    seed: 1,
+    status: "active",
+    tenant_id: "tenant_w3"
+  });
+  workflowStore.rounds.push({
+    round_id: "round_w3",
+    round_no: 1,
+    run_id: "run_w3",
+    status: "published",
+    tenant_id: "tenant_w3"
+  });
+  workflowStore.teams.push({
+    ...workflowStore.teams[0]!,
+    course_id: "course_w3",
+    team_id: "team_w3",
+    tenant_id: "tenant_w3",
+    captain_user_id: "usr_teacher",
+    members: [{ user_id: "usr_teacher", display_name: "Unit learner", role_slot: "CEO" }]
+  });
+  workflowStore.studentRoleAssignments.push({
+    assignment_id: "assignment_w3",
+    tenant_id: "tenant_w3",
+    course_id: "course_w3",
+    run_id: "run_w3",
+    team_id: "team_w3",
+    user_id: "usr_teacher",
+    role_key: "CEO",
+    role_template_id: "role_template_ceo",
+    status: "active",
+    source: "teacher_assigned",
+    assigned_by: "unit_teacher",
+    assigned_at: "2026-08-18T00:00:00.000Z"
+  });
+  const artifacts: D2EvidenceArtifactVersion[] = confirmations.map((source) => {
+    const ref = (resource_type: D2ExactRef["resource_type"], resource_id: string): D2ExactRef => ({
+      content_digest: digest,
+      discriminator: "exact_ref",
+      resource_type,
+      resource_id,
+      tenant_id: "tenant_w3",
+      version: "1.0.0"
+    });
+    return {
+      artifact_digest: digest,
+      artifact_kind: "observation",
+      artifact_ref: ref("evidence_artifact", source.evidence_refs[0]!.resource_id),
+      captured_at: source.created_at,
+      captured_by: "unit_teacher",
+      context: {
+        activity_id: "activity_consequence",
+        course_id: source.context.course_id,
+        run_id: source.context.run_id,
+        team_id: source.context.team_id,
+        role_key: source.context.role_key,
+        ...(source.context.round_id ? { round_id: source.context.round_id } : {}),
+        ...(source.context.round_no ? { round_no: source.context.round_no } : {})
+      },
+      course_package_ref: ref("course_package_version", "package_w3"),
+      discriminator: "d2_evidence_artifact_version",
+      idempotency_key: source.idempotency_key,
+      known_limits: ["Synthetic bounded evidence fixture"],
+      learning_goal_ref: ref("learning_goal_version", "goal_w3"),
+      rubric_ref: ref("rubric_version", "rubric_w3"),
+      schema_version: "evidence-provenance.v1",
+      source_event_ref: ref("role_workflow_event", "event_w3"),
+      transformation_rule_ref: ref("transformation_rule", "rule_w3"),
+      visibility: "teacher_only"
+    };
+  });
 
   return new W3OfficialConsequenceLearningService({
     confirmations: {
       list: async () => [...confirmations]
     },
     evidence: {
-      listEvidenceArtifacts: async () => [],
+      listEvidenceArtifacts: async () => artifacts,
       listProvenanceEdges: async () => []
     },
     idGenerator: { createAuditLogId: () => "audit_w3" },
+    roleWorkflow: createJsonRoleWorkflowRepositoryPort(workflowStore),
     reports: {
       listPreview: async () => reportList("tenant_preview"),
       listStudent: async () => reportList("student_team")
@@ -493,6 +579,42 @@ describe("W3 counterfactual firewall", () => {
 });
 
 describe("W3 exact-round learning reads", () => {
+  it("projects a finite fractional public score without rounding or replacing it", async () => {
+    const service = learningReadService([], [], 37.25);
+    const response = await service.getConsequenceExact(
+      { roles: ["teacher"], tenant_id: "tenant_w3", user_id: "usr_teacher" },
+      { ...learningContext, round_id: "round_w3", round_no: 1 },
+      "teacher"
+    );
+    expect(response.record.official_result.score).toBe(37.25);
+    expect(response.record.official_result.rank).toBe(1);
+    expect(response.record.context.round_no).toBe(1);
+    expect(isW3OfficialConsequenceRecord(response.record)).toBe(true);
+  });
+
+  it("returns no unbound learning attachments after a student reflection", async () => {
+    const bound = confirmation(
+      "confirmation_old",
+      { round_id: "round_w3", round_no: 1 },
+      "1.0.0",
+      "2026-08-18T00:00:00.000Z"
+    );
+    const legacy = { ...bound, context: learningContext };
+    const service = learningReadService([legacy], [report(legacy, "report_old")]);
+    const result = await service.saveReflection(
+      { roles: ["learner"], tenant_id: "tenant_w3", user_id: "usr_teacher", team_id: "team_w3" },
+      {
+        context: { ...learningContext, round_id: "round_w3", round_no: 1 },
+        idempotency_key: "reflection_exact",
+        prompt_id: "prompt_exact",
+        response: "A bounded observation."
+      },
+      "request_exact"
+    );
+    expect(result.record.learning.teacher_confirmation_status).toBe("MISSING");
+    expect(result.record.learning.student_learning_report_ref).toBeUndefined();
+  });
+
   it("keeps unqualified legacy evidence out of the exact-round entrypoint", async () => {
     const qualifiedConfirmation = confirmation(
       "confirmation_legacy",
@@ -595,5 +717,39 @@ describe("W3 exact-round learning reads", () => {
       "confirmation_round_1"
     );
     expect(result.record.learning.student_learning_report_ref?.resource_id).toBe("report_round_1");
+  });
+
+  it("selects the numerically latest confirmation and its exact report ref", async () => {
+    const exactContext = {
+      ...learningContext,
+      round_id: "round_w3",
+      round_no: 1
+    } as const;
+    const versions = ["1.0.0", "2.0.0", "9.0.0", "10.0.0", "11.0.0"] as const;
+    const confirmations = versions.map((version, index) =>
+      confirmation(
+        "confirmation_numeric_chain",
+        { round_id: exactContext.round_id, round_no: exactContext.round_no },
+        version,
+        `2026-08-18T00:00:0${index}.000Z`
+      )
+    );
+    const latest = confirmations[4]!;
+    const latestReport = report(latest, "report_numeric_chain");
+    const service = learningReadService(confirmations, [latestReport]);
+
+    const result = await service.getConsequenceExact(
+      { roles: ["teacher"], tenant_id: "tenant_w3", user_id: "usr_teacher" },
+      exactContext,
+      "teacher"
+    );
+
+    expect(result.record.context).toEqual(exactContext);
+    expect(result.record.learning.teacher_confirmation_ref).toEqual(latest.confirmation_ref);
+    expect(result.record.learning.student_learning_report_ref).toEqual(latestReport.report_ref);
+    expect(result.record.learning.teacher_confirmation_ref?.version).toBe("11.0.0");
+    expect(result.record.learning.teacher_confirmation_ref?.version).toBe(
+      latestReport.teacher_confirmation_ref.version
+    );
   });
 });

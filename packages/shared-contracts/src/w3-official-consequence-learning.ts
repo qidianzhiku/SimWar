@@ -318,7 +318,8 @@ function isW3OfficialResult(value: unknown): value is W3OfficialResultProjection
     isOneOf(["official_published", "official_settled_unpublished"], value.outcome_label) &&
     isOneOf(["loss", "thin", "healthy"], value.profit_band) &&
     Number.isInteger(value.rank) &&
-    Number.isInteger(value.score) &&
+    typeof value.score === "number" &&
+    Number.isFinite(value.score) &&
     isIdentity(value.team_id)
   );
 }

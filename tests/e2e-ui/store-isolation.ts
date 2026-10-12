@@ -185,6 +185,6 @@ if (process.argv[1] && resolve(process.argv[1]) === modulePath) {
   }
   if (process.env.SIMWAR_PLAYWRIGHT_W3 === "true") {
     const { seedW3OfficialConsequenceFixture } = await import("./w3-official-consequence-fixture");
-    seedW3OfficialConsequenceFixture(PLAYWRIGHT_STORE_FILE);
+    await seedW3OfficialConsequenceFixture(PLAYWRIGHT_STORE_FILE);
   }
 }

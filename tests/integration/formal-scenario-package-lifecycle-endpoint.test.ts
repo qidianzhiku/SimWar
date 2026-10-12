@@ -206,7 +206,10 @@ describe("formal ScenarioPackage lifecycle endpoint", () => {
       );
 
       expect(validated.body.data.status).toBe("VALIDATED");
+      expect(validated.status).toBe(200);
+      expect(frozen.status).toBe(200);
       expect(frozen.body.data.status).toBe("FROZEN");
+      expect(approved.status).toBe(200);
       expect(approved.body.data).toMatchObject({
         approval_record: {
           approval_id: "scenario_api_lifecycle_approval",
@@ -214,6 +217,7 @@ describe("formal ScenarioPackage lifecycle endpoint", () => {
         },
         version: { status: "APPROVED" }
       });
+      expect(retired.status).toBe(200);
       expect(retired.body.data.status).toBe("RETIRED");
       expect(store.formalScenarioPackageLifecycleSnapshots).toHaveLength(5);
       expect(store.formalScenarioPackageApprovalRecords).toEqual([
@@ -234,6 +238,60 @@ describe("formal ScenarioPackage lifecycle endpoint", () => {
       ]);
       expect(lifecycleAudits.every((entry) => entry.actor_id === "usr_platform")).toBe(true);
       expect(lifecycleAudits.every((entry) => entry.tenant_id === DEFAULT_TENANT_ID)).toBe(true);
+      expect(
+        lifecycleAudits.every(
+          (entry) =>
+            entry.after !== undefined &&
+            entry.after !== null &&
+            typeof entry.after === "object" &&
+            !Array.isArray(entry.after)
+        )
+      ).toBe(true);
+      expect(lifecycleAudits.slice(1).map((entry) => entry.after)).toEqual([
+        validated.body.data,
+        frozen.body.data,
+        approved.body.data.version,
+        retired.body.data
+      ]);
+      expect(lifecycleAudits.slice(1).map((entry) => entry.after?.status)).toEqual([
+        "VALIDATED",
+        "FROZEN",
+        "APPROVED",
+        "RETIRED"
+      ]);
+      expect(
+        lifecycleAudits.slice(1).map((entry) => ({
+          reference: entry.after?.reference,
+          scenario_package_id: entry.after?.scenario_package_id,
+          tenant_id: entry.after?.tenant_id,
+          version: entry.after?.version
+        }))
+      ).toEqual([
+        {
+          reference,
+          scenario_package_id: SCENARIO_PACKAGE_ID,
+          tenant_id: DEFAULT_TENANT_ID,
+          version: VERSION
+        },
+        {
+          reference,
+          scenario_package_id: SCENARIO_PACKAGE_ID,
+          tenant_id: DEFAULT_TENANT_ID,
+          version: VERSION
+        },
+        {
+          reference,
+          scenario_package_id: SCENARIO_PACKAGE_ID,
+          tenant_id: DEFAULT_TENANT_ID,
+          version: VERSION
+        },
+        {
+          reference,
+          scenario_package_id: SCENARIO_PACKAGE_ID,
+          tenant_id: DEFAULT_TENANT_ID,
+          version: VERSION
+        }
+      ]);
     } finally {
       await stopServer(server);
     }

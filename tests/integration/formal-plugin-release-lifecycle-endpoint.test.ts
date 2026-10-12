@@ -20,6 +20,16 @@ interface PluginReleaseVersionResponse {
   status: "DRAFT" | "VALIDATED" | "APPROVED" | "AVAILABLE" | "RETIRED";
 }
 
+interface PluginReleaseApprovalResponse {
+  approval_record: Record<string, unknown>;
+  version: PluginReleaseVersionResponse;
+}
+
+interface PluginReleaseAvailabilityResponse {
+  availability_record: Record<string, unknown>;
+  version: PluginReleaseVersionResponse;
+}
+
 async function requestJson<T>(
   url: string,
   options: { body?: unknown; headers?: Record<string, string>; method?: string } = {}
@@ -112,24 +122,29 @@ describe("formal PluginRelease lifecycle endpoint", () => {
       );
       expect(draft.status).toBe(201);
       const reference = draft.body.data.reference;
-      const transition = (action: string, body: object = reference) =>
-        requestJson<
-          ApiEnvelope<{ version: PluginReleaseVersionResponse } | PluginReleaseVersionResponse>
-        >(`${baseUrl}${BASE_PATH}/${PLUGIN_PACKAGE_ID}/versions/${VERSION}/${action}`, {
-          body,
-          headers: authHeaders,
-          method: "POST"
-        });
-      const validated = await transition("validate");
-      const approved = await transition("approve", {
+      const transition = <T>(action: string, body: object = reference) =>
+        requestJson<ApiEnvelope<T>>(
+          `${baseUrl}${BASE_PATH}/${PLUGIN_PACKAGE_ID}/versions/${VERSION}/${action}`,
+          {
+            body,
+            headers: authHeaders,
+            method: "POST"
+          }
+        );
+      const validated = await transition<PluginReleaseVersionResponse>("validate");
+      const approved = await transition<PluginReleaseApprovalResponse>("approve", {
         ...reference,
         owner_decision_id: "owner-plugin-api-001"
       });
-      const available = await transition("make-available", {
+      const available = await transition<PluginReleaseAvailabilityResponse>("make-available", {
         ...reference,
         availability_decision_id: "availability-plugin-api-001"
       });
-      const retired = await transition("retire");
+      const retired = await transition<PluginReleaseVersionResponse>("retire");
+      expect(validated.status).toBe(200);
+      expect(approved.status).toBe(200);
+      expect(available.status).toBe(200);
+      expect(retired.status).toBe(200);
       expect(validated.body.data).toMatchObject({ status: "VALIDATED" });
       expect(approved.body.data).toMatchObject({ version: { status: "APPROVED" } });
       expect(available.body.data).toMatchObject({ version: { status: "AVAILABLE" } });
@@ -137,16 +152,50 @@ describe("formal PluginRelease lifecycle endpoint", () => {
       expect(store.formalPluginReleaseLifecycleSnapshots).toHaveLength(5);
       expect(store.formalPluginReleaseApprovalRecords).toHaveLength(1);
       expect(store.formalPluginReleaseAvailabilityRecords).toHaveLength(1);
-      expect(
-        store.auditLogs
-          .filter((entry) => entry.action.startsWith("plugin_release."))
-          .map((entry) => entry.action)
-      ).toEqual([
+      const lifecycleAudits = store.auditLogs.filter((entry) =>
+        entry.action.startsWith("plugin_release.")
+      );
+      expect(lifecycleAudits.map((entry) => entry.action)).toEqual([
         "plugin_release.create",
         "plugin_release.validate",
         "plugin_release.approve",
         "plugin_release.make_available",
         "plugin_release.retire"
+      ]);
+      expect(lifecycleAudits.every((entry) => entry.actor_id === "usr_platform")).toBe(true);
+      expect(lifecycleAudits.every((entry) => entry.tenant_id === DEFAULT_TENANT_ID)).toBe(true);
+      expect(
+        lifecycleAudits.every(
+          (entry) =>
+            entry.after !== undefined &&
+            entry.after !== null &&
+            typeof entry.after === "object" &&
+            !Array.isArray(entry.after)
+        )
+      ).toBe(true);
+      expect(lifecycleAudits.slice(1).map((entry) => entry.after)).toEqual([
+        validated.body.data,
+        approved.body.data.version,
+        available.body.data.version,
+        retired.body.data
+      ]);
+      expect(lifecycleAudits.slice(1).map((entry) => entry.after?.status)).toEqual([
+        "VALIDATED",
+        "APPROVED",
+        "AVAILABLE",
+        "RETIRED"
+      ]);
+      expect(
+        lifecycleAudits.slice(1).map((entry) => ({
+          plugin_package_id: entry.after?.plugin_package_id,
+          reference: entry.after?.reference,
+          version: entry.after?.version
+        }))
+      ).toEqual([
+        { plugin_package_id: PLUGIN_PACKAGE_ID, reference, version: VERSION },
+        { plugin_package_id: PLUGIN_PACKAGE_ID, reference, version: VERSION },
+        { plugin_package_id: PLUGIN_PACKAGE_ID, reference, version: VERSION },
+        { plugin_package_id: PLUGIN_PACKAGE_ID, reference, version: VERSION }
       ]);
     } finally {
       server.close();

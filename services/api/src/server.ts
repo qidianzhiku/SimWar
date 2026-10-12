@@ -803,6 +803,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     w4EnterpriseStateRepository
   );
   const w3OfficialConsequence = new W3OfficialConsequenceLearningService({
+    roleWorkflow: repositoryProvider.ports.roleWorkflow,
     confirmations: teacherConfirmations,
     evidence: repositoryProvider.ports.evidenceProvenance,
     idGenerator: repositoryProvider.idGenerator,
@@ -10378,7 +10379,7 @@ async function routeRequest(
       default:
         throw new HttpError(404, "ROUTE-404-001", "not found");
     }
-    const versionResult = "version" in result ? result.version : result;
+    const versionResult = isRecord(result.version) ? result.version : result;
     await appendAudit(runtime, {
       actor,
       action: `course_blueprint.${action}`,
@@ -10440,7 +10441,7 @@ async function routeRequest(
         throw new HttpError(404, "ROUTE-404-001", "not found");
     }
 
-    const versionResult = "version" in result ? result.version : result;
+    const versionResult = isRecord(result.version) ? result.version : result;
     await appendAudit(runtime, {
       actor,
       action: `parameter_set.${action}`,
@@ -10558,7 +10559,7 @@ async function routeRequest(
         throw new HttpError(404, "ROUTE-404-001", "not found");
     }
 
-    const versionResult = "version" in result ? result.version : result;
+    const versionResult = isRecord(result.version) ? result.version : result;
     await appendAudit(runtime, {
       actor,
       action: `scenario_package.${action}`,
@@ -10643,7 +10644,7 @@ async function routeRequest(
       result = await executeFormalPluginReleaseCommand(() =>
         command.retire(commandActor, reference)
       );
-    const versionResult = "version" in result ? result.version : result;
+    const versionResult = isRecord(result.version) ? result.version : result;
     await appendAudit(runtime, {
       actor,
       action: `plugin_release.${lifecycleAction.replace("-", "_")}`,

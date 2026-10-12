@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
 import type {
   M2P5DecisionLearningResponse,
+  W3OfficialConsequenceContext,
   W3OfficialConsequenceResponse
 } from "@simwar/shared-contracts";
 import { createStudentDecisionContextEvidence } from "@simwar/shared-contracts";
@@ -55,7 +56,7 @@ const response = {
       original_value_digest: "b".repeat(64),
       counterfactual_id: "counterfactual-001",
       causal_label: "model_conditioned_association",
-      exact_context_ref: {} as never,
+      exact_context_ref: exactRef("round", context.round_id, "e"),
       comparison: {
         official_score: 84,
         counterfactual_score: 79,
@@ -113,7 +114,11 @@ const response = {
       ai_generated: false
     },
     known_limits: ["机制解释不是因果证明"],
-    source: {} as never,
+    source: {
+      canonical_decision_ref: exactRef("canonical_decision", "decision-001", "a"),
+      round_ref: exactRef("round", context.round_id, "b"),
+      settlement_ref: exactRef("settlement_result", "settlement-001", "c")
+    },
     context,
     record_id: "w3-record-001",
     runtime_authority: "JSON_INTERNAL_ONLY",
@@ -124,18 +129,62 @@ const response = {
   visibility: "student_safe"
 } as unknown as W3OfficialConsequenceResponse;
 
-const exactRef = (
+function exactRef(
   resourceType: "canonical_decision" | "round" | "settlement_result",
   resourceId: string,
   digest: string
-) => ({
-  content_digest: digest.repeat(64),
-  discriminator: "exact_ref" as const,
-  resource_id: resourceId,
-  resource_type: resourceType,
-  tenant_id: context.tenant_id,
-  version: "1.0.0"
-});
+) {
+  return {
+    content_digest: digest.repeat(64),
+    discriminator: "exact_ref" as const,
+    resource_id: resourceId,
+    resource_type: resourceType,
+    tenant_id: context.tenant_id,
+    version: "1.0.0"
+  };
+}
+
+function w3FixtureForContext(nextContext: W3OfficialConsequenceContext) {
+  const next = structuredClone(response);
+  const ref = (
+    type: "canonical_decision" | "round" | "settlement_result",
+    id: string,
+    digest: string
+  ) => ({
+    ...exactRef(type, id, digest),
+    tenant_id: nextContext.tenant_id
+  });
+  const decisionId = `decision-${nextContext.round_no}-${nextContext.tenant_id}`;
+  const settlementId = `settlement-${nextContext.round_no}-${nextContext.tenant_id}`;
+  Object.assign(next.record, {
+    context: nextContext,
+    record_id: `w3-record-${nextContext.round_no}-${nextContext.tenant_id}`,
+    source: {
+      canonical_decision_ref: ref("canonical_decision", decisionId, "a"),
+      round_ref: ref("round", nextContext.round_id, "b"),
+      settlement_ref: ref("settlement_result", settlementId, "c")
+    }
+  });
+  if (next.record.counterfactual) {
+    Object.assign(next.record.counterfactual, {
+      exact_context_ref: ref("round", nextContext.round_id, "e")
+    });
+  }
+  if (next.record.operating_world_consequence_trace) {
+    Object.assign(next.record.operating_world_consequence_trace.scope, {
+      tenant_id: nextContext.tenant_id,
+      course_id: nextContext.course_id,
+      run_id: nextContext.run_id,
+      round_no: nextContext.round_no,
+      team_id: nextContext.team_id
+    });
+    Object.assign(next.record.operating_world_consequence_trace, {
+      canonical_decision_ref: decisionId,
+      settlement_result_ref: settlementId
+    });
+  }
+  return next;
+}
 
 const crossRoundResponse = {
   schema_version: "m2p5-decision-learning-crossround.v1",
@@ -214,6 +263,144 @@ function renderJourney(
 }
 
 describe("P2-B FE-19 student decision learning", () => {
+  const admissionFailures = [
+    "context",
+    "round source",
+    "tenant source",
+    "unpublished",
+    "malformed score",
+    "private record field",
+    "visibility",
+    "runtime",
+    "independent error",
+    "non-success code"
+  ] as const;
+  function invalidEnvelope(kind: (typeof admissionFailures)[number]) {
+    const data = structuredClone(response);
+    Object.assign(data.record, {
+      decision_story: {
+        ...data.record.decision_story,
+        decision_summary: "UNADMITTED_PRIVATE_VALUE"
+      }
+    });
+    const envelope: { data: W3OfficialConsequenceResponse; code?: string; error?: unknown } = {
+      data
+    };
+    if (kind === "context")
+      Object.assign(data.record, { context: { ...context, round_id: "foreign-round" } });
+    if (kind === "round source")
+      Object.assign(data.record, {
+        source: { ...data.record.source, round_ref: exactRef("round", "foreign-round", "b") }
+      });
+    if (kind === "tenant source")
+      Object.assign(data.record, {
+        source: {
+          ...data.record.source,
+          settlement_ref: {
+            ...exactRef("settlement_result", "settlement-001", "c"),
+            tenant_id: "foreign-tenant"
+          }
+        }
+      });
+    if (kind === "unpublished")
+      Object.assign(data.record, { publication: { status: "SETTLED_UNPUBLISHED" } });
+    if (kind === "malformed score")
+      (data.record.official_result as unknown as { score: unknown }).score = "PRIVATE_SCORE";
+    if (kind === "private record field")
+      Object.assign(data.record, { private_provenance: "PRIVATE_PROVENANCE" });
+    if (kind === "visibility")
+      (data as unknown as { visibility: string }).visibility = "teacher_private";
+    if (kind === "runtime")
+      (data as unknown as { runtime_authority: string }).runtime_authority = "EXTERNAL_AUTHORITY";
+    if (kind === "independent error") envelope.error = { message: "PRIVATE_ERROR" };
+    if (kind === "non-success code") envelope.code = "DENIED";
+    return envelope;
+  }
+  async function settle() {
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+  }
+  it.each(admissionFailures)("refuses W3 GET %s before ready or rendering", async (kind) => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify(invalidEnvelope(kind)), { status: 200 }));
+    const { host, root } = renderJourney({});
+    try {
+      await settle();
+      expect(host.textContent).toContain("加载失败");
+      expect(host.textContent).not.toContain("UNADMITTED_PRIVATE_VALUE");
+      expect(host.textContent).not.toContain("PRIVATE_ERROR");
+      expect(host.querySelector('[data-testid="student-p2b-reflection"] textarea')).toBeNull();
+    } finally {
+      await act(async () => root.unmount());
+      host.remove();
+      fetchSpy.mockRestore();
+    }
+  });
+  it.each(admissionFailures)(
+    "refuses reflection POST %s without replacing the admitted record",
+    async (kind) => {
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockImplementation(
+          async (input) =>
+            new Response(
+              JSON.stringify(
+                String(input).includes("/reflection") ? invalidEnvelope(kind) : { data: response }
+              ),
+              { status: 200 }
+            )
+        );
+      const { host, root } = renderJourney({});
+      try {
+        await settle();
+        const field = host.querySelector<HTMLTextAreaElement>("#student-p2b-reflection-judgment");
+        expect(field).not.toBeNull();
+        act(() => {
+          Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set?.call(
+            field,
+            "合法复盘"
+          );
+          field?.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+        await act(async () => {
+          host
+            .querySelector<HTMLButtonElement>(
+              '[data-testid="student-p2b-reflection"] button[type="submit"]'
+            )
+            ?.click();
+          await Promise.resolve();
+          await Promise.resolve();
+        });
+        expect(host.textContent).not.toContain("UNADMITTED_PRIVATE_VALUE");
+        expect(host.textContent).not.toContain("PRIVATE_ERROR");
+        expect(host.textContent).not.toContain("学习草稿已保存");
+        expect(host.textContent).toContain("学习投影暂不可用");
+      } finally {
+        await act(async () => root.unmount());
+        host.remove();
+        fetchSpy.mockRestore();
+      }
+    }
+  );
+  it.each([404, 500])("keeps private HTTP %s error text out of the W3 surface", async (status) => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(JSON.stringify({ message: "PRIVATE_HTTP_DETAIL" }), { status })
+      );
+    const { host, root } = renderJourney({});
+    try {
+      await settle();
+      expect(host.textContent).not.toContain("PRIVATE_HTTP_DETAIL");
+    } finally {
+      await act(async () => root.unmount());
+      host.remove();
+      fetchSpy.mockRestore();
+    }
+  });
   it("requires an explicit W3 context unless the feature is enabled by environment", () => {
     expect(isW3ContextAvailable(undefined, false)).toBe(false);
     expect(isW3ContextAvailable(context, false)).toBe(true);
@@ -479,7 +666,28 @@ describe("P2-B FE-19 student decision learning", () => {
     });
     const errorRegion = failed.host.querySelector('[data-testid="student-m2p6-learning-loop"]');
     expect(errorRegion?.getAttribute("data-phase")).toBe("error");
-    expect(errorRegion?.textContent).toContain("m2p6 network down");
+    expect(errorRegion?.textContent).toContain("学习投影暂不可用");
+    expect(errorRegion?.textContent).not.toContain("m2p6 network down");
+    const readRecovery = Array.from(errorRegion!.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("重新读取")
+    );
+    expect(readRecovery).toBeDefined();
+    errorFetch.mockImplementation(
+      async (input) =>
+        new Response(
+          JSON.stringify({
+            data: String(input).includes("/m2p5/") ? crossRoundResponse : response
+          }),
+          { status: 200 }
+        )
+    );
+    await act(async () => readRecovery!.click());
+    expect(
+      failed.host
+        .querySelector('[data-testid="student-m2p6-learning-loop"]')
+        ?.getAttribute("data-phase")
+    ).toBe("ready");
+    expect(errorFetch.mock.calls.every(([, options]) => options?.method !== "POST")).toBe(true);
     failed.root.unmount();
     failed.host.remove();
     errorFetch.mockRestore();
@@ -622,13 +830,23 @@ describe("P2-B FE-19 student decision learning", () => {
       round_id: "round-004",
       round_no: 4
     } as const;
+    const nextResponse = w3FixtureForContext(nextContext);
     const nextData = {
       ...crossRoundResponse,
       exact_scope: nextContext,
+      official_consequence: nextResponse,
       learning_loop: {
         ...crossRoundResponse.learning_loop,
         status: "BLOCKED",
         exact_context: nextContext,
+        canonical_decision_ref: nextResponse.record.source.canonical_decision_ref,
+        published_consequence_ref: {
+          record_id: nextResponse.record.record_id,
+          round_ref: nextResponse.record.source.round_ref,
+          settlement_ref: nextResponse.record.source.settlement_ref
+        },
+        source_receipts: Object.values(nextResponse.record.source),
+        provenance_refs: Object.values(nextResponse.record.source),
         blockers: ["NEW_IDENTITY_CONTEXT"]
       }
     } as M2P5DecisionLearningResponse;
@@ -638,7 +856,11 @@ describe("P2-B FE-19 student decision learning", () => {
       if (url.includes("/m2p5/")) {
         return new Response(JSON.stringify({ data: nextData }), { status: 200 });
       }
-      return new Response(JSON.stringify({ data: response }), { status: 200 });
+      const data =
+        new URL(url).searchParams.get("round_id") === nextContext.round_id
+          ? nextResponse
+          : response;
+      return new Response(JSON.stringify({ data }), { status: 200 });
     });
     const { host, root } = renderJourney({ crossRoundEnabled: true });
     await act(async () => {
@@ -781,11 +1003,20 @@ describe("P2-B FE-19 student decision learning", () => {
   });
 
   it("clears local reflection fields when the authenticated context changes", async () => {
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockImplementation(
-        async () => new Response(JSON.stringify({ data: response }), { status: 200 })
-      );
+    const changedContext = { ...context, tenant_id: "tenant-002" };
+    const nextResponse = w3FixtureForContext(changedContext);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(
+      async (_input, init) =>
+        new Response(
+          JSON.stringify({
+            data:
+              new Headers(init?.headers).get("x-tenant-id") === changedContext.tenant_id
+                ? nextResponse
+                : response
+          }),
+          { status: 200 }
+        )
+    );
     const { host, root } = renderJourney();
     await act(async () => {
       await Promise.resolve();
@@ -800,7 +1031,6 @@ describe("P2-B FE-19 student decision learning", () => {
       }
     });
     expect(judgment?.value).toBe("私有学习草稿");
-    const changedContext = { ...context, tenant_id: "tenant-002" };
     await act(async () => {
       root.render(
         <StudentDecisionLearningJourney

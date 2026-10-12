@@ -11,6 +11,11 @@ const M30_SOURCE_EVIDENCE_SCHEMA_VERSION = "course-factory-source-evidence.v1" a
 
 type EvidenceContent = Omit<CourseFactorySourceEvidenceReference, "evidence_digest">;
 
+// These zero-argument builders consume only fixed source data in this module
+// graph. Cache the fully validated template for this loaded source version,
+// never a caller's evidence or validation result; every caller gets a copy.
+let sourceEvidenceTemplate: CourseFactorySourceEvidenceReference | undefined;
+
 function isFloatingSelector(value: unknown): boolean {
   if (typeof value === "string") {
     return /(^|[^a-z])(latest|default|current|fallback|unresolved)([^a-z]|$)/iu.test(value.trim());
@@ -37,6 +42,7 @@ function contentDigest(value: EvidenceContent): string {
 }
 
 export function buildM30CourseFactorySourceEvidence(): CourseFactorySourceEvidenceReference {
+  if (sourceEvidenceTemplate) return structuredClone(sourceEvidenceTemplate);
   const m29 = buildM29MainPullConsumptionPack();
   if (validateM29MainPullConsumptionPack(m29).length > 0) {
     throw new Error("M30_M29_BINDING_SOURCE_INVALID");
@@ -77,7 +83,8 @@ export function buildM30CourseFactorySourceEvidence(): CourseFactorySourceEviden
     exact_source_refs: m29.main_binding_request.exact_refs,
     m29_pack_digest: m29.pack_digest
   };
-  return { ...content, evidence_digest: contentDigest(content) };
+  sourceEvidenceTemplate = { ...content, evidence_digest: contentDigest(content) };
+  return structuredClone(sourceEvidenceTemplate);
 }
 
 export function validateM30CourseFactorySourceEvidence(
@@ -130,7 +137,10 @@ export function validateM30CourseFactorySourceEvidence(
     if (evidence.formal_binding_eligible !== false) issues.push("formal_binding_eligible");
     else issues.push("source_evidence_boundary");
   }
-  if (!isExactDigest(evidence.m29_pack_digest) || evidence.m29_pack_digest !== expected.m29_pack_digest)
+  if (
+    !isExactDigest(evidence.m29_pack_digest) ||
+    evidence.m29_pack_digest !== expected.m29_pack_digest
+  )
     issues.push("m29_pack_digest");
   if (stableDigest(evidence.exact_source_refs) !== stableDigest(expected.exact_source_refs))
     issues.push("exact_source_refs");

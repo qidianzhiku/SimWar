@@ -328,7 +328,8 @@ function assertSha(value, label) {
 
 function gitValue(sourceRoot, args) {
   try {
-    return execFileSync("git", ["-C", sourceRoot, ...args], {
+    const safeDirectory = resolve(sourceRoot).replaceAll("\\", "/");
+    return execFileSync("git", ["-c", `safe.directory=${safeDirectory}`, "-C", sourceRoot, ...args], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"]
     }).trim();
@@ -353,14 +354,8 @@ function gitSnapshot(sourceRoot) {
 
 function candidateSnapshot() {
   try {
-    const sha = execFileSync("git", ["rev-parse", "HEAD"], {
-      cwd: SCRIPT_ROOT,
-      encoding: "utf8"
-    }).trim();
-    const status = execFileSync("git", ["status", "--porcelain=v1"], {
-      cwd: SCRIPT_ROOT,
-      encoding: "utf8"
-    }).trim();
+    const sha = gitValue(SCRIPT_ROOT, ["rev-parse", "HEAD"]);
+    const status = gitValue(SCRIPT_ROOT, ["status", "--porcelain=v1"]);
     return { sha, status, clean: status === "" };
   } catch {
     return { sha: null, status: null, clean: null };

@@ -304,8 +304,13 @@ function runCommand(command, args, cwd, { allowFailure = true, timeout = 1_200_0
   }
 }
 
+function gitCommandArgs(repoRoot, args) {
+  const safeDirectory = resolve(repoRoot).replaceAll("\\", "/");
+  return ["-c", `safe.directory=${safeDirectory}`, ...args];
+}
+
 function git(repoRoot, args, { allowFailure = false } = {}) {
-  const result = runCommand("git", args, repoRoot, { allowFailure });
+  const result = runCommand("git", gitCommandArgs(repoRoot, args), repoRoot, { allowFailure });
   if (!result.ok && !allowFailure) throw new Error(result.stderr || `git ${args.join(" ")} failed`);
   return result.stdout.trim();
 }
@@ -356,10 +361,15 @@ function readRepositoryManifestAtSha(repoRoot, sha) {
   if (!raw) return null;
   const files = [];
   for (const path of raw.split("\0").filter(Boolean)) {
-    const content = runCommand("git", ["show", `${sha}:${path}`], repoRoot, {
-      allowFailure: true,
-      timeout: 120_000
-    });
+    const content = runCommand(
+      "git",
+      gitCommandArgs(repoRoot, ["show", `${sha}:${path}`]),
+      repoRoot,
+      {
+        allowFailure: true,
+        timeout: 120_000
+      }
+    );
     if (!content.ok) return null;
     files.push({ path, content: Buffer.from(content.stdout, "utf8") });
   }
@@ -478,7 +488,7 @@ function changedFileEntries(repoRoot, baseSha, targetSha) {
   if (!baseSha || !targetSha || baseSha === targetSha) return [];
   const result = runCommand(
     "git",
-    ["diff", "--name-status", `${baseSha}..${targetSha}`],
+    gitCommandArgs(repoRoot, ["diff", "--name-status", `${baseSha}..${targetSha}`]),
     repoRoot,
     {
       allowFailure: true
@@ -1383,7 +1393,7 @@ function ensureCodeGraphWorkspace({ repoRoot, graphHome, repository, currentSha 
     ensureDirectory(dirname(workspace));
     const added = runCommand(
       "git",
-      ["worktree", "add", "--detach", workspace, currentSha],
+      gitCommandArgs(repoRoot, ["worktree", "add", "--detach", workspace, currentSha]),
       repoRoot,
       { allowFailure: true, timeout: 120_000 }
     );
@@ -1395,10 +1405,15 @@ function ensureCodeGraphWorkspace({ repoRoot, graphHome, repository, currentSha 
   }
   const checkedOut = git(workspace, ["rev-parse", "HEAD"], { allowFailure: true });
   if (checkedOut !== currentSha) {
-    const checkout = runCommand("git", ["checkout", "--detach", currentSha], workspace, {
-      allowFailure: true,
-      timeout: 120_000
-    });
+    const checkout = runCommand(
+      "git",
+      gitCommandArgs(workspace, ["checkout", "--detach", currentSha]),
+      workspace,
+      {
+        allowFailure: true,
+        timeout: 120_000
+      }
+    );
     if (!checkout.ok)
       return {
         path: null,
@@ -2425,10 +2440,7 @@ export function routeGraphSupportQuestion(input = {}) {
   if (defaults.source_readback_required && !sourceResolved) questionAdmission = "HOLD_THIS_SEAM";
   else if (riskClass === "G0" || riskClass === "G1")
     questionAdmission = sourceResolved === false ? "SOURCE_FALLBACK" : "READY";
-  else if (
-    !codegraphAvailable ||
-    (["G2", "G3"].includes(riskClass) && !codegraphAdmitted)
-  )
+  else if (!codegraphAvailable || (["G2", "G3"].includes(riskClass) && !codegraphAdmitted))
     questionAdmission = sourceResolved ? "SOURCE_FALLBACK" : "HOLD_THIS_SEAM";
   else if (sourceResolved) questionAdmission = "READY";
   return {
@@ -2557,15 +2569,16 @@ export function compareBlindInvestigationCells({ control = {}, treatment = {} } 
   const material =
     (treatmentCorrect && controlMissed) ||
     (treatmentCorrect && (scopeDelta !== 0 || testDelta !== 0 || authorityDelta !== 0));
-  const contribution = treatment.false_positive === true
-    ? "FP"
-    : treatmentMissed
-      ? "FN"
-      : material
-        ? "MATERIAL"
-        : treatmentCorrect
-          ? "CONFIRMATORY"
-          : "NO_MATERIAL";
+  const contribution =
+    treatment.false_positive === true
+      ? "FP"
+      : treatmentMissed
+        ? "FN"
+        : material
+          ? "MATERIAL"
+          : treatmentCorrect
+            ? "CONFIRMATORY"
+            : "NO_MATERIAL";
   return {
     finding_correct: treatmentCorrect,
     finding_missed: treatmentMissed,
@@ -2763,7 +2776,7 @@ function runCompanionWithLease({
     throw new Error("impact mode requires both --base and --target SHAs");
   const root = resolve(repoRoot);
   const dirty = git(root, ["status", "--porcelain", "--untracked-files=all"], {
-    allowFailure: true
+    allowFailure: false
   });
   if (dirty) throw new Error("Graph Companion requires a clean worktree");
   if (mode === "postmerge") {

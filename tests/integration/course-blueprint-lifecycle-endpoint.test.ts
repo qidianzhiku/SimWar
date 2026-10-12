@@ -253,17 +253,20 @@ describe("formal CourseBlueprint lifecycle endpoint", () => {
       >(`${baseUrl}${BASE_PATH}`, { body: body(), headers, method: "POST" });
       expect(draft.status).toBe(201);
       const reference = draft.body.data.reference;
+      const nativeTransitionData: Record<string, unknown>[] = [];
       for (const action of ["validate", "freeze"]) {
-        const transition = await requestJson<ApiEnvelope<{ status: string }>>(
+        const transition = await requestJson<ApiEnvelope<Record<string, unknown>>>(
           `${baseUrl}${BASE_PATH}/${BLUEPRINT_ID}/versions/${VERSION}/${action}`,
           { body: reference, headers, method: "POST" }
         );
         expect(transition.status).toBe(200);
+        nativeTransitionData.push(transition.body.data);
       }
       const approved = await requestJson<ApiEnvelope<{ version: { status: string } }>>(
         `${baseUrl}${BASE_PATH}/${BLUEPRINT_ID}/versions/${VERSION}/approve`,
         { body: { ...reference, approval_id: "approval_api_c1" }, headers, method: "POST" }
       );
+      expect(approved.status).toBe(200);
       expect(approved.body.data.version.status).toBe("APPROVED");
       const teacher = await login(baseUrl, "teacher", "teacher", DEFAULT_TENANT_ID);
       const catalog = await requestJson<ApiEnvelope<{ candidates: unknown[] }>>(
@@ -290,19 +293,74 @@ describe("formal CourseBlueprint lifecycle endpoint", () => {
         `${baseUrl}${BASE_PATH}/${BLUEPRINT_ID}/versions/${VERSION}/retire`,
         { body: reference, headers, method: "POST" }
       );
+      expect(retired.status).toBe(200);
       expect(retired.body.data.status).toBe("RETIRED");
       expect(store.formalCourseBlueprintLifecycleSnapshots).toHaveLength(5);
       expect(store.formalCourseBlueprintApprovalRecords).toHaveLength(1);
-      expect(
-        store.auditLogs
-          .filter((entry) => entry.action.startsWith("course_blueprint."))
-          .map((entry) => entry.action)
-      ).toEqual([
+      const lifecycleAudits = store.auditLogs.filter((entry) =>
+        entry.action.startsWith("course_blueprint.")
+      );
+      expect(lifecycleAudits.map((entry) => entry.action)).toEqual([
         "course_blueprint.create",
         "course_blueprint.validate",
         "course_blueprint.freeze",
         "course_blueprint.approve",
         "course_blueprint.retire"
+      ]);
+      expect(lifecycleAudits.every((entry) => entry.actor_id === "usr_platform")).toBe(true);
+      expect(lifecycleAudits.every((entry) => entry.tenant_id === DEFAULT_TENANT_ID)).toBe(true);
+      expect(
+        lifecycleAudits.every(
+          (entry) =>
+            entry.after !== undefined &&
+            entry.after !== null &&
+            typeof entry.after === "object" &&
+            !Array.isArray(entry.after)
+        )
+      ).toBe(true);
+      expect(lifecycleAudits.slice(1).map((entry) => entry.after)).toEqual([
+        ...nativeTransitionData,
+        approved.body.data.version,
+        retired.body.data
+      ]);
+      expect(lifecycleAudits.slice(1).map((entry) => entry.after?.status)).toEqual([
+        "VALIDATED",
+        "FROZEN",
+        "APPROVED",
+        "RETIRED"
+      ]);
+      expect(
+        lifecycleAudits.slice(1).map((entry) => ({
+          course_blueprint_id: entry.after?.course_blueprint_id,
+          reference: entry.after?.reference,
+          tenant_id: entry.after?.tenant_id,
+          version: entry.after?.version
+        }))
+      ).toEqual([
+        {
+          course_blueprint_id: BLUEPRINT_ID,
+          reference,
+          tenant_id: DEFAULT_TENANT_ID,
+          version: VERSION
+        },
+        {
+          course_blueprint_id: BLUEPRINT_ID,
+          reference,
+          tenant_id: DEFAULT_TENANT_ID,
+          version: VERSION
+        },
+        {
+          course_blueprint_id: BLUEPRINT_ID,
+          reference,
+          tenant_id: DEFAULT_TENANT_ID,
+          version: VERSION
+        },
+        {
+          course_blueprint_id: BLUEPRINT_ID,
+          reference,
+          tenant_id: DEFAULT_TENANT_ID,
+          version: VERSION
+        }
       ]);
     } finally {
       await stopServer(server);
