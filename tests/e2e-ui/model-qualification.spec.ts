@@ -8,6 +8,37 @@ const teacherBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_TEACHER
 const studentBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_STUDENT_PORT ?? 3102}`;
 const tenantId = "tenant_demo";
 
+type ExactStudentContext = {
+  readonly activityId: string;
+  readonly courseId: string;
+  readonly roleKey: string;
+  readonly roundId: string;
+  readonly roundNo: number;
+  readonly runId: string;
+  readonly teamId: string;
+  readonly tenantId: string;
+};
+
+function studentExactContextUrl(
+  baseUrl: string,
+  context: ExactStudentContext,
+  extra: Record<string, string> = {}
+): string {
+  const query = new URLSearchParams({
+    w3: "true",
+    tenant_id: context.tenantId,
+    course_id: context.courseId,
+    run_id: context.runId,
+    team_id: context.teamId,
+    round_id: context.roundId,
+    round_no: String(context.roundNo),
+    role_key: context.roleKey,
+    activity_id: context.activityId,
+    ...extra
+  });
+  return `${baseUrl}?${query.toString()}`;
+}
+
 test.afterEach(() => cleanupPlaywrightStore());
 
 async function apiPost<TData>(
@@ -59,12 +90,40 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
     teacher.access_token
   );
   expect(run.response.ok()).toBe(true);
-  const started = await apiPost<{ round_id: string }>(
+  const started = await apiPost<{ round_id: string; round_no: number }>(
     request,
     `/api/v1/runs/${run.body.data.run.run_id}/rounds/1/start`,
     teacher.access_token
   );
   expect(started.response.ok()).toBe(true);
+  const studentContext: ExactStudentContext = {
+    activityId: "activity_consequence",
+    courseId: "course_demo",
+    roleKey: "CEO",
+    roundId: started.body.data.round_id,
+    roundNo: started.body.data.round_no,
+    runId: run.body.data.run.run_id,
+    teamId: "team_alpha",
+    tenantId
+  };
+  const assignment = await request.put(
+    `${apiBaseUrl}/api/v1/bff/teacher/role-workflows/assignments`,
+    {
+      data: {
+        course_id: studentContext.courseId,
+        role_key: studentContext.roleKey,
+        run_id: studentContext.runId,
+        team_id: studentContext.teamId,
+        user_id: "usr_student"
+      },
+      headers: {
+        authorization: `Bearer ${teacher.access_token}`,
+        "content-type": "application/json",
+        "x-tenant-id": tenantId
+      }
+    }
+  );
+  expect(assignment.status()).toBe(201);
 
   await page.goto(`${teacherBaseUrl}?courseId=course_demo`);
   await signIn(page, "teacher");
@@ -129,9 +188,12 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
   const teacherRealityJoinGrid = teacherRealityJoin.getByTestId("industry-reality-join");
   for (const label of ["Portability", "Holdout", "Shanghai"]) {
     await expect(
-      teacherRealityJoinGrid.locator("article").filter({ hasText: label }).getByText("UNAVAILABLE", {
-        exact: true
-      })
+      teacherRealityJoinGrid
+        .locator("article")
+        .filter({ hasText: label })
+        .getByText("UNAVAILABLE", {
+          exact: true
+        })
     ).toBeVisible();
   }
 
@@ -148,7 +210,9 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
   expect(teacherBody.data.qualifications.at(-1)?.binding.status).toBe("BOUND");
 
   await page.goto(
-    `${studentBaseUrl}?modelQualificationId=${encodeURIComponent(qualificationId ?? "")}`
+    studentExactContextUrl(studentBaseUrl, studentContext, {
+      modelQualificationId: qualificationId ?? ""
+    })
   );
   await signIn(page, "student");
   const studentSurface = page.getByRole("region", {
@@ -263,7 +327,9 @@ test("R2 source-backed qualification is operated through real Teacher, Student, 
   expect(replacementQualificationId).toBeTruthy();
 
   await page.goto(
-    `${studentBaseUrl}?modelQualificationId=${encodeURIComponent(replacementQualificationId ?? "")}`
+    studentExactContextUrl(studentBaseUrl, studentContext, {
+      modelQualificationId: replacementQualificationId ?? ""
+    })
   );
   await signIn(page, "student");
   const replacementStudentSurface = page.getByRole("region", {

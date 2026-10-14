@@ -1,9 +1,9 @@
 /** @vitest-environment jsdom */
 
 import React, { act } from "react";
-import { createRoot } from "react-dom/client";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   App,
   getStudentAuthority,
@@ -37,6 +37,73 @@ import {
 (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
+
+// Own only this file's resources; assertions must not bypass their disposal.
+const ownedRoots = new Map<Root, HTMLElement>();
+const ownedFetchSpies = new Set<{ mockRestore(): void }>();
+
+function mountOwnedRoot(container: HTMLElement): Root {
+  const root = createRoot(container);
+  ownedRoots.set(root, container);
+  return root;
+}
+
+function unmountOwnedRoot(root: Root): void {
+  root.unmount();
+  ownedRoots.get(root)?.remove();
+  ownedRoots.delete(root);
+}
+
+function spyOnOwnedFetch() {
+  const spy = vi.spyOn(globalThis, "fetch");
+  ownedFetchSpies.add(spy);
+  return spy;
+}
+
+function restoreOwnedFetch(spy: { mockRestore(): void }): void {
+  spy.mockRestore();
+  ownedFetchSpies.delete(spy);
+}
+
+async function cleanupOwnedResources(): Promise<void> {
+  const errors: unknown[] = [];
+  try {
+    await act(async () => {
+      for (const root of [...ownedRoots.keys()]) {
+        try {
+          unmountOwnedRoot(root);
+        } catch (error) {
+          errors.push(error);
+        }
+      }
+    });
+  } catch (error) {
+    errors.push(error);
+  } finally {
+    for (const container of ownedRoots.values()) container.remove();
+    ownedRoots.clear();
+    for (const spy of [...ownedFetchSpies]) {
+      try {
+        restoreOwnedFetch(spy);
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    ownedFetchSpies.clear();
+  }
+  if (errors.length) throw new AggregateError(errors, "Student test resource cleanup failed");
+}
+
+beforeAll(async () => {
+  // The legacy-draft assertion tests workspace state, not cold module I/O.
+  // Await the actual lazy dependencies; keep App's real components and requests.
+  await Promise.all([
+    import("../../apps/student/src/StudentDecisionDesktop"),
+    import("../../apps/student/src/W4EnterpriseStatePanel")
+  ]);
+});
+
+afterEach(cleanupOwnedResources);
 
 const expectedLocations = [
   ["student-role-mission", "角色任务"],
@@ -224,10 +291,10 @@ describe("Student executive workspace refoundation", () => {
   });
 
   it("keeps the D4 learning report closed before the official result is published", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const fetchSpy = spyOnOwnedFetch();
     const host = document.createElement("div");
     document.body.appendChild(host);
-    const root = createRoot(host);
+    const root = mountOwnedRoot(host);
     act(() => {
       root.render(
         <StudentLearningReportPanel tenantId="tenant-a" token="student-token" published={false} />
@@ -238,17 +305,17 @@ describe("Student executive workspace refoundation", () => {
     });
     expect(host.textContent).toContain("正式结果发布后，学习报告才会开放");
     expect(fetchSpy).not.toHaveBeenCalled();
-    root.unmount();
+    act(() => unmountOwnedRoot(root));
     host.remove();
-    fetchSpy.mockRestore();
+    restoreOwnedFetch(fetchSpy);
   });
 
   it("clears Student busy state when an edited login context invalidates a pending sign-in", async () => {
     const pendingLogin = new Promise<Response>(() => undefined);
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => pendingLogin);
+    const fetchMock = spyOnOwnedFetch().mockImplementation(async () => pendingLogin);
     const container = document.createElement("div");
     document.body.appendChild(container);
-    const root = createRoot(container);
+    const root = mountOwnedRoot(container);
     act(() => root.render(<App />));
 
     const setInputValue = (label: string, value: string) => {
@@ -281,9 +348,9 @@ describe("Student executive workspace refoundation", () => {
     });
     expect(loginButton?.disabled).toBe(false);
 
-    act(() => root.unmount());
+    act(() => unmountOwnedRoot(root));
     container.remove();
-    fetchMock.mockRestore();
+    restoreOwnedFetch(fetchMock);
   });
 
   it("renders a recoverable root error when the Student workspace projection fails", async () => {
@@ -303,7 +370,7 @@ describe("Student executive workspace refoundation", () => {
         json: async () => (ok ? { data } : { code: "STUDENT_BFF_UNAVAILABLE", message: "failed" })
       }) as Response;
     let demoStateRequests = 0;
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const fetchMock = spyOnOwnedFetch().mockImplementation(async (input) => {
       const url = String(input);
       if (url.includes("/api/v1/auth/login")) return response(true, session);
       if (url.includes("/api/v1/demo-state")) {
@@ -314,7 +381,7 @@ describe("Student executive workspace refoundation", () => {
     });
     const container = document.createElement("div");
     document.body.appendChild(container);
-    const root = createRoot(container);
+    const root = mountOwnedRoot(container);
     act(() => root.render(<App />));
 
     const setInputValue = (label: string, value: string) => {
@@ -345,9 +412,9 @@ describe("Student executive workspace refoundation", () => {
     expect(container.querySelector('[data-state="error"]')).not.toBeNull();
     expect(container.textContent).toContain("重新加载学员工作区");
 
-    act(() => root.unmount());
+    act(() => unmountOwnedRoot(root));
     container.remove();
-    fetchMock.mockRestore();
+    restoreOwnedFetch(fetchMock);
   });
 
   it("keeps a foreign-role session in reauthentication-required state without reading Student data", async () => {
@@ -368,7 +435,7 @@ describe("Student executive workspace refoundation", () => {
         json: async () => (ok ? { data } : { code: "STUDENT_SESSION_FORBIDDEN", message: "failed" })
       }) as Response;
     let studentBootstrapRequests = 0;
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const fetchMock = spyOnOwnedFetch().mockImplementation(async (input) => {
       const url = String(input);
       if (url.includes("/api/v1/auth/login")) return response(true, session);
       if (url.includes("/api/v1/demo-state")) {
@@ -379,7 +446,7 @@ describe("Student executive workspace refoundation", () => {
     });
     const container = document.createElement("div");
     document.body.appendChild(container);
-    const root = createRoot(container);
+    const root = mountOwnedRoot(container);
     act(() => root.render(<App />));
 
     const setInputValue = (label: string, value: string) => {
@@ -409,16 +476,18 @@ describe("Student executive workspace refoundation", () => {
       );
     });
 
-    expect(container.querySelector('[data-recovery-role="student"]')?.getAttribute("data-recovery-status")).toBe(
-      "reauth-required"
-    );
+    expect(
+      container
+        .querySelector('[data-recovery-role="student"]')
+        ?.getAttribute("data-recovery-status")
+    ).toBe("reauth-required");
     expect(container.querySelector('[data-action="recovery:reauthenticate"]')).not.toBeNull();
     expect(container.querySelector("#student-cockpit")).toBeNull();
     expect(studentBootstrapRequests).toBe(0);
 
-    act(() => root.unmount());
+    act(() => unmountOwnedRoot(root));
     container.remove();
-    fetchMock.mockRestore();
+    restoreOwnedFetch(fetchMock);
   });
 
   it("preserves an edited legacy draft when a committed decision refresh fails in the same context", async () => {
@@ -583,7 +652,7 @@ describe("Student executive workspace refoundation", () => {
             : { code: "STUDENT_BFF_UNAVAILABLE", message: "failed current-context refresh" }
       }) as Response;
     let demoStateRequests = 0;
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    const fetchMock = spyOnOwnedFetch().mockImplementation(async (input, init) => {
       const url = String(input);
       if (url.includes("/api/v1/auth/login")) return response(true, session);
       if (url.includes("/api/v1/demo-state")) {
@@ -608,7 +677,7 @@ describe("Student executive workspace refoundation", () => {
     });
     const container = document.createElement("div");
     document.body.appendChild(container);
-    const root = createRoot(container);
+    const root = mountOwnedRoot(container);
     act(() => root.render(<App />));
 
     const setInputValue = (label: string, value: string) => {
@@ -661,9 +730,9 @@ describe("Student executive workspace refoundation", () => {
     });
     expect(pricing?.value).toBe("17000");
 
-    act(() => root.unmount());
+    act(() => unmountOwnedRoot(root));
     container.remove();
-    fetchMock.mockRestore();
+    restoreOwnedFetch(fetchMock);
   });
 
   it("clears role workflow busy state after the command refresh completes", async () => {
@@ -708,15 +777,14 @@ describe("Student executive workspace refoundation", () => {
     const trace = deferred<Response>();
     const command = deferred<Response>();
     const refreshed = deferred<Response>();
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
+    const fetchMock = spyOnOwnedFetch()
       .mockImplementationOnce(async () => initial.promise)
       .mockImplementationOnce(async () => trace.promise)
       .mockImplementationOnce(async () => command.promise)
       .mockImplementationOnce(async () => refreshed.promise);
     const container = document.createElement("div");
     document.body.appendChild(container);
-    const root = createRoot(container);
+    const root = mountOwnedRoot(container);
     act(() => {
       root.render(
         <StudentRoleWorkflowPanel
@@ -764,9 +832,9 @@ describe("Student executive workspace refoundation", () => {
       await refreshed.promise;
     });
     expect(saveButton?.disabled).toBe(false);
-    act(() => root.unmount());
+    act(() => unmountOwnedRoot(root));
     container.remove();
-    fetchMock.mockRestore();
+    restoreOwnedFetch(fetchMock);
   });
 
   it("keeps ready role fields frozen and honors every server command permission", async () => {
@@ -803,12 +871,10 @@ describe("Student executive workspace refoundation", () => {
     const pendingWorkspace = new Promise<Response>((resolve) => {
       resolveWorkspace = resolve;
     });
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
-      .mockImplementation(async () => pendingWorkspace);
+    const fetchMock = spyOnOwnedFetch().mockImplementation(async () => pendingWorkspace);
     const container = document.createElement("div");
     document.body.appendChild(container);
-    const root = createRoot(container);
+    const root = mountOwnedRoot(container);
     act(() => {
       root.render(
         <StudentRoleWorkflowPanel
@@ -838,9 +904,9 @@ describe("Student executive workspace refoundation", () => {
     expect(action("提交角色草稿")?.disabled).toBe(true);
     expect(action("确认团队决策")).toBeUndefined();
 
-    act(() => root.unmount());
+    act(() => unmountOwnedRoot(root));
     container.remove();
-    fetchMock.mockRestore();
+    restoreOwnedFetch(fetchMock);
   });
 
   it("clears role workflow busy state when the server round context changes mid-command", async () => {
@@ -879,14 +945,13 @@ describe("Student executive workspace refoundation", () => {
     const initial = new Promise<Response>((resolve) => (resolveInitial = resolve));
     const staleCommand = new Promise<Response>(() => undefined);
     const next = new Promise<Response>((resolve) => (resolveNext = resolve));
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
+    const fetchMock = spyOnOwnedFetch()
       .mockImplementationOnce(async () => initial)
       .mockImplementationOnce(async () => staleCommand)
       .mockImplementationOnce(async () => next);
     const container = document.createElement("div");
     document.body.appendChild(container);
-    const root = createRoot(container);
+    const root = mountOwnedRoot(container);
     const renderRound = (roundId: string) => (
       <StudentRoleWorkflowPanel
         active
@@ -923,9 +988,9 @@ describe("Student executive workspace refoundation", () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
     });
 
-    act(() => root.unmount());
+    act(() => unmountOwnedRoot(root));
     container.remove();
-    fetchMock.mockRestore();
+    restoreOwnedFetch(fetchMock);
   });
 
   it("renders a retryable role-workflow error when the initial projection fails", async () => {
@@ -940,7 +1005,7 @@ describe("Student executive workspace refoundation", () => {
       assignment: { role_key: "CEO" },
       section: { status: "draft", version: 1, payload: {} }
     };
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const fetchMock = spyOnOwnedFetch().mockImplementation(async (input) => {
       if (!allowSuccess) return errorResponse;
       return {
         ok: true,
@@ -958,7 +1023,7 @@ describe("Student executive workspace refoundation", () => {
     });
     const container = document.createElement("div");
     document.body.appendChild(container);
-    const root = createRoot(container);
+    const root = mountOwnedRoot(container);
     act(() => {
       root.render(
         <StudentRoleWorkflowPanel
@@ -989,9 +1054,9 @@ describe("Student executive workspace refoundation", () => {
     });
     expect(container.textContent).toContain("当前角色工作区已就绪");
 
-    act(() => root.unmount());
+    act(() => unmountOwnedRoot(root));
     container.remove();
-    fetchMock.mockRestore();
+    restoreOwnedFetch(fetchMock);
   });
 
   it("fails closed when a role-workflow command has no receipt data", async () => {
@@ -1029,7 +1094,7 @@ describe("Student executive workspace refoundation", () => {
       current_stage: "NOT_STARTED",
       trace_completeness: "empty"
     };
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const fetchMock = spyOnOwnedFetch().mockImplementation(async (input) => {
       const url = String(input);
       if (url.includes("decision-trace")) {
         return { ok: true, json: async () => ({ data: trace }) } as Response;
@@ -1041,7 +1106,7 @@ describe("Student executive workspace refoundation", () => {
     });
     const container = document.createElement("div");
     document.body.appendChild(container);
-    const root = createRoot(container);
+    const root = mountOwnedRoot(container);
     act(() => {
       root.render(
         <StudentRoleWorkflowPanel
@@ -1069,9 +1134,9 @@ describe("Student executive workspace refoundation", () => {
     expect(container.textContent).toContain("未知回执");
     expect(container.textContent).not.toContain("角色草稿已保存");
 
-    act(() => root.unmount());
+    act(() => unmountOwnedRoot(root));
     container.remove();
-    fetchMock.mockRestore();
+    restoreOwnedFetch(fetchMock);
   });
 
   it("clears the previous role workspace while a new context is loading", async () => {
@@ -1111,7 +1176,7 @@ describe("Student executive workspace refoundation", () => {
       current_stage: "NOT_STARTED",
       trace_completeness: "empty"
     };
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const fetchMock = spyOnOwnedFetch().mockImplementation(async (input) => {
       const url = String(input);
       if (url.includes("round_id=round-b")) return next;
       if (url.includes("decision-trace")) {
@@ -1121,7 +1186,7 @@ describe("Student executive workspace refoundation", () => {
     });
     const container = document.createElement("div");
     document.body.appendChild(container);
-    const root = createRoot(container);
+    const root = mountOwnedRoot(container);
     const render = (roundId: string) => (
       <StudentRoleWorkflowPanel
         active
@@ -1146,9 +1211,9 @@ describe("Student executive workspace refoundation", () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
     });
 
-    act(() => root.unmount());
+    act(() => unmountOwnedRoot(root));
     container.remove();
-    fetchMock.mockRestore();
+    restoreOwnedFetch(fetchMock);
   });
 
   it("keeps the legacy bootstrap projection bounded to the signed-in team", () => {
@@ -1308,5 +1373,31 @@ describe("Student executive workspace refoundation", () => {
     expect(laterRoundProjection.decisions.map(({ decision_id }) => decision_id)).toEqual([
       "decision-a-2"
     ]);
+  });
+
+  it("disposes owned mounted roots and restores fetch after an interrupted assertion path", async () => {
+    const nativeFetch = globalThis.fetch;
+    spyOnOwnedFetch();
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = mountOwnedRoot(host);
+    const interruption = new Error("intentional fixture assertion interruption");
+    let observed: unknown;
+    try {
+      act(() => {
+        root.render(
+          <StudentLearningReportPanel tenantId="tenant-a" token="student-token" published={false} />
+        );
+      });
+      expect(host.textContent).toContain("正式结果发布后，学习报告才会开放");
+      throw interruption;
+    } catch (error) {
+      observed = error;
+    } finally {
+      await cleanupOwnedResources();
+    }
+    expect(observed).toBe(interruption);
+    expect(document.body.contains(host)).toBe(false);
+    expect(globalThis.fetch).toBe(nativeFetch);
   });
 });

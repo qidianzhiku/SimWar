@@ -15,7 +15,33 @@ const baseUrls = {
 
 const apiBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_API_PORT ?? 3100}`;
 
-async function seedRound(request: APIRequestContext): Promise<void> {
+type ExactStudentContext = {
+  readonly activityId: string;
+  readonly courseId: string;
+  readonly roleKey: string;
+  readonly roundId: string;
+  readonly roundNo: number;
+  readonly runId: string;
+  readonly teamId: string;
+  readonly tenantId: string;
+};
+
+function studentExactContextPath(context: ExactStudentContext): string {
+  const query = new URLSearchParams({
+    w3: "true",
+    tenant_id: context.tenantId,
+    course_id: context.courseId,
+    run_id: context.runId,
+    team_id: context.teamId,
+    round_id: context.roundId,
+    round_no: String(context.roundNo),
+    role_key: context.roleKey,
+    activity_id: context.activityId
+  });
+  return `/?${query.toString()}`;
+}
+
+async function seedRound(request: APIRequestContext): Promise<ExactStudentContext> {
   const login = await request.post(`${apiBaseUrl}/api/v1/auth/login`, {
     data: { username: "teacher", password: "teacher" },
     headers: { "content-type": "application/json", "x-tenant-id": "tenant_demo" }
@@ -31,24 +57,59 @@ async function seedRound(request: APIRequestContext): Promise<void> {
     data: {}
   });
   const createdBody = (await created.json()) as { data: { run: { run_id: string } } };
-  await request.post(`${apiBaseUrl}/api/v1/runs/${createdBody.data.run.run_id}/rounds/1/start`, {
-    headers: auth,
-    data: {}
-  });
+  const started = await request.post(
+    `${apiBaseUrl}/api/v1/runs/${createdBody.data.run.run_id}/rounds/1/start`,
+    {
+      headers: auth,
+      data: {}
+    }
+  );
+  const startedBody = (await started.json()) as {
+    data: { round_id: string; round_no: number };
+  };
+  const studentContext: ExactStudentContext = {
+    activityId: "activity_consequence",
+    courseId: "course_demo",
+    roleKey: "CEO",
+    roundId: startedBody.data.round_id,
+    roundNo: startedBody.data.round_no,
+    runId: createdBody.data.run.run_id,
+    teamId: "team_alpha",
+    tenantId: "tenant_demo"
+  };
+  const assignment = await request.put(
+    `${apiBaseUrl}/api/v1/bff/teacher/role-workflows/assignments`,
+    {
+      headers: auth,
+      data: {
+        course_id: studentContext.courseId,
+        role_key: studentContext.roleKey,
+        run_id: studentContext.runId,
+        team_id: studentContext.teamId,
+        user_id: "usr_student"
+      }
+    }
+  );
+  expect(assignment.status()).toBe(201);
+  return studentContext;
 }
 
 test("W4 commercial surfaces stay responsive and avoid serious accessibility violations", async ({
   page,
   request
 }) => {
-  await seedRound(request);
+  const studentContext = await seedRound(request);
   for (const viewport of [
     { width: 1440, height: 900 },
     { width: 390, height: 844 }
   ]) {
     await page.setViewportSize(viewport);
     for (const route of routes) {
-      await page.goto(baseUrls[route.url]);
+      await page.goto(
+        route.url === "student"
+          ? `${baseUrls[route.url]}${studentExactContextPath(studentContext)}`
+          : baseUrls[route.url]
+      );
       await page.getByLabel("tenant").fill("tenant_demo");
       await page.getByLabel("username").fill(route.url === "student" ? "student" : route.url);
       await page.getByLabel("password").fill(route.url === "student" ? "student" : route.url);
