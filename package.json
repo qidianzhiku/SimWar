@@ -19,7 +19,7 @@
     "build": "npm run build -w @simwar/shared-contracts && npm run build -w @simwar/agent-gateway && npm run build -w @simwar/simulation-core && npm run build -w @simwar/mod-support && npm run build -w @simwar/sh-next-support && npm run build -w @simwar/api && npm run build -w @simwar/ui && npm run build -w @simwar/admin && npm run build -w @simwar/teacher && npm run build -w @simwar/student",
     "lint": "eslint .",
     "typecheck": "tsc -b tsconfig.build.json",
-    "test": "npm run build:test-prerequisites && npm run build -w @simwar/ui && vitest run",
+    "test": "node --test scripts/r6-dependency-security-floor.test.mjs && npm run build:test-prerequisites && npm run build -w @simwar/ui && vitest run",
     "test:e2e:ui": "npm run build:test-prerequisites && npm run build -w @simwar/ui && playwright test && playwright test --config playwright.role-workflow.config.ts",
     "test:e2e:ui:core": "npm run build:test-prerequisites && npm run build -w @simwar/ui && playwright test && playwright test --config playwright.role-workflow.config.ts && playwright test --config playwright.esl.config.ts",
     "test:e2e:ui:m2-p1": "npm run build:test-prerequisites && npm run build -w @simwar/ui && node scripts/run-m2-p1-browser.mjs",
@@ -65,10 +65,17 @@
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vite": "8.3.4",
-    "vitest": "^4.1.8"
+    "vitest": "4.1.11"
   },
   "overrides": {
-    "ws": "8.22.0"
+    "ws": "8.22.0",
+    "@babel/core": "7.29.6",
+    "baseline-browser-mapping": "2.11.0",
+    "brace-expansion@1": "1.1.21",
+    "brace-expansion@5": "5.0.12",
+    "browserslist": "4.28.7",
+    "fast-uri": "3.1.8",
+    "js-yaml": "4.3.2"
   },
   "devDependencies": {
     "@apidevtools/swagger-parser": "^12.1.0",
