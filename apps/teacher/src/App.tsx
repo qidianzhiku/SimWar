@@ -20,7 +20,7 @@ import {
   validateReauthIdentity,
   type ReauthContext
 } from "@simwar/shared-contracts";
-import { StatePanel } from "@simwar/ui";
+import { StatePanel } from "@simwar/ui/components/StatePanel";
 import type {
   ApiEnvelope,
   AuthSession,

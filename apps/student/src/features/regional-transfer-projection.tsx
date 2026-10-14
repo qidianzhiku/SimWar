@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { RegionalTransferStudentProjection } from "@simwar/shared-contracts";
-import { WorkbenchFrame } from "@simwar/ui";
+import { WorkbenchFrame } from "@simwar/ui/workbenches/WorkbenchFrame";
 import { loadRegionalTransferStudentProjection } from "./regional-transfer-client";
 
 export function RegionalTransferProjection({

@@ -3,7 +3,7 @@ import {
   COURSE_REPORT_ROLE_SLOTS,
   type CourseReportFilterInput
 } from "@simwar/shared-contracts";
-import { CourseReportWorkbench } from "@simwar/ui";
+import { CourseReportWorkbench } from "@simwar/ui/workbenches/CourseReportWorkbench";
 import {
   CourseReportRequestError,
   exportTeacherCourseReport,

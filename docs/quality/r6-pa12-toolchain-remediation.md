@@ -67,6 +67,26 @@ close every inherited advisory, sign PA12/PA13, prove WCAG runtime conformance,
 or authorize Pilot/Production. Historical FE/MAIN/G13 decisions are not
 automatically transferred to the repair consumer.
 
+## Bundle regression repair
+
+The root `@simwar/ui` runtime barrel was shared by eager shell components and
+already-lazy workspaces. Under Rolldown this promoted heavy workspace UI into
+the eager static closure. Role-app runtime imports now use stable public
+`components/*` and `workbenches/*` subpaths pointing to the same existing files.
+The root barrel and type-only imports remain compatible. No component behavior,
+lazy declaration, manual chunk rule, minifier, browser target or CSS timing is
+changed. No broad `sideEffects: false` claim is introduced.
+
+The existing entry-only raw/gzip baseline and 10% cap are unchanged. The new
+real-build regression additionally starts from emitted HTML, follows static and
+dynamic dependencies plus CSS, accounts for shared chunks and rejects orphan
+runtime outputs. Vite-elided empty CSS-only JS placeholders are resolved to their
+recorded CSS, not silently ignored. Complete static, lazy and total transfer are
+reported separately: the entry-only baseline is not misrepresented as a numeric
+full-closure or total-transfer baseline. Actual full initial JS must decrease
+from the exact failing `1f860dc` candidate, so renaming/splitting an entry without
+reducing its static closure cannot satisfy the repair regression.
+
 ## Rollback
 
 Revert the dedicated repair commit through the protected PR workflow to restore

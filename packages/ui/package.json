@@ -30,7 +30,15 @@
       "types": "./dist/components/M4MultipathCounterfactualTransferPanel.d.ts",
       "default": "./dist/components/M4MultipathCounterfactualTransferPanel.js"
     },
-    "./w4-commercial.css": "./src/w4-commercial.css"
+    "./w4-commercial.css": "./src/w4-commercial.css",
+    "./components/*": {
+      "types": "./dist/components/*.d.ts",
+      "default": "./dist/components/*.js"
+    },
+    "./workbenches/*": {
+      "types": "./dist/workbenches/*.d.ts",
+      "default": "./dist/workbenches/*.js"
+    }
   },
   "scripts": {
     "build": "tsc -b tsconfig.json",
