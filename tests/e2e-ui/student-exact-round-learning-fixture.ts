@@ -86,52 +86,53 @@ export function writeOwnedFixtureReceipt(fd: number, path: string, value: unknow
 
 export function acquireFixtureReceipt(path: string, specHash: string) {
   mkdirSync(dirname(path), { recursive: true });
-  let writer: number;
+  let reader: number;
   try {
-    writer = openSync(path, "wx+", 0o600);
+    reader = openSync(path, "r");
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-    const reader = openSync(path, "r");
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    // Missing is not ownership: a competing creator must still lose atomically.
+    const writer = openSync(path, "wx+", 0o600);
     try {
-      const opened = fstatSync(reader);
-      const named = lstatSync(path);
-      if (
-        !opened.isFile() ||
-        !named.isFile() ||
-        named.isSymbolicLink() ||
-        opened.dev !== named.dev ||
-        opened.ino !== named.ino ||
-        opened.nlink !== 1
-      )
-        throw new Error("FIXTURE_RECEIPT_OWNERSHIP_LOST");
-      const previous = JSON.parse(readFileSync(reader, "utf8")) as {
-        state: string;
-        spec_hash: string;
-        scope: ExactScope;
-        r2: string;
-        user: string;
-        ceo_username: string;
-      };
-      if (
-        previous.state !== "READY" ||
-        previous.spec_hash !== specHash ||
-        !previous.scope ||
-        !previous.r2 ||
-        !previous.user ||
-        !previous.ceo_username
-      )
-        throw new Error("FIXTURE_PARTIAL_OR_CHANGED_NO_AUTOMATIC_WRITE_REPLAY");
-      return { writer: null, previous };
-    } finally {
-      closeSync(reader);
+      writeOwnedFixtureReceipt(writer, path, { state: "STARTED", spec_hash: specHash });
+      return { writer, previous: null };
+    } catch (error) {
+      closeSync(writer);
+      throw error;
     }
   }
   try {
-    writeOwnedFixtureReceipt(writer, path, { state: "STARTED", spec_hash: specHash });
-    return { writer, previous: null };
-  } catch (error) {
-    closeSync(writer);
-    throw error;
+    const opened = fstatSync(reader);
+    const named = lstatSync(path);
+    if (
+      !opened.isFile() ||
+      !named.isFile() ||
+      named.isSymbolicLink() ||
+      opened.dev !== named.dev ||
+      opened.ino !== named.ino ||
+      opened.nlink !== 1
+    )
+      throw new Error("FIXTURE_RECEIPT_OWNERSHIP_LOST");
+    const previous = JSON.parse(readFileSync(reader, "utf8")) as {
+      state: string;
+      spec_hash: string;
+      scope: ExactScope;
+      r2: string;
+      user: string;
+      ceo_username: string;
+    };
+    if (
+      previous.state !== "READY" ||
+      previous.spec_hash !== specHash ||
+      !previous.scope ||
+      !previous.r2 ||
+      !previous.user ||
+      !previous.ceo_username
+    )
+      throw new Error("FIXTURE_PARTIAL_OR_CHANGED_NO_AUTOMATIC_WRITE_REPLAY");
+    return { writer: null, previous };
+  } finally {
+    closeSync(reader);
   }
 }
 
