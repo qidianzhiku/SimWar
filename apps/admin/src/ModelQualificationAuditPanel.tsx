@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
-import {
-  IndustryModelDiagnosticReadinessPanel,
-  IndustryModelRealityJoinPanel,
-  ModelQualificationAdoptionPanel
-} from "@simwar/ui";
+import { IndustryModelDiagnosticReadinessPanel } from "@simwar/ui/components/IndustryModelDiagnosticReadinessPanel";
+import { IndustryModelRealityJoinPanel } from "@simwar/ui/components/IndustryModelRealityJoinPanel";
+import { ModelQualificationAdoptionPanel } from "@simwar/ui/components/ModelQualificationAdoptionPanel";
 import type { ApiEnvelope, ModelQualificationAdminProjection } from "@simwar/shared-contracts";
 
 interface Props {

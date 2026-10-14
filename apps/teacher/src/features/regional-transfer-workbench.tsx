@@ -4,7 +4,7 @@ import type {
   RegionalTransferCandidateInput,
   RegionalTransferTeacherProjection
 } from "@simwar/shared-contracts";
-import { WorkbenchFrame } from "@simwar/ui";
+import { WorkbenchFrame } from "@simwar/ui/workbenches/WorkbenchFrame";
 import {
   bindRegionalTransfer,
   freezeRegionalTransfer,

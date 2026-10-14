@@ -1,17 +1,15 @@
 import { useEffect, useState, type ReactNode } from "react";
-import {
-  AllowedActionButton,
-  AppShell,
-  AuthorityBadge,
-  ContextBar,
-  KnownLimitBanner,
-  RoleNavigation,
-  StatePanel,
-  type AuthorityKind,
-  type RoleNavigationItem,
-  type ServerContext,
-  type StateStatus
-} from "@simwar/ui";
+import { AllowedActionButton } from "@simwar/ui/components/AllowedActionButton";
+import { AppShell } from "@simwar/ui/components/AppShell";
+import { AuthorityBadge } from "@simwar/ui/components/AuthorityBadge";
+import { ContextBar } from "@simwar/ui/components/ContextBar";
+import { KnownLimitBanner } from "@simwar/ui/components/KnownLimitBanner";
+import { RoleNavigation } from "@simwar/ui/components/RoleNavigation";
+import { StatePanel } from "@simwar/ui/components/StatePanel";
+import type { AuthorityKind } from "@simwar/ui";
+import type { RoleNavigationItem } from "@simwar/ui";
+import type { ServerContext } from "@simwar/ui";
+import type { StateStatus } from "@simwar/ui";
 
 export const ADMIN_NAVIGATION_ITEMS = [
   { id: "admin-delivery-overview", label: "交付总览" },

@@ -1,5 +1,5 @@
 import type { D5ExactRef } from "@simwar/shared-contracts";
-import { D5ExportWorkbenchView } from "@simwar/ui";
+import { D5ExportWorkbenchView } from "@simwar/ui/workbenches/D5ExportWorkbenchView";
 import {
   cancelD5Job,
   createD5Job,

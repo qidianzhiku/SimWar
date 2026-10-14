@@ -8,13 +8,11 @@ import type {
   TeacherScenarioStudioPreviewDto,
   TeacherScenarioStudioValidationDto
 } from "@simwar/shared-contracts";
-import {
-  AuthorityBadge,
-  KnownLimitBanner,
-  StatePanel,
-  WorkbenchFrame,
-  type StateStatus
-} from "@simwar/ui";
+import { AuthorityBadge } from "@simwar/ui/components/AuthorityBadge";
+import { KnownLimitBanner } from "@simwar/ui/components/KnownLimitBanner";
+import { StatePanel } from "@simwar/ui/components/StatePanel";
+import { WorkbenchFrame } from "@simwar/ui/workbenches/WorkbenchFrame";
+import type { StateStatus } from "@simwar/ui";
 import {
   activateTeacherScenarioStudio,
   createTeacherScenarioStudioDraft,

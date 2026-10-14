@@ -7,7 +7,7 @@ import type {
   W3OfficialConsequenceResponse
 } from "@simwar/shared-contracts";
 import { isStudentDecisionContextEvidenceScope } from "@simwar/shared-contracts";
-import { DecisionThreadEvidenceSpine } from "@simwar/ui";
+import { DecisionThreadEvidenceSpine } from "@simwar/ui/components/DecisionThreadEvidenceSpine";
 import "@simwar/ui/decision-thread-evidence-spine.css";
 import M4MultipathCounterfactualTransferPanel from "@simwar/ui/m4-multipath-counterfactual-transfer-panel";
 import "./p2b-decision-learning.css";

@@ -4,7 +4,7 @@ import type {
   TransferResearchDesignInput,
   TransferResearchDesignListDto
 } from "@simwar/shared-contracts";
-import { WorkbenchFrame } from "@simwar/ui";
+import { WorkbenchFrame } from "@simwar/ui/workbenches/WorkbenchFrame";
 import {
   freezeTransferResearchDesign,
   loadTransferResearchDesigns,

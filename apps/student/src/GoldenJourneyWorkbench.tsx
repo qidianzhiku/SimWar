@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ApiEnvelope, GoldenJourneyStatusDto } from "@simwar/shared-contracts";
-import { WorkbenchFrame } from "@simwar/ui";
+import { WorkbenchFrame } from "@simwar/ui/workbenches/WorkbenchFrame";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 
