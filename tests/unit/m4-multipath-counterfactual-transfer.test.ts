@@ -10,7 +10,6 @@ import {
 } from "../../services/api/src/m4-multipath-counterfactual-transfer";
 import type { M4MultipathCounterfactualInput } from "../../packages/shared-contracts/src/m4-multipath-counterfactual-transfer";
 import type {
-  RoleWorkflowRepositorySnapshot,
   W4CanonicalStrategicDecision,
   W4EnterpriseState,
   W4ReplayInputManifest,
