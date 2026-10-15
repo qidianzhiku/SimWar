@@ -112,10 +112,11 @@ test("real BFF error recovers to the published Student journey and no-context ac
   await page.goto(`${studentBaseUrl}?w3=true`);
   await signIn(page, "student");
   const studentJourney = page.getByLabel("学员决策学习旅程");
-  const noContextDenial = page.getByRole("alert").filter({
+  const noContextDenial = page.getByRole("region", { name: "发生错误", exact: true }).filter({
     hasText: "学员服务端投影加载失败；不会使用旧上下文或客户端推断。"
   });
   await expect(noContextDenial).toBeVisible();
+  await expect(noContextDenial).toHaveAttribute("data-state", "error");
   await expect(studentJourney).toHaveCount(0);
   await expect(page.getByTestId("student-p2b-result")).toHaveCount(0);
 
@@ -126,7 +127,11 @@ test("real BFF error recovers to the published Student journey and no-context ac
       response.request().method() === "POST"
   );
   await signIn(page, "student");
-  await expect(page.getByRole("alert").filter({ hasText: "CONTEXT_NOT_FOUND" })).toBeVisible();
+  const invalidContextDenial = page
+    .getByRole("region", { name: "发生错误", exact: true })
+    .filter({ hasText: "CONTEXT_NOT_FOUND" });
+  await expect(invalidContextDenial).toBeVisible();
+  await expect(invalidContextDenial).toHaveAttribute("data-state", "error");
   await expect(studentJourney).toHaveCount(0);
   await expect(page.getByTestId("student-p2b-result")).toHaveCount(0);
   const backendDenial = await assertNativeInvalidRound(page, await invalidLogin, invalidW3Query);
