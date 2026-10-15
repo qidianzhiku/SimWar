@@ -6,7 +6,7 @@ import {
   type GSICrossRoundAdminProjection,
   type GSICrossRoundPairOptions
 } from "@simwar/shared-contracts";
-import { DecisionThreadEvidenceSpine } from "@simwar/ui";
+import { DecisionThreadEvidenceSpine } from "@simwar/ui/components/DecisionThreadEvidenceSpine";
 import "@simwar/ui/decision-thread-evidence-spine.css";
 import "./gsi-xr.css";
 

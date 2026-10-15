@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { WorkbenchFrame } from "@simwar/ui";
+import { WorkbenchFrame } from "@simwar/ui/workbenches/WorkbenchFrame";
 import type { RegionalTransferAdminProjection } from "@simwar/shared-contracts";
 import { loadRegionalTransferAdminProjection } from "./regional-transfer-client";
 

@@ -7,7 +7,10 @@ import type {
   StudentBffCockpitDTO,
   StudentSafeTeamSettlement
 } from "@simwar/shared-contracts";
-import { AllowedActionButton, AuthorityBadge, KnownLimitBanner, StatePanel } from "@simwar/ui";
+import { AllowedActionButton } from "@simwar/ui/components/AllowedActionButton";
+import { AuthorityBadge } from "@simwar/ui/components/AuthorityBadge";
+import { KnownLimitBanner } from "@simwar/ui/components/KnownLimitBanner";
+import { StatePanel } from "@simwar/ui/components/StatePanel";
 import {
   type StudentDecisionDesktopContext,
   type StudentDecisionDesktopState

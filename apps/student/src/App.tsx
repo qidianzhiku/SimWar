@@ -43,7 +43,8 @@ import {
   validateReauthIdentity,
   type ReauthContext
 } from "@simwar/shared-contracts";
-import { IndustryModelDiagnosticReadinessPanel, IndustryModelRealityJoinPanel } from "@simwar/ui";
+import { IndustryModelDiagnosticReadinessPanel } from "@simwar/ui/components/IndustryModelDiagnosticReadinessPanel";
+import { IndustryModelRealityJoinPanel } from "@simwar/ui/components/IndustryModelRealityJoinPanel";
 import type {
   ApiEnvelope,
   AuthSession,
@@ -103,15 +104,13 @@ const StudentCoachPanel = lazy(() =>
   import("./StudentCoachPanel").then(({ StudentCoachPanel: Component }) => ({ default: Component }))
 );
 import { isW3ContextAvailable } from "./p2b-w3-context";
-import {
-  AppShell,
-  AuthorityBadge,
-  ContextBar,
-  KnownLimitBanner,
-  RoleNavigation,
-  StatePanel,
-  WorkbenchFrame
-} from "@simwar/ui";
+import { AppShell } from "@simwar/ui/components/AppShell";
+import { AuthorityBadge } from "@simwar/ui/components/AuthorityBadge";
+import { ContextBar } from "@simwar/ui/components/ContextBar";
+import { KnownLimitBanner } from "@simwar/ui/components/KnownLimitBanner";
+import { RoleNavigation } from "@simwar/ui/components/RoleNavigation";
+import { StatePanel } from "@simwar/ui/components/StatePanel";
+import { WorkbenchFrame } from "@simwar/ui/workbenches/WorkbenchFrame";
 import { CrossRoleRecoveryRail } from "@simwar/ui/cross-role-recovery-rail";
 
 const O4CrossRoundDynamicsFeature = lazy(() => import("./O4"));

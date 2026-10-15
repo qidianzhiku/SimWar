@@ -2,6 +2,7 @@ import {
   expect,
   test,
   type APIRequestContext,
+  type Locator,
   type Page,
   type Request as BrowserRequest,
   type TestInfo
@@ -102,11 +103,17 @@ async function publishRoundOne(
 
 async function captureResponsiveEvidence(
   page: Page,
+  region: Locator,
   role: string,
   testInfo: TestInfo
 ): Promise<void> {
   for (const width of [390, 1024, 1280, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
+    await expect(region).toBeVisible();
+    const regionBox = await region.boundingBox();
+    expect(regionBox).not.toBeNull();
+    expect(regionBox!.x).toBeGreaterThanOrEqual(0);
+    expect(regionBox!.x + regionBox!.width).toBeLessThanOrEqual(width);
     await page.screenshot({
       path: testInfo.outputPath(`gsi-xr-${role}-${width}.png`),
       fullPage: true
@@ -299,7 +306,7 @@ test("GSI-XR role journey resolves an explicit pair through the real BFF", async
     expect(handoffUrl.search).not.toContain("candidate");
     expect(handoffUrl.search).not.toContain("digest");
     expect(handoffUrl.hash).toBe("#gsi-student-reflection");
-    await captureResponsiveEvidence(page, "teacher", testInfo);
+    await captureResponsiveEvidence(page, teacherPanel, "teacher", testInfo);
 
     await page.goto(studentHandoffHref!);
     await signIn(page, "学员登录", "student");
@@ -330,7 +337,7 @@ test("GSI-XR role journey resolves an explicit pair through the real BFF", async
     await expect(studentPanel).not.toContainText("comparison_digest");
     await expect(studentPanel).not.toContainText("signal_key");
     await expect(studentPanel).not.toContainText("Customers value predictable service");
-    await captureResponsiveEvidence(page, "student", testInfo);
+    await captureResponsiveEvidence(page, studentPanel, "student", testInfo);
 
     const wrongTeamHandoff = new URL(studentHandoffHref!);
     wrongTeamHandoff.searchParams.set("gsi_team_id", "team_not_authorized");
@@ -344,7 +351,11 @@ test("GSI-XR role journey resolves an explicit pair through the real BFF", async
     await page.goto(wrongTeamHandoff.toString());
     await signIn(page, "学员登录", "student");
     expect((await wrongTeamResponse).status()).toBe(403);
-    await expect(studentPanel).toContainText("PAIR_SELECTION_UNAVAILABLE");
+    const unauthorizedStatus = studentPanel
+      .getByRole("status")
+      .filter({ hasText: "PAIR_SELECTION_UNAVAILABLE" });
+    await expect(unauthorizedStatus).toBeVisible();
+    await expect(unauthorizedStatus).toHaveAttribute("aria-live", "polite");
     await expect(studentPanel).not.toBeFocused();
     await expect(studentPanel.getByLabel("Student from round")).toBeDisabled();
     await expect(studentPanel).not.toContainText("INCREASED");
@@ -374,11 +385,14 @@ test("GSI-XR role journey resolves an explicit pair through the real BFF", async
     const adminProvenance = adminPanel.locator("details.gsi-xr-admin-provenance-details");
     await expect(adminProvenance).toBeVisible();
     await expect(adminProvenance).not.toHaveAttribute("open", "");
-    await adminProvenance.locator("summary").click();
+    const adminProvenanceSummary = adminProvenance.locator("summary");
+    await adminProvenanceSummary.press("Enter");
     await expect(adminProvenance).toHaveAttribute("open", "");
     await expect(adminProvenance).toContainText("context_binding");
     await expect(adminPanel).toContainText("official_truth_write=false");
-    await captureResponsiveEvidence(page, "admin", testInfo);
+    await adminProvenanceSummary.press("Enter");
+    await expect(adminProvenance).not.toHaveAttribute("open", "");
+    await captureResponsiveEvidence(page, adminPanel, "admin", testInfo);
 
     expect(gsiRequests.filter((url) => url.includes("/teacher/gsi/")).length).toBeGreaterThan(0);
     expect(gsiRequests.filter((url) => url.includes("/student/gsi/")).length).toBeGreaterThan(0);

@@ -4,11 +4,9 @@ import type {
   ModelQualificationRunAdmissionSelection,
   ModelQualificationTeacherProjection
 } from "@simwar/shared-contracts";
-import {
-  IndustryModelDiagnosticReadinessPanel,
-  IndustryModelRealityJoinPanel,
-  ModelQualificationAdoptionPanel
-} from "@simwar/ui";
+import { IndustryModelDiagnosticReadinessPanel } from "@simwar/ui/components/IndustryModelDiagnosticReadinessPanel";
+import { IndustryModelRealityJoinPanel } from "@simwar/ui/components/IndustryModelRealityJoinPanel";
+import { ModelQualificationAdoptionPanel } from "@simwar/ui/components/ModelQualificationAdoptionPanel";
 import {
   calibrationDatasetIdentity,
   hasExactModelQualificationEvidence,
