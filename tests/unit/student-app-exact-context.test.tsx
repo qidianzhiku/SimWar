@@ -909,6 +909,17 @@ describe("mounted Student exact-round entry", () => {
   ])("rejects ambiguous or implicit exact entry %s", (search) => {
     expect(readStudentRequestContext(search).kind).toBe("INVALID");
   });
+  it.each(["course_first_aid", "course_last_aid", "course_newest_aid"])(
+    "admits canonical W3 identity %s without treating its segment as an implicit selector",
+    (courseId) => {
+      const parsed = readStudentRequestContext(
+        exactR1.replace("course_id=course-a", `course_id=${courseId}`)
+      );
+      expect(parsed.kind).toBe("EXACT");
+      if (parsed.kind !== "EXACT") throw new Error("fixture must be exact");
+      expect(parsed.context.course_id).toBe(courseId);
+    }
+  );
   it("keeps GSI's five-field handoff separate from exact-round context", () => {
     expect(
       readStudentRequestContext(

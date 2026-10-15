@@ -13,6 +13,7 @@ import {
   isStudentFieldEditable,
   isStudentSessionAllowed,
   projectStudentBootstrapState,
+  StudentLearningLoadBoundary,
   STUDENT_NAVIGATION_ITEMS
 } from "../../apps/student/src/App";
 import type { P0DemoState, StudentRoleWorkflowWorkspaceDTO } from "@simwar/shared-contracts";
@@ -99,11 +100,185 @@ beforeAll(async () => {
   // Await the actual lazy dependencies; keep App's real components and requests.
   await Promise.all([
     import("../../apps/student/src/StudentDecisionDesktop"),
-    import("../../apps/student/src/W4EnterpriseStatePanel")
+    import("../../apps/student/src/W4EnterpriseStatePanel"),
+    import("../../apps/student/src/student-request-context")
   ]);
 });
 
 afterEach(cleanupOwnedResources);
+
+async function withReviewApp(
+  query: string,
+  check: (host: HTMLElement, requests: string[]) => Promise<void>
+): Promise<void> {
+  const previousUrl = window.location.href;
+  const previousStorage = { ...window.sessionStorage };
+  window.sessionStorage.clear();
+  window.history.replaceState(null, "", query ? `/?${query}` : "/");
+  const session = {
+    access_token: "student-review-token",
+    session_id: "review-session",
+    user: {
+      user_id: "student-a",
+      tenant_id: "tenant-a",
+      display_name: "Student A",
+      roles: ["learner"]
+    }
+  };
+  const state = {
+    current_user: { ...session.user, team_id: "team-a" },
+    courses: [
+      { course_id: "course-a", tenant_id: "tenant-a", title: "Course A", status: "published" }
+    ],
+    teams: [
+      {
+        team_id: "team-a",
+        tenant_id: "tenant-a",
+        course_id: "course-a",
+        name: "Team A",
+        captain_user_id: "student-a",
+        members: [{ user_id: "student-a", role_slot: "CEO" }]
+      }
+    ],
+    runs: [{ run_id: "run-a", tenant_id: "tenant-a", course_id: "course-a", status: "active" }],
+    rounds: [
+      {
+        round_id: "round-2",
+        tenant_id: "tenant-a",
+        run_id: "run-a",
+        round_no: 2,
+        status: "open"
+      }
+    ],
+    decisions: [],
+    audit_logs: []
+  };
+  const scope = {
+    actor_role: "learner",
+    advisory_slots: [],
+    allowed_actions: [],
+    course_id: "course-a",
+    explicit_non_proof: [],
+    forbidden_fields: [],
+    round_id: "round-2",
+    round_no: 2,
+    run_id: "run-a",
+    team_id: "team-a",
+    tenant_id: "tenant-a",
+    source_runtime_path: ["student_bff"],
+    evidence_label: "STUDENT_PROJECTION_EVIDENCE"
+  };
+  const cockpit = {
+    student_cockpit: {
+      ...scope,
+      visible_state: { course_status: "published", round_status: "open", team_name: "Team A" }
+    },
+    decision_form: {
+      ...scope,
+      decision_schema_version: "m1-decision-form.v1",
+      editable_fields: []
+    },
+    published_result: { ...scope, result_label: "M1 official result" },
+    three_part_feedback: { ...scope, feedback: {} },
+    learning_report: {
+      ...scope,
+      learning_evidence: { advisory_only: true, formal_grade: false, prompts: [] }
+    }
+  };
+  const requests: string[] = [];
+  const response = (data: unknown) => new Response(JSON.stringify({ data }));
+  spyOnOwnedFetch().mockImplementation(async (input) => {
+    const url = String(input);
+    requests.push(url);
+    if (url.endsWith("/auth/login")) return response(session);
+    if (url.endsWith("/demo-state")) return response(state);
+    if (url.endsWith("/cockpit")) return response(cockpit);
+    if (url.includes("/student/decision-thread/evidence-spine?"))
+      return response({
+        schema_version: "decision-thread-evidence-spine.v1",
+        surface: "student",
+        exact_context: {
+          course_id: "course-a",
+          run_id: "run-a",
+          team_id: "team-a",
+          round_id: "round-2",
+          round_no: 2,
+          role_key: "CEO"
+        },
+        provider: "OFF",
+        non_causal: true,
+        causal_proof: false,
+        official_truth_write: false,
+        formal_write_count: 0,
+        sources: [],
+        known_limits: ["fixture"]
+      });
+    if (url.endsWith("/learning-reports"))
+      return response({
+        report_schema_version: "student-learning-report.public.v1",
+        scope: "student_team",
+        reports: [
+          {
+            report_id: "published-round-1-report",
+            context: {
+              course_id: "course-a",
+              run_id: "run-a",
+              team_id: "team-a",
+              round_id: "round-1",
+              round_no: 1,
+              role_key: "CEO"
+            },
+            status: "CONFIRMED",
+            learning_evidence: { criterion_results: [], student_visible_feedback: [] },
+            business_outcome: {
+              status: "SEPARATE_SAFE_OUTCOME",
+              summary: "已发布的上一回合学习结果"
+            }
+          }
+        ],
+        known_limits: []
+      });
+    return new Response(
+      JSON.stringify({ code: "STUDENT_BFF_UNAVAILABLE", message: "unavailable" }),
+      { status: 503 }
+    );
+  });
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = mountOwnedRoot(host);
+  try {
+    await act(async () => root.render(<App />));
+    await act(async () => {
+      for (const [label, value] of [
+        ["tenant", "tenant-a"],
+        ["username", "student-a"],
+        ["password", "test-password"]
+      ]) {
+        const input = host.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`);
+        expect(input).not.toBeNull();
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(
+          input,
+          value
+        );
+        input!.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    });
+    await act(async () => {
+      const login = [...host.querySelectorAll("button")].find((button) =>
+        button.textContent?.includes("学员登录")
+      );
+      expect(login).toBeDefined();
+      login!.click();
+    });
+    await check(host, requests);
+  } finally {
+    await cleanupOwnedResources();
+    window.history.replaceState(null, "", previousUrl);
+    window.sessionStorage.clear();
+    for (const [key, value] of Object.entries(previousStorage))
+      window.sessionStorage.setItem(key, value);
+  }
+}
 
 const expectedLocations = [
   ["student-role-mission", "角色任务"],
@@ -121,6 +296,99 @@ const expectedLocations = [
   ["student-learning-path", "学习路径"]
 ] as const;
 describe("Student executive workspace refoundation", () => {
+  it("keeps a published historical report visible while the ordinary current round is open", async () => {
+    await withReviewApp("", async (host, requests) => {
+      await act(async () => {
+        await vi.waitFor(() => expect(host.textContent).toContain("已发布的上一回合学习结果"));
+      });
+      expect(host.querySelector("#student-cockpit")).not.toBeNull();
+      expect(requests.filter((url) => url.endsWith("/learning-reports"))).toHaveLength(1);
+      expect(
+        requests.some((url) => url.includes("/learning-reports/published-round-1-report"))
+      ).toBe(false);
+    });
+  });
+
+  it("recovers ordinary navigation after a foreign exact URL is denied without reading its report", async () => {
+    const query =
+      "w3=true&tenant_id=foreign&course_id=course-a&run_id=run-a&team_id=team-a&round_id=round-2&round_no=2&role_key=CEO&activity_id=activity_consequence";
+    await withReviewApp(query, async (host, requests) => {
+      // Flush the real refresh commit before observing it, rather than holding
+      // one act scope open while waitFor polls a not-yet-committed state.
+      await vi.waitFor(async () => {
+        await act(async () => {});
+        expect(host.textContent).toContain("CONTEXT_UNAUTHORIZED");
+      });
+      expect(host.querySelector("#student-cockpit")).toBeNull();
+      expect(
+        requests.some((url) => url.endsWith("/cockpit") || url.includes("/learning-reports"))
+      ).toBe(false);
+      await act(async () => {
+        window.history.pushState(null, "", "/");
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      });
+      await vi.waitFor(async () => {
+        await act(async () => {});
+        expect(host.querySelector("#student-cockpit")).not.toBeNull();
+        expect(host.textContent).toContain("已发布的上一回合学习结果");
+      });
+      expect(host.textContent).toContain("已发布的上一回合学习结果");
+      expect(requests.filter((url) => url.endsWith("/cockpit"))).toEqual([
+        "http://localhost:3000/api/v1/bff/student/runs/run-a/rounds/2/cockpit"
+      ]);
+    });
+  });
+
+  it("does not replace an exact unpublished round with an authorized historical report", async () => {
+    const query =
+      "w3=true&tenant_id=tenant-a&course_id=course-a&run_id=run-a&team_id=team-a&round_id=round-2&round_no=2&role_key=CEO&activity_id=activity_consequence";
+    await withReviewApp(query, async (host, requests) => {
+      await act(async () => {
+        await vi.waitFor(() => expect(host.querySelector("#student-cockpit")).not.toBeNull());
+      });
+      expect(host.querySelector("#student-learning-report")?.textContent).toContain(
+        "正式结果发布后"
+      );
+      expect(host.textContent).not.toContain("已发布的上一回合学习结果");
+      expect(requests.some((url) => url.includes("/learning-reports"))).toBe(false);
+    });
+  });
+
+  it("contains a rejected lazy module and exposes reload without removing admitted sibling content", async () => {
+    const loadError = new Error("qualification chunk unavailable");
+    const RejectedModule = React.lazy(async () => {
+      throw loadError;
+    });
+    const reload = vi.fn();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = mountOwnedRoot(host);
+    try {
+      await act(async () =>
+        root.render(
+          <>
+            <p>已准入的驾驶舱</p>
+            <StudentLearningLoadBoundary onReload={reload}>
+              <React.Suspense fallback={<p>loading</p>}>
+                <RejectedModule />
+              </React.Suspense>
+            </StudentLearningLoadBoundary>
+          </>
+        )
+      );
+      expect(host.textContent).toContain("已准入的驾驶舱");
+      expect(host.textContent).toContain("学习模块暂不可用");
+      const button = [...host.querySelectorAll("button")].find((item) =>
+        item.textContent?.includes("重新加载学习页面")
+      );
+      expect(button).toBeDefined();
+      await act(async () => button!.click());
+      expect(reload).toHaveBeenCalledTimes(1);
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
   it("derives divergence acknowledgement roles from the active team instead of assuming CHRO", () => {
     const workspace = {
       assignment: { role_key: "CEO" },

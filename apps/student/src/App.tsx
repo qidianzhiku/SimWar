@@ -571,6 +571,7 @@ export function App() {
     "activity_id"
   ].some((key) => entryParams.has(key));
   const W3_ENABLED = W3_ENVIRONMENT_ENABLED || exactEntry || Boolean(w3Context);
+  const exactReportEntry = exactEntry || Boolean(reauthContext);
   const w3ContextReady = isW3ContextAvailable(w3Context, false);
   const ddtContext = w3Context;
   const ddtContextReady = w3ContextReady;
@@ -689,8 +690,10 @@ export function App() {
       } else {
         setW5Projection(null);
       }
+      if (controller.signal.aborted || !isCurrentStudentRequest(requestId, refreshIdentity.current))
+        return;
       setWorkspacePhase("ready");
-      if (selected) setContextRecoveryState("READY");
+      setContextRecoveryState("READY");
       if (!exact && reauthContext) {
         // Keep the verified non-secret navigation context so the next full
         // reload still requires explicit reauthentication for this context.
@@ -1228,15 +1231,17 @@ export function App() {
         ) : null}
 
         {hasStudentSurface ? (
-          <Suspense fallback={<p className="muted">正在载入模型资格投影…</p>}>
-            <ModelQualificationProjection
-              apiBase={API_BASE}
-              courseId={latestRun?.course_id}
-              qualificationId={MODEL_QUALIFICATION_ID}
-              tenantId={login.tenantId}
-              token={activeSession?.access_token ?? ""}
-            />
-          </Suspense>
+          <StudentLearningLoadBoundary key={requestContextKey}>
+            <Suspense fallback={<p className="muted">正在载入模型资格投影…</p>}>
+              <ModelQualificationProjection
+                apiBase={API_BASE}
+                courseId={latestRun?.course_id}
+                qualificationId={MODEL_QUALIFICATION_ID}
+                tenantId={login.tenantId}
+                token={activeSession?.access_token ?? ""}
+              />
+            </Suspense>
+          </StudentLearningLoadBoundary>
         ) : null}
 
         {hasStudentSurface ? (
@@ -1616,30 +1621,17 @@ export function App() {
         {hasStudentSurface ? (
           <section id="student-learning-report" className="student-location" aria-label="学习报告">
             <StudentLearningReportPanel
-              requireExactSourceAdmission={W3_ENABLED}
+              requireExactSourceAdmission={exactReportEntry}
               tenantId={login.tenantId}
               token={activeSession?.access_token ?? ""}
               requestIdentity={requestContextKey}
               published={
                 workspacePhase === "ready" &&
-                cockpit?.student_cockpit.visible_state.round_status === "published" &&
-                (!exactEntry || Boolean(w3Context))
+                (!exactReportEntry ||
+                  (cockpit?.student_cockpit.visible_state.round_status === "published" &&
+                    Boolean(w3Context)))
               }
-              context={
-                w3Context ??
-                (!exactEntry && cockpit && team
-                  ? {
-                      tenant_id: login.tenantId,
-                      course_id: cockpit.student_cockpit.course_id,
-                      run_id: cockpit.student_cockpit.run_id,
-                      team_id: cockpit.student_cockpit.team_id,
-                      round_id: cockpit.student_cockpit.round_id,
-                      round_no: cockpit.student_cockpit.round_no,
-                      role_key: w3RoleKey,
-                      activity_id: "activity_consequence"
-                    }
-                  : undefined)
-              }
+              context={exactReportEntry ? w3Context : undefined}
             />
           </section>
         ) : null}

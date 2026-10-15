@@ -1,4 +1,5 @@
 import {
+  isW3OfficialConsequenceContext,
   normalizeW027RoleKey,
   validateReauthIdentity,
   type AuthSession,
@@ -39,21 +40,11 @@ export function readStudentRequestContext(search: string): StudentRequestContext
   const round = Number(values.round_no);
   if (!Number.isSafeInteger(round) || round < 1 || !/^\d+$/.test(values.round_no!))
     return { kind: "INVALID" };
-  if (
-    keys
-      .filter((key) => key !== "round_no")
-      .some(
-        (key) =>
-          !/^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$/.test(values[key]!) ||
-          /(?:^|[._:-])(?:any|current|default|fallback|first|last|latest|newest|next|unresolved)(?:$|[._:-])/i.test(
-            values[key]!
-          )
-      )
-  )
-    return { kind: "INVALID" };
+  const context = { ...values, round_no: round };
+  if (!isW3OfficialConsequenceContext(context)) return { kind: "INVALID" };
   return {
     kind: "EXACT",
-    context: { ...values, round_no: round } as unknown as W3OfficialConsequenceContext
+    context
   };
 }
 
