@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { isW3OfficialConsequenceRecord } from "@simwar/shared-contracts";
 import type {
   W3OfficialConsequenceContext,
   W3OfficialConsequenceResponse
@@ -9,6 +10,7 @@ type Props = {
   token: string;
   tenantId: string;
   context?: W3OfficialConsequenceContext | undefined;
+  requestIdentity?: string;
 };
 
 type PanelState =
@@ -23,26 +25,40 @@ function contextQuery(context: W3OfficialConsequenceContext): string {
   return query.toString();
 }
 
-function errorMessage(value: unknown): string {
-  if (
-    value &&
-    typeof value === "object" &&
-    "message" in value &&
-    typeof value.message === "string"
-  ) {
-    return value.message;
-  }
+function errorMessage(_value: unknown): string {
   return "W3 官方结果暂不可用";
 }
 
 export function W3OfficialConsequenceLearningPanel(props: Props) {
-  const [state, setState] = useState<PanelState>({ phase: "idle" });
+  const identity = JSON.stringify([
+    props.apiBase,
+    props.token,
+    props.tenantId,
+    props.context,
+    props.requestIdentity
+  ]);
+  const currentIdentity = useRef(identity);
+  currentIdentity.current = identity;
+  const reflectionController = useRef<AbortController | null>(null);
+  const [readAttempt, setReadAttempt] = useState(0);
+  const [result, setResult] = useState<{ identity: string; state: PanelState }>({
+    identity,
+    state: { phase: "idle" }
+  });
+  const state: PanelState = result.identity === identity ? result.state : { phase: "idle" };
+  const setState = (state: PanelState) => setResult({ identity, state });
   const [reflection, setReflection] = useState("");
   const [reflectionMessage, setReflectionMessage] = useState("");
   const [reflectionBusy, setReflectionBusy] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
+    const current = () => !controller.signal.aborted && currentIdentity.current === identity;
+    const setState = (state: PanelState) => setResult({ identity, state });
+    reflectionController.current?.abort();
+    setReflection("");
+    setReflectionMessage("");
+    setReflectionBusy(false);
     if (!props.context || !props.token || !props.tenantId) {
       setState({ phase: "idle" });
       return () => controller.abort();
@@ -57,25 +73,39 @@ export function W3OfficialConsequenceLearningPanel(props: Props) {
         const envelope = (await response.json()) as {
           data?: W3OfficialConsequenceResponse;
           message?: string;
+          code?: string;
+          error?: unknown;
         };
+        if (!current()) return;
         if (response.status === 404) {
-          setState({ phase: "empty", message: envelope.message ?? "等待官方发布" });
+          setState({ phase: "empty", message: "等待官方发布" });
           return;
         }
         if (!response.ok || !envelope.data)
           throw new Error(envelope.message ?? "W3 request failed");
+        if (envelope.error !== undefined || (envelope.code !== undefined && envelope.code !== "OK"))
+          throw new Error("W3 response unavailable");
+        if (!isStudentW3ResponseForContext(envelope.data, props.context))
+          throw new Error("W3 context unavailable");
         setState({ phase: "ready", response: envelope.data });
       })
       .catch((error: unknown) => {
+        if (!current()) return;
         if (error instanceof DOMException && error.name === "AbortError") return;
         setState({ phase: "error", message: errorMessage(error) });
       });
 
-    return () => controller.abort();
-  }, [props.apiBase, props.context, props.tenantId, props.token]);
+    return () => {
+      controller.abort();
+      reflectionController.current?.abort();
+    };
+  }, [identity, props.apiBase, props.context, props.tenantId, props.token, readAttempt]);
 
   async function submitReflection(): Promise<void> {
-    if (state.phase !== "ready" || !props.context || !reflection.trim()) return;
+    if (state.phase !== "ready" || !props.context || !reflection.trim() || reflectionBusy) return;
+    const controller = new AbortController();
+    reflectionController.current = controller;
+    const current = () => !controller.signal.aborted && currentIdentity.current === identity;
     setReflectionBusy(true);
     setReflectionMessage("正在保存 AI-off 反思");
     try {
@@ -91,20 +121,29 @@ export function W3OfficialConsequenceLearningPanel(props: Props) {
           "content-type": "application/json",
           "x-tenant-id": props.tenantId
         },
-        method: "POST"
+        method: "POST",
+        signal: controller.signal
       });
       const envelope = (await response.json()) as {
         data?: W3OfficialConsequenceResponse;
         message?: string;
+        code?: string;
+        error?: unknown;
       };
+      if (!current()) return;
       if (!response.ok || !envelope.data)
         throw new Error(envelope.message ?? "reflection rejected");
+      if (envelope.error !== undefined || (envelope.code !== undefined && envelope.code !== "OK"))
+        throw new Error("W3 response unavailable");
+      if (!isStudentW3ResponseForContext(envelope.data, props.context))
+        throw new Error("W3 context unavailable");
       setState({ phase: "ready", response: envelope.data });
       setReflectionMessage("反思已记录，等待教师确认学习证据");
     } catch (error: unknown) {
+      if (!current()) return;
       setReflectionMessage(errorMessage(error));
     } finally {
-      setReflectionBusy(false);
+      if (current()) setReflectionBusy(false);
     }
   }
 
@@ -137,7 +176,14 @@ export function W3OfficialConsequenceLearningPanel(props: Props) {
       {state.phase === "empty" ? (
         <p className="muted">{state.message}。结算但未发布时，学员结果保持不可见。</p>
       ) : null}
-      {state.phase === "error" ? <p role="alert">{state.message}</p> : null}
+      {state.phase === "error" ? (
+        <div role="alert">
+          {state.message}
+          <button type="button" onClick={() => setReadAttempt((attempt) => attempt + 1)}>
+            重新读取官方学习记录
+          </button>
+        </div>
+      ) : null}
       {record ? (
         <>
           <div className="status-grid">
@@ -237,5 +283,34 @@ export function W3OfficialConsequenceLearningPanel(props: Props) {
         </>
       ) : null}
     </section>
+  );
+}
+
+export function isStudentW3ResponseForContext(
+  input: unknown,
+  context: W3OfficialConsequenceContext | undefined
+): input is W3OfficialConsequenceResponse {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return false;
+  const value = input as Record<string, unknown>;
+  const record = value.record;
+  return Boolean(
+    context &&
+    value?.visibility === "student_safe" &&
+    value.runtime_authority === "JSON_INTERNAL_ONLY" &&
+    Array.isArray(value.known_limits) &&
+    value.known_limits.every((x) => typeof x === "string") &&
+    isW3OfficialConsequenceRecord(record) &&
+    record.publication.status === "PUBLISHED" &&
+    record.official_result.outcome_label === "official_published" &&
+    record.official_result.team_id === context.team_id &&
+    record.source.round_ref.resource_id === context.round_id &&
+    [
+      record.source.round_ref,
+      record.source.canonical_decision_ref,
+      record.source.settlement_ref
+    ].every((ref) => ref.tenant_id === context.tenant_id) &&
+    (Object.keys(context) as (keyof W3OfficialConsequenceContext)[]).every(
+      (key) => record.context[key] === context[key]
+    )
   );
 }

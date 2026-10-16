@@ -10,6 +10,8 @@ import type {
   W4OfficialOutcome,
   W4StateRef
 } from "../../packages/shared-contracts/src";
+import { createJsonRoleWorkflowRepositoryPort } from "../../services/api/src/json-repository-adapter";
+import { RoleWorkflowCommandService } from "../../services/api/src/role-workflow";
 import { createApiServer } from "../../services/api/src/server";
 import { createW4DecisionPayloadDigest } from "../../services/api/src/w4-enterprise-state";
 import {
@@ -281,10 +283,87 @@ function seedCorridor(store: SimWarStore): void {
   });
 }
 
+async function ensureStudentRoleAssignment(store: SimWarStore): Promise<void> {
+  const run = store.runs.find((candidate) => candidate.run_id === runId);
+  const team = store.teams.find((candidate) => candidate.team_id === teamId);
+  const teacher = store.users.find((candidate) => candidate.user_id === "usr_teacher");
+  const studentIsCeo = team?.members.some(
+    (member) => member.user_id === "usr_student" && member.role_slot === "CEO"
+  );
+  if (
+    !run ||
+    run.tenant_id !== tenantId ||
+    run.course_id !== courseId ||
+    !team ||
+    team.tenant_id !== tenantId ||
+    !studentIsCeo ||
+    !teacher ||
+    teacher.tenant_id !== tenantId ||
+    !teacher.roles.includes("teacher")
+  ) {
+    throw new Error("R3 corridor requires the exact Teacher, Student, and CEO assignment scope");
+  }
+
+  const repository = createJsonRoleWorkflowRepositoryPort(store);
+  const scope = { course_id: courseId, run_id: runId, team_id: teamId };
+  const readAssignment = async () => {
+    const snapshot = await repository.readRoleWorkflow({ tenant_id: tenantId, ...scope });
+    return snapshot.assignments.filter(
+      (assignment) =>
+        assignment.status === "active" &&
+        assignment.user_id === "usr_student" &&
+        assignment.role_key === "CEO"
+    );
+  };
+  const existing = await readAssignment();
+  if (existing.length > 1) {
+    throw new Error("R3 corridor has ambiguous active Student CEO assignments");
+  }
+  if (existing.length === 1) {
+    const assignment = existing[0];
+    if (
+      assignment.tenant_id !== tenantId ||
+      assignment.course_id !== courseId ||
+      assignment.run_id !== runId ||
+      assignment.team_id !== teamId ||
+      assignment.user_id !== "usr_student" ||
+      assignment.role_key !== "CEO" ||
+      assignment.source !== "teacher_assigned" ||
+      assignment.assigned_by !== teacher.user_id
+    ) {
+      throw new Error("R3 corridor active Student CEO assignment scope is invalid");
+    }
+    return;
+  }
+
+  const workflow = new RoleWorkflowCommandService(repository);
+  const assignment = await workflow.assignRole(
+    { actor_id: teacher.user_id, actor_role: "teacher", tenant_id: tenantId },
+    { ...scope, user_id: "usr_student", role_key: "CEO" }
+  );
+  if (
+    assignment.status !== "active" ||
+    assignment.tenant_id !== tenantId ||
+    assignment.course_id !== courseId ||
+    assignment.run_id !== runId ||
+    assignment.team_id !== teamId ||
+    assignment.user_id !== "usr_student" ||
+    assignment.role_key !== "CEO" ||
+    assignment.source !== "teacher_assigned" ||
+    assignment.assigned_by !== teacher.user_id
+  ) {
+    throw new Error("R3 corridor RoleWorkflow assignment receipt is invalid");
+  }
+  if ((await readAssignment()).length !== 1) {
+    throw new Error("R3 corridor RoleWorkflow assignment was not persisted");
+  }
+}
+
 describe("SH-M3 W5 R3 Operating World consequence corridor", () => {
   it("joins exact W4 evidence into real student/teacher BFF projections and fails closed", async () => {
     const store = createP1Store();
     seedCorridor(store);
+    await ensureStudentRoleAssignment(store);
     const server = createApiServer(store);
     server.listen(0, "127.0.0.1");
     await once(server, "listening");

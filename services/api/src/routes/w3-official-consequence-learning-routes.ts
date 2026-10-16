@@ -52,6 +52,9 @@ function identity(value: unknown): string {
 }
 
 function contextFromUrl(url: URL, tenantId: string): W3OfficialConsequenceContext {
+  if (url.searchParams.has("tenant_id") && url.searchParams.get("tenant_id") !== tenantId) {
+    throw new W3OfficialConsequenceLearningError("W3_ACTOR_SCOPE_VIOLATION");
+  }
   const roundNo = Number(url.searchParams.get("round_no"));
   if (!Number.isInteger(roundNo) || roundNo < 1) {
     throw new W3OfficialConsequenceLearningError("W3_CONTEXT_INVALID");
@@ -73,6 +76,26 @@ function contextFromBody(
   tenantId: string
 ): W3OfficialConsequenceContext {
   const context = object(value.context);
+  only(context, [
+    "activity_id",
+    "course_id",
+    "role_key",
+    "round_id",
+    "round_no",
+    "run_id",
+    "team_id",
+    "tenant_id"
+  ]);
+  if (context.tenant_id !== undefined && context.tenant_id !== tenantId) {
+    throw new W3OfficialConsequenceLearningError("W3_ACTOR_SCOPE_VIOLATION");
+  }
+  if (
+    typeof context.round_no !== "number" ||
+    !Number.isSafeInteger(context.round_no) ||
+    context.round_no < 1
+  ) {
+    throw new W3OfficialConsequenceLearningError("W3_CONTEXT_INVALID");
+  }
   return {
     activity_id: identity(context.activity_id),
     course_id: identity(context.course_id),
@@ -176,7 +199,9 @@ export async function handleW3OfficialConsequenceRoute(
         200,
         helpers.createEnvelope(
           context,
-          await service.getConsequence(actor, contextFromUrl(url, context.tenantId), surface)
+          await (surface === "student"
+            ? service.getConsequenceExact(actor, contextFromUrl(url, context.tenantId), surface)
+            : service.getConsequence(actor, contextFromUrl(url, context.tenantId), surface))
         )
       );
       return true;

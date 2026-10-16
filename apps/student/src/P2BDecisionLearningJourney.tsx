@@ -11,6 +11,9 @@ import { DecisionThreadEvidenceSpine } from "@simwar/ui/components/DecisionThrea
 import "@simwar/ui/decision-thread-evidence-spine.css";
 import M4MultipathCounterfactualTransferPanel from "@simwar/ui/m4-multipath-counterfactual-transfer-panel";
 import "./p2b-decision-learning.css";
+import { isStudentW3ResponseForContext } from "./W3OfficialConsequenceLearningPanel";
+
+const W3_SAFE_ERROR = "学习投影暂不可用，请稍后重试。";
 
 export const P2B_STUDENT_STAGES = [
   "result",
@@ -67,8 +70,7 @@ function contextQuery(
   return params.toString();
 }
 
-function safeMessage(value: unknown): string {
-  if (value instanceof Error && value.message) return value.message;
+function safeMessage(_value: unknown): string {
   return "学习投影暂不可用，请稍后重试。";
 }
 
@@ -187,17 +189,29 @@ export function StudentDecisionLearningJourney({
         const envelope = (await response.json()) as {
           data?: W3OfficialConsequenceResponse;
           message?: string;
+          error?: unknown;
+          code?: string;
         };
-        if (requestEpoch !== requestEpochRef.current) return;
+        if (
+          controller.signal.aborted ||
+          currentIdentity.current !== requestIdentity ||
+          requestEpoch !== requestEpochRef.current
+        )
+          return;
         if (response.status === 404) {
           setStateForIdentity({
             phase: "empty",
-            message: envelope.message ?? "等待教师确认学习投影"
+            message: "等待教师确认学习投影"
           });
           return;
         }
-        if (!response.ok || !envelope.data) {
-          throw new Error(envelope.message ?? "学习投影读取失败");
+        if (
+          !response.ok ||
+          envelope.error !== undefined ||
+          (envelope.code !== undefined && envelope.code !== "OK") ||
+          !isStudentW3ResponseForContext(envelope.data, context)
+        ) {
+          throw new Error(W3_SAFE_ERROR);
         }
         recordRef.current = envelope.data.record;
         recordIdentityRef.current = requestIdentity;
@@ -205,8 +219,13 @@ export function StudentDecisionLearningJourney({
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
-        if (requestEpoch !== requestEpochRef.current) return;
-        setStateForIdentity({ phase: "error", message: safeMessage(error) });
+        if (
+          controller.signal.aborted ||
+          currentIdentity.current !== requestIdentity ||
+          requestEpoch !== requestEpochRef.current
+        )
+          return;
+        setStateForIdentity({ phase: "error", message: W3_SAFE_ERROR });
       });
 
     return () => controller.abort();
@@ -278,7 +297,12 @@ export function StudentDecisionLearningJourney({
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
-        if (requestEpoch !== crossRoundRequestEpochRef.current) return;
+        if (
+          controller.signal.aborted ||
+          currentIdentity.current !== requestIdentity ||
+          requestEpoch !== crossRoundRequestEpochRef.current
+        )
+          return;
         setCrossRoundForIdentity({
           phase: "error",
           message: safeMessage(error)
@@ -363,10 +387,17 @@ export function StudentDecisionLearningJourney({
       const envelope = (await response.json()) as {
         data?: W3OfficialConsequenceResponse;
         message?: string;
+        error?: unknown;
+        code?: string;
       };
       if (!isCurrent()) return;
-      if (!response.ok || !envelope.data) {
-        throw new Error(envelope.message ?? "学习草稿保存失败");
+      if (
+        !response.ok ||
+        envelope.error !== undefined ||
+        (envelope.code !== undefined && envelope.code !== "OK") ||
+        !isStudentW3ResponseForContext(envelope.data, context)
+      ) {
+        throw new Error(W3_SAFE_ERROR);
       }
       requestEpochRef.current += 1;
       setCrossRoundRetryNonce((current) => current + 1);
@@ -374,9 +405,9 @@ export function StudentDecisionLearningJourney({
       recordIdentityRef.current = identityKey;
       setStateForIdentity({ phase: "ready", record: envelope.data.record }, identityKey);
       setReflectionNotice("学习草稿已保存；它不会进入正式结算。");
-    } catch (error: unknown) {
+    } catch {
       if (!isCurrent()) return;
-      setReflectionNotice(safeMessage(error));
+      setReflectionNotice(W3_SAFE_ERROR);
     } finally {
       if (isCurrent()) setReflectionBusy(false);
     }
@@ -835,6 +866,9 @@ export function StudentDecisionLearningJourney({
                 role="status"
               >
                 ERROR · 跨回合入口暂不可用：{currentCrossRound.message}
+                <button type="button" onClick={() => setCrossRoundRetryNonce((nonce) => nonce + 1)}>
+                  重新读取跨回合学习记录
+                </button>
               </div>
             ) : null}
             <div className="p2b-known-limit">当前边界：{record.known_limits.join(" / ")}</div>

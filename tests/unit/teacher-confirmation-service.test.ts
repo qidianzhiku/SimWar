@@ -6,7 +6,11 @@ import {
 } from "../../services/api/src/teacher-confirmation.js";
 import { createJsonTeacherConfirmationRepositoryPort } from "../../services/api/src/json-repository-adapter.js";
 import { createP1Store } from "../../services/api/src/store.js";
-import type { AuditLog, TeacherConfirmationVersion } from "@simwar/shared-contracts";
+import type {
+  AuditLog,
+  TeacherConfirmationExactRef,
+  TeacherConfirmationVersion
+} from "@simwar/shared-contracts";
 
 const digest = "a".repeat(64);
 const ref = (
@@ -94,6 +98,24 @@ const input = {
   idempotency_key: "idem_001"
 } as const;
 
+const exactRound = { round_id: "round_001", round_no: 1 } as const;
+
+const exactInput = {
+  ...input,
+  context: { ...input.context, ...exactRound }
+} as const;
+
+function artifactContext(round: { round_id?: string; round_no?: number } = {}) {
+  return {
+    activity_id: "activity_001",
+    course_id: "course_001",
+    run_id: "run_001",
+    team_id: "team_001",
+    role_key: "marketing",
+    ...round
+  };
+}
+
 describe("TeacherConfirmationCommandService", () => {
   it("creates an immutable draft and confirms it as a new version", async () => {
     const deps = dependencies();
@@ -114,6 +136,147 @@ describe("TeacherConfirmationCommandService", () => {
     expect(deps.records).toHaveLength(2);
     expect(deps.records[0].content_digest).not.toBe(deps.records[1].content_digest);
   });
+
+  it("preserves a genuine no-round teacher confirmation as legacy non-exact", async () => {
+    const deps = dependencies();
+    deps.evidence.getByReference = async () => ({
+      artifact_ref: ref("evidence_artifact", "artifact_001"),
+      context: artifactContext(exactRound),
+      visibility: "teacher_only"
+    });
+    const service = new TeacherConfirmationCommandService(deps);
+
+    const result = await service.saveDraft(
+      { actor_id: "usr_teacher", tenant_id: "tenant_demo" },
+      input,
+      "req_legacy"
+    );
+
+    expect(result.data.status).toBe("generated");
+    expect(result.data.confirmation.context).toEqual(input.context);
+    expect(result.data.confirmation.context.round_id).toBeUndefined();
+    expect(result.data.confirmation.context.round_no).toBeUndefined();
+  });
+
+  it("accepts a fully bound exact round artifact and preserves its exact context", async () => {
+    const deps = dependencies();
+    deps.evidence.getByReference = async () => ({
+      artifact_ref: ref("evidence_artifact", "artifact_001"),
+      context: artifactContext(exactRound),
+      visibility: "teacher_only"
+    });
+    const service = new TeacherConfirmationCommandService(deps);
+
+    const result = await service.saveDraft(
+      { actor_id: "usr_teacher", tenant_id: "tenant_demo" },
+      exactInput,
+      "req_exact"
+    );
+
+    expect(result.data.status).toBe("generated");
+    expect(result.data.confirmation.context).toEqual(exactInput.context);
+    expect(result.data.confirmation.evidence_refs[0]).toEqual(input.evidence_refs[0]);
+    expect(deps.records).toHaveLength(1);
+  });
+
+  it.each([
+    ["round_id only", { round_id: exactRound.round_id }],
+    ["round_no only", { round_no: exactRound.round_no }]
+  ] as const)("rejects an exact request with a %s round pair", async (_label, requestedRound) => {
+    const deps = dependencies();
+    deps.evidence.getByReference = async () => ({
+      artifact_ref: ref("evidence_artifact", "artifact_001"),
+      context: artifactContext(exactRound),
+      visibility: "teacher_only"
+    });
+    const service = new TeacherConfirmationCommandService(deps);
+
+    await expect(
+      service.saveDraft(
+        { actor_id: "usr_teacher", tenant_id: "tenant_demo" },
+        { ...input, context: { ...input.context, ...requestedRound } },
+        "req_partial_round"
+      )
+    ).rejects.toMatchObject({ code: "D3_EVIDENCE_INVALID" });
+    expect(deps.records).toHaveLength(0);
+    expect(deps.audits).toHaveLength(0);
+  });
+
+  it("rejects an exact request when its evidence artifact is unbound", async () => {
+    const deps = dependencies();
+    deps.evidence.getByReference = async () => null;
+    const service = new TeacherConfirmationCommandService(deps);
+
+    await expect(
+      service.saveDraft(
+        { actor_id: "usr_teacher", tenant_id: "tenant_demo" },
+        exactInput,
+        "req_unbound_artifact"
+      )
+    ).rejects.toMatchObject({ code: "D3_EVIDENCE_INVALID" });
+    expect(deps.records).toHaveLength(0);
+    expect(deps.audits).toHaveLength(0);
+  });
+
+  it.each([
+    ["missing round pair", {}],
+    ["missing round_id", { round_no: exactRound.round_no }],
+    ["missing round_no", { round_id: exactRound.round_id }],
+    ["wrong round pair", { round_id: "round_002", round_no: 2 }],
+    ["wrong round_id", { round_id: "round_002", round_no: exactRound.round_no }],
+    ["wrong round_no", { round_id: exactRound.round_id, round_no: 2 }]
+  ] as const)("rejects an exact request when the artifact is %s", async (_label, artifactRound) => {
+    const deps = dependencies();
+    deps.evidence.getByReference = async () => ({
+      artifact_ref: ref("evidence_artifact", "artifact_001"),
+      context: artifactContext(artifactRound),
+      visibility: "teacher_only"
+    });
+    const service = new TeacherConfirmationCommandService(deps);
+
+    await expect(
+      service.saveDraft(
+        { actor_id: "usr_teacher", tenant_id: "tenant_demo" },
+        exactInput,
+        "req_bad_artifact_round"
+      )
+    ).rejects.toMatchObject({ code: "D3_EVIDENCE_INVALID" });
+    expect(deps.records).toHaveLength(0);
+    expect(deps.audits).toHaveLength(0);
+  });
+
+  it.each([
+    ["tenant_id", { tenant_id: "tenant_other" }],
+    ["resource_type", { resource_type: "teacher_confirmation_version" }],
+    ["resource_id", { resource_id: "artifact_other" }],
+    ["version", { version: "2.0.0" }],
+    ["content_digest", { content_digest: "b".repeat(64) }]
+  ] as const)(
+    "rejects an exact request when the artifact full ref has a %s mismatch",
+    async (_label, mutation) => {
+      const deps = dependencies();
+      const mismatchedRef = {
+        ...ref("evidence_artifact", "artifact_001"),
+        ...mutation
+      } as TeacherConfirmationExactRef;
+      deps.evidence.getByReference = async () => ({
+        artifact_ref: mismatchedRef,
+        context: artifactContext(exactRound),
+        visibility: "teacher_only"
+      });
+      const service = new TeacherConfirmationCommandService(deps);
+
+      await expect(
+        service.saveDraft(
+          { actor_id: "usr_teacher", tenant_id: "tenant_demo" },
+          exactInput,
+          "req_bad_artifact_ref"
+        )
+      ).rejects.toMatchObject({ code: "D3_EVIDENCE_INVALID" });
+      expect(deps.records).toHaveLength(0);
+      expect(deps.audits).toHaveLength(0);
+    }
+  );
 
   it("appends a bounded rejection and revises it into a new draft", async () => {
     const deps = dependencies();

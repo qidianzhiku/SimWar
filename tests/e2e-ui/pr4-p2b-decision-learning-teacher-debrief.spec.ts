@@ -1,5 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import { cleanupPlaywrightStore } from "./store-isolation";
+import {
+  assertNativeInvalidRound,
+  prepareNativeAuthRecovery,
+  type NativeScope
+} from "./pr4-p2b-native-error-recovery-fixture";
 
 const teacherBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_TEACHER_PORT ?? 3101}`;
 const studentBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_STUDENT_PORT ?? 3102}`;
@@ -7,6 +12,16 @@ const w3Query =
   "w3=true&activity_id=activity_consequence&course_id=course_demo&role_key=CEO&round_id=round_w3_browser_1&round_no=1&run_id=run_w3_browser&team_id=team_alpha&tenant_id=tenant_demo";
 const invalidW3Query =
   "w3=true&activity_id=activity_consequence&course_id=course_demo&role_key=CEO&round_id=round_missing&round_no=1&run_id=run_w3_browser&team_id=team_alpha&tenant_id=tenant_demo";
+const exactScope: NativeScope = {
+  activity_id: "activity_consequence",
+  course_id: "course_demo",
+  role_key: "CEO",
+  round_id: "round_w3_browser_1",
+  round_no: 1,
+  run_id: "run_w3_browser",
+  team_id: "team_alpha",
+  tenant_id: "tenant_demo"
+};
 
 test.afterAll(() => cleanupPlaywrightStore());
 
@@ -97,26 +112,67 @@ test("real BFF error recovers to the published Student journey and no-context ac
   await page.goto(`${studentBaseUrl}?w3=true`);
   await signIn(page, "student");
   const studentJourney = page.getByLabel("学员决策学习旅程");
-  await expect(studentJourney.getByTestId("student-p2b-blocked")).toBeVisible();
+  const noContextDenial = page.getByRole("region", { name: "发生错误", exact: true }).filter({
+    hasText: "学员服务端投影加载失败；不会使用旧上下文或客户端推断。"
+  });
+  await expect(noContextDenial).toBeVisible();
+  await expect(noContextDenial).toHaveAttribute("data-state", "error");
+  await expect(studentJourney).toHaveCount(0);
+  await expect(page.getByTestId("student-p2b-result")).toHaveCount(0);
 
   await page.goto(`${studentBaseUrl}?${invalidW3Query}`);
-  const invalidBff = page.waitForResponse(
+  const invalidLogin = page.waitForResponse(
     (response) =>
-      response.url().includes("/api/v1/bff/student/w3/consequence") &&
-      response.request().method() === "GET"
+      new URL(response.url()).pathname === "/api/v1/auth/login" &&
+      response.request().method() === "POST"
   );
   await signIn(page, "student");
-  expect((await invalidBff).status()).toBe(422);
-  await expect(page.getByTestId("student-p2b-error")).toBeVisible();
-  await expect(page.getByTestId("student-p2b-retry")).toBeVisible();
+  const invalidContextDenial = page
+    .getByRole("region", { name: "发生错误", exact: true })
+    .filter({ hasText: "CONTEXT_NOT_FOUND" });
+  await expect(invalidContextDenial).toBeVisible();
+  await expect(invalidContextDenial).toHaveAttribute("data-state", "error");
+  await expect(studentJourney).toHaveCount(0);
+  await expect(page.getByTestId("student-p2b-result")).toHaveCount(0);
+  const backendDenial = await assertNativeInvalidRound(page, await invalidLogin, invalidW3Query);
+  expect(backendDenial).toEqual({ status: 422, code: "W3_CONTEXT_INVALID" });
 
-  await page.goto(`${studentBaseUrl}?${w3Query}`);
-  const recoveryBff = page.waitForResponse(
+  const nativeLogin = page.waitForResponse(
     (response) =>
-      response.url().includes("/api/v1/bff/student/w3/consequence") &&
-      response.request().method() === "GET"
+      new URL(response.url()).pathname === "/api/v1/auth/login" &&
+      response.request().method() === "POST"
   );
-  await signIn(page, "student");
-  expect((await recoveryBff).status()).toBe(200);
-  await expect(page.getByTestId("student-p2b-result")).toBeVisible();
+  const nativeFixture = await prepareNativeAuthRecovery(page, nativeLogin, exactScope);
+  try {
+    await page.goto(`${studentBaseUrl}?${w3Query}`);
+    await Promise.all([signIn(page, "student"), nativeFixture.revoked, nativeFixture.initial]);
+    expect((await nativeFixture.initial).status).toBe(409);
+    expect((await nativeFixture.initial).code).toBe("W3_OUTPUT_INVALID");
+    await expect(page.getByTestId("student-p2b-error")).toBeVisible();
+    await expect(page.getByTestId("student-p2b-retry")).toBeVisible();
+    await expect(page.getByTestId("student-p2b-result")).toHaveCount(0);
+
+    nativeFixture.beginRetry();
+    await page.getByTestId("student-p2b-retry").click();
+    expect((await nativeFixture.retry).status).toBe(409);
+    expect((await nativeFixture.retry).code).toBe("W3_OUTPUT_INVALID");
+    await expect(page.getByTestId("student-p2b-error")).toBeVisible();
+    await expect(page.getByTestId("student-p2b-result")).toHaveCount(0);
+
+    nativeFixture.beginRecovery();
+    await page.goto(`${studentBaseUrl}?${w3Query}`);
+    await signIn(page, "student");
+    expect((await nativeFixture.recovered).status).toBe(200);
+    await expect(page.getByTestId("student-p2b-result")).toBeVisible();
+    await expect(page.getByTestId("student-p2b-error")).toHaveCount(0);
+  } finally {
+    try {
+      await nativeFixture.dispose();
+    } finally {
+      await test.info().attach("native-p2b-error-recovery", {
+        body: JSON.stringify({ backendDenial, lifecycle: nativeFixture.proof }),
+        contentType: "application/json"
+      });
+    }
+  }
 });

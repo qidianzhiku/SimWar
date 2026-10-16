@@ -121,7 +121,9 @@ function seedD4(): SimWarStore {
       course_id: "course_demo",
       role_key: "CEO",
       run_id: "run_d4",
-      team_id: "team_alpha"
+      team_id: "team_alpha",
+      round_id: "round_d4",
+      round_no: 1
     },
     course_package_ref: value.course,
     discriminator: "d2_evidence_artifact_version",
@@ -137,8 +139,8 @@ function seedD4(): SimWarStore {
   const edge: D2ProvenanceEdge = {
     discriminator: "d2_provenance_edge",
     relation: "derived_from",
-    source_ref: value.event,
-    target_ref: value.evidence
+    source_ref: value.evidence,
+    target_ref: value.event
   };
   store.teacherConfirmationVersions.push(confirmation);
   store.evidenceArtifacts.push(artifact);
@@ -255,7 +257,14 @@ describe("D4 Student Learning Report endpoint", () => {
     "wrong_round",
     "wrong_course",
     "inactive",
-    "missing_round"
+    "missing_round",
+    "partial_round_id",
+    "partial_round_no",
+    "artifact_missing_round",
+    "artifact_partial_round_id",
+    "artifact_partial_round_no",
+    "artifact_wrong_round",
+    "artifact_wrong_source"
   ])("denies public list and detail for %s", async (failure) => {
     const store = seedD4();
     if (failure === "unpublished")
@@ -267,7 +276,9 @@ describe("D4 Student Learning Report endpoint", () => {
       failure === "wrong_run" ||
       failure === "wrong_course" ||
       failure === "wrong_round" ||
-      failure === "missing_round"
+      failure === "missing_round" ||
+      failure === "partial_round_id" ||
+      failure === "partial_round_no"
     ) {
       const context = {
         ...original.context,
@@ -283,7 +294,42 @@ describe("D4 Student Learning Report endpoint", () => {
         delete context.round_id;
         delete context.round_no;
       }
+      if (failure === "partial_round_id") delete context.round_no;
+      if (failure === "partial_round_no") delete context.round_id;
       store.teacherConfirmationVersions[0] = { ...original, context };
+    }
+    if (failure === "artifact_missing_round") {
+      const artifact = store.evidenceArtifacts[0]!;
+      const context = { ...artifact.context };
+      delete context.round_id;
+      delete context.round_no;
+      store.evidenceArtifacts[0] = { ...artifact, context };
+    }
+    if (failure === "artifact_partial_round_id") {
+      const artifact = store.evidenceArtifacts[0]!;
+      const context = { ...artifact.context };
+      delete context.round_no;
+      store.evidenceArtifacts[0] = { ...artifact, context };
+    }
+    if (failure === "artifact_partial_round_no") {
+      const artifact = store.evidenceArtifacts[0]!;
+      const context = { ...artifact.context };
+      delete context.round_id;
+      store.evidenceArtifacts[0] = { ...artifact, context };
+    }
+    if (failure === "artifact_wrong_round") {
+      const artifact = store.evidenceArtifacts[0]!;
+      store.evidenceArtifacts[0] = {
+        ...artifact,
+        context: { ...artifact.context, round_id: "round_other", round_no: 2 }
+      };
+    }
+    if (failure === "artifact_wrong_source") {
+      const artifact = store.evidenceArtifacts[0]!;
+      store.evidenceArtifacts[0] = {
+        ...artifact,
+        source_event_ref: { ...artifact.source_event_ref, resource_id: "event_other" }
+      };
     }
     const { baseUrl, server } = await start(store);
     try {
@@ -297,6 +343,57 @@ describe("D4 Student Learning Report endpoint", () => {
         { headers }
       );
       expect(detail.status).toBe(404);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
+  it("retains a legal public report when a historical exact source is unavailable", async () => {
+    const store = seedD4();
+    const good = store.teacherConfirmationVersions[0]!;
+    const badEvidenceRef = { ...good.evidence_refs[0]!, resource_id: "artifact_bad_source" };
+    store.teacherConfirmationVersions.push({
+      ...good,
+      confirmation_ref: { ...good.confirmation_ref, resource_id: "confirmation_bad_source" },
+      evidence_refs: [badEvidenceRef]
+    });
+    store.evidenceArtifacts.push({
+      ...store.evidenceArtifacts[0]!,
+      artifact_ref: badEvidenceRef,
+      source_event_ref: {
+        ...store.evidenceArtifacts[0]!.source_event_ref,
+        resource_id: "event_bad"
+      }
+    });
+    const { baseUrl, server } = await start(store);
+    try {
+      const token = await login(baseUrl, "student");
+      const before = JSON.stringify({
+        audits: store.auditLogs,
+        confirmations: store.teacherConfirmationVersions,
+        artifacts: store.evidenceArtifacts
+      });
+      const headers = { authorization: `Bearer ${token}`, "x-tenant-id": tenant };
+      const list = await fetch(`${baseUrl}/api/v1/bff/student/learning-reports`, { headers });
+      expect(list.status).toBe(200);
+      const payload = (await list.json()) as ApiEnvelope<{
+        reports: Array<Record<string, unknown>>;
+        scope: string;
+      }>;
+      expect(payload.data.reports).toHaveLength(1);
+      expect(payload.data.reports[0]).toHaveProperty("report_id", "student_report_confirmation_d4");
+      const badDetail = await fetch(
+        `${baseUrl}/api/v1/bff/student/learning-reports/student_report_confirmation_bad_source`,
+        { headers }
+      );
+      expect(badDetail.status).toBe(404);
+      expect(
+        JSON.stringify({
+          audits: store.auditLogs,
+          confirmations: store.teacherConfirmationVersions,
+          artifacts: store.evidenceArtifacts
+        })
+      ).toBe(before);
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }

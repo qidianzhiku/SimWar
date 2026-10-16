@@ -9,6 +9,15 @@ const scriptPath = resolve(repositoryRoot, "scripts/capture-pr4-visual-baseline.
 const scriptSource = readFileSync(scriptPath, "utf8");
 const temporaryRoots: string[] = [];
 
+function gitFixture(sourceRoot: string, args: string[], options: Parameters<typeof execFileSync>[2] = {}) {
+  const safeDirectory = resolve(sourceRoot).replaceAll("\\", "/");
+  return execFileSync(
+    "git",
+    ["-c", `safe.directory=${safeDirectory}`, "-C", sourceRoot, ...args],
+    options
+  );
+}
+
 function runCapture(args: string[]) {
   return spawnSync(process.execPath, [scriptPath, ...args], {
     cwd: repositoryRoot,
@@ -25,14 +34,14 @@ function createCleanSource() {
   mkdirSync(sourceRoot);
   writeFileSync(join(sourceRoot, "package.json"), '{"name":"pr4-capture-fixture"}\n');
   execFileSync("git", ["init", "--quiet", sourceRoot], { cwd: repositoryRoot });
-  execFileSync("git", ["-C", sourceRoot, "config", "user.email", "pr4@example.invalid"]);
-  execFileSync("git", ["-C", sourceRoot, "config", "user.name", "PR4 Capture Test"]);
-  execFileSync("git", ["-C", sourceRoot, "add", "package.json"]);
-  execFileSync("git", ["-C", sourceRoot, "commit", "--quiet", "-m", "fixture"]);
-  const expectedSha = execFileSync("git", ["-C", sourceRoot, "rev-parse", "HEAD"], {
+  gitFixture(sourceRoot, ["config", "user.email", "pr4@example.invalid"]);
+  gitFixture(sourceRoot, ["config", "user.name", "PR4 Capture Test"]);
+  gitFixture(sourceRoot, ["add", "package.json"]);
+  gitFixture(sourceRoot, ["commit", "--quiet", "-m", "fixture"]);
+  const expectedSha = gitFixture(sourceRoot, ["rev-parse", "HEAD"], {
     encoding: "utf8"
   }).trim();
-  execFileSync("git", ["-C", sourceRoot, "checkout", "--quiet", "--detach", expectedSha]);
+  gitFixture(sourceRoot, ["checkout", "--quiet", "--detach", expectedSha]);
   return { sourceRoot, outputRoot, expectedSha };
 }
 
@@ -149,7 +158,7 @@ describe("PR4 visual baseline capture CLI", () => {
 
   it("fails closed when the BASE checkout is attached to a branch", () => {
     const fixture = createCleanSource();
-    execFileSync("git", ["-C", fixture.sourceRoot, "switch", "--quiet", "master"]);
+    gitFixture(fixture.sourceRoot, ["switch", "--quiet", "master"]);
     const result = runCapture([
       "--source-root",
       fixture.sourceRoot,

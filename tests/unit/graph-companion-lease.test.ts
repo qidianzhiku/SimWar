@@ -1,12 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { runCompanion, withGraphCompanionLease } from "../../scripts/graph-companion.mjs";
 
 const repository = { owner: "qidianzhiku", name: "SimWar" };
+
+function gitFixtureArgs(repoRoot: string, args: string[]) {
+  const safeDirectory = resolve(repoRoot).replaceAll("\\", "/");
+  return ["-c", `safe.directory=${safeDirectory}`, "-C", repoRoot, ...args];
+}
 
 function fixture(run: (graphHome: string) => void) {
   const graphHome = mkdtempSync(join(tmpdir(), "simwar-graph-lease-test-"));
@@ -26,28 +39,30 @@ describe("Graph Companion local lease", () => {
       const moduleUrl = pathToFileURL(join(process.cwd(), "scripts/graph-companion.mjs")).href;
       expect(spawnSync("git", ["init", repoRoot]).status).toBe(0);
       expect(
-        spawnSync("git", [
-          "-C",
-          repoRoot,
-          "-c",
-          "user.name=Lease Test",
-          "-c",
-          "user.email=lease-test@example.invalid",
-          "commit",
-          "--allow-empty",
-          "-m",
-          "fixture"
-        ]).status
+        spawnSync(
+          "git",
+          gitFixtureArgs(repoRoot, [
+            "-c",
+            "user.name=Lease Test",
+            "-c",
+            "user.email=lease-test@example.invalid",
+            "commit",
+            "--allow-empty",
+            "-m",
+            "fixture"
+          ])
+        ).status
       ).toBe(0);
       expect(
-        spawnSync("git", [
-          "-C",
-          repoRoot,
-          "remote",
-          "add",
-          "origin",
-          "https://github.com/qidianzhiku/SimWar.git"
-        ]).status
+        spawnSync(
+          "git",
+          gitFixtureArgs(repoRoot, [
+            "remote",
+            "add",
+            "origin",
+            "https://github.com/qidianzhiku/SimWar.git"
+          ])
+        ).status
       ).toBe(0);
       mkdirSync(join(evidenceRoot, "graph-companion"), { recursive: true });
       const receipt = join(evidenceRoot, "graph-companion", "graph-state.json");
@@ -176,14 +191,15 @@ describe("Graph Companion local lease", () => {
       try {
         expect(spawnSync("git", ["init", repoRoot]).status).toBe(0);
         expect(
-          spawnSync("git", [
-            "-C",
-            repoRoot,
-            "remote",
-            "add",
-            "origin",
-            "https://github.com/qidianzhiku/SimWar.git"
-          ]).status
+          spawnSync(
+            "git",
+            gitFixtureArgs(repoRoot, [
+              "remote",
+              "add",
+              "origin",
+              "https://github.com/qidianzhiku/SimWar.git"
+            ])
+          ).status
         ).toBe(0);
         withGraphCompanionLease({ graphHome, repository }, () => {
           for (const mode of ["entry", "refresh", "impact", "plan", "postmerge"]) {
@@ -197,6 +213,97 @@ describe("Graph Companion local lease", () => {
       }
     });
   });
+
+  it("fails closed when Git status errors even though HEAD resolves without writing shared outputs", () => {
+    fixture((graphHome) => {
+      const evidenceRoot = join(graphHome, "evidence");
+      const repoRoot = join(graphHome, "source");
+      const repositoryArtifacts = join(graphHome, "qidianzhiku-SimWar");
+      const receiptDirectory = join(evidenceRoot, "graph-companion");
+      const receipt = join(receiptDirectory, "graph-state.json");
+      const digest = join(evidenceRoot, "99-digests.sha256");
+      const registry = join(repositoryArtifacts, "registry.json");
+      const codeGraphWorktree = join(repositoryArtifacts, "codegraph-worktree");
+      mkdirSync(receiptDirectory, { recursive: true });
+      mkdirSync(repositoryArtifacts, { recursive: true });
+      writeFileSync(receipt, "sentinel receipt");
+      writeFileSync(digest, "sentinel digest");
+      writeFileSync(registry, "sentinel registry");
+
+      expect(spawnSync("git", ["init", repoRoot]).status).toBe(0);
+      expect(
+        spawnSync(
+          "git",
+          gitFixtureArgs(repoRoot, [
+            "-c",
+            "user.name=Lease Test",
+            "-c",
+            "user.email=lease-test@example.invalid",
+            "commit",
+            "--allow-empty",
+            "-m",
+            "fixture"
+          ])
+        ).status
+      ).toBe(0);
+      expect(
+        spawnSync(
+          "git",
+          gitFixtureArgs(repoRoot, [
+            "remote",
+            "add",
+            "origin",
+            "https://github.com/qidianzhiku/SimWar.git"
+          ])
+        ).status
+      ).toBe(0);
+
+      const gitConfigKeys = ["GIT_CONFIG_COUNT", "GIT_CONFIG_KEY_0", "GIT_CONFIG_VALUE_0"] as const;
+      const previousGitConfig = new Map(
+        gitConfigKeys.map((key) => [key, process.env[key]] as const)
+      );
+      try {
+        process.env.GIT_CONFIG_COUNT = "1";
+        process.env.GIT_CONFIG_KEY_0 = "status.relativePaths";
+        process.env.GIT_CONFIG_VALUE_0 = "not-a-boolean";
+        const injectedEnv = { ...process.env };
+        const statusProbe = spawnSync(
+          "git",
+          gitFixtureArgs(repoRoot, ["status", "--porcelain", "--untracked-files=all"]),
+          { encoding: "utf8", env: injectedEnv }
+        );
+        const headProbe = spawnSync("git", gitFixtureArgs(repoRoot, ["rev-parse", "HEAD"]), {
+          encoding: "utf8",
+          env: injectedEnv
+        });
+        expect(statusProbe.error).toBeUndefined();
+        expect(statusProbe.status).not.toBe(0);
+        expect(statusProbe.stderr).toMatch(/status\.relativepaths/iu);
+        expect(headProbe.error).toBeUndefined();
+        expect(headProbe.status).toBe(0);
+        expect(headProbe.stdout.trim()).not.toBe("");
+        expect(() => runCompanion({ repoRoot, graphHome, evidenceRoot, mode: "plan" })).toThrow(
+          /status\.relativepaths/iu
+        );
+      } finally {
+        for (const key of gitConfigKeys) {
+          const value = previousGitConfig.get(key);
+          if (value === undefined) delete process.env[key];
+          else process.env[key] = value;
+        }
+      }
+
+      expect(readFileSync(receipt, "utf8")).toBe("sentinel receipt");
+      expect(readFileSync(digest, "utf8")).toBe("sentinel digest");
+      expect(readFileSync(registry, "utf8")).toBe("sentinel registry");
+      expect(readdirSync(receiptDirectory).sort()).toEqual(["graph-state.json"]);
+      expect(readdirSync(repositoryArtifacts).sort()).toEqual(["registry.json"]);
+      expect(existsSync(codeGraphWorktree)).toBe(false);
+      expect(existsSync(join(repositoryArtifacts, "writer.lock.json"))).toBe(false);
+      expect(existsSync(join(evidenceRoot, ".graph-companion-writer.lock"))).toBe(false);
+    });
+  });
+
   it("rejects a competing process before its callback can write", () => {
     fixture((graphHome) => {
       const moduleUrl = pathToFileURL(join(process.cwd(), "scripts/graph-companion.mjs")).href;

@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
 import {
   isStudentLearningReport,
+  isD2ExactRef,
+  isD2EvidenceArtifactVersion,
+  isTeacherConfirmationExactRef,
+  isTeacherConfirmationVersion,
+  type D2EvidenceArtifactVersion,
   type D2ExactRef,
   type D2ProvenanceEdge,
   type StudentLearningReport,
@@ -101,7 +106,7 @@ function latestByConfirmation(
   records: readonly TeacherConfirmationVersion[]
 ): TeacherConfirmationVersion[] {
   const groups = new Map<string, TeacherConfirmationVersion[]>();
-  for (const record of records) {
+  for (const record of records.filter(isTeacherConfirmationVersion)) {
     const key = `${record.confirmation_ref.resource_id}:${record.context.team_id}`;
     groups.set(key, [...(groups.get(key) ?? []), record]);
   }
@@ -130,6 +135,100 @@ function hasEarlierConfirmed(
   );
 }
 
+type ExactReference = TeacherConfirmationExactRef | D2ExactRef;
+
+function exactReferenceMatches(left: ExactReference, right: ExactReference): boolean {
+  return (
+    left.content_digest === right.content_digest &&
+    left.discriminator === right.discriminator &&
+    left.resource_id === right.resource_id &&
+    left.resource_type === right.resource_type &&
+    left.tenant_id === right.tenant_id &&
+    left.version === right.version
+  );
+}
+
+function artifactContextMatches(
+  artifact: D2EvidenceArtifactVersion,
+  confirmation: TeacherConfirmationVersion
+): boolean {
+  const expected = confirmation.context;
+  if (
+    artifact.context.course_id !== expected.course_id ||
+    artifact.context.run_id !== expected.run_id ||
+    artifact.context.team_id !== expected.team_id ||
+    artifact.context.role_key !== expected.role_key
+  )
+    return false;
+  const exactRoundRequested = expected.round_id !== undefined || expected.round_no !== undefined;
+  if (!exactRoundRequested) return true;
+  return (
+    expected.round_id !== undefined &&
+    expected.round_no !== undefined &&
+    artifact.context.round_id === expected.round_id &&
+    artifact.context.round_no === expected.round_no
+  );
+}
+
+function artifactHasSourceProvenance(
+  artifact: D2EvidenceArtifactVersion,
+  provenanceEdges: readonly D2ProvenanceEdge[]
+): boolean {
+  return provenanceEdges.some(
+    (candidate) =>
+      candidate.relation === "derived_from" &&
+      exactReferenceMatches(candidate.source_ref, artifact.artifact_ref) &&
+      exactReferenceMatches(candidate.target_ref, artifact.source_event_ref)
+  );
+}
+
+function artifactMatchesEvidence(
+  artifact: D2EvidenceArtifactVersion,
+  evidenceRef: TeacherConfirmationExactRef,
+  confirmation: TeacherConfirmationVersion,
+  provenanceEdges: readonly D2ProvenanceEdge[]
+): boolean {
+  return (
+    isD2EvidenceArtifactVersion(artifact) &&
+    isD2ExactRef(artifact.artifact_ref) &&
+    isTeacherConfirmationExactRef(evidenceRef) &&
+    evidenceRef.resource_type === "evidence_artifact" &&
+    evidenceRef.tenant_id === confirmation.confirmation_ref.tenant_id &&
+    artifact.source_event_ref.tenant_id === confirmation.confirmation_ref.tenant_id &&
+    artifact.source_event_ref.resource_type === "role_workflow_event" &&
+    exactReferenceMatches(artifact.artifact_ref, evidenceRef) &&
+    artifact.artifact_digest === evidenceRef.content_digest &&
+    artifactContextMatches(artifact, confirmation) &&
+    artifactHasSourceProvenance(artifact, provenanceEdges)
+  );
+}
+
+type EvidenceResolution = "valid" | "invalid" | "missing";
+
+function resolveEvidence(
+  confirmation: TeacherConfirmationVersion,
+  artifacts: readonly D2EvidenceArtifactVersion[],
+  provenanceEdges: readonly D2ProvenanceEdge[]
+): EvidenceResolution {
+  if (confirmation.evidence_refs.length === 0) return "invalid";
+  let invalid = false;
+  for (const evidenceRef of confirmation.evidence_refs) {
+    const candidates = artifacts.filter(
+      (artifact) =>
+        artifact.artifact_ref.resource_id === evidenceRef.resource_id &&
+        artifact.artifact_ref.version === evidenceRef.version
+    );
+    if (candidates.length === 0) return "missing";
+    if (
+      !candidates.some((artifact) =>
+        artifactMatchesEvidence(artifact, evidenceRef, confirmation, provenanceEdges)
+      )
+    )
+      invalid = true;
+  }
+  return invalid ? "invalid" : "valid";
+}
+
 export class StudentLearningReportProjectionService {
   constructor(private readonly dependencies: StudentLearningReportProjectionDependencies) {}
 
@@ -142,6 +241,11 @@ export class StudentLearningReportProjectionService {
     const records = latestByConfirmation(
       await this.dependencies.confirmations.list(actor.tenant_id)
     );
+    const internalReports = this.dependencies.roleWorkflow
+      ? await this.buildReports(actor.tenant_id, actor.user_id, actor.team_id, {
+          skipUnavailable: true
+        })
+      : [];
     for (const record of records) {
       const context = record.context;
       const id = `student_report_${record.confirmation_ref.resource_id}`;
@@ -182,8 +286,8 @@ export class StudentLearningReportProjectionService {
         )
       )
         continue;
-      const internal = await this.getStudent(actor, id);
-      const report = internal.reports[0]!;
+      const report = internalReports.find((candidate) => candidate.report_ref.resource_id === id);
+      if (!report) continue;
       result.push({
         report_id: id,
         context: {
@@ -266,17 +370,27 @@ export class StudentLearningReportProjectionService {
   private async buildReports(
     tenantId: string,
     userId: string,
-    teamId?: string
+    teamId?: string,
+    options: { readonly skipUnavailable?: boolean } = {}
   ): Promise<StudentLearningReport[]> {
     const records = await this.dependencies.confirmations.list(tenantId);
     const latest = latestByConfirmation(records).filter(
-      (record) => teamId === undefined || record.context.team_id === teamId
+      (record) =>
+        record.confirmation_ref.tenant_id === tenantId &&
+        (teamId === undefined || record.context.team_id === teamId)
     );
     const artifacts = await this.dependencies.evidence.listEvidenceArtifacts(tenantId);
     const edges = await this.dependencies.evidence.listProvenanceEdges(tenantId);
-    const reports = latest.map((record) =>
-      this.toReport(record, records, artifacts, edges, userId)
-    );
+    const reports: StudentLearningReport[] = [];
+    for (const record of latest) {
+      const resolution = resolveEvidence(record, artifacts, edges);
+      if (resolution === "missing") {
+        if (options.skipUnavailable) continue;
+        throw new StudentLearningReportProjectionError("D4_REPORT_NOT_AVAILABLE");
+      }
+      if (resolution === "invalid") continue;
+      reports.push(this.toReport(record, records, artifacts, edges, userId));
+    }
     reports.sort((left, right) => right.generated_at.localeCompare(left.generated_at));
     return reports;
   }
@@ -289,18 +403,23 @@ export class StudentLearningReportProjectionService {
     userId: string
   ): StudentLearningReport {
     const evidenceRefs = confirmation.evidence_refs.map(ref);
-    const evidenceIds = new Set(evidenceRefs.map((item) => `${item.resource_id}:${item.version}`));
-    const matchingArtifacts = artifacts.filter((artifact) =>
-      evidenceIds.has(`${artifact.artifact_ref.resource_id}:${artifact.artifact_ref.version}`)
-    );
-    if (matchingArtifacts.length !== evidenceRefs.length) {
+    const matchingArtifacts = confirmation.evidence_refs
+      .map((evidenceRef) =>
+        artifacts.find((artifact) =>
+          artifactMatchesEvidence(artifact, evidenceRef, confirmation, provenanceEdges)
+        )
+      )
+      .filter((artifact): artifact is D2EvidenceArtifactVersion => artifact !== undefined);
+    if (matchingArtifacts.length !== confirmation.evidence_refs.length) {
       throw new StudentLearningReportProjectionError("D4_REPORT_NOT_AVAILABLE");
     }
     const provenanceChain = provenanceEdges
-      .filter(
-        (candidate) =>
-          evidenceIds.has(`${candidate.target_ref.resource_id}:${candidate.target_ref.version}`) ||
-          evidenceIds.has(`${candidate.source_ref.resource_id}:${candidate.source_ref.version}`)
+      .filter((candidate) =>
+        matchingArtifacts.some(
+          (artifact) =>
+            exactReferenceMatches(candidate.source_ref, artifact.artifact_ref) ||
+            exactReferenceMatches(candidate.target_ref, artifact.artifact_ref)
+        )
       )
       .map(edge);
     const status: StudentLearningReport["status"] = hasEarlierConfirmed(

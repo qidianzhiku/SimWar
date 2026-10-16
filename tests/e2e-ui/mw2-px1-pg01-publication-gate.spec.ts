@@ -2,14 +2,43 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import type {
   ApiEnvelope,
   AuthSession,
-  Decision,
+  RoleDecisionSection,
   Round,
   Run,
-  StudentBffCockpitDTO
+  StudentBffCockpitDTO,
+  StudentRoleAssignment,
+  StudentRoleWorkflowMergeDTO,
+  TeamConfirmation
 } from "../../packages/shared-contracts/src";
 import { cleanupPlaywrightStore } from "./store-isolation";
 
 const apiBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_API_PORT ?? 3100}`;
+
+type ExactStudentContext = {
+  readonly activityId: string;
+  readonly courseId: string;
+  readonly roleKey: string;
+  readonly roundId: string;
+  readonly roundNo: number;
+  readonly runId: string;
+  readonly teamId: string;
+  readonly tenantId: string;
+};
+
+function studentExactContextPath(context: ExactStudentContext): string {
+  const query = new URLSearchParams({
+    w3: "true",
+    tenant_id: context.tenantId,
+    course_id: context.courseId,
+    run_id: context.runId,
+    team_id: context.teamId,
+    round_id: context.roundId,
+    round_no: String(context.roundNo),
+    role_key: context.roleKey,
+    activity_id: context.activityId
+  });
+  return `/?${query.toString()}`;
+}
 
 test.afterAll(() => {
   cleanupPlaywrightStore();
@@ -17,7 +46,7 @@ test.afterAll(() => {
 
 async function apiRequest<TData>(
   request: APIRequestContext,
-  method: "GET" | "POST",
+  method: "GET" | "POST" | "PUT",
   path: string,
   token?: string,
   body?: unknown,
@@ -41,7 +70,7 @@ async function apiRequest<TData>(
 
 async function login(
   request: APIRequestContext,
-  username: "student" | "teacher",
+  username: "student" | "teacher" | "default_cfo" | "default_cmo" | "default_coo",
   password: string
 ): Promise<string> {
   const response = await apiRequest<AuthSession>(request, "POST", "/api/v1/auth/login", undefined, {
@@ -56,7 +85,7 @@ async function prepareSettledRun(
   request: APIRequestContext,
   teacherToken: string,
   studentToken: string
-): Promise<Run> {
+): Promise<{ run: Run; round: Round }> {
   const run = await apiRequest<{ run: Run; round: Round }>(
     request,
     "POST",
@@ -73,24 +102,140 @@ async function prepareSettledRun(
   );
   expect(started.status).toBe(200);
 
-  const decision = await apiRequest<Decision>(
+  const studentContext: ExactStudentContext = {
+    activityId: "activity_consequence",
+    courseId: run.data!.run.course_id,
+    roleKey: "CEO",
+    roundId: started.data!.round_id,
+    roundNo: started.data!.round_no,
+    runId: run.data!.run.run_id,
+    teamId: "team_alpha",
+    tenantId: "tenant_demo"
+  };
+  const roleScope = {
+    run_id: studentContext.runId,
+    round_id: studentContext.roundId,
+    team_id: studentContext.teamId
+  };
+  const contributors = [
+    {
+      roleKey: "CEO",
+      userId: "usr_student",
+      token: studentToken,
+      payload: { strategy_statement: "Browser publication gate safety journey" }
+    },
+    {
+      roleKey: "CFO",
+      userId: "usr_default_cfo",
+      token: await login(request, "default_cfo", "default_cfo"),
+      payload: { cash_buffer_target: 0.16, service_quality_budget: 160000 }
+    },
+    {
+      roleKey: "CMO",
+      userId: "usr_default_cmo",
+      token: await login(request, "default_cmo", "default_cmo"),
+      payload: { marketing_budget: 180000, pricing: { base_price: 12800 } }
+    },
+    {
+      roleKey: "COO",
+      userId: "usr_default_coo",
+      token: await login(request, "default_coo", "default_coo"),
+      payload: { capacity_plan: "expand" }
+    }
+  ] as const;
+  for (const contributor of contributors) {
+    const assignment = await apiRequest<StudentRoleAssignment>(
+      request,
+      "PUT",
+      "/api/v1/bff/teacher/role-workflows/assignments",
+      teacherToken,
+      {
+        course_id: studentContext.courseId,
+        role_key: contributor.roleKey,
+        run_id: studentContext.runId,
+        team_id: studentContext.teamId,
+        user_id: contributor.userId
+      }
+    );
+    expect(assignment.status).toBe(201);
+    expect(assignment.data).toMatchObject({
+      tenant_id: studentContext.tenantId,
+      course_id: studentContext.courseId,
+      run_id: studentContext.runId,
+      team_id: studentContext.teamId,
+      user_id: contributor.userId,
+      role_key: contributor.roleKey,
+      status: "active"
+    });
+    const saved = await apiRequest<RoleDecisionSection>(
+      request,
+      "PUT",
+      "/api/v1/bff/student/role-workspace/section",
+      contributor.token,
+      { ...roleScope, expected_version: 0, payload: contributor.payload }
+    );
+    expect(saved.status).toBe(200);
+    expect(saved.data).toMatchObject({
+      ...roleScope,
+      tenant_id: studentContext.tenantId,
+      assignment_id: assignment.data!.assignment_id,
+      role_key: contributor.roleKey,
+      submitted_by: contributor.userId,
+      payload: contributor.payload,
+      status: "draft",
+      version: 1
+    });
+    const ready = await apiRequest<RoleDecisionSection>(
+      request,
+      "POST",
+      "/api/v1/bff/student/role-workspace/ready",
+      contributor.token,
+      { ...roleScope, expected_version: saved.data!.version }
+    );
+    expect(ready.status).toBe(200);
+    expect(ready.data).toMatchObject({
+      ...roleScope,
+      tenant_id: studentContext.tenantId,
+      assignment_id: assignment.data!.assignment_id,
+      role_key: contributor.roleKey,
+      submitted_by: contributor.userId,
+      payload: contributor.payload,
+      status: "ready",
+      version: saved.data!.version + 1
+    });
+    // Ready appends a new section generation; the draft remains immutable.
+    expect(ready.data!.section_id).toEqual(expect.any(String));
+    expect(ready.data!.section_id).not.toBe("");
+    expect(ready.data!.section_id).not.toBe(saved.data!.section_id);
+  }
+  const merge = await apiRequest<StudentRoleWorkflowMergeDTO>(
     request,
     "POST",
-    `/api/v1/runs/${run.data!.run.run_id}/rounds/1/decisions`,
+    "/api/v1/bff/student/role-workspace/merge",
     studentToken,
-    {
-      decision_payload: {
-        capacity_plan: "expand",
-        cash_buffer_target: 0.16,
-        marketing_budget: 180000,
-        pricing: { base_price: 12800 },
-        service_quality_budget: 160000,
-        strategy_statement: "Browser publication gate safety journey"
-      },
-      team_id: "team_alpha"
-    }
+    roleScope
   );
-  expect(decision.status).toBe(201);
+  expect(merge.status).toBe(201);
+  expect(merge.data!.status).toBe("validated");
+  expect(merge.data!.merge_commit_id).toBeTruthy();
+  // Native confirm atomically persists the team confirmation and submitted
+  // canonical Decision; legacy direct submission remains forbidden.
+  const confirmation = await apiRequest<TeamConfirmation>(
+    request,
+    "POST",
+    "/api/v1/bff/student/role-workspace/confirm",
+    studentToken,
+    { ...roleScope, merge_commit_id: merge.data!.merge_commit_id }
+  );
+  expect(confirmation.status).toBe(201);
+  expect(confirmation.data).toMatchObject({
+    ...roleScope,
+    tenant_id: studentContext.tenantId,
+    merge_commit_id: merge.data!.merge_commit_id,
+    confirmed_by: "usr_student",
+    status: "confirmed"
+  });
+  expect(confirmation.data!.team_confirmation_id).toBeTruthy();
 
   const locked = await apiRequest<Round>(
     request,
@@ -109,7 +254,7 @@ async function prepareSettledRun(
     "service_kernel"
   );
   expect(settled.status).toBe(200);
-  return run.data!.run;
+  return { round: started.data!, run: run.data!.run };
 }
 
 async function signInStudentPage(page: Page): Promise<void> {
@@ -126,7 +271,18 @@ test("Student sees no result before publish and the same result after Teacher Pu
 }) => {
   const teacherToken = await login(request, "teacher", "teacher");
   const studentToken = await login(request, "student", "student");
-  const run = await prepareSettledRun(request, teacherToken, studentToken);
+  const prepared = await prepareSettledRun(request, teacherToken, studentToken);
+  const run = prepared.run;
+  const studentContext: ExactStudentContext = {
+    activityId: "activity_consequence",
+    courseId: run.course_id,
+    roleKey: "CEO",
+    roundId: prepared.round.round_id,
+    roundNo: prepared.round.round_no,
+    runId: run.run_id,
+    teamId: "team_alpha",
+    tenantId: "tenant_demo"
+  };
 
   const blockedDirect = await apiRequest<unknown>(
     request,
@@ -137,7 +293,7 @@ test("Student sees no result before publish and the same result after Teacher Pu
   expect(blockedDirect.status).toBe(409);
   expect(blockedDirect.error?.code).toBe("RESULT-409-001");
 
-  await page.goto("/");
+  await page.goto(studentExactContextPath(studentContext));
   await signInStudentPage(page);
   await expect(page.getByRole("heading", { name: "BFF 学员驾驶舱" })).toBeVisible();
   const bffSection = page.getByLabel("信息与证据补充");

@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import type {
   StudentLearningReportPublic,
-  StudentLearningReportPublicListDto
+  StudentLearningReportPublicListDto,
+  W3OfficialConsequenceContext
 } from "@simwar/shared-contracts";
-import { fetchStudentLearningReports } from "./student-learning-report-client";
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 
 /** Stable Chinese primary copy for the student report surface. */
 export const learningReportCopy = {
@@ -41,36 +42,152 @@ type ReportState =
 export function StudentLearningReportPanel({
   token,
   tenantId,
-  published = true
+  published = true,
+  context,
+  requestIdentity = "",
+  requireExactSourceAdmission = false
 }: {
   token: string;
   tenantId: string;
   published?: boolean;
+  context?: W3OfficialConsequenceContext | undefined;
+  requestIdentity?: string;
+  requireExactSourceAdmission?: boolean;
 }) {
-  const [state, setState] = useState<ReportState>({ kind: published ? "loading" : "blocked" });
+  const identity = JSON.stringify([
+    token,
+    tenantId,
+    published,
+    context,
+    requestIdentity,
+    requireExactSourceAdmission
+  ]);
+  const [readAttempt, setReadAttempt] = useState(0);
+  const [result, setResult] = useState<{ identity: string; state: ReportState }>({
+    identity,
+    state: { kind: published ? "loading" : "blocked" }
+  });
+  const state: ReportState =
+    result.identity === identity ? result.state : { kind: published ? "loading" : "blocked" };
 
   useEffect(() => {
     const controller = new AbortController();
+    const setState = (state: ReportState) => setResult({ identity, state });
     if (!published) {
       setState({ kind: "blocked" });
       return () => controller.abort();
     }
     setState({ kind: "loading" });
-    fetchStudentLearningReports(token, tenantId, controller.signal)
+    let admittedReportId: string | undefined;
+    const loadReport = async () => {
+      const options = {
+        headers: { authorization: `Bearer ${token}`, "x-tenant-id": tenantId },
+        signal: controller.signal
+      };
+      if (requireExactSourceAdmission) {
+        if (!context || context.tenant_id !== tenantId) throw new Error("Report unavailable");
+        const { isStudentW3ResponseForContext } =
+          await import("./W3OfficialConsequenceLearningPanel");
+        if (controller.signal.aborted) throw new DOMException("Aborted", "AbortError");
+        const query = new URLSearchParams(
+          Object.entries(context).map(([key, value]) => [key, String(value)])
+        );
+        const response = await fetch(
+          `${API_BASE}/api/v1/bff/student/w3/consequence?${query}`,
+          options
+        );
+        const envelope = (await response.json()) as {
+          code?: string;
+          error?: unknown;
+          data?: { visibility?: string; record?: unknown };
+        };
+        if (controller.signal.aborted) throw new DOMException("Aborted", "AbortError");
+        if (
+          !response.ok ||
+          envelope.error !== undefined ||
+          (envelope.code !== undefined && envelope.code !== "OK") ||
+          !isStudentW3ResponseForContext(envelope.data, context)
+        )
+          throw new Error("Report unavailable");
+        const record = envelope.data.record;
+        const ref = record.learning.student_learning_report_ref;
+        if (
+          !Object.entries(context).every(
+            ([key, value]) => record.context[key as keyof W3OfficialConsequenceContext] === value
+          ) ||
+          record.publication.status !== "PUBLISHED" ||
+          !ref ||
+          ref.resource_type !== "student_learning_report" ||
+          ref.tenant_id !== tenantId
+        )
+          throw new Error("Report unavailable");
+        admittedReportId = ref.resource_id;
+      }
+      if (controller.signal.aborted) throw new DOMException("Aborted", "AbortError");
+      return fetch(
+        `${API_BASE}/api/v1/bff/student/learning-reports${admittedReportId ? `/${encodeURIComponent(admittedReportId)}` : ""}`,
+        options
+      );
+    };
+    loadReport()
+      .then(async (response) => {
+        const envelope = (await response.json()) as {
+          code?: string;
+          error?: unknown;
+          data?: StudentLearningReportPublicListDto;
+        };
+        if (
+          !response.ok ||
+          envelope.error !== undefined ||
+          (envelope.code !== undefined && envelope.code !== "OK") ||
+          !envelope.data
+        )
+          throw new Error("Report unavailable");
+        return envelope.data;
+      })
       .then((data) => {
-        if (!controller.signal.aborted)
-          setState(data.reports.length === 0 ? { kind: "empty", data } : { kind: "ready", data });
+        if (controller.signal.aborted) return;
+        if (
+          data?.report_schema_version !== "student-learning-report.public.v1" ||
+          data.scope !== "student_team" ||
+          !Array.isArray(data.reports) ||
+          !Array.isArray(data.known_limits)
+        )
+          throw new Error("Report unavailable");
+        if (
+          !data.known_limits.every((x) => typeof x === "string") ||
+          !data.reports.every(isPublicReport)
+        )
+          throw new Error("Report unavailable");
+        const scoped = context
+          ? {
+              ...data,
+              reports: data.reports.filter(
+                (report) =>
+                  (!admittedReportId || report.report_id === admittedReportId) &&
+                  report?.context &&
+                  (
+                    ["course_id", "run_id", "team_id", "round_id", "round_no", "role_key"] as const
+                  ).every((key) => report.context[key] === context[key])
+              )
+            }
+          : data;
+        setState(
+          scoped.reports.length === 0
+            ? { kind: "empty", data: scoped }
+            : { kind: "ready", data: scoped }
+        );
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
         if (error instanceof DOMException && error.name === "AbortError") return;
         setState({
           kind: "error",
-          message: error instanceof Error ? error.message : "报告加载失败"
+          message: "报告加载失败"
         });
       });
     return () => controller.abort();
-  }, [published, tenantId, token]);
+  }, [identity, published, tenantId, token, context, readAttempt, requireExactSourceAdmission]);
 
   return (
     <section
@@ -102,6 +219,9 @@ export function StudentLearningReportPanel({
         <p className="d4-error" role="alert">
           <span>学习报告暂不可用。</span>{" "}
           <span className="compatibility-copy">{state.message}</span>
+          <button type="button" onClick={() => setReadAttempt((attempt) => attempt + 1)}>
+            重新读取学习报告
+          </button>
         </p>
       ) : null}
       {state.kind === "empty" ? (
@@ -128,6 +248,49 @@ export function StudentLearningReportPanel({
         </ul>
       ) : null}
     </section>
+  );
+}
+
+function isPublicReport(value: unknown): value is StudentLearningReportPublic {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const r = value as StudentLearningReportPublic;
+  const keys = ["report_id", "context", "status", "learning_evidence", "business_outcome"];
+  if (Object.keys(r).some((key) => !keys.includes(key))) return false;
+  const c = r.context;
+  const contextKeys = [
+    "course_id",
+    "run_id",
+    "team_id",
+    "round_id",
+    "round_no",
+    "role_key"
+  ] as const;
+  return (
+    typeof r.report_id === "string" &&
+    r.report_id.length > 0 &&
+    (r.status === "CONFIRMED" || r.status === "AMENDED") &&
+    Boolean(c && typeof c === "object" && !Array.isArray(c)) &&
+    Object.keys(c).length === contextKeys.length &&
+    contextKeys.every((key) =>
+      key === "round_no"
+        ? Number.isSafeInteger(c[key]) && c[key] > 0
+        : typeof c[key] === "string" && c[key].length > 0
+    ) &&
+    Boolean(r.learning_evidence && typeof r.learning_evidence === "object") &&
+    Object.keys(r.learning_evidence).every((key) =>
+      ["criterion_results", "student_visible_feedback"].includes(key)
+    ) &&
+    Array.isArray(r.learning_evidence.criterion_results) &&
+    r.learning_evidence.criterion_results.every(
+      (item) =>
+        item && typeof item.criterion_id === "string" && Number.isInteger(item.level_ordinal)
+    ) &&
+    Array.isArray(r.learning_evidence.student_visible_feedback) &&
+    r.learning_evidence.student_visible_feedback.every(
+      (item) => item && typeof item.feedback_id === "string" && typeof item.text === "string"
+    ) &&
+    r.business_outcome?.status === "SEPARATE_SAFE_OUTCOME" &&
+    typeof r.business_outcome.summary === "string"
   );
 }
 

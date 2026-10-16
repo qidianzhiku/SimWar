@@ -138,6 +138,95 @@ const artifact: D2EvidenceArtifactVersion = {
   visibility: "teacher_only"
 };
 
+const exactRound = { round_id: "round_d4", round_no: 1 } as const;
+const exactArtifact: D2EvidenceArtifactVersion = {
+  ...artifact,
+  context: { ...artifact.context, ...exactRound }
+};
+const provenanceEdge: D2ProvenanceEdge = {
+  discriminator: "d2_provenance_edge",
+  relation: "derived_from",
+  source_ref: artifact.artifact_ref,
+  target_ref: artifact.source_event_ref
+};
+
+const invalidPublicArtifacts = [
+  {
+    label: "missing round provenance",
+    artifact: { ...exactArtifact, context: { ...artifact.context } }
+  },
+  {
+    label: "wrong round provenance",
+    artifact: {
+      ...exactArtifact,
+      context: { ...exactArtifact.context, round_id: "round_other", round_no: 2 }
+    }
+  },
+  {
+    label: "partial round_id provenance",
+    artifact: {
+      ...exactArtifact,
+      context: { ...artifact.context, round_id: exactRound.round_id }
+    }
+  },
+  {
+    label: "partial round_no provenance",
+    artifact: {
+      ...exactArtifact,
+      context: { ...artifact.context, round_no: exactRound.round_no }
+    }
+  },
+  {
+    label: "mismatched source event",
+    artifact: {
+      ...exactArtifact,
+      source_event_ref: { ...exactArtifact.source_event_ref, resource_id: "event_other" }
+    }
+  },
+  {
+    label: "wrong evidence tenant",
+    artifact: {
+      ...exactArtifact,
+      artifact_ref: { ...exactArtifact.artifact_ref, tenant_id: "tenant_other" }
+    }
+  },
+  {
+    label: "wrong evidence resource type",
+    artifact: {
+      ...exactArtifact,
+      artifact_ref: {
+        ...exactArtifact.artifact_ref,
+        resource_type: "role_workflow_event"
+      }
+    }
+  },
+  {
+    label: "wrong evidence resource id",
+    artifact: {
+      ...exactArtifact,
+      artifact_ref: { ...exactArtifact.artifact_ref, resource_id: "artifact_other" }
+    }
+  },
+  {
+    label: "wrong evidence version",
+    artifact: {
+      ...exactArtifact,
+      artifact_ref: { ...exactArtifact.artifact_ref, version: "2.0.0" }
+    }
+  },
+  {
+    label: "wrong evidence digest",
+    artifact: {
+      ...exactArtifact,
+      artifact_digest: "b".repeat(64),
+      artifact_ref: {
+        ...exactArtifact.artifact_ref,
+        content_digest: "b".repeat(64)
+      }
+    }
+  }
+] as const;
+
 describe("D4 StudentLearningReportProjectionService", () => {
   it("publishes only the active role's exact published round and strips internal provenance", async () => {
     const context = { ...confirmation().context, round_id: "round_d4", round_no: 1 };
@@ -157,8 +246,8 @@ describe("D4 StudentLearningReportProjectionService", () => {
     const service = new StudentLearningReportProjectionService({
       confirmations: { list: async () => [confirmation({ context })] } as never,
       evidence: {
-        listEvidenceArtifacts: async () => [artifact],
-        listProvenanceEdges: async () => [],
+        listEvidenceArtifacts: async () => [exactArtifact],
+        listProvenanceEdges: async () => [provenanceEdge],
         appendEvidenceCapture: vi.fn()
       },
       roleWorkflow: { readRoleWorkflow: async () => snapshot as never }
@@ -195,12 +284,128 @@ describe("D4 StudentLearningReportProjectionService", () => {
     }
   });
 
+  it.each(invalidPublicArtifacts)(
+    "does not project a public exact report for $label",
+    async ({ artifact: candidate }) => {
+      const context = { ...confirmation().context, ...exactRound };
+      const snapshot = {
+        course: { tenant_id: tenant, course_id: context.course_id },
+        run: { tenant_id: tenant, run_id: context.run_id, course_id: context.course_id },
+        team: { tenant_id: tenant, team_id: context.team_id, course_id: context.course_id },
+        round: {
+          tenant_id: tenant,
+          run_id: context.run_id,
+          round_id: context.round_id,
+          round_no: context.round_no,
+          status: "published"
+        },
+        assignments: [{ status: "active", user_id: "usr_student", role_key: "CEO" }]
+      };
+      const records = [confirmation({ context })];
+      const artifacts = [candidate];
+      const before = structuredClone({ artifacts, records });
+      const service = new StudentLearningReportProjectionService({
+        confirmations: { list: async () => records } as never,
+        evidence: {
+          listEvidenceArtifacts: async () => artifacts,
+          listProvenanceEdges: async () => [provenanceEdge],
+          appendEvidenceCapture: vi.fn()
+        },
+        roleWorkflow: { readRoleWorkflow: async () => snapshot as never }
+      });
+      const actor = { tenant_id: tenant, team_id: context.team_id, user_id: "usr_student" };
+
+      expect((await service.listStudentPublic(actor)).reports).toEqual([]);
+      await expect(
+        service.listStudentPublic(actor, "student_report_confirmation_d4")
+      ).rejects.toMatchObject({ code: "D4_REPORT_NOT_FOUND" });
+      expect({ artifacts, records }).toEqual(before);
+    }
+  );
+
+  it("retains legal exact reports when another source is invalid without mutating history", async () => {
+    const context = { ...confirmation().context, ...exactRound };
+    const badEvidenceRef = { ...evidenceRef, resource_id: "artifact_bad_source" };
+    const badConfirmationRef = { ...confirmationRef, resource_id: "confirmation_bad_source" };
+    const badArtifact: D2EvidenceArtifactVersion = {
+      ...exactArtifact,
+      artifact_ref: badEvidenceRef,
+      source_event_ref: { ...exactArtifact.source_event_ref, resource_id: "event_bad_source" }
+    };
+    const records = [
+      confirmation({ context }),
+      confirmation({
+        confirmation_ref: badConfirmationRef,
+        context,
+        evidence_refs: [badEvidenceRef]
+      })
+    ];
+    const artifacts = [exactArtifact, badArtifact];
+    const before = structuredClone({ artifacts, records });
+    const service = new StudentLearningReportProjectionService({
+      confirmations: { list: async () => records } as never,
+      evidence: {
+        listEvidenceArtifacts: async () => artifacts,
+        listProvenanceEdges: async () => [provenanceEdge],
+        appendEvidenceCapture: vi.fn()
+      },
+      roleWorkflow: {
+        readRoleWorkflow: async () =>
+          ({
+            course: { tenant_id: tenant, course_id: context.course_id },
+            run: { tenant_id: tenant, run_id: context.run_id, course_id: context.course_id },
+            team: { tenant_id: tenant, team_id: context.team_id, course_id: context.course_id },
+            round: {
+              tenant_id: tenant,
+              run_id: context.run_id,
+              round_id: context.round_id,
+              round_no: context.round_no,
+              status: "published"
+            },
+            assignments: [{ status: "active", user_id: "usr_student", role_key: "CEO" }]
+          }) as never
+      }
+    });
+    const actor = { tenant_id: tenant, team_id: context.team_id, user_id: "usr_student" };
+
+    const internal = await service.listStudent(actor);
+    expect(internal.reports).toHaveLength(1);
+    expect(internal.reports[0]?.report_ref.resource_id).toBe("student_report_confirmation_d4");
+    const publicResult = await service.listStudentPublic(actor);
+    expect(publicResult.reports).toHaveLength(1);
+    expect(publicResult.reports[0]?.report_id).toBe("student_report_confirmation_d4");
+    await expect(
+      service.listStudentPublic(actor, "student_report_confirmation_bad_source")
+    ).rejects.toMatchObject({ code: "D4_REPORT_NOT_FOUND" });
+    expect({ artifacts, records }).toEqual(before);
+  });
+
+  it("preserves legacy internal preview for a no-round confirmation over round-bearing evidence", async () => {
+    const service = new StudentLearningReportProjectionService({
+      confirmations: { list: async () => [confirmation()] } as never,
+      evidence: {
+        listEvidenceArtifacts: async () => [exactArtifact],
+        listProvenanceEdges: async () => [provenanceEdge],
+        appendEvidenceCapture: vi.fn()
+      }
+    });
+
+    const result = await service.listPreview({
+      tenant_id: tenant,
+      user_id: "usr_teacher"
+    });
+
+    expect(result.reports).toHaveLength(1);
+    expect(result.reports[0]?.context).toEqual(confirmation().context);
+    expect(result.reports[0]?.status).toBe("CONFIRMED");
+  });
+
   it("projects confirmed D3 evidence into a student-safe report without private feedback", async () => {
     const edge: D2ProvenanceEdge = {
       discriminator: "d2_provenance_edge",
       relation: "derived_from",
-      source_ref: artifact.source_event_ref,
-      target_ref: artifact.artifact_ref
+      source_ref: artifact.artifact_ref,
+      target_ref: artifact.source_event_ref
     };
     const repository: EvidenceProvenanceRepositoryPort = {
       listEvidenceArtifacts: vi.fn(async () => [artifact]),
@@ -240,7 +445,7 @@ describe("D4 StudentLearningReportProjectionService", () => {
       confirmations: { list: vi.fn(async () => [confirmation(), later, otherTeam]) } as never,
       evidence: {
         listEvidenceArtifacts: vi.fn(async () => [artifact]),
-        listProvenanceEdges: vi.fn(async () => []),
+        listProvenanceEdges: vi.fn(async () => [provenanceEdge]),
         appendEvidenceCapture: vi.fn()
       }
     });

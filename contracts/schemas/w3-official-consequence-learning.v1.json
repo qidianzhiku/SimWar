@@ -167,7 +167,7 @@
         "outcome_label": { "enum": ["official_published", "official_settled_unpublished"] },
         "profit_band": { "enum": ["loss", "thin", "healthy"] },
         "rank": { "type": "integer" },
-        "score": { "type": "integer" },
+        "score": { "type": "number" },
         "team_id": { "$ref": "#/$defs/identity" }
       }
     },

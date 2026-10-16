@@ -167,7 +167,9 @@ describe("formal ParameterSet lifecycle endpoint", () => {
 
       expect(validated.status).toBe(200);
       expect(validated.body.data.status).toBe("VALIDATED");
+      expect(frozen.status).toBe(200);
       expect(frozen.body.data.status).toBe("FROZEN");
+      expect(approved.status).toBe(200);
       expect(approved.body.data).toMatchObject({
         approval_record: {
           approval_id: "approval_parameter_api_lifecycle",
@@ -175,6 +177,7 @@ describe("formal ParameterSet lifecycle endpoint", () => {
         },
         version: { status: "APPROVED" }
       });
+      expect(retired.status).toBe(200);
       expect(retired.body.data.status).toBe("RETIRED");
       expect(store.formalParameterSetLifecycleSnapshots).toHaveLength(5);
       expect(store.formalParameterSetApprovalRecords).toEqual([
@@ -195,6 +198,60 @@ describe("formal ParameterSet lifecycle endpoint", () => {
       ]);
       expect(lifecycleAudits.every((entry) => entry.actor_id === "usr_platform")).toBe(true);
       expect(lifecycleAudits.every((entry) => entry.tenant_id === DEFAULT_TENANT_ID)).toBe(true);
+      expect(
+        lifecycleAudits.every(
+          (entry) =>
+            entry.after !== undefined &&
+            entry.after !== null &&
+            typeof entry.after === "object" &&
+            !Array.isArray(entry.after)
+        )
+      ).toBe(true);
+      expect(lifecycleAudits.slice(1).map((entry) => entry.after)).toEqual([
+        validated.body.data,
+        frozen.body.data,
+        approved.body.data.version,
+        retired.body.data
+      ]);
+      expect(lifecycleAudits.slice(1).map((entry) => entry.after?.status)).toEqual([
+        "VALIDATED",
+        "FROZEN",
+        "APPROVED",
+        "RETIRED"
+      ]);
+      expect(
+        lifecycleAudits.slice(1).map((entry) => ({
+          parameter_set_id: entry.after?.parameter_set_id,
+          reference: entry.after?.reference,
+          tenant_id: entry.after?.tenant_id,
+          version: entry.after?.version
+        }))
+      ).toEqual([
+        {
+          parameter_set_id: PARAMETER_SET_ID,
+          reference,
+          tenant_id: DEFAULT_TENANT_ID,
+          version: VERSION
+        },
+        {
+          parameter_set_id: PARAMETER_SET_ID,
+          reference,
+          tenant_id: DEFAULT_TENANT_ID,
+          version: VERSION
+        },
+        {
+          parameter_set_id: PARAMETER_SET_ID,
+          reference,
+          tenant_id: DEFAULT_TENANT_ID,
+          version: VERSION
+        },
+        {
+          parameter_set_id: PARAMETER_SET_ID,
+          reference,
+          tenant_id: DEFAULT_TENANT_ID,
+          version: VERSION
+        }
+      ]);
     } finally {
       await stopServer(server);
     }
