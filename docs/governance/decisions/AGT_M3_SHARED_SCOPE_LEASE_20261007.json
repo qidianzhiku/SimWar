@@ -1,0 +1,151 @@
+{
+  "schema_version": "simwar.agt.m3.shared-scope-lease.v1.5",
+  "record_type": "AGT_M3_SHARED_SCOPE_LEASE",
+  "record_id": "AGT_M3_SHARED_SCOPE_LEASE_20261007",
+  "status": "APPROVED_CONDITIONAL_PENDING_PROTECTED_MASTER_READBACK",
+  "program_id": "SIMWAR-AGT-GOVERNED-INTELLIGENCE",
+  "mission_id": "SIMWAR-AGT-M3-GOVERNED-TEACHER-EVIDENCE-CITATION-BUNDLE",
+  "macro_id": "SIMWAR-AGT-M3-GTEC-BUNDLE-V1",
+  "capability_key": "agt.retrieval.governed-teacher-evidence-citation-bundle.v1",
+  "canonical_seam": "w020-teacher-evidence-citation-bundle.v1",
+  "relationship": "RESUME_SAME_M3_MACRO",
+  "supplements_identity_record": {
+    "path": "docs/governance/owner-decisions/OWNER_DECISION_AUTHORITATIVE_M3_IDENTITY_20261007.json",
+    "raw_sha256": "7d6b7ccae5960a40e27d863acc9b08a3654382b0e42abf8ed299ca309c0487ce",
+    "scope": "The historical record materializes identity only and explicitly sets product_execution_authorized=false and product_mutation_authorized=false. This Lease is prospective and does not amend or reinterpret that record."
+  },
+  "decision_records": {
+    "owner_adoption": {
+      "path": "docs/governance/owner-decisions/OWNER_DECISION_AGT_M3_R0_EXECUTION_20261007.json",
+      "record_id": "OWNER_DECISION_AGT_M3_R0_EXECUTION_20261007",
+      "raw_sha256": "0323adf01cbb49e1e25e1a0c28222cc1245192f03dbc4a99b9ec6ce84dc18e3b"
+    },
+    "main_concurrence": {
+      "path": "docs/governance/decisions/MAIN_CONCURRENCE_AGT_M3_SHARED_SCOPE_20261007.json",
+      "record_id": "MAIN_CONCURRENCE_AGT_M3_SHARED_SCOPE_20261007",
+      "raw_sha256": "e97d9807a2ef99a3f6c6f89783fd06a97533921eaba92a2250d3e59864338293"
+    }
+  },
+  "input_hash_binding": [
+    {
+      "filename": "SIMWAR_AGT_M3_PRODUCT_FUNCTION_IMPLEMENTATION_REFERENCE_V1.5_20261007.zip",
+      "sha256": "e74c3b88c08229e7a0659ff9969ed8e1c74943cbe80e8145692eb8531fbd2af6",
+      "verified": true
+    },
+    {
+      "filename": "SimWar_AGT_M3_Governed_Teacher_Evidence_Citation_Bundle_同一M3产品功能实现Macro方案_V1.5_20261007.docx",
+      "sha256": "245e9f2a85190babf9af2b78673b938425cd0f40fc33b21e51ef68cb1f781c6f",
+      "verified": true
+    },
+    {
+      "filename": "SimWar_AGT_M3_Governed_Teacher_Evidence_Citation_Bundle_产品功能实现_完整执行提示词_V1.5_20261007.docx",
+      "sha256": "05c691818e853653e56d9132a930ff83b18418000d13acaf8e127dc7115d8762",
+      "verified": true
+    },
+    {
+      "filename": "SimWar_AGT_M3_Governed_Teacher_Evidence_Citation_Bundle_产品功能实现_完整执行提示词_V1.5_20261007.txt",
+      "sha256": "ec08a472bf7a8dbc02cdfc1ce5b6c6490ff2cbda6c470d858a8b9cc08fc4e4a8",
+      "verified": true
+    },
+    {
+      "filename": "SimWar_AGT_固定完整母提示词_V4.1.docx",
+      "sha256": "d36bda20e1bdcce3538e7bf6e30e142b8d4f7d6b90fd6e840fa1923b4b0b5b80",
+      "verified": true
+    }
+  ],
+  "allowed_paths": [
+    "packages/shared-contracts/src/w020-governed-ai-advisory.ts",
+    "contracts/schemas/w020-governed-ai-advisory.v1.json",
+    "contracts/fixtures/w020-governed-ai-advisory.valid.json",
+    "contracts/fixtures/w020-governed-ai-advisory.invalid.json",
+    "contracts/openapi/p0-api.openapi.yaml",
+    "services/api/src/w020-advisory-service.ts",
+    "services/api/src/routes/w020-advisory-routes.ts",
+    "services/api/src/server.ts",
+    "apps/teacher/src/EvidenceWorkbench.tsx",
+    "apps/teacher/src/TeacherDebriefAdvisor.tsx",
+    "apps/teacher/src/App.tsx",
+    "tests/contract/d2-evidence-provenance-contract.test.ts",
+    "tests/contract/w020-governed-ai-advisory-contract.test.ts",
+    "tests/integration/d2-evidence-provenance-endpoint.test.ts",
+    "tests/integration/agt-w020-v112-real-consumer-paths.test.ts",
+    "tests/integration/w020-advisory-endpoint.test.ts",
+    "tests/integration/openapi-contract-validation.test.ts",
+    "tests/integration/l1-core-route-contract-parity.test.ts",
+    "tests/unit/d2-evidence-provenance-contract.test.ts",
+    "tests/unit/d2-evidence-provenance-service.test.ts",
+    "tests/unit/w020-advisory-service.test.ts",
+    "tests/unit/w020-w6-v112-absorption.test.ts",
+    "tests/e2e-ui/d2-evidence-workbench.spec.ts",
+    "tests/e2e-ui/w020-advisory.spec.ts"
+  ],
+  "forbidden_paths": "ALL_OTHER_PRODUCT_PATHS",
+  "budgets": {
+    "governance_branch": 1,
+    "governance_commit": 1,
+    "governance_pr": 1,
+    "governance_branch_push": 1,
+    "governance_ordinary_merge": 1,
+    "isolated_product_worktree": 1,
+    "concurrent_code_writers_max": 1,
+    "local_product_commits_total": 3,
+    "same_mission_rework_cycles": 2,
+    "codegraph_rebuild": 1,
+    "codegraph_material_queries_max": 12,
+    "graphify_rebuild": 1,
+    "graphify_material_queries_max": 12,
+    "live_vault_selected_originals_max": 2,
+    "live_vault_sections_max": 8,
+    "focused_validation_runs_max": 8,
+    "contract_validation_runs_max": 3,
+    "real_bff_qualification": 1,
+    "real_browser_qualification": 1,
+    "independent_h2_attempts": 1,
+    "product_push": 0,
+    "product_pr": 0,
+    "product_merge": 0,
+    "provider": 0,
+    "database_activation": 0,
+    "human_validation": 0,
+    "pilot": 0,
+    "production": 0
+  },
+  "effective_only_after": "All three exact records are merged to protected master and each is immediately raw-byte read back from that protected master; additionally L08, L09, current source rebind, and all applicable R0 admission gates must pass before any product mutation.",
+  "expires_at": "2026-10-10T23:59:59-07:00",
+  "revocation": {
+    "authorized_revokers": ["Owner", "MAIN"],
+    "method": "Explicit revocation through the same formal governance decision channel; executor must re-read current protected authority before each product mutation window.",
+    "source_or_authority_drift": "Lease is suspended until current authority and source are re-read and rebound."
+  },
+  "invalid_if_any": [
+    "Program/Mission/Macro/capability/canonical seam mismatch",
+    "any V1.5 binding input hash is unverified or mismatched",
+    "lease expiry or explicit revocation",
+    "material protected source or contract movement without fresh rebind",
+    "execution path/operation differs from exact allowlist",
+    "any budget is exhausted",
+    "mandatory change requires a path outside the exact allowlist",
+    "formal evidence shows W020 v1 is closed/frozen or a breaking contract change is required",
+    "second Writer/Store/Registry, authority breach, or unsafe mutation risk"
+  ],
+  "denied_actions": {
+    "product_push": false,
+    "support_pr_write": false,
+    "product_pr_write": false,
+    "product_merge": false,
+    "provider_activation": false,
+    "database_or_durable_runtime": false,
+    "human_validation": false,
+    "pilot": false,
+    "production": false,
+    "h3": false,
+    "automatic_next_start": false,
+    "auto_start_successor_macro": false,
+    "d2_capture_writer_mutation": false,
+    "second_w020_route_family": false,
+    "second_writer_store_registry_or_truth_authority": false,
+    "student_access_to_teacher_only_evidence": false
+  },
+  "automatic_next_start": false,
+  "record_sha256": "NOT_EMBEDDED_TO_AVOID_SELF_REFERENCE"
+}
