@@ -636,6 +636,9 @@ const seededDemoUserIds = new Set([
   "usr_platform",
   "usr_teacher",
   "usr_student",
+  "usr_default_cfo",
+  "usr_default_cmo",
+  "usr_default_coo",
   "usr_admin",
   "usr_other_teacher"
 ]);

@@ -1,5 +1,8 @@
 import { once } from "node:events";
+import { lstatSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import type { Server } from "node:http";
+import { tmpdir } from "node:os";
+import { dirname, join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import type {
   ApiEnvelope,
@@ -22,7 +25,7 @@ import {
   createM1RunReplayEvidence,
   selectM1RunReplayEvidenceGolden
 } from "../../services/api/src/run-manifest-replay-evidence";
-import { createP1Store, type SimWarStore } from "../../services/api/src/store";
+import { StoreSnapshotError, createP1Store, type SimWarStore } from "../../services/api/src/store";
 
 const TEST_SECURITY_CONFIG: RuntimeSecurityConfig = {
   environment: "test",
@@ -35,6 +38,74 @@ const PRODUCTION_SECURITY_CONFIG: RuntimeSecurityConfig = {
   internalServiceToken: "r3-production-internal-service-token",
   jwtSecret: "r3-production-jwt-secret-with-sufficient-length"
 };
+
+// Independently enumerate the eight existing local fixtures, not the guard under test.
+const SEED_LOGIN_FIXTURES = [
+  ["usr_platform", "tenant_platform", "platform", "platform"],
+  ["usr_teacher", "tenant_demo", "teacher", "teacher"],
+  ["usr_student", "tenant_demo", "student", "student"],
+  ["usr_default_cfo", "tenant_demo", "default_cfo", "default_cfo"],
+  ["usr_default_cmo", "tenant_demo", "default_cmo", "default_cmo"],
+  ["usr_default_coo", "tenant_demo", "default_coo", "default_coo"],
+  ["usr_admin", "tenant_demo", "admin", "admin"],
+  ["usr_other_teacher", "tenant_other", "other_teacher", "teacher"]
+] as const;
+
+const SHARED_SECURITY_CASES = ["production", "staging"].map((environment) => ({
+  environment,
+  securityConfig: {
+    ...PRODUCTION_SECURITY_CONFIG,
+    environment: environment as "production" | "staging"
+  }
+}));
+
+const SHARED_SEED_CASES = SHARED_SECURITY_CASES.flatMap(({ environment, securityConfig }) =>
+  SEED_LOGIN_FIXTURES.map(([userId, tenantId, username, password]) => ({
+    environment,
+    password,
+    securityConfig,
+    tenantId,
+    userId,
+    username
+  }))
+);
+
+const LOCAL_SEED_CASES = (["development", "test"] as const).flatMap((environment) =>
+  SEED_LOGIN_FIXTURES.map(([userId, tenantId, username, password]) => ({
+    environment,
+    password,
+    securityConfig: { ...TEST_SECURITY_CONFIG, environment },
+    tenantId,
+    userId,
+    username
+  }))
+);
+
+const ownedFixtureDirectories = new Map<string, string>();
+
+function createOwnedFixtureDirectory(): string {
+  // The authorized runner pins TEMP/TMP to its own task root before launch.
+  const root = resolve(tmpdir());
+  const directory = mkdtempSync(join(root, "simwar-s0-exact-candidate-v1-"));
+  ownedFixtureDirectories.set(directory, root);
+  return directory;
+}
+
+function removeOwnedFixtureDirectory(directory: string): void {
+  const resolvedDirectory = resolve(directory);
+  const root = ownedFixtureDirectories.get(resolvedDirectory);
+  if (
+    !root ||
+    dirname(resolvedDirectory) !== root ||
+    !relative(root, resolvedDirectory).startsWith("simwar-s0-exact-candidate-v1-") ||
+    lstatSync(resolvedDirectory).isSymbolicLink()
+  ) {
+    throw new Error("S0_FIXTURE_DIRECTORY_OWNERSHIP_REQUIRED");
+  }
+
+  rmSync(resolvedDirectory, { recursive: true });
+  ownedFixtureDirectories.delete(resolvedDirectory);
+}
 
 const VALID_DECISION_PAYLOAD = {
   pricing: { base_price: 12800 },
@@ -50,9 +121,9 @@ type M1ReplayEvidencePublicResult = PublicResultView & {
 };
 
 async function startServer(
-  securityConfig: RuntimeSecurityConfig = TEST_SECURITY_CONFIG
+  securityConfig: RuntimeSecurityConfig = TEST_SECURITY_CONFIG,
+  store: SimWarStore = createP1Store()
 ): Promise<{ baseUrl: string; server: Server; store: SimWarStore }> {
-  const store = createP1Store();
   const server = createApiServer(store, { securityConfig });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -138,6 +209,29 @@ function expectNoPrivateRuntimeData(value: unknown, forbidden: string[]): void {
   for (const item of forbidden) {
     expect(serialized).not.toContain(item);
   }
+}
+
+function expectRejectedLogin(
+  response: { body: unknown; status: number },
+  expectedCode: string,
+  store: SimWarStore,
+  previousSessionIds: string[]
+): void {
+  expect(response.status).toBe(401);
+  expect((response.body as { code?: string }).code).toBe(expectedCode);
+  expectNoPrivateRuntimeData(
+    response.body,
+    [
+      "access_token",
+      "password",
+      "password_hash",
+      "refresh_token",
+      "session_id",
+      "token_hash",
+      "user"
+    ].map((field) => `"${field}":`)
+  );
+  expect(store.sessions.map((session) => session.session_id)).toEqual(previousSessionIds);
 }
 
 async function createBetaStudentAndTeam(
@@ -285,6 +379,167 @@ describe("R3 runtime boundary guard", () => {
       await stopServer(server);
     }
   });
+
+  it.each(SHARED_SEED_CASES)(
+    "rejects seed $userId in $environment without token disclosure or new sessions",
+    async ({ securityConfig, tenantId, username, password }) => {
+      const { baseUrl, server, store } = await startServer(securityConfig);
+      try {
+        const sessionIds = store.sessions.map((session) => session.session_id);
+        const response = await request<AuthSession>(baseUrl, "/api/v1/auth/login", {
+          body: { username, password },
+          method: "POST",
+          tenantId
+        });
+        expectRejectedLogin(response, "AUTH-401-003", store, sessionIds);
+      } finally {
+        await stopServer(server);
+      }
+    }
+  );
+
+  it.each(SHARED_SEED_CASES)(
+    "still rejects seed $userId after a valid snapshot is reopened in $environment",
+    async ({ securityConfig, tenantId, username, password }) => {
+      const directory = createOwnedFixtureDirectory();
+      let server: Server | undefined;
+      try {
+        const persistenceFile = join(directory, "seed-store.json");
+        createP1Store({ persistenceFile });
+        const store = createP1Store({ persistenceFile });
+        const started = await startServer(securityConfig, store);
+        server = started.server;
+        const sessionIds = store.sessions.map((session) => session.session_id);
+        const response = await request<AuthSession>(started.baseUrl, "/api/v1/auth/login", {
+          body: { username, password },
+          method: "POST",
+          tenantId
+        });
+        expectRejectedLogin(response, "AUTH-401-003", store, sessionIds);
+      } finally {
+        try {
+          if (server?.listening) await stopServer(server);
+        } finally {
+          removeOwnedFixtureDirectory(directory);
+        }
+      }
+    }
+  );
+
+  it("rejects an otherwise valid legacy snapshot when only its users array is removed", () => {
+    const directory = createOwnedFixtureDirectory();
+    try {
+      const persistenceFile = join(directory, "legacy-store.json");
+      createP1Store({ persistenceFile });
+      const snapshot = JSON.parse(readFileSync(persistenceFile, "utf8")) as Record<string, unknown>;
+      delete snapshot.snapshot_version;
+      writeFileSync(persistenceFile, JSON.stringify(snapshot), "utf8");
+      expect(createP1Store({ persistenceFile }).users).toHaveLength(8);
+      delete snapshot.users;
+      writeFileSync(persistenceFile, JSON.stringify(snapshot), "utf8");
+
+      try {
+        createP1Store({ persistenceFile });
+        throw new Error("expected missing-users snapshot rejection");
+      } catch (error) {
+        expect(error).toBeInstanceOf(StoreSnapshotError);
+        expect((error as StoreSnapshotError).code).toBe("store_snapshot_corrupted");
+        expect((error as StoreSnapshotError).snapshotPath).toBe(resolve(persistenceFile));
+      }
+    } finally {
+      removeOwnedFixtureDirectory(directory);
+    }
+  });
+
+  it.each(SHARED_SECURITY_CASES)(
+    "preserves legitimate non-seed login and tenant/password/status negatives in $environment",
+    async ({ securityConfig }) => {
+      const store = createP1Store();
+      const username = "s0_runtime_user";
+      const password = "s0-synthetic-user-password";
+      const provisioning = await startServer(TEST_SECURITY_CONFIG, store);
+      let createdUserId: string;
+      try {
+        const token = await login(provisioning.baseUrl, "admin", "admin");
+        const created = await request<User>(provisioning.baseUrl, "/api/v1/admin/users", {
+          body: {
+            username,
+            password,
+            email: "s0-runtime-user@demo.simwar.local",
+            display_name: "S0 Synthetic User",
+            roles: ["learner"]
+          },
+          method: "POST",
+          token
+        });
+        expect(created.status).toBe(201);
+        createdUserId = created.body.data.user_id;
+      } finally {
+        await stopServer(provisioning.server);
+      }
+
+      const { baseUrl, server } = await startServer(securityConfig, store);
+      try {
+        const sessionCount = store.sessions.length;
+        const success = await request<AuthSession>(baseUrl, "/api/v1/auth/login", {
+          body: { username, password },
+          method: "POST",
+          tenantId: "tenant_demo"
+        });
+        expect(success.status).toBe(200);
+        expect(success.body.data.access_token.length).toBeGreaterThan(0);
+        expect(success.body.data.user.user_id).toBe(createdUserId);
+        expect(store.sessions).toHaveLength(sessionCount + 1);
+
+        for (const invalid of [
+          { tenantId: "tenant_demo", password: "incorrect-s0-synthetic-password" },
+          { tenantId: "tenant_other", password }
+        ]) {
+          const sessionIds = store.sessions.map((session) => session.session_id);
+          const response = await request<AuthSession>(baseUrl, "/api/v1/auth/login", {
+            body: { username, password: invalid.password },
+            method: "POST",
+            tenantId: invalid.tenantId
+          });
+          expectRejectedLogin(response, "AUTH-401-002", store, sessionIds);
+        }
+
+        const user = store.users.find((candidate) => candidate.user_id === createdUserId);
+        if (!user) throw new Error("synthetic non-seed user missing");
+        user.status = "disabled";
+        const sessionIds = store.sessions.map((session) => session.session_id);
+        const response = await request<AuthSession>(baseUrl, "/api/v1/auth/login", {
+          body: { username, password },
+          method: "POST",
+          tenantId: "tenant_demo"
+        });
+        expectRejectedLogin(response, "AUTH-401-002", store, sessionIds);
+      } finally {
+        await stopServer(server);
+      }
+    }
+  );
+
+  it.each(LOCAL_SEED_CASES)(
+    "keeps seed fixture $userId available in $environment",
+    async ({ securityConfig, tenantId, username, password, userId }) => {
+      const { baseUrl, server, store } = await startServer(securityConfig);
+      try {
+        const sessionCount = store.sessions.length;
+        const response = await request<AuthSession>(baseUrl, "/api/v1/auth/login", {
+          body: { username, password },
+          method: "POST",
+          tenantId
+        });
+        expect(response.status).toBe(200);
+        expect(response.body.data.access_token.length).toBeGreaterThan(0);
+        expect(response.body.data.user.user_id).toBe(userId);
+        expect(store.sessions).toHaveLength(sessionCount + 1);
+      } finally {
+        await stopServer(server);
+      }
+    }
+  );
 
   it("enforces tenant identity binding and platform authority explicitly", async () => {
     const { baseUrl, server } = await startServer();
