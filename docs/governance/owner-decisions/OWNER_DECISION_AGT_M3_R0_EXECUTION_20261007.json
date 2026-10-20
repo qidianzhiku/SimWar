@@ -1,0 +1,133 @@
+{
+  "schema_version": "simwar.owner-decision.agt-m3-r0-execution.v1.5",
+  "record_type": "OWNER_DECISION_AGT_M3_R0_EXECUTION",
+  "record_id": "OWNER_DECISION_AGT_M3_R0_EXECUTION_20261007",
+  "status": "OWNER_ADOPTED_CONDITIONAL",
+  "decision_source": "Owner direct paste in the current Codex user message titled OWNER DIRECT ADOPTION + MAIN11 CONCURRENCE | SimWar AGT M3 Product Function Macro V1.5 | 2026-10-07",
+  "decision_received_at": "2026-10-07T15:40:04Z",
+  "relationship": "RESUME_SAME_M3_MACRO",
+  "program_id": "SIMWAR-AGT-GOVERNED-INTELLIGENCE",
+  "mission_id": "SIMWAR-AGT-M3-GOVERNED-TEACHER-EVIDENCE-CITATION-BUNDLE",
+  "macro_id": "SIMWAR-AGT-M3-GTEC-BUNDLE-V1",
+  "capability_key": "agt.retrieval.governed-teacher-evidence-citation-bundle.v1",
+  "canonical_seam": "w020-teacher-evidence-citation-bundle.v1",
+  "owner_decision": {
+    "adopt_product_outcome_v1_5": true,
+    "adopt_existing_same_m3_only": true,
+    "successor_macro_authorized": false,
+    "authorize_local_product_source_test_mutation": "ONLY_AFTER_MAIN_CONCURRENCE_FORMAL_LEASE_PROTECTED_MASTER_READBACK_L08_PASS_L09_PASS",
+    "authorize_one_governance_only_branch_commit_pr_ordinary_protected_merge": true,
+    "owner_identity_claim_source": "The direct Owner declaration in the current user message; this record does not infer a named person or authentication system identity.",
+    "product_push": 0,
+    "product_pr": 0,
+    "product_merge": 0,
+    "provider": 0,
+    "database": 0,
+    "human_validation": 0,
+    "pilot": 0,
+    "production": 0,
+    "automatic_next_start": false
+  },
+  "binding_files": [
+    {
+      "filename": "SIMWAR_AGT_M3_PRODUCT_FUNCTION_IMPLEMENTATION_REFERENCE_V1.5_20261007.zip",
+      "sha256": "e74c3b88c08229e7a0659ff9969ed8e1c74943cbe80e8145692eb8531fbd2af6",
+      "verified": true
+    },
+    {
+      "filename": "SimWar_AGT_M3_Governed_Teacher_Evidence_Citation_Bundle_同一M3产品功能实现Macro方案_V1.5_20261007.docx",
+      "sha256": "245e9f2a85190babf9af2b78673b938425cd0f40fc33b21e51ef68cb1f781c6f",
+      "verified": true
+    },
+    {
+      "filename": "SimWar_AGT_M3_Governed_Teacher_Evidence_Citation_Bundle_产品功能实现_完整执行提示词_V1.5_20261007.docx",
+      "sha256": "05c691818e853653e56d9132a930ff83b18418000d13acaf8e127dc7115d8762",
+      "verified": true
+    },
+    {
+      "filename": "SimWar_AGT_M3_Governed_Teacher_Evidence_Citation_Bundle_产品功能实现_完整执行提示词_V1.5_20261007.txt",
+      "sha256": "ec08a472bf7a8dbc02cdfc1ce5b6c6490ff2cbda6c470d858a8b9cc08fc4e4a8",
+      "verified": true
+    },
+    {
+      "filename": "SimWar_AGT_固定完整母提示词_V4.1.docx",
+      "sha256": "d36bda20e1bdcce3538e7bf6e30e142b8d4f7d6b90fd6e840fa1923b4b0b5b80",
+      "verified": true
+    }
+  ],
+  "allowed_product_paths": [
+    "packages/shared-contracts/src/w020-governed-ai-advisory.ts",
+    "contracts/schemas/w020-governed-ai-advisory.v1.json",
+    "contracts/fixtures/w020-governed-ai-advisory.valid.json",
+    "contracts/fixtures/w020-governed-ai-advisory.invalid.json",
+    "contracts/openapi/p0-api.openapi.yaml",
+    "services/api/src/w020-advisory-service.ts",
+    "services/api/src/routes/w020-advisory-routes.ts",
+    "services/api/src/server.ts",
+    "apps/teacher/src/EvidenceWorkbench.tsx",
+    "apps/teacher/src/TeacherDebriefAdvisor.tsx",
+    "apps/teacher/src/App.tsx",
+    "tests/contract/d2-evidence-provenance-contract.test.ts",
+    "tests/contract/w020-governed-ai-advisory-contract.test.ts",
+    "tests/integration/d2-evidence-provenance-endpoint.test.ts",
+    "tests/integration/agt-w020-v112-real-consumer-paths.test.ts",
+    "tests/integration/w020-advisory-endpoint.test.ts",
+    "tests/integration/openapi-contract-validation.test.ts",
+    "tests/integration/l1-core-route-contract-parity.test.ts",
+    "tests/unit/d2-evidence-provenance-contract.test.ts",
+    "tests/unit/d2-evidence-provenance-service.test.ts",
+    "tests/unit/w020-advisory-service.test.ts",
+    "tests/unit/w020-w6-v112-absorption.test.ts",
+    "tests/e2e-ui/d2-evidence-workbench.spec.ts",
+    "tests/e2e-ui/w020-advisory.spec.ts"
+  ],
+  "budgets": {
+    "governance_branch": 1,
+    "governance_commit": 1,
+    "governance_pr": 1,
+    "governance_ordinary_merge": 1,
+    "isolated_product_worktree": 1,
+    "local_product_commits_total": 3,
+    "same_mission_rework_cycles": 2,
+    "codegraph_rebuild": 1,
+    "codegraph_material_queries_max": 12,
+    "graphify_rebuild": 1,
+    "graphify_material_queries_max": 12,
+    "focused_validation_runs_max": 8,
+    "contract_validation_runs_max": 3,
+    "real_bff_qualification": 1,
+    "real_browser_qualification": 1,
+    "independent_h2_attempts": 1,
+    "product_push": 0,
+    "product_pr": 0,
+    "product_merge": 0,
+    "provider": 0,
+    "database_activation": 0,
+    "human_validation": 0,
+    "pilot": 0,
+    "production": 0
+  },
+  "lease_expiry_proposal": "2026-10-10T23:59:59-07:00",
+  "product_mutation_prerequisites": [
+    "MAIN concurrence and the formal shared-scope lease are merged to protected master and raw-byte read back",
+    "L08 live Vault passes",
+    "L09 same-snapshot CodeGraph and Graphify pass",
+    "current source rebind and all other applicable R0 gates pass",
+    "lease remains unexpired and unrevoked"
+  ],
+  "denied_authorities": {
+    "product_push": false,
+    "product_pr": false,
+    "product_merge": false,
+    "provider_activation": false,
+    "database_or_durable_runtime": false,
+    "human_validation": false,
+    "pilot": false,
+    "production": false,
+    "h3": false,
+    "automatic_next_start": false,
+    "auto_start_successor_macro": false
+  },
+  "authority_boundary": "This record is a direct-paste Owner adoption receipt only. It does not itself establish MAIN concurrence, a formal effective Lease, L08/L09 passage, product execution readiness, protected-master consumption, or Product completion.",
+  "record_sha256": "NOT_EMBEDDED_TO_AVOID_SELF_REFERENCE"
+}
