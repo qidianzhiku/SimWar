@@ -239,14 +239,27 @@ export function GovernedStakeholderIntelligenceProjection({
   initialComparison: bootstrap
 }: GovernedStakeholderIntelligenceProjectionProps) {
   const initialComparison = isStudentComparison(bootstrap) ? bootstrap : undefined;
+  const initialComparisonValid = initialComparison !== undefined;
   const initialState =
     bootstrap !== undefined && !initialComparison ? comparisonStateForError() : unavailableState();
+  const [trackedBootstrap, setTrackedBootstrap] = useState<{ value: unknown; valid: boolean }>(
+    () => ({ value: bootstrap, valid: initialComparisonValid })
+  );
   const [fromRoundId, setFromRoundId] = useState("");
   const [toRoundId, setToRoundId] = useState("");
   const [pairOptionsState, setPairOptionsState] = useState<PairOptionsState>(
     selectionContext ? { kind: "loading" } : unavailableState()
   );
   const [comparisonState, setComparisonState] = useState<ComparisonState>(initialState);
+  if (
+    !Object.is(trackedBootstrap.value, bootstrap) ||
+    trackedBootstrap.valid !== initialComparisonValid
+  ) {
+    setTrackedBootstrap({ value: bootstrap, valid: initialComparisonValid });
+    setFromRoundId("");
+    setToRoundId("");
+    setComparisonState(initialState);
+  }
   const comparisonRequestId = useRef(0);
   const comparisonController = useRef<AbortController | null>(null);
   const pairOptionsRequestId = useRef(0);
@@ -261,8 +274,17 @@ export function GovernedStakeholderIntelligenceProjection({
   function invalidateComparisonRequest(): number {
     const requestId = ++comparisonRequestId.current;
     comparisonController.current?.abort();
+    comparisonController.current = null;
     return requestId;
   }
+  useEffect(
+    () => () => {
+      comparisonRequestId.current += 1;
+      comparisonController.current?.abort();
+      comparisonController.current = null;
+    },
+    []
+  );
   const handoffFocus = useRef<{
     href: string;
     initialFocus: Element | null;
@@ -391,6 +413,7 @@ export function GovernedStakeholderIntelligenceProjection({
   }, [
     apiBase,
     bootstrap,
+    initialComparisonValid,
     selectionContext?.activity_id,
     selectionContext?.course_id,
     selectionContext?.role_key,
@@ -444,6 +467,10 @@ export function GovernedStakeholderIntelligenceProjection({
     } catch {
       if (controller.signal.aborted || requestId !== comparisonRequestId.current) return;
       setComparisonState(comparisonStateForError());
+    } finally {
+      if (comparisonController.current === controller) {
+        comparisonController.current = null;
+      }
     }
   }
 
