@@ -40,10 +40,17 @@ jobs:
         run: node scripts/check-pr4-exact-head.mjs "$EXPECTED_PR_HEAD_SHA"
       - run: npm ci
       - run: npm run check:hidden-unicode
+      - name: Check formatting on changed files
+        run: |
+          if [ -n "$PR4_BASE_SHA" ] && ! [[ "$PR4_BASE_SHA" =~ ^0+$ ]]; then
+            git cat-file -e "${PR4_BASE_SHA}^{commit}" 2>/dev/null || git fetch --no-tags --depth=1 origin "$PR4_BASE_SHA"
+            npm run format:check:changed -- --base-sha "$PR4_BASE_SHA" --head-sha "$EXPECTED_PR_HEAD_SHA"
+          fi
       - name: Check direct-store boundaries
         run: npm run check:direct-store-boundaries
       - run: npm run lint
       - run: npm run typecheck
+      - run: npm run security:audit
       - run: npm test
       - run: npm run test:postgres-replay
         env:
@@ -145,6 +152,7 @@ jobs:
           retention-days: 14
       - run: npm run test:contract
       - run: npm run build
+      - run: npm run build:lab -w @simwar/ui
       - name: Prepare external PR4 quality evidence
         run: mkdir -p "$PR4_EVIDENCE_ROOT"
       - name: Measure PR4 frontend bundle budgets
