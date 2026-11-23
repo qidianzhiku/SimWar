@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 export const MOD_SUPPORT_SCHEMA_VERSION = "mod-support-macro.v1" as const;
 export * from "./next6-consumption.js";
+export * from "./course-bound-model-qualification.js";
 export const MOD_MACRO_KEYS = ["R1", "R2", "R3", "R4", "R5", "R6"] as const;
 export type ModMacroKey = (typeof MOD_MACRO_KEYS)[number];
 
