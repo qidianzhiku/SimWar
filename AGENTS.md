@@ -74,9 +74,9 @@ Codex、Claude Code 或其他 coding agent 在本仓库内开发、测试、评�
 
 涉及后置重大变更时，必须同时查看：
 
-- 分角色决策、收费权益、数据隐私、社区竞赛、案例、训练或导出：`docs/architecture/post-document-change-impact-assessment.md`
+- 持久化边界、Provider 架构与 Postgres 迁移方案：`docs/architecture/repository-provider-architecture.md`、`docs/architecture/postgres-adapter-migration-plan.md`、`docs/architecture/write-path-migration-guardrails.md`
 - Replay / Shadow Replay：`docs/quality/replay-shadow-replay-test-plan.md`
-- Phase 2/3 基线冻结、完整本地门禁和 adapter 边界：`docs/quality/phase-2-3-baseline-checklist.md`
+- L1 已知限制与发布边界：`docs/quality/l1-known-limits-and-release-note.md`、`docs/governance/L1_DEFINITION_OF_DONE.md`
 - 参数、插件、场景：`docs/architecture/parameter-set-management.md` 与 `docs/architecture/industry-plugin-model-report.md`
 - AI / Agent：`docs/contracts/model-engineering-contract.md`
 
@@ -152,50 +152,58 @@ SimWar 的质量工具链按以下职责分工理解和使用：
 
 ```text
 apps/
-  admin/                企业或平台后台
+  admin/                企业或平台后台（含 Enterprise 只读投影）
   teacher/              教师端应用
   student/              学员端应用
 services/
-  api/                  主业务 API 服务
-    src/server.ts       HTTP 入口和路由调度器，不承载长业务逻辑
-    src/routes/         auth/tenant/user/rbac/course/round/decision/settlement/audit 路由模块
-    src/repositories.ts 本地 repository、domain event ledger、state snapshot repository 抽象
-    src/foundation-services.ts
-                         分角色决策、收费权益、数据政策和案例治理的 service/repository/command 层
-    src/replay-service.ts
-                         Replay input manifest、manifest hash 和最小 diff report
+  api/                  主业务 API 服务（@simwar/api）
+    src/server.ts       HTTP 入口与运行时装配（高冲突热点，后续按域拆分）
+    src/routes/         领域路由模块（auth/course/round/model-qualification/w4/w020 等 21 个路由模块）
+    src/store.ts        本地 JSON / 内存持久化与种子快照
+    src/role-workflow.ts
+                         分角色决策工作流与协作命令服务
+    src/simulation.ts   仿真触发、结算组装与 Replay 校验入口
+    src/run-manifest-replay-evidence.ts
+                         Replay input manifest、manifest hash 与非覆写证据链
     src/repository-ports.ts
-                         JSON/Postgres/Supabase adapter 必须遵守的数据访问端口
+                         JSON/Postgres adapter 必须遵守的数据访问端口
     src/repository-facade.ts
                          同步 JSON runtime 到 async Postgres runtime 的 route-facing facade
     src/json-repository-adapter.ts
-                         当前内存/文件 JSON store 的 repository port 适配器
+                         当前默认内存/文件 JSON store 的 repository port 适配器
     src/postgres-repository-adapter.ts
-                         PostgreSQL/Supabase adapter 的 async port 草案
-  simulation-core/      仿真内核、结算、评分、插件 hook 和 engine adapter
-  agent-gateway/        未来 Agent 调度、权限过滤、输入输出校验
+                         PostgreSQL adapter 的 async port 实现（非默认激活态）
+    src/postgres-runtime.ts
+                         PostgreSQL 运行时装配入口（opt-in，当前默认仍为 JSON_INTERNAL_ONLY）
+  simulation-core/      仿真内核、结算、评分、内联康养插件 hook 和 engine adapter（@simwar/simulation-core）
+  agent-gateway/        确定性 Mock 受控 AI 建议服务（@simwar/agent-gateway，advisory-only，外部 Provider=OFF）
 plugins/
-  wellness/             未来康养行业插件包目录；当前最小实现位于 simulation-core
+  wellness/             未来独立康养行业插件包占位目录（当前仅含 .gitkeep；实际 wellness v1 插件位于 services/simulation-core/src/wellness-plugin.ts）
 packages/
-  shared-contracts/     跨 API、前端、测试和仿真内核共享的结构化类型
+  shared-contracts/     跨 API、前端、测试和仿真内核共享的结构化类型与守卫（@simwar/shared-contracts）
+  ui/                   共享设计令牌、基础组件原语、工作台壳层与 DesignSystemLab（@simwar/ui）
+  mod-support/          独立候选模型治理宏/证据编译器（@simwar/mod-support，非正式真值写路径）
+  sh-next-support/      上海/Operating World 候选支撑包（@simwar/sh-next-support，非正式真值写路径）
 contracts/
-  openapi/              REST API 契约
-  schemas/              JSON Schema 契约
-  fixtures/             contract test 使用的固定样例
+  openapi/              REST API 契约（contracts/openapi/p0-api.openapi.yaml）
+  schemas/              JSON Schema 契约（50+ v1 schema）
+  fixtures/             contract test 使用的正/反例固定样例（70+ fixtures）
 tests/
   contract/             契约测试
   unit/                 单元测试
   integration/          集成测试
-  e2e/                  前门冒烟和未来浏览器 E2E
-  replay/               未来 Replay / Shadow Replay 测试
+  e2e/                  前门冒烟测试
+  e2e-ui/               Playwright 浏览器端到端与视觉/无障碍回归测试
+  replay/               规划中的独立 Replay / Shadow Replay 目录（当前覆盖位于 Vitest 与 scripts/postgres-replay-verification.test.ts）
 docs/
   architecture/         架构与方案文档
   contracts/            API、模型和工程契约
-  quality/              测试覆盖、Replay 和 Shadow Replay 计划
+  governance/           审计整改、L1 定义、门禁矩阵与阶段收口证据
+  quality/              测试覆盖、Replay 和 Shadow Replay 计划与证据
   frontend/             教师端/学员端架构与状态流
-  devops/               部署、运维、回滚文档
+  devops/               部署、运维、安全基线与回滚文档
 db/
-  migrations/           SQL-first PostgreSQL migration 文件；当前由 npm run test:postgres-replay 覆盖真实 Postgres replay / migration 验证，专项 migration scripts 仍属后续治理
+  migrations/           SQL-first PostgreSQL前向迁移（0001–0007）；当前由 npm run test:postgres-replay 在 CI 中验证，test:w024-postgres / test:w025-postgres 为本地专项验证
 ```
 
 ## Development Commands
@@ -220,7 +228,10 @@ npm run typecheck
 npm test
 npm run test:contract
 npm run test:postgres-replay
+npm run test:w024-postgres
+npm run test:w025-postgres
 npm run build
+npm run build:lab -w @simwar/ui
 npm run test:unit:pr4
 npm run test:e2e:ui
 npm run test:e2e:ui:core
@@ -274,8 +285,6 @@ npm run schema:check
 | Replay / settlement / plugin boundary专项门禁 | Planned; coverage currently lives in Vitest and Postgres replay verification where applicable                                                                                                                |
 | pnpm command set                              | Planned only; current repository uses npm workspaces and `package-lock.json`                                                                                                                                 |
 
-````
-
 Python commands are allowed only when a `pyproject.toml` or equivalent Python project exists:
 
 ```powershell
@@ -283,7 +292,7 @@ poetry install
 poetry run pytest
 poetry run ruff check .
 poetry run black --check .
-````
+```
 
 Docker commands are allowed only when the relevant Dockerfile / compose target exists:
 
