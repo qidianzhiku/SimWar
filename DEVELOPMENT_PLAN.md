@@ -11,6 +11,8 @@
 | 维护人   | 请根据实际项目修改                                                                                                   |
 | 相关文档 | README.md / docs/product/requirements.md / docs/architecture/system-architecture.md / docs/contracts/api-contract.md |
 
+> **状态对齐说明（2026-11）**：本文档保留的是 `2026-05-16` 冻结的 `v1.1` 历史 Phase 0–8 总体蓝图（含早期 Python/Alembic 设想）。当前实际工程已落地为 **npm workspaces + TypeScript + Vite 8 React 19 + Node HTTP + Vitest + Playwright** 单仓架构（默认 `JSON_INTERNAL_ONLY` 运行时，L1 自动化工程闭环已完成；PostgreSQL 正式激活与外部 LLM Provider 仍处于受控未激活态）。日常开发规范、真实目录结构与可用命令请以 [AGENTS.md](./AGENTS.md)、[README.md](./README.md) 及根目录 [package.json](./package.json) 为准，当前活跃整改与演进任务以 GitHub Issues（`#120`、`#116`、`#118`、`#111`、`#113`、`#119`、`#529`、`#531`、`#534`）为准。
+
 # 开发计划目标
 
 本开发计划用于指导 Codex 和开发团队按阶段完成 SimWar 项目开发，确保各个子系统模块按需求和架构文件落地，避免偏离系统设计。计划明确如何衔接需求、系统架构、API 设计、数据库设计、前端原型、测试策略、DevOps 配置等文档，形成端到端的开发闭环。通过分阶段的小步推进和细致的任务拆解，降低复杂项目的开发风险，确保每个阶段都有可验证的产物和测试验收标准，并通过持续集成流水线和多层次测试保证质量。计划要求 Codex 在生成代码时严格遵守架构约束和接口契约，通过统一的规范提示和 PR 检查清单保证开发质量，每个阶段的完成都以测试通过和审阅通过为条件。最终形成端到端可部署的高质量 MVP 产品。

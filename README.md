@@ -2,15 +2,42 @@
 
 **Badge 占位**：Build Status · License · Version · Tech Stack · Deployment
 
-Sim War 是一个面向高管培训、商学院课程与企业学习场景的 SaaS 仿真商战平台。平台以“结构化仿真真值内核 + 小模型协同体系 + 教师端 / 学员端 / 社区 / 竞赛”的方式组织产品能力，支持多轮经营决策、结构化结算、复盘分析、学习诊断、持续进化与跨行业场景扩展。fileciteturn0file1fileciteturn0file8fileciteturn0file9
+Sim War 是一个面向高管培训、商学院课程与企业学习场景的 SaaS 仿真商战平台。平台以“结构化仿真真值内核 + 小模型协同体系 + 教师端 / 学员端 / 社区 / 竞赛”的方式组织产品能力，支持多轮经营决策、结构化结算、复盘分析、学习诊断、持续进化与跨行业场景扩展。
 
-> 说明：本 README 基于参考文档整理生成。其中技术选型、目录结构、环境变量、脚本命名和部署命令，包含了结合文档做出的**建议默认值**；如果你的实际仓库与本文示例不同，请以实际项目实现为准并及时修改。当前高置信方向是：以 BLP/RCNL 为 L1 真值核心、采用“行业无关 kernel + 行业插件”双层架构，并通过 Replay / Shadow Replay、参数冻结、事件溯源与模型治理机制，保证平台“可解释、可复算、可审计、可回滚”。fileciteturn0file0fileciteturn0file2fileciteturn0file5fileciteturn0file7
+> 说明：本 README 基于参考文档整理生成。其中技术选型、目录结构、环境变量、脚本命名和部署命令，包含了结合文档做出的**建议默认值**；如果你的实际仓库与本文示例不同，请以实际项目实现为准并及时修改。当前高置信方向是：以 BLP/RCNL 为 L1 真值核心、采用“行业无关 kernel + 行业插件”双层架构，并通过 Replay / Shadow Replay、参数冻结、事件溯源与模型治理机制，保证平台“可解释、可复算、可审计、可回滚”。
+
+## 当前仓库真实实现基线（2026-11 实测）
+
+> 本文后半部分保留了早期架构文档整理形成的**长期目标蓝图**（如 Python/PyBLP、Next.js、独立社区/竞赛前台等）；日常开发、测试与部署请一律以下方**真实已落地结构**及 [AGENTS.md](./AGENTS.md)、[package.json](./package.json) 为准。
+
+- **包管理与运行时**：npm workspaces + TypeScript 5.9 + Node >=24 + npm >=11
+- **前端应用（Vite 8 + React 19）**：pps/admin（含 Enterprise 只读投影）、pps/teacher、pps/student，共享组件库 packages/ui（@simwar/ui，含 DesignSystemLab）
+- **后端与仿真服务**：
+  - services/api（@simwar/api）：Node 原生 HTTP 服务，当前默认 JSON_INTERNAL_ONLY 运行时；PostgreSQL 适配器与 db/migrations/0001..0007 处于受控 opt-in 验证态，尚未正式切换激活
+  - services/simulation-core（@simwar/simulation-core）：TypeScript 4 阶段确定性结算引擎（ oy_logit_wellness_v1）与内联康养插件 wellness-plugin.ts（plugins/wellness/ 当前仅保留 .gitkeep 占位）
+  - services/agent-gateway（@simwar/agent-gateway）：确定性 Mock 受控 AI 建议层（dvisory_only: true，外部 LLM Provider=OFF）
+- **共享契约与候选支撑包**：packages/shared-contracts、packages/mod-support、packages/sh-next-support、contracts/（openapi/p0-api.openapi.yaml + 50+ JSON Schema + 70+ fixtures）
+- **常用真实校验命令**（Windows PowerShell 请使用
+  pm.cmd /
+  px.cmd）：
+
+`ash
+npm ci
+npm run check:hidden-unicode
+npm run check:direct-store-boundaries
+npm run lint
+npm run typecheck
+npm test
+npm run test:contract
+npm run build
+npm run build:lab -w @simwar/ui
+`
 
 ## 项目概览
 
 ### 项目概述
 
-Sim War 的核心目标，不是做一个“会聊天的商战机器人”，而是构建一个可用于高管训练、课程对抗、企业推演与持续学习的商业仿真操作系统。平台将**市场需求与供给真值、运营约束、财务评分、学习诊断和 AI 教练能力**分层组织：L1 负责需求与供给真值，L2 负责运营兑现，L3 负责财务与评分，L4 负责小模型建议与复盘，L5 负责校准、审批、发布与回滚。这样的设计使 Sim War 既能支撑课堂和竞赛场景，又能支撑企业级个性化场景和未来跨行业扩展。fileciteturn0file1fileciteturn0file2fileciteturn0file4
+Sim War 的核心目标，不是做一个“会聊天的商战机器人”，而是构建一个可用于高管训练、课程对抗、企业推演与持续学习的商业仿真操作系统。平台将**市场需求与供给真值、运营约束、财务评分、学习诊断和 AI 教练能力**分层组织：L1 负责需求与供给真值，L2 负责运营兑现，L3 负责财务与评分，L4 负责小模型建议与复盘，L5 负责校准、审批、发布与回滚。这样的设计使 Sim War 既能支撑课堂和竞赛场景，又能支撑企业级个性化场景和未来跨行业扩展。
 
 平台主要面向以下用户群体：
 
@@ -20,7 +47,7 @@ Sim War 的核心目标，不是做一个“会聊天的商战机器人”，而
 - 场景设计师、数据科学家与模型治理团队
 - 需要做行业推演、教学复盘或企业案例定制的产品与咨询团队
 
-从业务价值看，Sim War 解决的是“复杂经营训练难以标准化、难以复盘、难以量化学习迁移”的问题。平台通过**结构化决策表单、可审计结算链、角色对抗、教师干预、社区协作、竞赛排名和学习账本**，把“赛、学、证、社、评”连接成一个持续学习闭环。fileciteturn0file8fileciteturn0file9
+从业务价值看，Sim War 解决的是“复杂经营训练难以标准化、难以复盘、难以量化学习迁移”的问题。平台通过**结构化决策表单、可审计结算链、角色对抗、教师干预、社区协作、竞赛排名和学习账本**，把“赛、学、证、社、评”连接成一个持续学习闭环。
 
 V3 规划将康养场景、行业数据和行业校准从 Core Roadmap 移入独立的 Industry Scenario / Industry Data Program。当前仓库的首个康养资产是上海合成教学场景：它用于受控的课程和插件边界验证，不是高保真真实市场、公共政策或投资决策模型；平台架构仍通过 kernel/plugin 模式保留向零售、制造、金融、能源等场景迁移的能力。
 
@@ -43,9 +70,9 @@ V3 规划将康养场景、行业数据和行业校准从 Core Roadmap 移入独
 | 社区与竞赛 | 公开竞赛与排行榜                         | 支持赛制、匹配、排名、奖项与记录                 | 拓展课程外的竞赛运营与品牌活动 |
 | 场景工厂   | 主题生成 / 企业脱敏定制 / 跨行业场景生成 | 统一通过 Scenario Compiler 与 Shadow Replay 发布 | 提高平台扩展速度并控制风险     |
 
-以上模块综合自核心引擎设计、教师/学员端白皮书、整体功能深化文档以及康养定制与跨行业扩展研究文档。文档明确强调：**真值由结构化引擎输出，小模型只负责建议与解释；平台能力以课程、社区、竞赛、学习诊断和治理闭环共同构成。**fileciteturn0file1fileciteturn0file5fileciteturn0file8fileciteturn0file9
+以上模块综合自核心引擎设计、教师/学员端白皮书、整体功能深化文档以及康养定制与跨行业扩展研究文档。文档明确强调：**真值由结构化引擎输出，小模型只负责建议与解释；平台能力以课程、社区、竞赛、学习诊断和治理闭环共同构成。**
 
-### 技术栈
+### 目标技术栈蓝图（长期规划参考）
 
 > 下表为依据参考文档整理的**推荐技术组合**。其中部分条目来自文档中的明确建议，部分为便于项目落地而做出的工程化补全；请根据实际仓库修改。
 
@@ -63,7 +90,7 @@ V3 规划将康养场景、行业数据和行业校准从 Core Roadmap 移入独
 | 基础设施   | Docker / Kubernetes / CI/CD                       | 本地开发、容器部署、扩缩容、灰度发布              |
 | 监控与治理 | 模型注册表、参数注册表、审计日志、可观测系统      | 模型治理、回滚、合规与运营监控                    |
 
-文档明确给出了以下方向：**Python 计量服务 + TypeScript 业务服务 + OpenAPI-first + JSON Schema/Protobuf 契约 + 事件驱动架构**；同时教师/学员端白皮书建议采用 React/Next.js/FastAPI 等组合，DevOps 使用 Docker/Kubernetes 与 CI/CD，数据层支持 PostgreSQL、ClickHouse、湖仓和特征工厂；小模型部分建议以 8B–14B 中文强项模型作为策略与教练核心。fileciteturn0file2fileciteturn0file3fileciteturn0file8fileciteturn0file9
+文档明确给出了以下方向：**Python 计量服务 + TypeScript 业务服务 + OpenAPI-first + JSON Schema/Protobuf 契约 + 事件驱动架构**；同时教师/学员端白皮书建议采用 React/Next.js/FastAPI 等组合，DevOps 使用 Docker/Kubernetes 与 CI/CD，数据层支持 PostgreSQL、ClickHouse、湖仓和特征工厂；小模型部分建议以 8B–14B 中文强项模型作为策略与教练核心。
 
 ## 系统架构
 
@@ -75,15 +102,15 @@ Sim War 的架构核心不是“多几个智能体”，而是**明确谁可以�
   应用层（教师端、学员端、企业后台、社区、竞赛前台）  
   决策层（仿真引擎、AI 决策助手、小模型推理）  
   数据层（湖仓、特征工厂、LRS、知识库）  
-  治理层（权限、审计、合规、CI/CD、模型治理）fileciteturn0file8fileciteturn0file9
+  治理层（权限、审计、合规、CI/CD、模型治理）
 - **求解与治理视角**：L1-L5  
   L1 需求/供给真值  
   L2 运营约束  
   L3 财务与评分  
   L4 小模型 / 交互层  
-  L5 校准、Replay / Shadow Replay、审批与发布fileciteturn0file2fileciteturn0file4fileciteturn0file5
+  L5 校准、Replay / Shadow Replay、审批与发布
 
-推荐的 monorepo 目录结构如下：
+长期演进参考目录结构如下（**非当前实际目录**，当前实际目录见上方基线与 AGENTS.md）：
 
 ```bash
 simwar/
@@ -157,7 +184,7 @@ simwar/
 - `tests/`：契约、回放、Golden、性能与 L4 越权边界测试。
 - `docs/`：架构文档、模型契约、部署说明、运维手册和教学视图设计。
 
-上述目录中，`contracts/`、`services/`、`data/`、`tests/`、`docs/` 为工程契约报告的明确建议；`apps/` 是为了衔接教师端、学员端、社区与竞赛前端而做的推荐扩展层。fileciteturn0file1fileciteturn0file2fileciteturn0file8
+上述目录中，`contracts/`、`services/`、`data/`、`tests/`、`docs/` 为工程契约报告的明确建议；`apps/` 是为了衔接教师端、学员端、社区与竞赛前端而做的推荐扩展层。
 
 ### 数据库设计
 
@@ -187,7 +214,7 @@ simwar/
 | `competition_records` | 竞赛赛制、报名、对阵与排行榜记录                  |
 | `license_records`     | 授权内容与训练使用边界记录                        |
 
-如果你使用 ORM，推荐将业务服务与计量服务在模型层解耦：业务服务负责 `tenant / course / run / team / decision / replay / content governance`，计量求解服务负责 `MarketOfferObservation / AgentPool / ParameterSet / SolverResult` 等求解相关对象。文档明确指出，平台的可扩展性来自稳定的 Canonical Domain Model，而不是把某个行业字段直接写死到求解核中。fileciteturn0file1fileciteturn0file2fileciteturn0file4
+如果你使用 ORM，推荐将业务服务与计量服务在模型层解耦：业务服务负责 `tenant / course / run / team / decision / replay / content governance`，计量求解服务负责 `MarketOfferObservation / AgentPool / ParameterSet / SolverResult` 等求解相关对象。文档明确指出，平台的可扩展性来自稳定的 Canonical Domain Model，而不是把某个行业字段直接写死到求解核中。
 
 ## 快速开始
 
@@ -239,7 +266,7 @@ API 默认把 P1 演示数据保存到 `tmp/simwar-store.json`。如需重置本
 - 可选：ClickHouse、对象存储、消息队列
 - Git
 
-这些要求来自文档中对 TypeScript 业务服务、Python 计量服务、Docker/Kubernetes、湖仓与分析数据库的组合建议。fileciteturn0file2fileciteturn0file8
+这些要求来自文档中对 TypeScript 业务服务、Python 计量服务、Docker/Kubernetes、湖仓与分析数据库的组合建议。
 
 ### 克隆项目
 
@@ -352,7 +379,7 @@ npm run dev:competition-web
 docker compose up --build
 ```
 
-推荐本地开发优先跑通以下最小闭环：**创建课程 → 创建 run → 开轮 → 提交决策 → 锁轮 → 结算 → 发布结果 → 复盘**。这是文档中对 P0 Definition of Done 的核心要求。fileciteturn0file1fileciteturn0file2
+推荐本地开发优先跑通以下最小闭环：**创建课程 → 创建 run → 开轮 → 提交决策 → 锁轮 → 结算 → 发布结果 → 复盘**。这是文档中对 P0 Definition of Done 的核心要求。
 
 ## 使用说明
 
@@ -368,7 +395,7 @@ docker compose up --build
 6. 系统向教师端、学员端和小模型分别发布不同权限级别的状态快照。
 7. 教师可查看全局结果、差异分析、角色贡献与风险预警，并决定是否注入 `ShockEvent`。
 8. 学员提交反思与修正，平台把决策、结果、对话、反思与点评统一写入 LRS / xAPI 学习账本。
-9. 若进行参数或模型升级，必须通过 Shadow Replay 后才可进入正式运行。fileciteturn0file1fileciteturn0file2fileciteturn0file8fileciteturn0file9
+9. 若进行参数或模型升级，必须通过 Shadow Replay 后才可进入正式运行。
 
 推荐的访问入口如下：
 
@@ -448,7 +475,7 @@ curl -X POST http://localhost:3000/api/v1/runs/run_demo_001/decisions \
 | `POST` | `/api/scenarios/personalize-enterprise`       | 生成脱敏企业定制场景      | 教师 / 企业管理员     |
 | `POST` | `/api/scenarios/generate-industry`            | 生成新行业骨架与插件 stub | 场景设计师 / 治理团队 |
 
-上述接口来自核心引擎与小模型接口契约、工程契约报告以及康养定制接口设计文档。它们共同体现了一个原则：**小模型只能读取状态快照与受控工具，不能直接改写真值字段；唯一真值结算入口必须可回放、可审计。**fileciteturn0file1fileciteturn0file2fileciteturn0file5
+上述接口来自核心引擎与小模型接口契约、工程契约报告以及康养定制接口设计文档。它们共同体现了一个原则：**小模型只能读取状态快照与受控工具，不能直接改写真值字段；唯一真值结算入口必须可回放、可审计。**
 
 一个内部结算结果示例：
 
@@ -468,7 +495,7 @@ curl http://localhost:3000/api/v1/runs/run_demo_001/rounds/1/state-snapshot \
 
 ### 测试
 
-Sim War 的测试不应只覆盖前端交互和普通 API，而应覆盖**契约一致性、Replay 一致性、Golden test、L4 越权边界、Shadow Replay 稳定性**。参考文档已经给出明确的测试分层与验收思路。fileciteturn0file1fileciteturn0file2fileciteturn0file9
+Sim War 的测试不应只覆盖前端交互和普通 API，而应覆盖**契约一致性、Replay 一致性、Golden test、L4 越权边界、Shadow Replay 稳定性**。参考文档已经给出明确的测试分层与验收思路。
 
 建议的测试分层如下：
 
@@ -506,7 +533,7 @@ make test
 
 ### 部署
 
-参考文档推荐的部署方向是：**本地 Docker 开发 + 云上 Kubernetes 部署 + CI/CD 灰度发布 + 多租户隔离 + 模型与参数审批**。fileciteturn0file8fileciteturn0file9
+参考文档推荐的部署方向是：**本地 Docker 开发 + 云上 Kubernetes 部署 + CI/CD 灰度发布 + 多租户隔离 + 模型与参数审批**。
 
 #### 本地部署
 
@@ -597,7 +624,7 @@ Pull Request 流程建议：
 5. 至少由业务负责人 + 架构负责人 + 模型 / 数据负责人共同审阅
 6. 合并后进入灰度或内部试点环境
 
-这些规范直接呼应文档中的 contract-first、参数治理、Shadow Replay、权限分层和审计要求。fileciteturn0file1fileciteturn0file2fileciteturn0file5
+这些规范直接呼应文档中的 contract-first、参数治理、Shadow Replay、权限分层和审计要求。
 
 ### Roadmap
 
@@ -635,7 +662,7 @@ Pull Request 流程建议：
 - [ ] 学习诊断、推荐系统与长期持续学习闭环
 ```
 
-参考文档给出了两套节奏：一套偏“12 个月平台开发计划”，一套偏“契约冻结 → 康养 v1 → 三类定制 → 试点 → 跨行业扩展”的产品路线；两者在优先级上是一致的，都是把**先冻结契约、先跑通真值闭环**放在第一位。fileciteturn0file3fileciteturn0file5fileciteturn0file8fileciteturn0file9
+参考文档给出了两套节奏：一套偏“12 个月平台开发计划”，一套偏“契约冻结 → 康养 v1 → 三类定制 → 试点 → 跨行业扩展”的产品路线；两者在优先级上是一致的，都是把**先冻结契约、先跑通真值闭环**放在第一位。
 
 ### 贡献指南
 
@@ -664,7 +691,7 @@ Pull Request 流程建议：
 
 #### 为什么平台不允许小模型直接写入市场份额、利润或最终分数？
 
-因为 Sim War 的设计原则是“真值中心在结构化仿真层”，小模型只能做建议、解释、对练、复盘和推荐。这样可以确保正式成绩可回放、可审计、可争议处理。fileciteturn0file1fileciteturn0file2
+因为 Sim War 的设计原则是“真值中心在结构化仿真层”，小模型只能做建议、解释、对练、复盘和推荐。这样可以确保正式成绩可回放、可审计、可争议处理。
 
 #### 如何重置一次运行的测试数据？
 
@@ -679,15 +706,15 @@ docker compose up --build
 
 #### 如何新增一个行业插件？
 
-推荐路径不是直接让 LLM “写完整行业游戏”，而是补齐 `PluginManifest + ScenarioPackage + 知识证据包 + Shadow Replay`，经教师或治理团队审核后进入 `Plugin Registry`。fileciteturn0file5fileciteturn0file7
+推荐路径不是直接让 LLM “写完整行业游戏”，而是补齐 `PluginManifest + ScenarioPackage + 知识证据包 + Shadow Replay`，经教师或治理团队审核后进入 `Plugin Registry`。
 
 #### 平台能否使用授权教学内容做检索或模型训练？
 
-文档明确指出：**已获得授权且在授权清单范围内的内容**，可以用于授权生成式 AI 工具、RAG、训练、评测和推理增强；但内容授权不等于品牌背书授权，超出授权范围的内容、工具、地域、用途和模型版本不得默认纳入。fileciteturn0file1
+文档明确指出：**已获得授权且在授权清单范围内的内容**，可以用于授权生成式 AI 工具、RAG、训练、评测和推理增强；但内容授权不等于品牌背书授权，超出授权范围的内容、工具、地域、用途和模型版本不得默认纳入。
 
 #### 平台对外传播时需要注意什么？
 
-即使系统内部可在授权范围内使用部分内容，对外也不应暗示任何外部机构、学校、出版社或品牌对 Sim War 产品、赛事、证书或商业活动背书。README、官网、证书页、公开竞赛页和营销物料都应将“内容授权”和“品牌背书”严格分开。fileciteturn0file1
+即使系统内部可在授权范围内使用部分内容，对外也不应暗示任何外部机构、学校、出版社或品牌对 Sim War 产品、赛事、证书或商业活动背书。README、官网、证书页、公开竞赛页和营销物料都应将“内容授权”和“品牌背书”严格分开。
 
 #### 如何理解当前首个行业场景与未来扩展的关系？
 
@@ -724,4 +751,4 @@ of this software and associated documentation files...
 - `docs/model_contracts/`：模型与参数契约
 - `docs/teacher_student_views/`：教师端 / 学员端操作手册
 
-这些文档类型与参考资料中的工程拆解、运维要求、教师/学员流程和开发手册建议保持一致。fileciteturn0file2fileciteturn0file8fileciteturn0file9
+这些文档类型与参考资料中的工程拆解、运维要求、教师/学员流程和开发手册建议保持一致。
