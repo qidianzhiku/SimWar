@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import React, { act } from "react";
+import React, { act, useLayoutEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -701,5 +701,237 @@ describe("GSI-XR Student experience", () => {
     expect(markup).toContain("当前还没有可比较的已发布回合");
     expect(markup).not.toContain("候选 ID");
     expect(markup).not.toContain("candidate");
+  });
+
+  it("M1 synchronously fails closed on malformed dynamic bootstrap without exposing prior HTTP comparison", async () => {
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    window.history.replaceState({}, "", handoffPath);
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(
+        async () => new Response(JSON.stringify({ data: pairOptions }), { status: 200 })
+      );
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    const commitSnapshots: Array<{
+      hasTimeline: boolean;
+      hasAlert: boolean;
+      leakedPrivate: boolean;
+    }> = [];
+
+    function LayoutCommitSpy({ record }: { record: boolean }) {
+      useLayoutEffect(() => {
+        if (!record) return;
+        commitSnapshots.push({
+          hasTimeline: host.querySelector('[aria-label="Stakeholder pressure movement"]') !== null,
+          hasAlert: host.querySelector('[role="alert"]') !== null,
+          leakedPrivate: (host.textContent ?? "").includes("private-response-value")
+        });
+      });
+      return null;
+    }
+
+    const renderView = (bootstrap: unknown, recordCommit: boolean) => (
+      <>
+        <GovernedStakeholderIntelligenceProjection
+          apiBase="http://api.test"
+          tenantId="tenant_demo"
+          token="unit-session"
+          selectionContext={selectionContext}
+          initialComparison={bootstrap as GSICrossRoundStudentProjection | undefined}
+        />
+        <LayoutCommitSpy record={recordCommit} />
+      </>
+    );
+
+    try {
+      await act(async () => root.render(renderView(undefined, false)));
+      await act(async () => vi.dynamicImportSettled());
+
+      fetchSpy.mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: comparison }), { status: 200 })
+      );
+      await submitComparison({ host, root, fetchSpy, view: renderView(undefined, false) });
+      expect(host.querySelector('[aria-label="Stakeholder pressure movement"]')).not.toBeNull();
+
+      const malformedDynamicBootstrap = {
+        ...comparison,
+        known_limits: [],
+        candidate_id: "private-response-value"
+      };
+      await act(async () => root.render(renderView(malformedDynamicBootstrap, true)));
+      await act(async () => vi.dynamicImportSettled());
+
+      expect(commitSnapshots.length).toBeGreaterThan(0);
+      expect(commitSnapshots[0]).toEqual({
+        hasTimeline: false,
+        hasAlert: true,
+        leakedPrivate: false
+      });
+      expect(host.querySelector('[aria-label="Stakeholder pressure movement"]')).toBeNull();
+      expect(host.querySelector('[role="alert"]')).not.toBeNull();
+      expect(host.textContent).not.toContain("private-response-value");
+
+      const recovery = Array.from(host.querySelectorAll("button")).find(
+        (button) => button.textContent === "安全恢复"
+      );
+      expect(recovery).toBeDefined();
+      await act(async () => recovery!.click());
+      fetchSpy.mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: comparison }), { status: 200 })
+      );
+      await submitComparison({
+        host,
+        root,
+        fetchSpy,
+        view: renderView(malformedDynamicBootstrap, false)
+      });
+      expect(host.querySelector('[aria-label="Stakeholder pressure movement"]')).not.toBeNull();
+      expect(host.querySelector('[role="alert"]')).toBeNull();
+
+      await act(async () => root.render(renderView(comparison, false)));
+      expect(host.querySelector('[aria-label="Stakeholder pressure movement"]')).not.toBeNull();
+      expect(host.querySelector('[role="alert"]')).toBeNull();
+    } finally {
+      await act(async () => root.unmount());
+      host.remove();
+    }
+  });
+
+  it("M2 aborts owned pending comparison on unmount without affecting sibling instances and preserves re-entry", async () => {
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    window.history.replaceState({}, "", handoffPath);
+
+    let releaseFirstCompare!: (response: Response) => void;
+    let releaseSecondCompare!: (response: Response) => void;
+    let compareCalls = 0;
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = String(input);
+      const headers = (init?.headers ?? {}) as Record<string, string>;
+      if (url.includes("/pair-options?")) {
+        const reqTenant = headers["x-tenant-id"] ?? "tenant_demo";
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              data: {
+                ...pairOptions,
+                context: { ...pairOptions.context, tenant_id: reqTenant }
+              }
+            }),
+            { status: 200 }
+          )
+        );
+      }
+      compareCalls += 1;
+      if (compareCalls === 1) {
+        return new Promise<Response>((resolve) => {
+          releaseFirstCompare = resolve;
+        });
+      }
+      if (compareCalls === 2) {
+        return new Promise<Response>((resolve) => {
+          releaseSecondCompare = resolve;
+        });
+      }
+      return Promise.resolve(new Response(JSON.stringify({ data: comparison }), { status: 200 }));
+    });
+
+    const hostA = document.createElement("div");
+    const hostB = document.createElement("div");
+    document.body.append(hostA, hostB);
+    const rootA = createRoot(hostA);
+    const rootB = createRoot(hostB);
+    let rootA2: ReturnType<typeof createRoot> | null = null;
+    let rootAUnmounted = false;
+
+    const viewA = (
+      <GovernedStakeholderIntelligenceProjection
+        apiBase="http://api.test"
+        tenantId="tenant_demo"
+        token="unit-session-a"
+        selectionContext={selectionContext}
+      />
+    );
+    const viewB = (
+      <GovernedStakeholderIntelligenceProjection
+        apiBase="http://api.test"
+        tenantId="tenant_other"
+        token="unit-session-b"
+        selectionContext={selectionContext}
+      />
+    );
+
+    try {
+      await act(async () => {
+        rootA.render(viewA);
+        rootB.render(viewB);
+      });
+      await act(async () => vi.dynamicImportSettled());
+
+      await submitComparison({ host: hostA, root: rootA, fetchSpy, view: viewA });
+      const compareCallA = fetchSpy.mock.calls.find(
+        ([url, init]) =>
+          String(url).includes("/compare?") &&
+          ((init?.headers ?? {}) as Record<string, string>)["x-tenant-id"] === "tenant_demo"
+      );
+      expect(compareCallA).toBeDefined();
+      const signalA = compareCallA![1]!.signal!;
+      expect(signalA.aborted).toBe(false);
+
+      await submitComparison({ host: hostB, root: rootB, fetchSpy, view: viewB });
+      const compareCallB = fetchSpy.mock.calls.find(
+        ([url, init]) =>
+          String(url).includes("/compare?") &&
+          ((init?.headers ?? {}) as Record<string, string>)["x-tenant-id"] === "tenant_other"
+      );
+      expect(compareCallB).toBeDefined();
+      const signalB = compareCallB![1]!.signal!;
+      expect(signalB.aborted).toBe(false);
+
+      await act(async () => rootA.unmount());
+      rootAUnmounted = true;
+
+      expect(signalA.aborted).toBe(true);
+      expect(signalB.aborted).toBe(false);
+
+      await act(async () =>
+        releaseFirstCompare(new Response(JSON.stringify({ data: comparison }), { status: 200 }))
+      );
+      await act(async () =>
+        releaseSecondCompare(new Response(JSON.stringify({ data: comparison }), { status: 200 }))
+      );
+      expect(hostB.querySelector('[aria-label="Stakeholder pressure movement"]')).not.toBeNull();
+
+      // Re-mount cleanly and verify valid re-entry, exact call count, and auth/tenant headers.
+      rootA2 = createRoot(hostA);
+      await act(async () => rootA2!.render(viewA));
+      await act(async () => vi.dynamicImportSettled());
+      await submitComparison({ host: hostA, root: rootA2, fetchSpy, view: viewA });
+
+      expect(hostA.querySelector('[aria-label="Stakeholder pressure movement"]')).not.toBeNull();
+      expect(hostA.querySelector('[role="alert"]')).toBeNull();
+      const compareCallsForA = fetchSpy.mock.calls.filter(
+        ([url, init]) =>
+          String(url).includes("/compare?") &&
+          ((init?.headers ?? {}) as Record<string, string>)["x-tenant-id"] === "tenant_demo"
+      );
+      expect(compareCallsForA).toHaveLength(2);
+      expect(
+        ((compareCallsForA[1]![1]!.headers ?? {}) as Record<string, string>).authorization
+      ).toBe("Bearer unit-session-a");
+      expect(fetchSpy).toHaveBeenCalledTimes(6);
+    } finally {
+      if (!rootAUnmounted) {
+        await act(async () => rootA.unmount());
+      }
+      if (rootA2) {
+        await act(async () => rootA2!.unmount());
+      }
+      await act(async () => rootB.unmount());
+      hostA.remove();
+      hostB.remove();
+    }
   });
 });
